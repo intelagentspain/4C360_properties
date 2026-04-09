@@ -1,0 +1,776 @@
+# IMDAAD AI-OS — MASTER LOVABLE / VIBE CODING PROMPT v2
+# Paste everything below this line into Lovable, Bolt, or Cursor as your first message.
+# Updated with real intelligence from Imdaad executive discovery meeting.
+
+---
+
+## PROJECT OVERVIEW
+
+Build a fully interactive, multi-perspective AI-powered Facility Management platform called **"Imdaad AI-OS"**, powered by **4C360**. This is a high-fidelity SaaS product demo — not a wireframe. Every screen must be polished, interactive, and feel like a production enterprise tool.
+
+This is a **single-page React application** with **no backend required** — use mock/hardcoded data throughout. All logic runs client-side.
+
+### Context That Shapes Every Design Decision
+This demo is built for a specific pitch to Imdaad, one of the UAE's largest FM companies. Their current workflow has the following real, confirmed pain points — every feature must visibly address at least one:
+
+1. **WhatsApp is their incident system** — staff photograph issues and send to a WhatsApp group. A data engineer then manually reads the group, downloads photos, and creates work orders in Maximo. This takes 10–20 minutes per incident.
+2. **Split systems** — one site uses Maximo, all other sites use Oracle. Leadership aggregates via Power BI exports. No unified real-time view exists.
+3. **Shared devices, no personal accountability** — devices are zone-based and shared across shifts. Tasks are assigned to "Zone 1 device," not to a named person. No audit trail of who did what.
+4. **2,000+ photos on personal phones** — evidence photos go to WhatsApp first, then are manually downloaded and uploaded to Maximo. Photos are lost when staff leave.
+5. **No GIS or live asset visibility** — no map view of assets, incidents, or engineer locations exists on any Imdaad site.
+6. **PPM is manually assigned monthly** — a data engineer or admin manually assigns planned preventive maintenance at the start of each month. No predictive triggers.
+7. **Best pilot opportunity = large residential communities** — Silicon Oasis, Expo City, Furjan. Engineers spread across 5km², managing hundreds of villas. This is where GIS and mobile-first operations matter most.
+
+---
+
+## TECH STACK
+
+- **React 18** with functional components and hooks
+- **TypeScript**
+- **Tailwind CSS** for all styling
+- **React Router v6** for navigation between views
+- **Recharts** for all charts and data visualizations
+- **react-leaflet** for all interactive maps (CartoDB Dark Matter tiles)
+- **Lucide React** for icons
+- **shadcn/ui** for base components (dialog, toast, badge, tabs, etc.)
+- **Framer Motion** for all animations and perspective transitions
+
+---
+
+## DESIGN SYSTEM — STRICTLY ENFORCE
+
+```
+Brand: Imdaad × 4C360
+Primary Navy:     #0A1628
+Surface Navy:     #112040
+Deep Navy:        #1A3260
+Accent Blue:      #2E7FFF
+Electric Cyan:    #00C6FF
+Emerald Green:    #38D98A   (success / available)
+Amber Warning:    #FF9B38   (medium / in-progress)
+Alert Red:        #FF4B4B   (critical / danger)
+Text Primary:     #EEF3FA
+Text Muted:       #7A94B4
+Card Border:      rgba(46, 127, 255, 0.22)
+Card Background:  rgba(17, 32, 64, 0.85)
+Glow Blue:        rgba(46, 127, 255, 0.18)
+```
+
+- **Font headings**: Space Grotesk (Google Fonts)
+- **Font body**: DM Sans (Google Fonts)
+- **Dark mode only** — no light mode toggle
+- All cards: `backdrop-filter: blur(12px)` + semi-transparent navy backgrounds
+- All interactive elements: smooth hover/active transitions (150ms ease)
+- Borders: always 1px with brand blue tint
+- Status chips: pill-shaped, color-coded (red=critical / amber=medium / green=ok / blue=info)
+- No white backgrounds anywhere — everything on dark navy surfaces
+
+---
+
+## APPLICATION STRUCTURE
+
+### Global Layout
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│  TOP BAR: Logo | Perspective Switcher | Notifications | Avatar │
+├──────┬───────────────────────────────────────────────────────┤
+│      │                                                        │
+│  SB  │              MAIN CONTENT AREA                        │
+│      │         (changes per active perspective)               │
+│      │                                                        │
+└──────┴───────────────────────────────────────────────────────┘
+```
+
+**Top Bar** (52px, full width):
+- Left: Square logo icon (gradient blue→cyan, "AI" text) + "Imdaad AI-OS" + subtext "Powered by 4C360"
+- Center: Perspective Switcher — 3 pill buttons: `Strategic` | `Operational` | `Client`
+  - Switching perspective animates the entire content area out/in with Framer Motion
+  - Active = solid blue background; inactive = ghost/transparent
+- Right: notification bell with red badge (count: 3) + user avatar "SK" (Shawn K.)
+
+**Left Sidebar** (52px, icon-only with hover tooltips):
+- Strategic sidebar icons: Dashboard, GIS Map, Incidents, Tasks, PPM Schedule, AI Capture, Reports, Settings
+- Operational sidebar icons: My Task, Smart Scan, Checklist, Parts & PO, Evidence, Settings
+- Client sidebar icons: My Requests, Track Service, History, Settings
+- Active icon = solid blue bg; hover = tooltip label appears
+- Non-implemented icons show toast on click: "[Module] — Available in full deployment"
+
+---
+
+## PERSPECTIVE 1: STRATEGIC (Management / Supervisor View)
+
+### Purpose
+Give management real-time visibility across all sites — replacing the current situation where they rely on Power BI exports and WhatsApp messages to understand what is happening on the ground.
+
+### Layout
+Two-column:
+- **Left 62%**: Interactive GIS map — set in a **residential community** context (not a mall), because this is where Imdaad identified the biggest pilot opportunity
+- **Right 38%**: KPI strip + PPM Risk Panel + AI Dispatch Queue
+
+---
+
+### GIS MAP (Left Column)
+
+Use **react-leaflet** with CartoDB Dark Matter tiles:
+```
+tileUrl: https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png
+```
+
+**IMPORTANT: Set the map in a residential community context.**
+Center on **Silicon Oasis, Dubai**: `[25.1175, 55.3775]`, zoom level 14
+
+This represents the large residential communities Imdaad manages (Silicon Oasis, Expo City, Furjan) — exactly the pilot scenario Imdaad's executive described.
+
+**Map Markers:**
+
+Engineer markers (colored circle + initials):
+```
+Ahmed K.  — lat:25.1190, lng:55.3760 — Amber  — Active: Plumbing Job #SI-301
+Sara M.   — lat:25.1165, lng:55.3790 — Green  — Available
+Karim R.  — lat:25.1180, lng:55.3740 — Blue   — En Route to Villa 14B
+Faisal N. — lat:25.1155, lng:55.3800 — Green  — Available
+Omar T.   — lat:25.1200, lng:55.3770 — Red    — Overdue: Job #SI-298
+```
+
+Incident markers (pulsing dots, color = severity):
+```
+INC-SI-001 — lat:25.1185, lng:55.3755 — AC Failure, Villa 23   — CRITICAL
+INC-SI-002 — lat:25.1160, lng:55.3785 — Water Leak, Villa 7    — MEDIUM
+INC-SI-003 — lat:25.1195, lng:55.3765 — Lift Fault, Block C    — HIGH
+INC-SI-004 — lat:25.1170, lng:55.3750 — Power Trip, Villa 31   — LOW
+```
+
+Villa/asset markers (small building icons):
+```
+Cluster A — lat:25.1188, lng:55.3758 — 42 villas — 2 open incidents
+Cluster B — lat:25.1162, lng:55.3782 — 38 villas — 0 open incidents
+Cluster C — lat:25.1195, lng:55.3768 — 55 villas — 1 open incident
+```
+
+**Clicking any engineer marker** shows a popup:
+```
+[Avatar] Ahmed K.
+Status: Active on Job #SI-301
+Skill: Plumbing · HVAC
+Current task: Water leak — Villa 23
+Time on job: 24 min
+[View Task] [Reassign]
+```
+
+**Clicking any incident marker** shows a popup:
+```
+INC-SI-001 · AC Failure · Villa 23
+Severity: CRITICAL
+Reported: 6 min ago (via AI Capture)
+Assigned: Karim R. · ETA 8 min
+SLA: 45 min remaining
+[View Incident] [Reassign]
+```
+
+**Map overlays:**
+
+Top-left badge (absolute positioned):
+```
+"SILICON OASIS COMMUNITY — LIVE"  [pulsing green dot]
+```
+
+Bottom-left stat strip (absolute, 4 cards in a row):
+```
+Engineers On-site: 5 | Open Jobs: 4 | SLA Compliance: 94% | Avg Response: 11 min
+```
+
+Bottom-right legend:
+```
+● Green = Available  ● Amber = On Job  ● Blue = En Route  ● Red = Overdue
+◆ Red pulse = Critical incident  ◆ Amber pulse = Medium incident
+```
+
+---
+
+### RIGHT PANEL
+
+**Section 1 — KPI Mini Grid (2×2)**
+```
+Critical Incidents  3   [red]
+SLA Alerts          5   [amber]
+Compliance         94%  [green]
+Active Engineers    5   [white]
+```
+
+**Section 2 — PPM Risk Countdown** *(NEW — replaces manual monthly scheduling)*
+
+Header: "Upcoming PPM Risks" with amber "PREDICTIVE AI" badge
+
+This panel directly replaces Imdaad's current process of manually assigning PPM tasks at the start of each month. Show 3 upcoming maintenance risks with countdowns:
+
+```
+Card 1:
+  Asset: Chiller Unit — Block C Gym
+  Type: Quarterly HVAC Service
+  Due in: 8 days  [amber countdown chip]
+  Last done: 83 days ago
+  Risk level: HIGH
+  [→ Create PPM Task]
+
+Card 2:
+  Asset: Lift — Villa Cluster A, Block 2
+  Type: Monthly Safety Check
+  Due in: 2 days  [red countdown chip — URGENT]
+  Last done: 29 days ago
+  Risk level: CRITICAL
+  [→ Create PPM Task]
+
+Card 3:
+  Asset: Fire Suppression — Community Centre
+  Type: 6-Month Inspection
+  Due in: 14 days  [blue chip]
+  Last done: 167 days ago
+  Risk level: MEDIUM
+  [→ Create PPM Task]
+```
+
+Clicking "→ Create PPM Task" on any card:
+1. Shows a modal: "Create PPM Task for [Asset]? AI will assign based on skill + availability."
+2. On confirm: shows success toast "✅ PPM Task #SI-PPM-441 created · Assigned to Sara M."
+3. Card border turns green and button changes to "✅ Task Created"
+
+**Section 3 — AI Dispatch Queue**
+
+Header: "AI-Suggested Dispatch" with cyan "AI ENGINE" badge
+
+Show 3 unassigned/suggested dispatch items. Each card:
+- Job title + severity badge
+- Time elapsed + location chip + SLA countdown
+- AI reasoning row: technician name + distance + skill match + parts availability
+- [Assign] button
+
+```
+Job 1:
+  AC Failure — Villa 23, Cluster A
+  CRITICAL · 6 min ago · SLA: 39 min remaining
+  🤖 AI Match: Karim R. · 0.4km · HVAC Certified · No parts needed
+  [Assign to Karim R.]
+
+Job 2:
+  Water Leak — Villa 7, Cluster B
+  MEDIUM · 14 min ago · SLA: 1h 46min remaining
+  🤖 AI Match: Faisal N. · 0.6km · Plumbing · Tools on hand
+  [Assign to Faisal N.]
+
+Job 3:
+  Power Trip — Villa 31
+  LOW · 31 min ago · SLA: 3h 29min remaining
+  🤖 AI Match: Sara M. · 0.8km · Electrical · Available now
+  [Assign to Sara M.]
+```
+
+Clicking [Assign]:
+- Removes button
+- Shows "✅ Assigned · [Name] notified on app · GPS tracking active"
+- Card border turns green
+- Toast: "Job dispatched to [Name] — ETA [X] min"
+
+---
+
+## PERSPECTIVE 2: OPERATIONAL (Technician Mobile App)
+
+### Purpose
+Replace the current workflow where technicians receive tasks on a shared zone device, communicate via WhatsApp on personal phones, and have no structured evidence capture.
+
+### Critical Design Notes
+- This view must open with a **login screen** (PIN entry) — this directly addresses Imdaad's shared-device problem where there is no accountability for who is using the device
+- After login, show the active task and bottom tab navigation
+- Display the logged-in technician's name prominently throughout
+- Evidence photos must be visibly "attached to the work order" — not sent to WhatsApp
+
+### Layout
+Phone-frame wrapper (max-width 390px, centered on desktop) with bottom tab navigation:
+```
+Tabs: [My Task] [Scan] [Checklist] [Parts]
+```
+
+---
+
+### SCREEN 0: LOGIN (shown first, before any other screen)
+
+Full-screen dark navy login:
+```
+[Imdaad AI-OS logo]
+"Sign in to your work session"
+
+[PIN pad — 4 digit entry: 1 2 3 / 4 5 6 / 7 8 9 / ← 0 ✓]
+
+Note below: "This device is shared. Your PIN ensures all actions
+are logged under your name."
+```
+
+Pre-fill a mock scenario: entering PIN "1234" logs in as **Karim R. — HVAC Specialist**
+
+On successful PIN entry:
+- Animate transition to the My Task screen
+- Show toast: "Welcome back, Karim R. · 1 active task assigned"
+- The header of every subsequent screen shows "Karim R. · HVAC" with a small avatar
+
+---
+
+### SCREEN 1: MY TASK
+
+Header: "Karim R. · HVAC Specialist" [small green "On Duty" badge]
+
+Active task card:
+```
+Task #SI-2241                               [HIGH PRIORITY — red]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Asset:        Chiller Unit C-04
+Location:     Villa 23, Cluster A, Silicon Oasis
+Type:         HVAC — Corrective Maintenance
+SLA:          ⏱ [LIVE COUNTDOWN — 39 min remaining]
+Reported by:  AI Capture (photo → auto-classified)
+Parts status: ⚠ Refrigerant R-410A — Low Stock
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+**IMPORTANT:** The SLA countdown must tick in real time using `setInterval`. 
+- Above 10 min: amber color
+- Under 10 min: red + pulse animation
+- Expired: flashing "OVERDUE" banner
+
+Below the task details, show the **Smart Scan** section:
+
+```
+─── Scan Asset to Begin ───────────────────
+
+        [  📷  ]    ← Large circular button, 80px
+        SMART SCAN      diameter, pulsing blue glow
+                        animation (continuous)
+
+  "Tap to scan the asset QR tag and
+   load AI diagnostics"
+```
+
+On tap:
+1. Show loading overlay: "🔍 Scanning asset..." with spinner (1.5 seconds)
+2. Then show result card with slide-in animation:
+```
+✅ Asset Identified
+━━━━━━━━━━━━━━━━━━━━━━━━━
+Asset:   Chiller Unit C-04
+Serial:  IMD-2201-CH04
+Zone:    Villa 23, Cluster A
+
+AI Diagnostics:
+⚠ Refrigerant pressure: 180 PSI (low — should be 250+)
+⚠ Condenser coil: 34% blocked (clean required)
+
+Recommended Action:
+→ Top up R-410A refrigerant
+→ Clean condenser coils before restart
+
+[✓ Begin Job]  [Report Different Issue]
+```
+
+---
+
+### SCREEN 2: CHECKLIST
+
+Header: "Inspection Checklist · #SI-2241"
+
+Progress bar at top (updates live as items are checked):
+```
+[████████░░░░░░░] 2/5 items · 40% complete
+```
+
+Checklist items (tap to toggle):
+```
+✅ 1. Visual inspection — chiller unit exterior
+✅ 2. Check refrigerant pressure readings          [MANDATORY]
+☐  3. Clean condenser coils
+☐  4. Test thermostat calibration                  [MANDATORY]
+☐  5. Upload photo evidence of completed repair    [EVIDENCE REQ.]
+```
+
+**Evidence upload item (item 5):**
+When user taps item 5, instead of a simple toggle, open a camera/upload UI:
+```
+"Upload Before & After Photos"
+[📷 Take Photo]  [📁 Upload from device]
+
+Once photo is added, show:
+✅ Photo attached · Geo-tagged: Villa 23, Silicon Oasis
+   Timestamp: 10:24 AM · Saved to work order #SI-2241
+   "Photo stored in 4C360 — not on your personal device"
+```
+
+The last line is key messaging — directly addresses the "2,000 photos on personal phones" problem.
+
+**Submit button** (shown at bottom):
+- Disabled (grey) with "Complete all mandatory items to submit"
+- Enabled only when items 2, 4, and 5 are all checked
+- On submit: modal confirmation → "✅ Work Order #SI-2241 Closed · Evidence attached · Sent to supervisor"
+
+---
+
+### SCREEN 3: PARTS & AUTOMATED PO
+
+Header: "Parts & Purchase Orders"
+
+**Shortage Alert Card** (amber border):
+```
+⚠ Parts Shortage Detected by AI
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Part:           R-410A Refrigerant 10kg
+Vendor:         Emirates HVAC Supply LLC
+Estimated cost: AED 380
+Delivery ETA:   2 hours (same day to site)
+Triggered by:   AI diagnostic from Smart Scan
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[🛒 Raise Purchase Order]
+```
+
+On tapping "Raise Purchase Order":
+1. Confirmation modal:
+```
+Confirm Purchase Order?
+Part: R-410A Refrigerant 10kg
+Vendor: Emirates HVAC Supply LLC
+Amount: AED 380
+Approver: Firas K. (Supervisor)
+
+[Cancel]  [Confirm & Send]
+```
+2. On confirm:
+- Toast: "✅ PO-2024-1891 raised · Firas K. notified for approval · Delivery ETA 2 hrs"
+- Button changes to disabled "✅ PO Submitted — Awaiting Approval"
+- Show a status tracker: "Submitted → Pending Approval → Approved → Dispatched → Delivered"
+
+**Parts Inventory Table:**
+```
+Part                 | In Stock | Status
+─────────────────────┼──────────┼──────────────
+R-410A Refrigerant   | 0 units  | 🔴 Out of stock
+Filter Type-B        | 3 units  | 🟡 Low stock
+Condenser Belt       | 12 units | 🟢 Available
+Thermostat Unit      | 7 units  | 🟢 Available
+Copper Pipe 22mm     | 2 units  | 🟡 Low stock
+```
+
+---
+
+## PERSPECTIVE 3: CLIENT (Resident / Tenant Portal)
+
+### Purpose
+Give Imdaad's clients (mall tenants, villa residents) a direct, structured channel to report issues — replacing the current practice of calling the client's representative on WhatsApp. Everything the resident submits goes directly into the work order system, not a WhatsApp group.
+
+### Layout
+Clean minimal two-column layout:
+- **Left**: Issue request form
+- **Right**: Live service timeline for existing request
+
+---
+
+### LEFT: ONE-TAP REQUEST FORM
+
+Title: "Report an Issue" [subtext: "Your request goes directly to our operations team"]
+
+**Issue Type Selector** (2×2 tap grid):
+```
+❄  AC / HVAC     |  💡  Electrical
+🚰  Plumbing      |  🔧  General Maintenance
+```
+Selected card = blue border + background glow
+
+**Location field** (auto-filled):
+```
+📍 Villa 23, Cluster A, Silicon Oasis  [Edit]
+```
+
+**Description textarea:**
+```
+Placeholder: "Describe what you're experiencing...
+              e.g. AC not cooling since this morning"
+```
+
+**Photo Upload Zone:**
+```
+┌─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─┐
+         📷
+   Tap to attach a photo
+   AI will auto-classify your issue
+│  (Supported: JPG, PNG, video)    │
+└─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─┘
+```
+
+On tap: show a simulated uploaded image (colored rectangle or placeholder) with a green "✅ Photo received" confirmation.
+
+**Note below upload area:**
+```
+"📌 Your photo is attached directly to your service request —
+ not sent to any WhatsApp group."
+```
+
+**Submit Button:**
+Full-width blue: "⚡ Submit Request"
+
+On click:
+1. Loading state (1.5s): "🤖 AI classifying your request..."
+2. Success state:
+```
+✅ Request Submitted · REQ-SI-2242
+
+AC / HVAC issue reported for Villa 23
+Technician: Karim R. · HVAC Specialist
+ETA: Approximately 18 minutes
+SLA commitment: 2 hours
+
+[Track Your Request →]
+```
+3. Auto-switch to the right panel (Service Timeline)
+
+---
+
+### RIGHT: SERVICE TIMELINE
+
+**Mini Map** (150px height, react-leaflet):
+- Center: Silicon Oasis area
+- Green pin = resident villa location
+- Blue animated marker = Karim R. moving toward the villa (animate position every 3 seconds to simulate movement)
+- Dashed blue route line between technician and villa
+- ETA label floating on map: "ETA: 18 min"
+
+**Vertical Timeline Stepper:**
+```
+✅  Request received
+    Today, 10:14 AM · AI classified as: HVAC · High Priority
+
+✅  Technician assigned
+    Today, 10:14 AM · Karim R. · HVAC Specialist · 4.8★
+
+🔵  Technician en route          ← ACTIVE STEP
+    ┌────────────────────────────────────┐
+    │  ETA: 18 minutes                   │
+    │  [Avatar] Karim R. · 0.6km away    │
+    │  HVAC Certified ✓                  │
+    │  Carrying all required tools       │
+    └────────────────────────────────────┘
+
+○   Repair in progress           [Pending]
+
+○   Completed & confirmed        [Pending]
+```
+
+Active step has a pulsing blue dot.
+
+**Technician Profile Card:**
+```
+[Avatar KR]  Karim R.
+             HVAC Specialist
+             ⭐ 4.8  (142 completed jobs)
+             Currently: En route to Villa 23
+```
+
+**Rate Previous Service:**
+```
+Rate your last completed service · REQ-SI-2237
+[★][★][★][★][☆]  (default 4 stars)
+Tap a star to update your rating
+```
+Tapping a star: "Thanks! Rating saved for REQ-SI-2237"
+
+---
+
+## GLOBAL FEATURES
+
+### Toast Notification System
+- Bottom-right, stacked
+- Dark navy background + colored left border (2px): green/amber/red
+- Auto-dismiss: 3 seconds
+- Queue: max 3 visible at once
+- Types: success (green), warning (amber), error (red), info (blue)
+
+### Real-Time SLA Countdown
+- Implemented with `setInterval` in a `useCountdown` hook
+- Ticks every second
+- Color states:
+  - > 10 min: amber text
+  - ≤ 10 min: red text + pulse animation
+  - Expired: "OVERDUE" badge with urgent flash animation
+  - ≤ 5 min: shake animation on the card
+
+### Notification Bell Panel
+Clicking the bell opens a dropdown (appears below the bell, dark navy, 320px wide):
+```
+Notifications  [3 unread]              [Mark all read]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔴  AC Failure reported — Villa 23, Silicon Oasis
+    AI captured via photo · 6 min ago
+
+🟡  SLA breach warning — Job #SI-298 (Omar T.)
+    12 min remaining before breach · 14 min ago
+
+🔵  Karim R. assigned to Job #SI-2241
+    GPS tracking started · En route · 18 min ago
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[View all activity →]
+```
+
+### Integration Banner (shown in Strategic view, below the top bar)
+A slim 28px banner above the map area:
+```
+🔗  Connected to: Maximo (Gate Avenue) · Oracle (12 other sites) · Power BI — data syncing every 5 min
+```
+This directly addresses the multi-system fragmentation Imdaad currently has.
+
+---
+
+## ANIMATIONS & MICRO-INTERACTIONS
+
+- **Map engineer markers**: continuous ripple/pulse animation (scale + opacity keyframes, 2s loop)
+- **Critical incident markers**: urgent red pulse, faster frequency
+- **Live badge on map**: green dot blinking (1.5s loop)
+- **Smart Scan button**: continuous blue glow pulse (2s loop, scale 1→1.08)
+- **Perspective switch**: Framer Motion `AnimatePresence` — fade + slight Y translate (200ms)
+- **PPM countdown chips**: subtle color shift as days decrease
+- **SLA countdown < 5 min**: `@keyframes shake` on the task card
+- **Checklist check**: scale bounce (0.8 → 1.1 → 1.0) + green fill transition
+- **Assign button click**: ripple effect
+- **Card hover**: `translateY(-2px)` + border color intensifies
+- **Login PIN entry**: each digit shows a filled circle; shake animation on wrong PIN
+- **Technician marker on client map**: animates position every 3 seconds (simulated movement)
+
+---
+
+## MOCK DATA (use consistently across all perspectives)
+
+```typescript
+// data/mockData.ts
+
+export const mockTechnicians = [
+  { id: 'AK', name: 'Ahmed K.', skill: 'Plumbing', status: 'active', job: '#SI-301', lat: 25.1190, lng: 55.3760, rating: 4.6, jobsCompleted: 98 },
+  { id: 'SM', name: 'Sara M.', skill: 'Electrical', status: 'available', lat: 25.1165, lng: 55.3790, rating: 4.9, jobsCompleted: 210 },
+  { id: 'KR', name: 'Karim R.', skill: 'HVAC', status: 'transit', job: '#SI-2241', lat: 25.1180, lng: 55.3740, rating: 4.8, jobsCompleted: 142 },
+  { id: 'FN', name: 'Faisal N.', skill: 'Plumbing', status: 'available', lat: 25.1155, lng: 55.3800, rating: 4.7, jobsCompleted: 87 },
+  { id: 'OT', name: 'Omar T.', skill: 'General', status: 'overdue', job: '#SI-298', lat: 25.1200, lng: 55.3770, rating: 4.2, jobsCompleted: 63 },
+];
+
+export const mockIncidents = [
+  { id: 'INC-SI-001', title: 'AC Failure', location: 'Villa 23, Cluster A', severity: 'critical', slaMinutes: 45, elapsed: 6, lat: 25.1185, lng: 55.3755, source: 'AI Capture' },
+  { id: 'INC-SI-002', title: 'Water Leak', location: 'Villa 7, Cluster B', severity: 'medium', slaMinutes: 120, elapsed: 14, lat: 25.1160, lng: 55.3785, source: 'AI Capture' },
+  { id: 'INC-SI-003', title: 'Lift Fault', location: 'Block C', severity: 'high', slaMinutes: 60, elapsed: 22, lat: 25.1195, lng: 55.3765, source: 'WhatsApp → Manual' },
+  { id: 'INC-SI-004', title: 'Power Trip', location: 'Villa 31', severity: 'low', slaMinutes: 240, elapsed: 31, lat: 25.1170, lng: 55.3750, source: 'Resident App' },
+];
+
+export const mockPPMRisks = [
+  { id: 'PPM-001', asset: 'Chiller Unit — Block C Gym', type: 'Quarterly HVAC Service', daysUntilDue: 8, lastDone: 83, riskLevel: 'high' },
+  { id: 'PPM-002', asset: 'Lift — Villa Cluster A, Block 2', type: 'Monthly Safety Check', daysUntilDue: 2, lastDone: 29, riskLevel: 'critical' },
+  { id: 'PPM-003', asset: 'Fire Suppression — Community Centre', type: '6-Month Inspection', daysUntilDue: 14, lastDone: 167, riskLevel: 'medium' },
+];
+
+export const mockDispatchJobs = [
+  { id: 'SI-2241', title: 'AC Failure — Villa 23, Cluster A', severity: 'critical', minutesAgo: 6, slaRemaining: 39, aiMatch: { tech: 'Karim R.', distance: '0.4km', reason: 'HVAC Certified · No parts needed' } },
+  { id: 'SI-2242', title: 'Water Leak — Villa 7, Cluster B', severity: 'medium', minutesAgo: 14, slaRemaining: 106, aiMatch: { tech: 'Faisal N.', distance: '0.6km', reason: 'Plumbing · Tools on hand' } },
+  { id: 'SI-2243', title: 'Power Trip — Villa 31', severity: 'low', minutesAgo: 31, slaRemaining: 209, aiMatch: { tech: 'Sara M.', distance: '0.8km', reason: 'Electrical · Available now' } },
+];
+
+export const mockChecklist = [
+  { id: 1, text: 'Visual inspection — chiller unit exterior', mandatory: false, done: true, evidenceRequired: false },
+  { id: 2, text: 'Check refrigerant pressure readings', mandatory: true, done: true, evidenceRequired: false },
+  { id: 3, text: 'Clean condenser coils', mandatory: false, done: false, evidenceRequired: false },
+  { id: 4, text: 'Test thermostat calibration', mandatory: true, done: false, evidenceRequired: false },
+  { id: 5, text: 'Upload before & after photos of completed repair', mandatory: true, done: false, evidenceRequired: true },
+];
+
+export const mockParts = [
+  { name: 'R-410A Refrigerant 10kg', inStock: 0, status: 'out' },
+  { name: 'Filter Type-B', inStock: 3, status: 'low' },
+  { name: 'Condenser Belt', inStock: 12, status: 'ok' },
+  { name: 'Thermostat Unit', inStock: 7, status: 'ok' },
+  { name: 'Copper Pipe 22mm', inStock: 2, status: 'low' },
+];
+
+export const mockLoggedInTech = {
+  id: 'KR', name: 'Karim R.', role: 'HVAC Specialist', pin: '1234', avatar: 'KR', rating: 4.8, jobsCompleted: 142,
+};
+```
+
+---
+
+## FILE STRUCTURE
+
+```
+src/
+├── App.tsx                            # Root — perspective state, Framer AnimatePresence
+├── components/
+│   ├── layout/
+│   │   ├── TopBar.tsx                 # Logo, switcher, bell, avatar
+│   │   ├── Sidebar.tsx                # Context-aware icon sidebar
+│   │   ├── PerspectiveSwitcher.tsx    # 3-pill switcher with active state
+│   │   └── NotificationPanel.tsx      # Bell dropdown
+│   ├── strategic/
+│   │   ├── StrategicView.tsx          # Two-column layout wrapper
+│   │   ├── CommunityMap.tsx           # react-leaflet, Silicon Oasis, all markers
+│   │   ├── IntegrationBanner.tsx      # Maximo + Oracle + Power BI banner
+│   │   ├── KPIPanel.tsx               # 2×2 KPI grid
+│   │   ├── PPMRiskPanel.tsx           # NEW: Predictive PPM risk countdown cards
+│   │   └── DispatchQueue.tsx          # AI-suggested dispatch items
+│   ├── operational/
+│   │   ├── OperationalView.tsx        # Phone frame wrapper + bottom tabs
+│   │   ├── LoginScreen.tsx            # NEW: PIN login screen
+│   │   ├── ActiveTask.tsx             # Task details + SLA countdown
+│   │   ├── SmartScan.tsx              # Scan button + result card
+│   │   ├── ChecklistView.tsx          # Interactive checklist + evidence upload
+│   │   └── PartsAndPO.tsx             # Parts shortage + PO trigger + inventory
+│   ├── client/
+│   │   ├── ClientView.tsx             # Two-column layout
+│   │   ├── RequestForm.tsx            # Issue type + photo upload + submit
+│   │   ├── ServiceTimeline.tsx        # Stepper + technician card + rating
+│   │   └── TrackingMap.tsx            # Mini map with animated tech marker
+│   └── shared/
+│       ├── Toast.tsx                  # Toast queue system
+│       ├── StatusBadge.tsx            # Reusable severity/status pills
+│       ├── SLACountdown.tsx           # Live countdown hook + display
+│       └── ConfirmModal.tsx           # Reusable confirm dialog
+├── hooks/
+│   ├── useCountdown.ts                # setInterval countdown, returns {minutes, seconds, expired}
+│   ├── useToast.ts                    # Toast queue management
+│   └── usePerspective.ts             # Active perspective state
+├── data/
+│   └── mockData.ts                    # All mock data (as defined above)
+└── styles/
+    └── globals.css                    # CSS variables, Tailwind base overrides
+```
+
+---
+
+## CRITICAL BUILD INSTRUCTIONS
+
+1. **Build ALL screens** — Strategic, Operational (with login), Client. No skipping.
+2. **Map MUST work** — react-leaflet, CartoDB Dark tiles, Silicon Oasis center, all markers placed correctly.
+3. **Login screen MUST appear first** in Operational view — PIN "1234" = Karim R.
+4. **SLA timer MUST tick** in real time with `setInterval`. Shows urgency states correctly.
+5. **Smart Scan MUST simulate** loading (1.5s) → AI result card with diagnostics.
+6. **PO flow MUST show** shortage detection → confirmation modal → success state → status tracker.
+7. **Evidence upload MUST show** "Saved to work order — not on your personal device" messaging.
+8. **PPM Risk cards MUST have** countdown chips and working "Create Task" flow.
+9. **Integration banner MUST appear** in Strategic view showing Maximo + Oracle + Power BI.
+10. **Every button does something** — no dead UI, no placeholder interactions.
+11. **Framer Motion** on all perspective switches — `AnimatePresence` with fade + Y translate.
+12. **No lorem ipsum** — use exact mock data defined above throughout.
+13. **Branding**: Always "Imdaad AI-OS · Powered by 4C360" — never generic placeholder text.
+14. **Community context**: The map and all strategic data reference Silicon Oasis residential community, not a mall.
+
+---
+
+## BUILD ORDER
+
+Implement in this sequence to avoid blockers:
+
+1. Global layout shell (TopBar + Sidebar + Perspective Switcher + Framer transitions)
+2. Mock data file and all TypeScript types
+3. Strategic view: Integration banner → KPI panel → CommunityMap (Leaflet) → PPM Risk panel → Dispatch queue
+4. Operational view: Login screen → Active task with live SLA → Smart Scan flow → Checklist with evidence → Parts & PO
+5. Client view: Request form → Photo upload → Submit flow → Tracking map → Service timeline
+6. Shared components: Toast system, SLA countdown hook, confirm modal, status badges
+7. Final polish: All animations, hover states, micro-interactions, mobile responsiveness
+
+Deliver complete, production-ready code — no TODOs, no placeholder components, no stub functions.
