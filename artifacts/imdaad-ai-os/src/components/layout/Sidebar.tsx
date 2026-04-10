@@ -74,7 +74,7 @@ export function Sidebar({ perspective, strategicPage, onStrategicPageChange, onT
   };
 
   return (
-    <aside className="bg-[#0A1628] border-r border-[rgba(46,127,255,0.22)] flex flex-col items-center py-3 gap-1.5 z-[50]" style={{ width: '52px' }}>
+    <aside className="bg-[#0A1628] border-r border-[rgba(46,127,255,0.22)] flex flex-col items-center py-3 gap-1.5 z-[1000] relative" style={{ width: '52px' }}>
       {items.map((item, i) => {
         const Icon     = item.icon;
         const active   = isItemActive(item, i);
