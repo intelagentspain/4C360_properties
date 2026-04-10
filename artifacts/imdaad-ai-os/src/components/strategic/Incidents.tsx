@@ -518,6 +518,19 @@ export function Incidents({ onToast }: Props) {
     const nextId = `INC-SI-${String(maxNum + 1).padStart(3, '0')}`;
     const now = new Date();
     const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    const loc = form.location.trim().toLowerCase();
+    const siteId =
+      loc.includes('silicon oasis') || loc.includes('cluster') || loc.includes('villa')
+        ? 'silicon-oasis'
+        : loc.includes('gate avenue')
+        ? 'gate-avenue'
+        : loc.includes('business bay')
+        ? 'business-bay'
+        : loc.includes('jlt')
+        ? 'jlt-north'
+        : loc.includes('difc')
+        ? 'difc-tower'
+        : 'silicon-oasis';
     const newInc: Incident = {
       id: nextId,
       title: form.title.trim(),
@@ -531,6 +544,8 @@ export function Incidents({ onToast }: Props) {
       techId: null,
       closureNotes: null,
       description: form.description.trim(),
+      siteId,
+      clientId: 'CLT-001',
       activityLog: [
         { time: timeStr, event: `Incident manually reported via ${form.source}`, type: 'incident' },
       ],

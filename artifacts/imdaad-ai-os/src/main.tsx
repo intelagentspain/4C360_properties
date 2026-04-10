@@ -2,6 +2,7 @@ import { createRoot } from "react-dom/client";
 import App from "./App";
 import { ScanPage } from "./pages/ScanPage";
 import { IncidentProvider, useIncidents } from "./context/IncidentContext";
+import { NotificationProvider } from "./context/NotificationContext";
 import "./index.css";
 
 function ScanRoute() {
@@ -20,6 +21,8 @@ function ScanRoute() {
       onIncidentCreated={(inc) => {
         addIncident({
           ...inc,
+          siteId,
+          clientId: 'CLT-001',
           lat: 25.1185,
           lng: 55.3755,
         });
@@ -35,16 +38,20 @@ function Root() {
 
   if (isScan) {
     return (
-      <IncidentProvider>
-        <ScanRoute />
-      </IncidentProvider>
+      <NotificationProvider>
+        <IncidentProvider>
+          <ScanRoute />
+        </IncidentProvider>
+      </NotificationProvider>
     );
   }
 
   return (
-    <IncidentProvider>
-      <App />
-    </IncidentProvider>
+    <NotificationProvider>
+      <IncidentProvider>
+        <App />
+      </IncidentProvider>
+    </NotificationProvider>
   );
 }
 
