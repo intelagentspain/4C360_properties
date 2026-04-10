@@ -441,7 +441,7 @@ export function CommunityMap({ onToast }: Props) {
         ))}
       </div>
 
-      <div className="absolute bottom-14 left-3 right-3 z-[400] flex gap-2">
+      <div className="absolute bottom-14 left-3 z-[400] flex gap-2" style={{ right: '100px' }}>
         {[
           { label: 'Engineers On-site', value: '5' },
           { label: 'Open Jobs', value: '4' },
