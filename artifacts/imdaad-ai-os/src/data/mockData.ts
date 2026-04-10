@@ -95,12 +95,6 @@ export const mockClusters = [
   { id: 'C', lat: 25.1195, lng: 55.3768, villas: 55, incidents: 1 },
 ];
 
-export const mockPPMRisks = [
-  { id: 'PPM-001', asset: 'Chiller Unit — Block C Gym', type: 'Quarterly HVAC Service', daysUntilDue: 8, lastDone: 83, riskLevel: 'high' },
-  { id: 'PPM-002', asset: 'Lift — Villa Cluster A, Block 2', type: 'Monthly Safety Check', daysUntilDue: 2, lastDone: 29, riskLevel: 'critical' },
-  { id: 'PPM-003', asset: 'Fire Suppression — Community Centre', type: '6-Month Inspection', daysUntilDue: 14, lastDone: 167, riskLevel: 'medium' },
-];
-
 export const mockPPMSchedule = [
   {
     id: 'PPM-S-001', assetId: 'AST-002', asset: 'Lift — Cluster A, Block 2', type: 'Lift',
@@ -166,6 +160,12 @@ export const mockPPMSchedule = [
     notes: 'Seasonal check — aligned with summer preparation schedule.',
   },
 ];
+
+const RISK_PRIORITY: Record<string, number> = { overdue: 0, critical: 1, high: 2, medium: 3, low: 4 };
+export const mockPPMRisks = [...mockPPMSchedule]
+  .sort((a, b) => (RISK_PRIORITY[a.riskLevel] ?? 9) - (RISK_PRIORITY[b.riskLevel] ?? 9))
+  .slice(0, 3)
+  .map(p => ({ id: p.id, asset: p.asset, type: p.task, daysUntilDue: p.daysUntilDue, lastDone: p.lastDone, riskLevel: p.riskLevel }));
 
 export const mockDispatchJobs = [
   { id: 'SI-2241', title: 'AC Failure — Villa 23, Cluster A', severity: 'critical', minutesAgo: 6, slaRemaining: 39, aiMatch: { tech: 'Karim R.', distance: '0.4km', reason: 'HVAC Certified · No parts needed' } },
