@@ -56,3 +56,62 @@ export const mockNotifications = [
   { id: 2, type: 'warning', text: 'SLA breach warning — Job #SI-298 (Omar T.)', sub: '12 min remaining before breach · 14 min ago', read: false },
   { id: 3, type: 'info', text: 'Karim R. assigned to Job #SI-2241', sub: 'GPS tracking started · En route · 18 min ago', read: false },
 ];
+
+export const mockAssets = [
+  { id: 'AST-001', name: 'Chiller Unit C-04', type: 'HVAC', location: 'Block C Gym', status: 'warning', lastService: '83 days ago', nextPPM: '8 days', condition: 72, lat: 25.1195, lng: 55.3768 },
+  { id: 'AST-002', name: 'Lift — Cluster A Block 2', type: 'Lift', location: 'Cluster A, Block 2', status: 'critical', lastService: '29 days ago', nextPPM: '2 days', condition: 58, lat: 25.1188, lng: 55.3758 },
+  { id: 'AST-003', name: 'Generator G-01', type: 'Electrical', location: 'Community Centre', status: 'ok', lastService: '12 days ago', nextPPM: '48 days', condition: 94, lat: 25.1175, lng: 55.3780 },
+  { id: 'AST-004', name: 'Pool Pump PP-02', type: 'Plumbing', location: 'Recreation Area', status: 'ok', lastService: '5 days ago', nextPPM: '25 days', condition: 89, lat: 25.1168, lng: 55.3762 },
+  { id: 'AST-005', name: 'Fire Panel FP-01', type: 'Safety', location: 'Community Centre', status: 'ok', lastService: '44 days ago', nextPPM: '136 days', condition: 97, lat: 25.1172, lng: 55.3778 },
+];
+
+export const mockTasks = [
+  { id: 'TSK-2241', title: 'AC Repair — Villa 23', tech: 'Karim R.', status: 'in-progress', skill: 'HVAC', priority: 'critical', eta: '14 min', lat: 25.1185, lng: 55.3755 },
+  { id: 'TSK-2239', title: 'Plumbing Fix — Villa 7', tech: 'Ahmed K.', status: 'completed', skill: 'Plumbing', priority: 'medium', eta: 'Done', lat: 25.1160, lng: 55.3785 },
+  { id: 'TSK-2242', title: 'Electrical Inspection — Villa 31', tech: 'Sara M.', status: 'assigned', skill: 'Electrical', priority: 'low', eta: '22 min', lat: 25.1170, lng: 55.3750 },
+  { id: 'TSK-2243', title: 'Lift Safety Check — Block 2', tech: 'Faisal N.', status: 'pending', skill: 'General', priority: 'high', eta: 'Unscheduled', lat: 25.1190, lng: 55.3762 },
+];
+
+export const mockSLAZones = [
+  { id: 'SLA-001', incidentId: 'INC-SI-001', radius: 180, riskLevel: 'critical', lat: 25.1185, lng: 55.3755 },
+  { id: 'SLA-002', incidentId: 'INC-SI-003', radius: 140, riskLevel: 'high', lat: 25.1195, lng: 55.3765 },
+  { id: 'SLA-003', incidentId: 'INC-SI-002', radius: 100, riskLevel: 'medium', lat: 25.1160, lng: 55.3785 },
+];
+
+export const mockPredictedFailures = [
+  { id: 'PRD-001', asset: 'Chiller C-04', probability: 87, horizon: '4–6 days', category: 'HVAC', reason: 'Refrigerant at 72%, blockage 34%', lat: 25.1196, lng: 55.3770 },
+  { id: 'PRD-002', asset: 'Lift Cluster A', probability: 73, horizon: '2–3 days', category: 'Mechanical', reason: 'Motor vibration anomaly detected', lat: 25.1190, lng: 55.3756 },
+  { id: 'PRD-003', asset: 'Pool Pump PP-02', probability: 41, horizon: '10–14 days', category: 'Plumbing', reason: 'Pressure variance over 5-day trend', lat: 25.1168, lng: 55.3762 },
+];
+
+export const mockSmartDispatch = [
+  {
+    incidentId: 'INC-SI-001',
+    incidentTitle: 'AC Failure — Villa 23, Cluster A',
+    severity: 'critical',
+    slaRemaining: 39,
+    recommendations: [
+      { tech: 'Karim R.', techId: 'KR', skill: 'HVAC', distance: '0.4 km', eta: '4 min', skillMatch: 98, availability: 'en-route', reason: 'HVAC certified · Nearest available · No parts needed' },
+      { tech: 'Ahmed K.', techId: 'AK', skill: 'Plumbing', distance: '1.1 km', eta: '9 min', skillMatch: 52, availability: 'busy', reason: 'Partial skill match · Currently on another job' },
+    ],
+  },
+  {
+    incidentId: 'INC-SI-002',
+    incidentTitle: 'Water Leak — Villa 7, Cluster B',
+    severity: 'medium',
+    slaRemaining: 106,
+    recommendations: [
+      { tech: 'Faisal N.', techId: 'FN', skill: 'Plumbing', distance: '0.6 km', eta: '6 min', skillMatch: 100, availability: 'available', reason: 'Plumbing specialist · Tools on hand · Fully available' },
+      { tech: 'Ahmed K.', techId: 'AK', skill: 'Plumbing', distance: '0.9 km', eta: '8 min', skillMatch: 95, availability: 'busy', reason: 'Strong match · Currently finishing Job SI-301' },
+    ],
+  },
+  {
+    incidentId: 'INC-SI-003',
+    incidentTitle: 'Lift Fault — Block C',
+    severity: 'high',
+    slaRemaining: 38,
+    recommendations: [
+      { tech: 'Sara M.', techId: 'SM', skill: 'Electrical', distance: '0.8 km', eta: '7 min', skillMatch: 85, availability: 'available', reason: 'Electrical systems certified · Fully available · High rating' },
+    ],
+  },
+];
