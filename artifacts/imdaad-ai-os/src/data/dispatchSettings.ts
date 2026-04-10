@@ -52,6 +52,8 @@ export interface EligibilityRule {
   type: 'vendor' | 'inhouse';
   skillFilter: string;
   regionFilter: string;
+  siteFilter: string;
+  assetTypeFilter: string;
   serviceLines: string[];
   preference: 'preferred' | 'approved' | 'restricted';
 }
@@ -196,6 +198,8 @@ export const initialDispatchSettings: DispatchSettings = {
       type: 'vendor',
       skillFilter: 'HVAC',
       regionFilter: 'Dubai',
+      siteFilter: 'Silicon Oasis',
+      assetTypeFilter: 'Chiller / AHU',
       serviceLines: ['Chiller Service', 'AHU Maintenance', 'Refrigeration'],
       preference: 'preferred',
     },
@@ -205,6 +209,8 @@ export const initialDispatchSettings: DispatchSettings = {
       type: 'vendor',
       skillFilter: 'Electrical',
       regionFilter: 'Dubai, Abu Dhabi',
+      siteFilter: 'All Sites',
+      assetTypeFilter: 'Generator',
       serviceLines: ['HV Systems', 'Generator Service', 'Fire Detection'],
       preference: 'approved',
     },
@@ -212,8 +218,10 @@ export const initialDispatchSettings: DispatchSettings = {
       id: 'ELG-003',
       name: 'Imdaad In-House Team A',
       type: 'inhouse',
-      skillFilter: 'General, Plumbing',
+      skillFilter: 'General',
       regionFilter: 'Silicon Oasis',
+      siteFilter: 'Silicon Oasis',
+      assetTypeFilter: 'Any',
       serviceLines: ['Cleaning', 'Minor Repairs', 'Plumbing'],
       preference: 'preferred',
     },
@@ -223,6 +231,8 @@ export const initialDispatchSettings: DispatchSettings = {
       type: 'vendor',
       skillFilter: 'Any',
       regionFilter: 'All Regions',
+      siteFilter: 'All Sites',
+      assetTypeFilter: 'Any',
       serviceLines: ['General FM'],
       preference: 'restricted',
     },
@@ -230,8 +240,10 @@ export const initialDispatchSettings: DispatchSettings = {
       id: 'ELG-005',
       name: 'Imdaad In-House Team B',
       type: 'inhouse',
-      skillFilter: 'HVAC, Electrical',
-      regionFilter: 'All Sites',
+      skillFilter: 'HVAC',
+      regionFilter: 'Dubai',
+      siteFilter: 'Gate Avenue',
+      assetTypeFilter: 'Lift',
       serviceLines: ['PPM Tasks', 'Corrective Maintenance'],
       preference: 'preferred',
     },
