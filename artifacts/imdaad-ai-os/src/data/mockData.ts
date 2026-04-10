@@ -84,6 +84,44 @@ export const mockPredictedFailures = [
   { id: 'PRD-003', asset: 'Pool Pump PP-02', probability: 41, horizon: '10–14 days', category: 'Plumbing', reason: 'Pressure variance over 5-day trend', lat: 25.1168, lng: 55.3762 },
 ];
 
+export const mockKanbanTasks = [
+  { id: 'KT-001', title: 'AC Filter Replacement', asset: 'AHU-Block A', location: 'Block A, Floor 2', skill: 'HVAC', priority: 'high', status: 'new', tech: null, slaMinutes: 120, elapsed: 5, reportedBy: 'Resident App', evidence: [] },
+  { id: 'KT-002', title: 'Water Heater Fault', asset: 'WH-Villa 14', location: 'Villa 14, Cluster B', skill: 'Plumbing', priority: 'medium', status: 'new', tech: null, slaMinutes: 180, elapsed: 12, reportedBy: 'WhatsApp', evidence: [] },
+  { id: 'KT-003', title: 'HVAC Corrective — Villa 23', asset: 'Chiller C-04', location: 'Villa 23, Cluster A', skill: 'HVAC', priority: 'critical', status: 'assigned', tech: 'Karim R.', slaMinutes: 45, elapsed: 6, reportedBy: 'AI Capture', evidence: [] },
+  { id: 'KT-004', title: 'Power Trip — Villa 31', asset: 'MCB Panel', location: 'Villa 31', skill: 'Electrical', priority: 'low', status: 'assigned', tech: 'Sara M.', slaMinutes: 240, elapsed: 31, reportedBy: 'Resident App', evidence: [] },
+  { id: 'KT-005', title: 'Lift Safety Check', asset: 'Lift-Cluster A', location: 'Cluster A, Block 2', skill: 'General', priority: 'high', status: 'in-progress', tech: 'Faisal N.', slaMinutes: 60, elapsed: 18, reportedBy: 'PPM Schedule', evidence: [] },
+  { id: 'KT-006', title: 'Plumbing Fix — Villa 7', asset: 'Pipe M22', location: 'Villa 7, Cluster B', skill: 'Plumbing', priority: 'medium', status: 'in-progress', tech: 'Ahmed K.', slaMinutes: 120, elapsed: 14, reportedBy: 'AI Capture', evidence: [] },
+  { id: 'KT-007', title: 'Pool Pump Inspection', asset: 'PP-02', location: 'Recreation Area', skill: 'Plumbing', priority: 'low', status: 'awaiting-evidence', tech: 'Faisal N.', slaMinutes: 360, elapsed: 45, reportedBy: 'PPM Schedule', evidence: [] },
+  { id: 'KT-008', title: 'Fire Panel Annual Check', asset: 'FP-01', location: 'Community Centre', skill: 'Safety', priority: 'high', status: 'awaiting-evidence', tech: 'Sara M.', slaMinutes: 480, elapsed: 120, reportedBy: 'Compliance', evidence: [] },
+  { id: 'KT-009', title: 'Gym AC Service', asset: 'AHU-Gym', location: 'Block C Gym', skill: 'HVAC', priority: 'medium', status: 'closed', tech: 'Karim R.', slaMinutes: 240, elapsed: 210, reportedBy: 'PPM Schedule', evidence: ['photo_before.jpg', 'photo_after.jpg'] },
+  { id: 'KT-010', title: 'Gate Intercom Repair', asset: 'IC-Main-Gate', location: 'Main Gate', skill: 'Electrical', priority: 'medium', status: 'closed', tech: 'Ahmed K.', slaMinutes: 180, elapsed: 160, reportedBy: 'Supervisor', evidence: ['intercom_photo.jpg'] },
+  { id: 'KT-011', title: 'Corridor Light Fix', asset: 'Light-B3', location: 'Block B, Corridor 3', skill: 'Electrical', priority: 'low', status: 'overdue', tech: 'Omar T.', slaMinutes: 60, elapsed: 82, reportedBy: 'Resident App', evidence: [] },
+  { id: 'KT-012', title: 'Roof AC Unit — Block D', asset: 'ACU-Roof-D', location: 'Block D Rooftop', skill: 'HVAC', priority: 'high', status: 'overdue', tech: 'Omar T.', slaMinutes: 90, elapsed: 134, reportedBy: 'AI Capture', evidence: [] },
+];
+
+export const mockTechPerformance = {
+  name: 'Karim R.',
+  role: 'HVAC Specialist',
+  id: 'KR',
+  rating: 4.8,
+  jobsCompleted: 142,
+  jobsThisMonth: 18,
+  slaSuccessRate: 94,
+  avgResponseTime: 8.4,
+  avgResolutionTime: 42,
+  efficiency: 89,
+  categories: [
+    { label: 'HVAC', count: 11, color: '#2E7FFF' },
+    { label: 'General', count: 4, color: '#38D98A' },
+    { label: 'Plumbing', count: 3, color: '#FF9B38' },
+  ],
+  recentJobs: [
+    { id: 'SI-2241', title: 'HVAC — Villa 23', status: 'in-progress', sla: 'On Track', date: 'Today' },
+    { id: 'SI-2235', title: 'Gym AC Service', status: 'closed', sla: 'Met', date: 'Yesterday' },
+    { id: 'SI-2228', title: 'Chiller Inspection', status: 'closed', sla: 'Met', date: '2 days ago' },
+  ],
+};
+
 export const mockSmartDispatch = [
   {
     incidentId: 'INC-SI-001',

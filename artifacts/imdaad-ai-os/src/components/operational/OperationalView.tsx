@@ -4,14 +4,16 @@ import { LoginScreen } from './LoginScreen';
 import { ActiveTask } from './ActiveTask';
 import { ChecklistView } from './ChecklistView';
 import { PartsAndPO } from './PartsAndPO';
-import { ClipboardList, Scan, ListChecks, Package } from 'lucide-react';
+import { KanbanBoard } from './KanbanBoard';
+import { TechPerformance } from './TechPerformance';
+import { ClipboardList, ListChecks, Package, LayoutGrid, BarChart2 } from 'lucide-react';
 import { mockLoggedInTech } from '@/data/mockData';
 
 interface Props {
   onToast: (msg: string, type?: 'success' | 'warning' | 'error' | 'info') => void;
 }
 
-type Tab = 'task' | 'checklist' | 'parts';
+type Tab = 'task' | 'checklist' | 'parts' | 'board' | 'stats';
 
 export function OperationalView({ onToast }: Props) {
   const [loggedIn, setLoggedIn] = useState(false);
@@ -22,10 +24,12 @@ export function OperationalView({ onToast }: Props) {
     setTimeout(() => onToast('Welcome back, Karim R. · 1 active task assigned', 'success'), 300);
   };
 
-  const tabs = [
-    { id: 'task' as Tab, label: 'My Task', icon: ClipboardList },
-    { id: 'checklist' as Tab, label: 'Checklist', icon: ListChecks },
-    { id: 'parts' as Tab, label: 'Parts', icon: Package },
+  const tabs: { id: Tab; label: string; icon: React.ComponentType<{ size?: number }> }[] = [
+    { id: 'task', label: 'My Task', icon: ClipboardList },
+    { id: 'checklist', label: 'Checklist', icon: ListChecks },
+    { id: 'parts', label: 'Parts', icon: Package },
+    { id: 'board', label: 'Board', icon: LayoutGrid },
+    { id: 'stats', label: 'Stats', icon: BarChart2 },
   ];
 
   return (
@@ -65,7 +69,7 @@ export function OperationalView({ onToast }: Props) {
                 </span>
               </div>
 
-              <div className="flex-1 overflow-hidden">
+              <div className="flex-1 overflow-hidden relative">
                 <AnimatePresence mode="wait">
                   <motion.div
                     key={tab}
@@ -78,21 +82,23 @@ export function OperationalView({ onToast }: Props) {
                     {tab === 'task' && <ActiveTask onScan={() => {}} />}
                     {tab === 'checklist' && <ChecklistView onToast={onToast} />}
                     {tab === 'parts' && <PartsAndPO onToast={onToast} />}
+                    {tab === 'board' && <KanbanBoard onToast={onToast} />}
+                    {tab === 'stats' && <TechPerformance />}
                   </motion.div>
                 </AnimatePresence>
               </div>
 
-              <div className="h-16 bg-[#112040] border-t border-[rgba(46,127,255,0.22)] flex items-center justify-around px-2 flex-shrink-0">
+              <div className="bg-[#112040] border-t border-[rgba(46,127,255,0.22)] flex items-center justify-around px-1 flex-shrink-0" style={{ height: 60 }}>
                 {tabs.map(({ id, label, icon: Icon }) => (
                   <button
                     key={id}
                     onClick={() => setTab(id)}
-                    className={`flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl transition-all duration-150 ${
+                    className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-xl transition-all duration-150 flex-1 ${
                       tab === id ? 'bg-[#2E7FFF]/20 text-[#2E7FFF]' : 'text-[#7A94B4] hover:text-[#EEF3FA]'
                     }`}
                   >
-                    <Icon size={18} />
-                    <span className="text-[10px] font-medium">{label}</span>
+                    <Icon size={16} />
+                    <span className="text-[9px] font-medium">{label}</span>
                   </button>
                 ))}
               </div>
