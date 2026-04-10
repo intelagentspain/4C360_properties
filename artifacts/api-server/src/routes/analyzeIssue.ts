@@ -7,7 +7,7 @@ import OpenAI from "openai";
 import { z } from "zod";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const uploadsDir = path.resolve(__dirname, "../../uploads");
+const uploadsDir = path.resolve(__dirname, "../uploads");
 
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
