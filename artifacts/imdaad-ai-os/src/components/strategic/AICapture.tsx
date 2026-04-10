@@ -315,7 +315,6 @@ export function AICapture({ onToast }: Props) {
 
   const handleAction = (id: string, action: CaptureStatus) => {
     setStatuses(prev => ({ ...prev, [id]: action }));
-    const cap = enriched.find(c => c.id === id);
     if (action === 'confirmed') onToast(`Detection confirmed — linked to incident`, 'success');
     if (action === 'rejected')  onToast(`Detection rejected — marked false positive`, 'info');
     if (selected?.id === id && action === 'rejected') setSelected(null);
