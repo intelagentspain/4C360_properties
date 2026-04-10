@@ -6,7 +6,7 @@ import { ChecklistView } from './ChecklistView';
 import { PartsAndPO } from './PartsAndPO';
 import { KanbanBoard } from './KanbanBoard';
 import { TechPerformance } from './TechPerformance';
-import { ClipboardList, ListChecks, Package, LayoutGrid, BarChart2 } from 'lucide-react';
+import { ClipboardList, ListChecks, Package, LayoutGrid, BarChart2, ScanLine } from 'lucide-react';
 import { mockLoggedInTech } from '@/data/mockData';
 
 interface Props {
@@ -24,12 +24,16 @@ export function OperationalView({ onToast }: Props) {
     setTimeout(() => onToast('Welcome back, Karim R. · 1 active task assigned', 'success'), 300);
   };
 
-  const tabs: { id: Tab; label: string; icon: React.ComponentType<{ size?: number }> }[] = [
-    { id: 'task', label: 'My Task', icon: ClipboardList },
+  const handleScanNav = () => {
+    window.location.href = import.meta.env.BASE_URL + 'scan/silicon-oasis/general';
+  };
+
+  const tabs: { id: Tab; label: string; icon: React.ComponentType<{ size?: number }>; scanNav?: boolean }[] = [
+    { id: 'task',      label: 'My Task',   icon: ClipboardList },
     { id: 'checklist', label: 'Checklist', icon: ListChecks },
-    { id: 'parts', label: 'Parts', icon: Package },
-    { id: 'board', label: 'Board', icon: LayoutGrid },
-    { id: 'stats', label: 'Stats', icon: BarChart2 },
+    { id: 'task',      label: 'Scan',      icon: ScanLine, scanNav: true },
+    { id: 'parts',     label: 'Parts',     icon: Package },
+    { id: 'board',     label: 'Board',     icon: LayoutGrid },
   ];
 
   return (
@@ -89,12 +93,14 @@ export function OperationalView({ onToast }: Props) {
               </div>
 
               <div className="bg-[#112040] border-t border-[rgba(46,127,255,0.22)] flex items-center justify-around px-1 flex-shrink-0" style={{ height: 60 }}>
-                {tabs.map(({ id, label, icon: Icon }) => (
+                {tabs.map(({ id, label, icon: Icon, scanNav }, idx) => (
                   <button
-                    key={id}
-                    onClick={() => setTab(id)}
+                    key={`${id}-${idx}`}
+                    onClick={() => scanNav ? handleScanNav() : setTab(id)}
                     className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-xl transition-all duration-150 flex-1 ${
-                      tab === id ? 'bg-[#2E7FFF]/20 text-[#2E7FFF]' : 'text-[#7A94B4] hover:text-[#EEF3FA]'
+                      scanNav
+                        ? 'text-[#00C6FF] hover:bg-cyan-500/10'
+                        : tab === id ? 'bg-[#2E7FFF]/20 text-[#2E7FFF]' : 'text-[#7A94B4] hover:text-[#EEF3FA]'
                     }`}
                   >
                     <Icon size={16} />
