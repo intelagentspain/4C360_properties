@@ -129,7 +129,7 @@ async function callOpenAIVision(
   });
 
   const raw = response.choices[0]?.message?.content?.trim() ?? "";
-  logger.info({ rawLength: raw.length, rawPreview: raw.slice(0, 300) }, "OpenAI raw response received");
+  logger.debug({ rawLength: raw.length, rawPreview: raw.slice(0, 300) }, "OpenAI raw response received");
 
   if (!raw) {
     throw new Error("OpenAI returned empty response (finish_reason: " + (response.choices[0]?.finish_reason ?? "unknown") + ")");
