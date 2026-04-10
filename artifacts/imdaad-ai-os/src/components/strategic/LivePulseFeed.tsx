@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { AlertTriangle, Clock, Bot, CheckCircle, X, MapPin, User, ArrowRight } from 'lucide-react';
+import { AlertTriangle, Clock, Bot, CheckCircle, X, MapPin, User, ArrowRight, QrCode } from 'lucide-react';
+import { useIncidents } from '@/context/IncidentContext';
 
 type EventType = 'incident' | 'sla' | 'ai' | 'task';
 
@@ -152,9 +153,11 @@ interface Props {
 }
 
 export function LivePulseFeed({ onToast }: Props) {
+  const { incidents } = useIncidents();
   const [events, setEvents] = useState<PulseEvent[]>(initialEvents);
   const [selected, setSelected] = useState<PulseEvent | null>(null);
   const [tick, setTick] = useState(0);
+  const seenIncidentIds = useRef<Set<string>>(new Set(initialEvents.map(e => e.id)));
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -170,6 +173,27 @@ export function LivePulseFeed({ onToast }: Props) {
       onToast(newEvent.title, newEvent.type === 'incident' ? 'warning' : 'info');
     }
   }, [tick]);
+
+  useEffect(() => {
+    const qrIncidents = incidents.filter(inc => inc.source === 'QR Scan');
+    for (const inc of qrIncidents) {
+      if (!seenIncidentIds.current.has(inc.id)) {
+        seenIncidentIds.current.add(inc.id);
+        const pulseEvent: PulseEvent = {
+          id: inc.id,
+          type: 'incident',
+          title: `${inc.title} — QR Scan`,
+          sub: `${inc.location} · AI Capture via QR code`,
+          time: 'Just now',
+          location: inc.location,
+          severity: inc.severity,
+          new: true,
+        };
+        setEvents(prev => [pulseEvent, ...prev]);
+        onToast(`New QR Scan incident: ${inc.title}`, 'warning');
+      }
+    }
+  }, [incidents]);
 
   return (
     <div className="relative flex flex-col h-full overflow-hidden">

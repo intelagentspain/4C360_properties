@@ -1,21 +1,53 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bot, MapPin, Clock, ChevronDown, UserCheck, RotateCcw, CheckCircle } from 'lucide-react';
+import { Bot, MapPin, Clock, ChevronDown, UserCheck, RotateCcw, CheckCircle, QrCode } from 'lucide-react';
 import { mockSmartDispatch } from '@/data/mockData';
 import { SEVERITY_BADGE, AVAIL_COLOR, scoreColor, type ToastFn } from '@/lib/ui';
 import { AnimatedBar } from '@/components/shared/AnimatedBar';
 import { TechAvatar } from '@/components/shared/TechAvatar';
+import { useIncidents } from '@/context/IncidentContext';
+
+const TECH_POOL = [
+  { tech: 'Karim R.', techId: 'KR', skill: 'HVAC', distance: '0.4 km', eta: '8 min', skillMatch: 92, availability: 'available' as const, reason: 'HVAC specialist · Available now · QR scan priority' },
+  { tech: 'Sara M.', techId: 'SM', skill: 'Electrical', distance: '0.7 km', eta: '12 min', skillMatch: 88, availability: 'available' as const, reason: 'Electrical certified · High rating · GPS tracked' },
+  { tech: 'Ahmed K.', techId: 'AK', skill: 'Plumbing', distance: '0.5 km', eta: '8 min', skillMatch: 90, availability: 'available' as const, reason: 'Plumbing specialist · Tools on hand' },
+  { tech: 'Faisal N.', techId: 'FN', skill: 'General', distance: '0.6 km', eta: '10 min', skillMatch: 80, availability: 'available' as const, reason: 'General maintenance · Fully available' },
+];
+
+function matchTech(category: string) {
+  const cat = category.toLowerCase();
+  return TECH_POOL.find(t => cat.includes(t.skill.toLowerCase()) || t.skill === 'General') ?? TECH_POOL[3];
+}
 
 interface Props {
   onToast: ToastFn;
 }
 
 export function SmartDispatchPanel({ onToast }: Props) {
+  const { incidents } = useIncidents();
+
+  const allDispatch = useMemo(() => {
+    const qrUnassigned = incidents
+      .filter(inc => inc.source === 'QR Scan' && !inc.assignedTech && inc.status !== 'closed')
+      .map(inc => {
+        const tech = matchTech(inc.aiMetadata?.category ?? 'General');
+        return {
+          incidentId: inc.id,
+          incidentTitle: `${inc.title} — ${inc.location}`,
+          severity: inc.severity as 'critical' | 'high' | 'medium' | 'low',
+          slaRemaining: inc.slaMinutes,
+          isQrScan: true,
+          recommendations: [{ ...tech, reason: tech.reason }],
+        };
+      });
+    return [...mockSmartDispatch, ...qrUnassigned];
+  }, [incidents]);
+
   const [activeIncident, setActiveIncident] = useState(mockSmartDispatch[0].incidentId);
   const [assigned, setAssigned] = useState<Record<string, string>>({});
   const [showAll, setShowAll] = useState<Record<string, boolean>>({});
 
-  const current = mockSmartDispatch.find(d => d.incidentId === activeIncident)!;
+  const current = allDispatch.find(d => d.incidentId === activeIncident) ?? allDispatch[0];
 
   const handleAssign = (incId: string, techName: string) => {
     setAssigned(prev => ({ ...prev, [incId]: techName }));
@@ -35,7 +67,7 @@ export function SmartDispatchPanel({ onToast }: Props) {
             AI Smart Dispatch
           </h3>
           <span className="px-1.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-400 text-[10px] font-bold border border-cyan-500/30">
-            {mockSmartDispatch.length}
+            {allDispatch.length}
           </span>
         </div>
         <div className="flex items-center gap-1 text-[10px] text-[#7A94B4]">
@@ -44,7 +76,7 @@ export function SmartDispatchPanel({ onToast }: Props) {
       </div>
 
       <div className="flex gap-1 mb-3 overflow-x-auto pb-0.5 no-scrollbar">
-        {mockSmartDispatch.map(d => (
+        {allDispatch.map(d => (
           <button
             key={d.incidentId}
             onClick={() => setActiveIncident(d.incidentId)}
@@ -57,6 +89,7 @@ export function SmartDispatchPanel({ onToast }: Props) {
             <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
               d.severity === 'critical' ? 'bg-red-400' : d.severity === 'high' ? 'bg-orange-400' : 'bg-amber-400'
             }`} />
+            {(d as any).isQrScan && <QrCode size={9} className="text-cyan-400 flex-shrink-0" />}
             {d.incidentId}
             {assigned[d.incidentId] && <CheckCircle size={9} className="text-emerald-400" />}
           </button>

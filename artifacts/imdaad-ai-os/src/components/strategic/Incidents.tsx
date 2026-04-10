@@ -3,14 +3,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   AlertTriangle, X, Search, User, Clock, CheckCircle,
   Zap, ChevronRight, Send, TrendingUp, AlertCircle,
-  ChevronUp, ChevronDown as ChevronDownIcon,
+  ChevronUp, ChevronDown as ChevronDownIcon, QrCode,
 } from 'lucide-react';
-import { mockIncidents } from '@/data/mockData';
 import { SEVERITY_BADGE, slaStatus, type ToastFn } from '@/lib/ui';
 import { AnimatedBar } from '@/components/shared/AnimatedBar';
 import { TechAvatar } from '@/components/shared/TechAvatar';
-
-type Incident = typeof mockIncidents[0];
+import { useIncidents, type Incident } from '@/context/IncidentContext';
 
 const STATUS_CONFIG: Record<string, { label: string; dot: string; text: string; bg: string }> = {
   open:        { label: 'Open',        dot: 'bg-[#7A94B4]',       text: 'text-[#7A94B4]',    bg: 'bg-white/5 border-white/10' },
@@ -39,7 +37,7 @@ const LOG_COLOR: Record<string, string> = {
 
 const ALL_SEVERITIES = ['All', 'critical', 'high', 'medium', 'low'];
 const ALL_STATUSES   = ['All', 'open', 'dispatched', 'in-progress', 'overdue', 'closed'];
-const ALL_SOURCES    = ['All', 'AI Capture', 'WhatsApp → Manual', 'Resident App'];
+const ALL_SOURCES    = ['All', 'AI Capture', 'QR Scan', 'WhatsApp → Manual', 'Resident App'];
 
 const DETAIL_TABS = ['Overview', 'Timeline', 'AI Analysis', 'Actions'];
 
@@ -166,8 +164,10 @@ function TimelineTab({ incident }: { incident: Incident }) {
 
 function AIAnalysisTab({ incident }: { incident: Incident }) {
   const signals = AI_SIGNALS[incident.id];
-  const hasAI = incident.source.includes('AI Capture') || incident.source.includes('IoT');
-  if (!hasAI && !signals) {
+  const hasAI = incident.source.includes('AI Capture') || incident.source.includes('IoT') || incident.source === 'QR Scan';
+  const aiMeta = (incident as any).aiMetadata;
+
+  if (!hasAI && !signals && !aiMeta) {
     return (
       <div className="flex flex-col items-center justify-center py-12 gap-3 text-center">
         <AlertCircle size={28} className="text-[#7A94B4] opacity-40" />
@@ -176,13 +176,26 @@ function AIAnalysisTab({ incident }: { incident: Incident }) {
       </div>
     );
   }
-  const confidence = incident.severity === 'critical' ? 94 : incident.severity === 'high' ? 88 : incident.severity === 'medium' ? 81 : 67;
-  const category   = incident.title.toLowerCase().includes('ac') || incident.title.toLowerCase().includes('hvac') ? 'HVAC / Cooling' :
-                     incident.title.toLowerCase().includes('lift') ? 'Mechanical / Lift' :
-                     incident.title.toLowerCase().includes('water') || incident.title.toLowerCase().includes('pool') ? 'Plumbing' :
-                     incident.title.toLowerCase().includes('power') ? 'Electrical' : 'General Facility';
+
+  const confidence = aiMeta?.confidence ?? (incident.severity === 'critical' ? 94 : incident.severity === 'high' ? 88 : incident.severity === 'medium' ? 81 : 67);
+  const category   = aiMeta?.category ?? (
+    incident.title.toLowerCase().includes('ac') || incident.title.toLowerCase().includes('hvac') ? 'HVAC / Cooling' :
+    incident.title.toLowerCase().includes('lift') ? 'Mechanical / Lift' :
+    incident.title.toLowerCase().includes('water') || incident.title.toLowerCase().includes('pool') ? 'Plumbing' :
+    incident.title.toLowerCase().includes('power') ? 'Electrical' : 'General Facility'
+  );
+
   return (
     <div className="space-y-4">
+      {(incident as any).imageUrl && (
+        <div>
+          <div className="text-[10px] text-[#7A94B4] uppercase tracking-wide mb-1.5">Captured Photo</div>
+          <div className="rounded-xl overflow-hidden border border-[rgba(46,127,255,0.2)]">
+            <img src={(incident as any).imageUrl} alt="Issue photo" className="w-full object-cover max-h-48" />
+          </div>
+        </div>
+      )}
+
       <div className="p-3 bg-[rgba(46,127,255,0.08)] border border-[rgba(46,127,255,0.2)] rounded-xl">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-1.5">
@@ -192,13 +205,54 @@ function AIAnalysisTab({ incident }: { incident: Incident }) {
           <span className="text-[11px] font-bold text-emerald-400">{confidence}% conf.</span>
         </div>
         <div className="text-[13px] text-[#EEF3FA] font-semibold">{category}</div>
+        {aiMeta?.issueType && <div className="text-[10px] text-[#7A94B4] mt-0.5">{aiMeta.issueType}</div>}
         <div className="text-[10px] text-[#7A94B4] mt-0.5">Classified via {incident.source}</div>
       </div>
+
+      {aiMeta?.identifiedAsset && (
+        <div className="grid grid-cols-1 gap-2">
+          <div className="bg-[#0A1628] rounded-lg p-2.5">
+            <div className="text-[9px] text-[#7A94B4] uppercase tracking-wide mb-0.5">Identified Asset</div>
+            <div className="text-[11px] text-[#EEF3FA] font-semibold">{aiMeta.identifiedAsset}</div>
+          </div>
+          {aiMeta.recommendedAction && (
+            <div className="bg-[#0A1628] rounded-lg p-2.5">
+              <div className="text-[9px] text-[#7A94B4] uppercase tracking-wide mb-0.5">Recommended Action</div>
+              <div className="text-[11px] text-[#EEF3FA]">{aiMeta.recommendedAction}</div>
+            </div>
+          )}
+        </div>
+      )}
+
       <div>
         <div className="text-[10px] text-[#7A94B4] uppercase tracking-wide mb-2">Confidence Score</div>
         <AnimatedBar value={confidence} color={confidence >= 85 ? '#38D98A' : confidence >= 70 ? '#FF9B38' : '#FF4B4B'} height="h-2.5" />
         <div className="text-[9px] text-[#7A94B4] mt-1">{confidence}% — {confidence >= 85 ? 'High confidence' : 'Medium confidence'}</div>
       </div>
+
+      {aiMeta?.observations && aiMeta.observations.length > 0 && (
+        <div>
+          <div className="text-[10px] text-[#7A94B4] uppercase tracking-wide mb-2">Observations</div>
+          <div className="space-y-1.5">
+            {aiMeta.observations.map((obs: string, i: number) => (
+              <div key={i} className="flex items-start gap-2 text-[11px] text-[#7A94B4]">
+                <span className="text-cyan-400 flex-shrink-0 mt-0.5">·</span>
+                {obs}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {aiMeta?.reporterName && (
+        <div className="p-2.5 bg-[#0A1628] rounded-lg">
+          <div className="text-[9px] text-[#7A94B4] uppercase tracking-wide mb-0.5">Reported By</div>
+          <div className="text-[11px] text-[#EEF3FA]">
+            {aiMeta.reporterName}{aiMeta.reporterRole ? ` · ${aiMeta.reporterRole}` : ''}
+          </div>
+        </div>
+      )}
+
       {signals && (
         <div>
           <div className="text-[10px] text-[#7A94B4] uppercase tracking-wide mb-2">Detection Signals</div>
@@ -298,6 +352,7 @@ const SEVERITY_ORDER: Record<string, number> = { critical: 0, high: 1, medium: 2
 const STATUS_ORDER: Record<string, number>   = { overdue: 0, 'in-progress': 1, open: 2, dispatched: 3, assigned: 4, closed: 5 };
 
 export function Incidents({ onToast }: Props) {
+  const { incidents } = useIncidents();
   const [search,      setSearch]      = useState('');
   const [severity,    setSeverity]    = useState('All');
   const [status,      setStatus]      = useState('All');
@@ -312,7 +367,7 @@ export function Incidents({ onToast }: Props) {
     else { setSortKey(key); setSortDir('asc'); }
   };
 
-  const filtered = mockIncidents
+  const filtered = incidents
     .filter(inc => {
       if (severity !== 'All' && inc.severity !== severity) return false;
       if (status   !== 'All' && inc.status   !== status)   return false;
@@ -333,9 +388,9 @@ export function Incidents({ onToast }: Props) {
   const openIncident = (inc: Incident) => { setSelected(inc); setActiveTab('Overview'); };
 
   const counts = {
-    critical: mockIncidents.filter(i => i.severity === 'critical').length,
-    open:     mockIncidents.filter(i => i.status === 'open').length,
-    overdue:  mockIncidents.filter(i => i.status === 'overdue').length,
+    critical: incidents.filter(i => i.severity === 'critical').length,
+    open:     incidents.filter(i => i.status === 'open').length,
+    overdue:  incidents.filter(i => i.status === 'overdue').length,
   };
 
   return (
@@ -343,7 +398,7 @@ export function Incidents({ onToast }: Props) {
       <div className="flex items-center justify-between px-5 py-3 border-b border-[rgba(46,127,255,0.15)] flex-shrink-0">
         <div>
           <h2 className="text-[#EEF3FA] font-bold text-base" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Incidents</h2>
-          <p className="text-[11px] text-[#7A94B4]">All active incidents · Silicon Oasis · {mockIncidents.length} total</p>
+          <p className="text-[11px] text-[#7A94B4]">All active incidents · Silicon Oasis · {incidents.length} total</p>
         </div>
         <div className="flex items-center gap-3">
           {[

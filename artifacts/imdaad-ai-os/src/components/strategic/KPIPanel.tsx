@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TrendingUp, TrendingDown, Minus, Info } from 'lucide-react';
 import { type ToastFn } from '@/lib/ui';
+import { useIncidents } from '@/context/IncidentContext';
 
 interface KPI {
   label: string;
@@ -14,56 +15,61 @@ interface KPI {
   detail: string;
 }
 
-const kpis: KPI[] = [
-  {
-    label: 'Critical Incidents',
-    value: '3',
-    color: 'text-red-400',
-    trend: 'down',
-    trendValue: '−2 vs yesterday',
-    trendGood: true,
-    tooltip: 'Open critical severity incidents requiring immediate action',
-    detail: 'INC-SI-001, INC-SI-002, INC-SI-003',
-  },
-  {
-    label: 'SLA Alerts',
-    value: '5',
-    color: 'text-amber-400',
-    trend: 'up',
-    trendValue: '+3 vs yesterday',
-    trendGood: false,
-    tooltip: 'Jobs approaching or past their SLA window',
-    detail: '2 breached · 3 at risk',
-  },
-  {
-    label: 'Compliance',
-    value: '94%',
-    color: 'text-emerald-400',
-    trend: 'up',
-    trendValue: '+1.2% this week',
-    trendGood: true,
-    tooltip: 'SLA compliance rate across all active work orders',
-    detail: 'Target: 95% · 47/50 on track',
-  },
-  {
-    label: 'Active Engineers',
-    value: '5',
-    color: 'text-[#EEF3FA]',
-    trend: 'flat',
-    trendValue: 'same as yesterday',
-    trendGood: true,
-    tooltip: 'Engineers currently on duty across the community',
-    detail: '2 available · 2 on job · 1 en route',
-  },
-];
-
 interface Props {
   onToast?: ToastFn;
 }
 
 export function KPIPanel({ onToast }: Props) {
+  const { incidents } = useIncidents();
   const [activeKpi, setActiveKpi] = useState<string | null>(null);
   const [hoveredKpi, setHoveredKpi] = useState<string | null>(null);
+
+  const criticalCount = incidents.filter(i => i.severity === 'critical' && i.status !== 'closed').length;
+  const openCount = incidents.filter(i => i.status === 'open' || i.status === 'dispatched').length;
+  const qrCount = incidents.filter(i => i.source === 'QR Scan').length;
+
+  const kpis: KPI[] = [
+    {
+      label: 'Critical Incidents',
+      value: String(criticalCount),
+      color: 'text-red-400',
+      trend: 'down',
+      trendValue: '−2 vs yesterday',
+      trendGood: true,
+      tooltip: 'Open critical severity incidents requiring immediate action',
+      detail: incidents.filter(i => i.severity === 'critical').map(i => i.id).join(', ') || 'None',
+    },
+    {
+      label: 'SLA Alerts',
+      value: String(openCount),
+      color: 'text-amber-400',
+      trend: openCount > 4 ? 'up' : 'flat',
+      trendValue: qrCount > 0 ? `+${qrCount} via QR scan` : '+3 vs yesterday',
+      trendGood: false,
+      tooltip: 'Jobs approaching or past their SLA window',
+      detail: `${incidents.filter(i => i.status === 'overdue').length} breached · ${openCount} open`,
+    },
+    {
+      label: 'Compliance',
+      value: '94%',
+      color: 'text-emerald-400',
+      trend: 'up',
+      trendValue: '+1.2% this week',
+      trendGood: true,
+      tooltip: 'SLA compliance rate across all active work orders',
+      detail: 'Target: 95% · 47/50 on track',
+    },
+    {
+      label: 'Active Engineers',
+      value: '5',
+      color: 'text-[#EEF3FA]',
+      trend: 'flat',
+      trendValue: 'same as yesterday',
+      trendGood: true,
+      tooltip: 'Engineers currently on duty across the community',
+      detail: '2 available · 2 on job · 1 en route',
+    },
+  ];
 
   const handleClick = (kpi: KPI) => {
     setActiveKpi(activeKpi === kpi.label ? null : kpi.label);
