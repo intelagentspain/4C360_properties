@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   AlertTriangle, X, Search, User, Clock, CheckCircle,
   Zap, ChevronRight, Send, TrendingUp, AlertCircle,
   ChevronUp, ChevronDown as ChevronDownIcon, QrCode, Plus,
   MessageSquare, Smartphone, Bot, Briefcase,
+  Camera, Upload, Loader2, Sparkles,
 } from 'lucide-react';
 import { SEVERITY_BADGE, slaStatus, type ToastFn } from '@/lib/ui';
 import { AnimatedBar } from '@/components/shared/AnimatedBar';
@@ -571,20 +572,175 @@ function ActionsTab({ incident, onToast, onCreateWorkOrder }: { incident: Incide
 
 const SLA_OPTIONS: Record<string, number> = { critical: 45, high: 60, medium: 120, low: 240 };
 
+interface AiAnalysisMeta {
+  title?: string;
+  description?: string;
+  severity?: string;
+  issueType?: string;
+  category?: string;
+  identifiedAsset?: string;
+  observations?: string[];
+  recommendedAction?: string;
+  confidence?: number;
+}
+
 interface NewIncidentForm {
   title: string;
   location: string;
   severity: string;
   description: string;
   source: string;
+  imageUrl?: string;
+  aiMetadata?: AiAnalysisMeta;
 }
 
 const EMPTY_FORM: NewIncidentForm = { title: '', location: '', severity: 'medium', description: '', source: 'Manual' };
+
+interface ChatMsg { role: 'user' | 'assistant'; content: string; }
+
+function parseSuggestions(text: string): { title?: string; severity?: string; description?: string } {
+  const out: { title?: string; severity?: string; description?: string } = {};
+  const titleMatch = text.match(/\*\*Title:\*\*\s*(.+)/i);
+  if (titleMatch) out.title = titleMatch[1].trim();
+  const sevMatch = text.match(/\*\*Severity:\*\*\s*(critical|high|medium|low)/i);
+  if (sevMatch) out.severity = sevMatch[1].toLowerCase();
+  const descMatch = text.match(/\*\*Description:\*\*\s*([\s\S]+?)(?:\n\n|$)/i);
+  if (descMatch) out.description = descMatch[1].trim();
+  return out;
+}
 
 function NewIncidentModal({ onClose, onSubmit }: { onClose: () => void; onSubmit: (f: NewIncidentForm) => void }) {
   const [form, setForm] = useState<NewIncidentForm>(EMPTY_FORM);
   const set = (k: keyof NewIncidentForm, v: string) => setForm(prev => ({ ...prev, [k]: v }));
   const valid = form.title.trim() && form.location.trim() && form.description.trim();
+
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [analyzingPhoto, setAnalyzingPhoto] = useState(false);
+  const [aiSuggested, setAiSuggested] = useState<{ title?: boolean; severity?: boolean; description?: boolean }>({});
+  const [aiPanelOpen, setAiPanelOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatMsg[]>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
+  const [pendingSuggestions, setPendingSuggestions] = useState<{ title?: string; severity?: string; description?: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  const apiBase = window.location.origin + '/api';
+
+  const handlePhotoFile = useCallback(async (file: File) => {
+    const preview = URL.createObjectURL(file);
+    setPhotoPreview(preview);
+    setAnalyzingPhoto(true);
+
+    const formData = new FormData();
+    formData.append('image', file);
+    formData.append('siteId', '');
+    formData.append('assetId', '');
+
+    try {
+      const res = await fetch(`${apiBase}/ai/analyze-issue-image`, { method: 'POST', body: formData });
+      const data = await res.json() as { success: boolean; imageUrl?: string; analysis?: AiAnalysisMeta };
+      if (data.success && data.analysis) {
+        const a = data.analysis;
+        const imageUrl = data.imageUrl ? window.location.origin + data.imageUrl : preview;
+        setForm(prev => {
+          setAiSuggested({
+            title: !prev.title && !!a.title,
+            severity: !!a.severity,
+            description: !prev.description && !!a.description,
+          });
+          return {
+            ...prev,
+            title: prev.title || (a.title ?? ''),
+            severity: a.severity && ['critical','high','medium','low'].includes(a.severity) ? a.severity : prev.severity,
+            description: prev.description || (a.description ?? ''),
+            imageUrl,
+            aiMetadata: a,
+          };
+        });
+        setChatMessages(prev => [...prev, {
+          role: 'assistant',
+          content: `Photo analyzed! I detected **${a.title ?? 'an issue'}** (${a.severity ?? 'medium'} severity, ${a.confidence ?? '?'}% confidence).\n\nI've pre-filled the form fields. You can edit them freely or ask me anything about this incident.`,
+        }]);
+        setAiPanelOpen(true);
+      }
+    } catch {
+      setForm(prev => ({ ...prev, imageUrl: preview }));
+    } finally {
+      setAnalyzingPhoto(false);
+    }
+  }, [apiBase]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handlePhotoFile(file);
+  };
+
+  const removePhoto = () => {
+    setPhotoPreview(null);
+    setForm(prev => ({ ...prev, imageUrl: undefined, aiMetadata: undefined }));
+    setAiSuggested({});
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (cameraInputRef.current) cameraInputRef.current.value = '';
+  };
+
+  const sendChatMessage = useCallback(async () => {
+    const text = chatInput.trim();
+    if (!text || chatLoading) return;
+    setChatInput('');
+    const userMsg: ChatMsg = { role: 'user', content: text };
+    const newMessages = [...chatMessages, userMsg];
+    setChatMessages(newMessages);
+    setChatLoading(true);
+    setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
+
+    try {
+      const res = await fetch(`${apiBase}/ai/incident-chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: newMessages,
+          formContext: {
+            title: form.title,
+            location: form.location,
+            severity: form.severity,
+            description: form.description,
+            imageAnalysis: form.aiMetadata,
+          },
+        }),
+      });
+      const data = await res.json() as { reply: string };
+      const assistantMsg: ChatMsg = { role: 'assistant', content: data.reply };
+      setChatMessages(prev => [...prev, assistantMsg]);
+      const suggestions = parseSuggestions(data.reply);
+      if (suggestions.title || suggestions.severity || suggestions.description) {
+        setPendingSuggestions(suggestions);
+      }
+      setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
+    } catch {
+      setChatMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, I could not reach the AI assistant right now. Please try again.' }]);
+    } finally {
+      setChatLoading(false);
+    }
+  }, [chatInput, chatLoading, chatMessages, form, apiBase]);
+
+  const acceptSuggestion = (field: 'title' | 'severity' | 'description', value: string) => {
+    set(field, value);
+    setAiSuggested(prev => ({ ...prev, [field]: true }));
+    setPendingSuggestions(prev => {
+      if (!prev) return null;
+      const next = { ...prev };
+      delete next[field];
+      return Object.keys(next).length ? next : null;
+    });
+  };
+
+  const AISuggestedBadge = () => (
+    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[8px] font-semibold bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 ml-1.5">
+      <Sparkles size={7} />AI
+    </span>
+  );
 
   return (
     <AnimatePresence>
@@ -600,10 +756,10 @@ function NewIncidentModal({ onClose, onSubmit }: { onClose: () => void; onSubmit
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 12 }}
           transition={{ duration: 0.2 }}
-          className="bg-[#0D1F3C] border border-[rgba(46,127,255,0.25)] rounded-2xl w-full max-w-md shadow-2xl"
+          className="bg-[#0D1F3C] border border-[rgba(46,127,255,0.25)] rounded-2xl w-full max-w-md shadow-2xl max-h-[90vh] flex flex-col overflow-hidden"
           onClick={e => e.stopPropagation()}
         >
-          <div className="flex items-center justify-between px-5 py-4 border-b border-[rgba(46,127,255,0.15)]">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-[rgba(46,127,255,0.15)] flex-shrink-0">
             <div>
               <h3 className="text-[#EEF3FA] font-bold text-sm" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>New Incident</h3>
               <p className="text-[10px] text-[#7A94B4] mt-0.5">Manually report a new incident</p>
@@ -613,64 +769,221 @@ function NewIncidentModal({ onClose, onSubmit }: { onClose: () => void; onSubmit
             </button>
           </div>
 
-          <div className="px-5 py-4 space-y-3">
-            <div>
-              <label className="block text-[9px] text-[#7A94B4] uppercase tracking-wide mb-1">Title *</label>
-              <input
-                value={form.title}
-                onChange={e => set('title', e.target.value)}
-                placeholder="e.g. AC Failure — Villa 12"
-                className="w-full bg-[#112040] border border-[rgba(46,127,255,0.2)] rounded-lg px-3 py-2 text-[12px] text-[#EEF3FA] placeholder-[#7A94B4]/50 outline-none focus:border-[#2E7FFF] transition-colors"
-              />
-            </div>
-            <div>
-              <label className="block text-[9px] text-[#7A94B4] uppercase tracking-wide mb-1">Location *</label>
-              <input
-                value={form.location}
-                onChange={e => set('location', e.target.value)}
-                placeholder="e.g. Villa 12, Cluster A"
-                className="w-full bg-[#112040] border border-[rgba(46,127,255,0.2)] rounded-lg px-3 py-2 text-[12px] text-[#EEF3FA] placeholder-[#7A94B4]/50 outline-none focus:border-[#2E7FFF] transition-colors"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
+          <div className="overflow-y-auto flex-1">
+            <div className="px-5 py-4 space-y-3">
               <div>
-                <label className="block text-[9px] text-[#7A94B4] uppercase tracking-wide mb-1">Severity</label>
-                <select
-                  value={form.severity}
-                  onChange={e => set('severity', e.target.value)}
-                  className="w-full bg-[#112040] border border-[rgba(46,127,255,0.2)] rounded-lg px-3 py-2 text-[12px] text-[#EEF3FA] outline-none focus:border-[#2E7FFF] transition-colors capitalize"
-                >
-                  {['critical', 'high', 'medium', 'low'].map(s => (
-                    <option key={s} value={s} className="bg-[#0D1F3C] capitalize">{s.charAt(0).toUpperCase() + s.slice(1)}</option>
-                  ))}
-                </select>
+                <label className="block text-[9px] text-[#7A94B4] uppercase tracking-wide mb-1.5">Photo</label>
+                {!photoPreview ? (
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => cameraInputRef.current?.click()}
+                      className="flex-1 flex flex-col items-center gap-1.5 py-3 rounded-xl border border-dashed border-[rgba(46,127,255,0.3)] bg-[#112040] hover:bg-[rgba(46,127,255,0.08)] hover:border-[rgba(46,127,255,0.5)] transition-colors text-[10px] text-[#7A94B4]"
+                    >
+                      <Camera size={18} className="text-[#2E7FFF]" />
+                      Take Photo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex-1 flex flex-col items-center gap-1.5 py-3 rounded-xl border border-dashed border-[rgba(46,127,255,0.3)] bg-[#112040] hover:bg-[rgba(46,127,255,0.08)] hover:border-[rgba(46,127,255,0.5)] transition-colors text-[10px] text-[#7A94B4]"
+                    >
+                      <Upload size={18} className="text-[#2E7FFF]" />
+                      Upload Image
+                    </button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <img src={photoPreview} alt="Incident photo" className="w-full rounded-xl object-cover max-h-36 border border-[rgba(46,127,255,0.2)]" />
+                    {analyzingPhoto && (
+                      <div className="absolute inset-0 rounded-xl bg-black/60 flex flex-col items-center justify-center gap-2">
+                        <Loader2 size={20} className="text-cyan-400 animate-spin" />
+                        <span className="text-[10px] text-cyan-300">Analyzing with AI…</span>
+                      </div>
+                    )}
+                    {!analyzingPhoto && (
+                      <button
+                        type="button"
+                        onClick={removePhoto}
+                        className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/60 flex items-center justify-center text-white hover:bg-black/80 transition-colors"
+                      >
+                        <X size={11} />
+                      </button>
+                    )}
+                  </div>
+                )}
+                <input ref={cameraInputRef} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" className="hidden" onChange={handleFileChange} />
+                <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleFileChange} />
+              </div>
+
+              <div>
+                <label className="block text-[9px] text-[#7A94B4] uppercase tracking-wide mb-1">
+                  Title *{aiSuggested.title && <AISuggestedBadge />}
+                </label>
+                <input
+                  value={form.title}
+                  onChange={e => { set('title', e.target.value); setAiSuggested(p => ({ ...p, title: false })); }}
+                  placeholder="e.g. AC Failure — Villa 12"
+                  className="w-full bg-[#112040] border border-[rgba(46,127,255,0.2)] rounded-lg px-3 py-2 text-[12px] text-[#EEF3FA] placeholder-[#7A94B4]/50 outline-none focus:border-[#2E7FFF] transition-colors"
+                />
               </div>
               <div>
-                <label className="block text-[9px] text-[#7A94B4] uppercase tracking-wide mb-1">Source</label>
-                <select
-                  value={form.source}
-                  onChange={e => set('source', e.target.value)}
-                  className="w-full bg-[#112040] border border-[rgba(46,127,255,0.2)] rounded-lg px-3 py-2 text-[12px] text-[#EEF3FA] outline-none focus:border-[#2E7FFF] transition-colors"
-                >
-                  {NEW_INC_SOURCES.map(s => (
-                    <option key={s} value={s} className="bg-[#0D1F3C]">{s}</option>
-                  ))}
-                </select>
+                <label className="block text-[9px] text-[#7A94B4] uppercase tracking-wide mb-1">Location *</label>
+                <input
+                  value={form.location}
+                  onChange={e => set('location', e.target.value)}
+                  placeholder="e.g. Villa 12, Cluster A"
+                  className="w-full bg-[#112040] border border-[rgba(46,127,255,0.2)] rounded-lg px-3 py-2 text-[12px] text-[#EEF3FA] placeholder-[#7A94B4]/50 outline-none focus:border-[#2E7FFF] transition-colors"
+                />
               </div>
-            </div>
-            <div>
-              <label className="block text-[9px] text-[#7A94B4] uppercase tracking-wide mb-1">Description *</label>
-              <textarea
-                value={form.description}
-                onChange={e => set('description', e.target.value)}
-                placeholder="Describe the incident in detail…"
-                rows={3}
-                className="w-full bg-[#112040] border border-[rgba(46,127,255,0.2)] rounded-lg px-3 py-2 text-[12px] text-[#EEF3FA] placeholder-[#7A94B4]/50 outline-none focus:border-[#2E7FFF] transition-colors resize-none"
-              />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[9px] text-[#7A94B4] uppercase tracking-wide mb-1">
+                    Severity{aiSuggested.severity && <AISuggestedBadge />}
+                  </label>
+                  <select
+                    value={form.severity}
+                    onChange={e => { set('severity', e.target.value); setAiSuggested(p => ({ ...p, severity: false })); }}
+                    className="w-full bg-[#112040] border border-[rgba(46,127,255,0.2)] rounded-lg px-3 py-2 text-[12px] text-[#EEF3FA] outline-none focus:border-[#2E7FFF] transition-colors capitalize"
+                  >
+                    {['critical', 'high', 'medium', 'low'].map(s => (
+                      <option key={s} value={s} className="bg-[#0D1F3C] capitalize">{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[9px] text-[#7A94B4] uppercase tracking-wide mb-1">Source</label>
+                  <select
+                    value={form.source}
+                    onChange={e => set('source', e.target.value)}
+                    className="w-full bg-[#112040] border border-[rgba(46,127,255,0.2)] rounded-lg px-3 py-2 text-[12px] text-[#EEF3FA] outline-none focus:border-[#2E7FFF] transition-colors"
+                  >
+                    {NEW_INC_SOURCES.map(s => (
+                      <option key={s} value={s} className="bg-[#0D1F3C]">{s}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-[9px] text-[#7A94B4] uppercase tracking-wide mb-1">
+                  Description *{aiSuggested.description && <AISuggestedBadge />}
+                </label>
+                <textarea
+                  value={form.description}
+                  onChange={e => { set('description', e.target.value); setAiSuggested(p => ({ ...p, description: false })); }}
+                  placeholder="Describe the incident in detail…"
+                  rows={3}
+                  className="w-full bg-[#112040] border border-[rgba(46,127,255,0.2)] rounded-lg px-3 py-2 text-[12px] text-[#EEF3FA] placeholder-[#7A94B4]/50 outline-none focus:border-[#2E7FFF] transition-colors resize-none"
+                />
+              </div>
+
+              <div className="border border-[rgba(46,127,255,0.2)] rounded-xl overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAiPanelOpen(v => !v);
+                    if (!aiPanelOpen && chatMessages.length === 0) {
+                      setChatMessages([{ role: 'assistant', content: 'Hi! I\'m here to help you fill in this incident report. You can upload a photo for automatic analysis, or describe the issue and I\'ll suggest the title, severity, and description.' }]);
+                    }
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-2.5 bg-[rgba(46,127,255,0.06)] hover:bg-[rgba(46,127,255,0.1)] transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <Sparkles size={12} className="text-cyan-400" />
+                    <span className="text-[11px] font-semibold text-cyan-400">AI Assistant</span>
+                    {chatMessages.length > 0 && (
+                      <span className="text-[9px] text-[#7A94B4]">· {chatMessages.length} message{chatMessages.length !== 1 ? 's' : ''}</span>
+                    )}
+                  </div>
+                  {aiPanelOpen ? <ChevronUp size={13} className="text-[#7A94B4]" /> : <ChevronDownIcon size={13} className="text-[#7A94B4]" />}
+                </button>
+
+                <AnimatePresence>
+                  {aiPanelOpen && (
+                    <motion.div
+                      initial={{ height: 0 }}
+                      animate={{ height: 'auto' }}
+                      exit={{ height: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="border-t border-[rgba(46,127,255,0.15)]">
+                        <div className="max-h-44 overflow-y-auto px-3 py-2 space-y-2">
+                          {chatMessages.map((msg, i) => (
+                            <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                              <div className={`max-w-[85%] rounded-xl px-2.5 py-2 text-[11px] leading-relaxed whitespace-pre-wrap ${
+                                msg.role === 'user'
+                                  ? 'bg-[#2E7FFF] text-white rounded-br-sm'
+                                  : 'bg-[rgba(46,127,255,0.1)] text-[#EEF3FA] rounded-bl-sm border border-[rgba(46,127,255,0.2)]'
+                              }`}>
+                                {msg.content}
+                              </div>
+                            </div>
+                          ))}
+                          {chatLoading && (
+                            <div className="flex justify-start">
+                              <div className="bg-[rgba(46,127,255,0.1)] border border-[rgba(46,127,255,0.2)] rounded-xl rounded-bl-sm px-3 py-2">
+                                <div className="flex gap-1">
+                                  {[0,1,2].map(i => (
+                                    <motion.div key={i} animate={{ opacity: [0.3,1,0.3] }} transition={{ repeat: Infinity, duration: 1, delay: i*0.3 }}
+                                      className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          <div ref={chatEndRef} />
+                        </div>
+
+                        {pendingSuggestions && (Object.keys(pendingSuggestions).length > 0) && (
+                          <div className="px-3 pb-2 flex flex-wrap gap-1.5">
+                            {pendingSuggestions.title && (
+                              <button type="button" onClick={() => acceptSuggestion('title', pendingSuggestions.title!)}
+                                className="flex items-center gap-1 px-2 py-1 rounded-lg bg-cyan-500/15 border border-cyan-500/30 text-[9px] text-cyan-400 hover:bg-cyan-500/25 transition-colors">
+                                <CheckCircle size={8} /> Accept title
+                              </button>
+                            )}
+                            {pendingSuggestions.severity && (
+                              <button type="button" onClick={() => acceptSuggestion('severity', pendingSuggestions.severity!)}
+                                className="flex items-center gap-1 px-2 py-1 rounded-lg bg-cyan-500/15 border border-cyan-500/30 text-[9px] text-cyan-400 hover:bg-cyan-500/25 transition-colors">
+                                <CheckCircle size={8} /> Accept severity
+                              </button>
+                            )}
+                            {pendingSuggestions.description && (
+                              <button type="button" onClick={() => acceptSuggestion('description', pendingSuggestions.description!)}
+                                className="flex items-center gap-1 px-2 py-1 rounded-lg bg-cyan-500/15 border border-cyan-500/30 text-[9px] text-cyan-400 hover:bg-cyan-500/25 transition-colors">
+                                <CheckCircle size={8} /> Accept description
+                              </button>
+                            )}
+                          </div>
+                        )}
+
+                        <div className="border-t border-[rgba(46,127,255,0.1)] px-3 py-2 flex gap-2">
+                          <input
+                            value={chatInput}
+                            onChange={e => setChatInput(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendChatMessage()}
+                            placeholder="Ask AI for help…"
+                            className="flex-1 bg-[#112040] border border-[rgba(46,127,255,0.2)] rounded-lg px-2.5 py-1.5 text-[11px] text-[#EEF3FA] placeholder-[#7A94B4]/50 outline-none focus:border-[#2E7FFF] transition-colors"
+                          />
+                          <button
+                            type="button"
+                            onClick={sendChatMessage}
+                            disabled={!chatInput.trim() || chatLoading}
+                            className="w-7 h-7 rounded-lg bg-[#2E7FFF] flex items-center justify-center text-white disabled:opacity-40 hover:bg-blue-500 transition-colors flex-shrink-0"
+                          >
+                            <Send size={11} />
+                          </button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 px-5 pb-5">
+          <div className="flex items-center gap-2 px-5 pb-5 pt-3 flex-shrink-0 border-t border-[rgba(46,127,255,0.1)]">
             <button
               onClick={onClose}
               className="flex-1 py-2 rounded-lg border border-[rgba(46,127,255,0.2)] text-[11px] text-[#7A94B4] hover:text-[#EEF3FA] hover:border-[rgba(46,127,255,0.4)] transition-colors"
@@ -738,6 +1051,12 @@ export function Incidents({ onToast }: Props) {
         : loc.includes('difc')
         ? 'difc-tower'
         : 'silicon-oasis';
+    const activityLog: Incident['activityLog'] = [
+      { time: timeStr, event: `Incident manually reported via ${form.source}`, type: 'incident' },
+    ];
+    if (form.aiMetadata) {
+      activityLog.push({ time: timeStr, event: `AI photo analysis: ${form.aiMetadata.category ?? 'General'} · ${form.aiMetadata.confidence ?? '?'}% confidence`, type: 'ai' });
+    }
     const newInc: Incident = {
       id: nextId,
       title: form.title.trim(),
@@ -753,9 +1072,18 @@ export function Incidents({ onToast }: Props) {
       description: form.description.trim(),
       siteId,
       clientId: 'CLT-001',
-      activityLog: [
-        { time: timeStr, event: `Incident manually reported via ${form.source}`, type: 'incident' },
-      ],
+      activityLog,
+      ...(form.imageUrl ? { imageUrl: form.imageUrl } : {}),
+      ...(form.aiMetadata ? {
+        aiMetadata: {
+          confidence: form.aiMetadata.confidence ?? 0,
+          issueType: form.aiMetadata.issueType ?? '',
+          category: form.aiMetadata.category ?? '',
+          identifiedAsset: form.aiMetadata.identifiedAsset ?? '',
+          observations: form.aiMetadata.observations ?? [],
+          recommendedAction: form.aiMetadata.recommendedAction ?? '',
+        },
+      } : {}),
     };
     addIncident(newInc);
     setShowModal(false);
