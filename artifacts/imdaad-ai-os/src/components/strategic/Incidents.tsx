@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   AlertTriangle, X, Search, User, Clock, CheckCircle,
   Zap, ChevronRight, Send, TrendingUp, AlertCircle,
-  ChevronUp, ChevronDown as ChevronDownIcon, QrCode,
+  ChevronUp, ChevronDown as ChevronDownIcon, QrCode, Plus,
+  MessageSquare, Smartphone, Bot,
 } from 'lucide-react';
 import { SEVERITY_BADGE, slaStatus, type ToastFn } from '@/lib/ui';
 import { AnimatedBar } from '@/components/shared/AnimatedBar';
@@ -18,6 +19,24 @@ const STATUS_CONFIG: Record<string, { label: string; dot: string; text: string; 
   overdue:     { label: 'Overdue',     dot: 'bg-red-400',         text: 'text-red-400',      bg: 'bg-red-500/10 border-red-500/30' },
   closed:      { label: 'Closed',      dot: 'bg-emerald-400',     text: 'text-emerald-400',  bg: 'bg-emerald-500/10 border-emerald-500/30' },
 };
+
+const SOURCE_CONFIG: Record<string, { text: string; bg: string; border: string; icon: React.ReactNode }> = {
+  'AI Capture':        { text: 'text-cyan-400',    bg: 'bg-cyan-500/10',    border: 'border-cyan-500/30',    icon: <Bot size={8} /> },
+  'QR Scan':           { text: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/30', icon: <QrCode size={8} /> },
+  'WhatsApp → Manual': { text: 'text-green-400',   bg: 'bg-green-500/10',   border: 'border-green-500/30',   icon: <MessageSquare size={8} /> },
+  'Resident App':      { text: 'text-blue-400',    bg: 'bg-blue-500/10',    border: 'border-blue-500/30',    icon: <Smartphone size={8} /> },
+  'Manual':            { text: 'text-[#7A94B4]',   bg: 'bg-white/5',        border: 'border-white/10',       icon: <User size={8} /> },
+};
+
+function SourceBadge({ source }: { source: string }) {
+  const cfg = SOURCE_CONFIG[source] || SOURCE_CONFIG['Manual'];
+  return (
+    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[9px] font-semibold w-fit ${cfg.text} ${cfg.bg} ${cfg.border}`}>
+      {cfg.icon}
+      {source}
+    </span>
+  );
+}
 
 const LOG_ICON: Record<string, React.ReactNode> = {
   incident:    <AlertTriangle size={11} />,
@@ -37,7 +56,8 @@ const LOG_COLOR: Record<string, string> = {
 
 const ALL_SEVERITIES = ['All', 'critical', 'high', 'medium', 'low'];
 const ALL_STATUSES   = ['All', 'open', 'dispatched', 'in-progress', 'overdue', 'closed'];
-const ALL_SOURCES    = ['All', 'AI Capture', 'QR Scan', 'WhatsApp → Manual', 'Resident App'];
+const ALL_SOURCES    = ['All', 'AI Capture', 'QR Scan', 'WhatsApp → Manual', 'Resident App', 'Manual'];
+const NEW_INC_SOURCES = ['AI Capture', 'QR Scan', 'WhatsApp → Manual', 'Resident App', 'Manual'];
 
 const DETAIL_TABS = ['Overview', 'Timeline', 'AI Analysis', 'Actions'];
 
@@ -343,6 +363,128 @@ function ActionsTab({ incident, onToast }: { incident: Incident; onToast: ToastF
   );
 }
 
+const SLA_OPTIONS: Record<string, number> = { critical: 45, high: 60, medium: 120, low: 240 };
+
+interface NewIncidentForm {
+  title: string;
+  location: string;
+  severity: string;
+  description: string;
+  source: string;
+}
+
+const EMPTY_FORM: NewIncidentForm = { title: '', location: '', severity: 'medium', description: '', source: 'Manual' };
+
+function NewIncidentModal({ onClose, onSubmit }: { onClose: () => void; onSubmit: (f: NewIncidentForm) => void }) {
+  const [form, setForm] = useState<NewIncidentForm>(EMPTY_FORM);
+  const set = (k: keyof NewIncidentForm, v: string) => setForm(prev => ({ ...prev, [k]: v }));
+  const valid = form.title.trim() && form.location.trim() && form.description.trim();
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4"
+        onClick={onClose}
+      >
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95, y: 12 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95, y: 12 }}
+          transition={{ duration: 0.2 }}
+          className="bg-[#0D1F3C] border border-[rgba(46,127,255,0.25)] rounded-2xl w-full max-w-md shadow-2xl"
+          onClick={e => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between px-5 py-4 border-b border-[rgba(46,127,255,0.15)]">
+            <div>
+              <h3 className="text-[#EEF3FA] font-bold text-sm" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>New Incident</h3>
+              <p className="text-[10px] text-[#7A94B4] mt-0.5">Manually report a new incident</p>
+            </div>
+            <button onClick={onClose} className="text-[#7A94B4] hover:text-white transition-colors">
+              <X size={15} />
+            </button>
+          </div>
+
+          <div className="px-5 py-4 space-y-3">
+            <div>
+              <label className="block text-[9px] text-[#7A94B4] uppercase tracking-wide mb-1">Title *</label>
+              <input
+                value={form.title}
+                onChange={e => set('title', e.target.value)}
+                placeholder="e.g. AC Failure — Villa 12"
+                className="w-full bg-[#112040] border border-[rgba(46,127,255,0.2)] rounded-lg px-3 py-2 text-[12px] text-[#EEF3FA] placeholder-[#7A94B4]/50 outline-none focus:border-[#2E7FFF] transition-colors"
+              />
+            </div>
+            <div>
+              <label className="block text-[9px] text-[#7A94B4] uppercase tracking-wide mb-1">Location *</label>
+              <input
+                value={form.location}
+                onChange={e => set('location', e.target.value)}
+                placeholder="e.g. Villa 12, Cluster A"
+                className="w-full bg-[#112040] border border-[rgba(46,127,255,0.2)] rounded-lg px-3 py-2 text-[12px] text-[#EEF3FA] placeholder-[#7A94B4]/50 outline-none focus:border-[#2E7FFF] transition-colors"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[9px] text-[#7A94B4] uppercase tracking-wide mb-1">Severity</label>
+                <select
+                  value={form.severity}
+                  onChange={e => set('severity', e.target.value)}
+                  className="w-full bg-[#112040] border border-[rgba(46,127,255,0.2)] rounded-lg px-3 py-2 text-[12px] text-[#EEF3FA] outline-none focus:border-[#2E7FFF] transition-colors capitalize"
+                >
+                  {['critical', 'high', 'medium', 'low'].map(s => (
+                    <option key={s} value={s} className="bg-[#0D1F3C] capitalize">{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[9px] text-[#7A94B4] uppercase tracking-wide mb-1">Source</label>
+                <select
+                  value={form.source}
+                  onChange={e => set('source', e.target.value)}
+                  className="w-full bg-[#112040] border border-[rgba(46,127,255,0.2)] rounded-lg px-3 py-2 text-[12px] text-[#EEF3FA] outline-none focus:border-[#2E7FFF] transition-colors"
+                >
+                  {NEW_INC_SOURCES.map(s => (
+                    <option key={s} value={s} className="bg-[#0D1F3C]">{s}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="block text-[9px] text-[#7A94B4] uppercase tracking-wide mb-1">Description *</label>
+              <textarea
+                value={form.description}
+                onChange={e => set('description', e.target.value)}
+                placeholder="Describe the incident in detail…"
+                rows={3}
+                className="w-full bg-[#112040] border border-[rgba(46,127,255,0.2)] rounded-lg px-3 py-2 text-[12px] text-[#EEF3FA] placeholder-[#7A94B4]/50 outline-none focus:border-[#2E7FFF] transition-colors resize-none"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 px-5 pb-5">
+            <button
+              onClick={onClose}
+              className="flex-1 py-2 rounded-lg border border-[rgba(46,127,255,0.2)] text-[11px] text-[#7A94B4] hover:text-[#EEF3FA] hover:border-[rgba(46,127,255,0.4)] transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => valid && onSubmit(form)}
+              disabled={!valid}
+              className={`flex-1 py-2 rounded-lg text-[11px] font-semibold transition-colors ${valid ? 'bg-[#2E7FFF] text-white hover:bg-blue-500' : 'bg-[#2E7FFF]/30 text-white/40 cursor-not-allowed'}`}
+            >
+              Create Incident
+            </button>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
 interface Props { onToast: ToastFn }
 
 type SortKey = 'severity' | 'sla' | 'status' | 'none';
@@ -352,7 +494,7 @@ const SEVERITY_ORDER: Record<string, number> = { critical: 0, high: 1, medium: 2
 const STATUS_ORDER: Record<string, number>   = { overdue: 0, 'in-progress': 1, open: 2, dispatched: 3, assigned: 4, closed: 5 };
 
 export function Incidents({ onToast }: Props) {
-  const { incidents } = useIncidents();
+  const { incidents, addIncident } = useIncidents();
   const [search,      setSearch]      = useState('');
   const [severity,    setSeverity]    = useState('All');
   const [status,      setStatus]      = useState('All');
@@ -361,10 +503,41 @@ export function Incidents({ onToast }: Props) {
   const [activeTab,   setActiveTab]   = useState('Overview');
   const [sortKey,     setSortKey]     = useState<SortKey>('none');
   const [sortDir,     setSortDir]     = useState<SortDir>('asc');
+  const [showModal,   setShowModal]   = useState(false);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
     else { setSortKey(key); setSortDir('asc'); }
+  };
+
+  const handleCreateIncident = (form: NewIncidentForm) => {
+    const maxNum = incidents.reduce((max, inc) => {
+      const m = inc.id.match(/INC-SI-(\d+)/);
+      return m ? Math.max(max, parseInt(m[1], 10)) : max;
+    }, 0);
+    const nextId = `INC-SI-${String(maxNum + 1).padStart(3, '0')}`;
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    const newInc: Incident = {
+      id: nextId,
+      title: form.title.trim(),
+      location: form.location.trim(),
+      severity: form.severity,
+      slaMinutes: SLA_OPTIONS[form.severity] ?? 120,
+      elapsed: 0,
+      source: form.source,
+      status: 'open',
+      assignedTech: null,
+      techId: null,
+      closureNotes: null,
+      description: form.description.trim(),
+      activityLog: [
+        { time: timeStr, event: `Incident manually reported via ${form.source}`, type: 'incident' },
+      ],
+    };
+    addIncident(newInc);
+    setShowModal(false);
+    onToast(`Incident ${newInc.id} created`, 'success');
   };
 
   const filtered = incidents
@@ -395,6 +568,13 @@ export function Incidents({ onToast }: Props) {
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
+      {showModal && (
+        <NewIncidentModal
+          onClose={() => setShowModal(false)}
+          onSubmit={handleCreateIncident}
+        />
+      )}
+
       <div className="flex items-center justify-between px-5 py-3 border-b border-[rgba(46,127,255,0.15)] flex-shrink-0">
         <div>
           <h2 className="text-[#EEF3FA] font-bold text-base" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Incidents</h2>
@@ -411,6 +591,13 @@ export function Incidents({ onToast }: Props) {
               <span>{k.label}</span>
             </div>
           ))}
+          <button
+            onClick={() => setShowModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#2E7FFF] text-white text-[11px] font-semibold hover:bg-blue-500 transition-colors"
+          >
+            <Plus size={12} />
+            New Incident
+          </button>
         </div>
       </div>
 
@@ -451,14 +638,15 @@ export function Incidents({ onToast }: Props) {
 
       <div className="flex flex-1 overflow-hidden">
         <div className={`flex flex-col overflow-hidden transition-all duration-300 ${selected ? 'flex-[55]' : 'flex-1'}`}>
-          <div className="hidden sm:grid grid-cols-[2fr_1.5fr_1fr_1.5fr_1fr_1.4fr] px-5 py-2 text-[9px] text-[#7A94B4] uppercase tracking-wide border-b border-[rgba(46,127,255,0.08)] flex-shrink-0">
+          <div className="hidden sm:grid grid-cols-[2fr_1.2fr_0.9fr_1.4fr_0.9fr_1.1fr_1.2fr] px-5 py-2 text-[9px] text-[#7A94B4] uppercase tracking-wide border-b border-[rgba(46,127,255,0.08)] flex-shrink-0">
             {[
-              { label: 'Incident',     key: null },
-              { label: 'Location',     key: null },
-              { label: 'Severity',     key: 'severity' as SortKey },
+              { label: 'Incident',       key: null },
+              { label: 'Location',       key: null },
+              { label: 'Severity',       key: 'severity' as SortKey },
               { label: 'SLA / Progress', key: 'sla' as SortKey },
-              { label: 'Status',       key: 'status' as SortKey },
-              { label: 'Tech',         key: null },
+              { label: 'Status',         key: 'status' as SortKey },
+              { label: 'Source',         key: null },
+              { label: 'Tech',           key: null },
             ].map(h => (
               <div key={h.label}
                 className={`flex items-center gap-0.5 ${h.key ? 'cursor-pointer hover:text-[#EEF3FA] select-none' : ''} ${sortKey === h.key ? 'text-[#EEF3FA]' : ''}`}
@@ -481,7 +669,7 @@ export function Incidents({ onToast }: Props) {
                   whileTap={{ scale: 0.995 }}
                   className={`w-full text-left px-5 py-3 border-b border-[rgba(46,127,255,0.08)] hover:bg-white/[0.02] transition-all ${isSelected ? 'bg-[rgba(46,127,255,0.08)]' : ''}`}
                 >
-                  <div className="grid grid-cols-[2fr_1.5fr_1fr_1.5fr_1fr_1.4fr] items-center gap-2">
+                  <div className="grid grid-cols-[2fr_1.2fr_0.9fr_1.4fr_0.9fr_1.1fr_1.2fr] items-center gap-2">
                     <div>
                       <div className="text-[12px] text-[#EEF3FA] font-semibold">{inc.title}</div>
                       <div className="text-[9px] text-[#7A94B4]">{inc.id}</div>
@@ -495,6 +683,7 @@ export function Incidents({ onToast }: Props) {
                       <div className={`w-1 h-1 rounded-full flex-shrink-0 ${st.dot}`} />
                       {st.label}
                     </div>
+                    <SourceBadge source={inc.source} />
                     <div className="flex items-center gap-1.5">
                       {inc.assignedTech ? (
                         <>
