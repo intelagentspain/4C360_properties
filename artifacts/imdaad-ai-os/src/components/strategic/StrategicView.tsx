@@ -17,6 +17,7 @@ import { Tasks } from './Tasks';
 import { PPMSchedule } from './PPMSchedule';
 import { AICapture } from './AICapture';
 import { DispatchAIRules } from './DispatchAIRules';
+import { initialDispatchSettings, type DispatchSettings } from '@/data/dispatchSettings';
 import type { StrategicPage } from '@/App';
 import type { ToastFn } from '@/lib/ui';
 
@@ -53,6 +54,8 @@ function Dashboard({ onToast }: { onToast: ToastFn }) {
 }
 
 export function StrategicView({ onToast, page }: Props) {
+  const [dispatchSettings, setDispatchSettings] = useState<DispatchSettings>(initialDispatchSettings);
+
   return (
     <AnimatePresence mode="wait">
       <motion.div
@@ -70,8 +73,14 @@ export function StrategicView({ onToast, page }: Props) {
         {page === 'incidents'   && <Incidents     onToast={onToast} />}
         {page === 'tasks'       && <Tasks         onToast={onToast} />}
         {page === 'ppmschedule' && <PPMSchedule   onToast={onToast} />}
-        {page === 'aicapture'   && <AICapture        onToast={onToast} />}
-        {page === 'settings'    && <DispatchAIRules  onToast={onToast} />}
+        {page === 'aicapture'   && <AICapture     onToast={onToast} />}
+        {page === 'settings'    && (
+          <DispatchAIRules
+            onToast={onToast}
+            settings={dispatchSettings}
+            setSettings={setDispatchSettings}
+          />
+        )}
       </motion.div>
     </AnimatePresence>
   );

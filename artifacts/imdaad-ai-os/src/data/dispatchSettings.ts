@@ -14,6 +14,7 @@ export interface AutoRule {
   site: string;
   timeOfDay: string;
   assetType: string;
+  clientType?: string;
   slaThreshold: string;
   target: string;
   requireConfirmation: boolean;
