@@ -1,0 +1,279 @@
+Design and implement a new page for the existing 4C360 FM demo app called:
+
+“All Clients”
+
+Purpose:
+This page is for the Master Admin / Super Admin to control the full portfolio in one view.
+It should show ONE CARD PER CLIENT, similar in logic to the attached example where each region has its own operational card.
+
+Important:
+- Do NOT rebuild the app
+- Reuse the current dark enterprise UI, spacing, card style, top bar, filters, and interaction patterns
+- Keep the existing design language of the current Command Center / AI-OS interface
+- This is for DEMO use, so mock data is acceptable, but it must feel real and connected
+
+--------------------------------------------------
+1. PAGE PURPOSE
+--------------------------------------------------
+
+The “All Clients” page should let the Master Admin:
+- see all clients in one glance
+- understand which clients need attention
+- compare clients quickly
+- drill into a client with one click
+- see operational posture, data source coverage, and risk by client
+
+This page should feel like:
+- executive
+- scalable
+- portfolio-wide
+- AI-assisted
+- operationally useful
+
+--------------------------------------------------
+2. PAGE LOCATION / NAVIGATION
+--------------------------------------------------
+
+Add a new page in the app:
+- Page name: All Clients
+- Add it to the left navigation for Master Admin / Super Admin only
+
+Keep current app shell:
+- left sidebar
+- top bar
+- dark theme
+- mode tabs if already present
+
+--------------------------------------------------
+3. PAGE HEADER
+--------------------------------------------------
+
+Top section should include:
+
+Title:
+“All Clients”
+
+Subtitle:
+“Portfolio-wide view of client operations, risk, data sources, and performance”
+
+Top controls:
+- Search clients
+- Filter by:
+  - Region
+  - Industry / Sector
+  - Status
+  - Risk Level
+- Sort by:
+  - Highest risk
+  - Most sites
+  - SLA performance
+  - Most incidents
+- View toggle:
+  - Grid view
+  - Compact list view (optional)
+- Primary action button:
+  - “Add Client” (UI only if needed)
+
+--------------------------------------------------
+4. MAIN LAYOUT
+--------------------------------------------------
+
+Main content should be a responsive card grid.
+
+Each client = one large card.
+
+Desktop:
+- 2 cards per row or 3 if space allows
+- generous spacing
+- clear hierarchy
+
+Each card must feel like a mini operational hub.
+
+--------------------------------------------------
+5. CLIENT CARD DESIGN
+--------------------------------------------------
+
+Create a reusable component:
+ClientPortfolioCard
+
+Each client card should contain:
+
+A. Card header
+- Client name
+- small status indicator:
+  - Live
+  - Warning
+  - Critical
+- optional industry label
+- optional region / country label
+- top-right arrow or “Open” affordance
+
+B. Summary metrics row
+Display 3–5 key metrics:
+- Sites
+- Active Work Orders
+- Open Incidents
+- SLA Performance %
+- Compliance %
+
+C. Risk strip / operational posture
+A thin visual section showing:
+- risk level
+- overdue tasks
+- upcoming risks
+- vendor risk (optional)
+
+D. Data sources section
+Show connected source chips like:
+- IoT Sensors
+- Mobile App
+- Web Portal
+- WhatsApp
+- Email
+- API Integration
+- BMS
+Each chip can include volume count in brackets
+
+E. AI insight snippet
+Show 1 short AI-generated insight per client, for example:
+- “HVAC issues rising in 2 sites”
+- “3 SLA breaches likely in next 24h”
+- “Vendor dependency high in Dubai cluster”
+
+F. Footer actions
+- View Client
+- Open Command Center
+- Open Data Sources
+- View Risks
+
+--------------------------------------------------
+6. CARD VISUAL STATES
+--------------------------------------------------
+
+Client cards should have visual state cues:
+
+Live / healthy:
+- subtle green status dot
+- calm appearance
+
+Warning:
+- amber highlight or badge
+
+Critical:
+- red risk chip / stronger emphasis
+
+Cards should not feel noisy, but Master Admin must instantly see which clients are problematic.
+
+--------------------------------------------------
+7. OPTIONAL EXPAND / DRAWER BEHAVIOR
+--------------------------------------------------
+
+When clicking a client card:
+Open a right-side drawer or navigate to client detail page.
+
+Drawer can include:
+- client overview
+- top sites
+- risk summary
+- data source quality
+- recent activity
+- AI insights
+
+If easier, clicking the card can route to an existing client-specific dashboard.
+
+--------------------------------------------------
+8. TOP SUMMARY STRIP (ABOVE CARD GRID)
+--------------------------------------------------
+
+Add a summary strip at the top of the page with Master Admin portfolio KPIs:
+
+- Total Clients
+- Total Sites
+- Total Active Work Orders
+- Total Critical Incidents
+- Avg SLA Performance
+- Total Connected Data Sources
+
+These should match the same visual style as the rest of the app.
+
+--------------------------------------------------
+9. LIVE PULSE / PORTFOLIO FEED
+--------------------------------------------------
+
+Add a small live pulse section near the top, similar to the existing pulse feed.
+
+Show portfolio-wide events like:
+- “SLA breach risk detected for Client X”
+- “Data source sync failed for Client Y”
+- “Critical incident opened at Client Z”
+- “AI flagged repeat issue cluster in 2 sites”
+
+This makes the page feel alive.
+
+--------------------------------------------------
+10. MOCK DATA TO SEED
+--------------------------------------------------
+
+Create believable demo clients, for example:
+- Dubai Mall Operations
+- Silicon Oasis Community
+- Riyadh Residential Cluster
+- Abu Dhabi Medical Complex
+- Sharjah Retail Portfolio
+- Expo Facilities Group
+
+Each client should have:
+- region
+- number of sites
+- number of active work orders
+- incidents
+- SLA %
+- compliance %
+- data source chips
+- one AI insight
+- one risk state
+
+Use varied data so the page feels useful for comparison.
+
+--------------------------------------------------
+11. DESIGN RULES
+--------------------------------------------------
+
+Follow current 4C360 / AI-OS UI style:
+- dark navy background
+- glass / deep card surfaces
+- teal / blue accents
+- green / amber / red for operational states
+- clean typography
+- minimal clutter
+- premium enterprise look
+
+The page should feel like:
+“Master Admin command over the entire client portfolio”
+
+--------------------------------------------------
+12. IMPLEMENTATION NOTES
+--------------------------------------------------
+
+Build this as a reusable page and card system.
+
+Suggested components:
+- AllClientsPage
+- PortfolioSummaryStrip
+- ClientPortfolioCard
+- ClientStatusBadge
+- DataSourceChip
+- ClientInsightSnippet
+- PortfolioPulseFeed
+
+Use mock data if needed, but structure it so it can later connect to real backend data.
+
+--------------------------------------------------
+13. FINAL REQUIREMENT
+--------------------------------------------------
+
+After implementing, show:
+1. files created / changed
+2. new reusable components added
+3. mock data structure used
+4. where the page is linked in navigation
