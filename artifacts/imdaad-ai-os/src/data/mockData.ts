@@ -7,10 +7,72 @@ export const mockTechnicians = [
 ];
 
 export const mockIncidents = [
-  { id: 'INC-SI-001', title: 'AC Failure', location: 'Villa 23, Cluster A', severity: 'critical', slaMinutes: 45, elapsed: 6, lat: 25.1185, lng: 55.3755, source: 'AI Capture' },
-  { id: 'INC-SI-002', title: 'Water Leak', location: 'Villa 7, Cluster B', severity: 'medium', slaMinutes: 120, elapsed: 14, lat: 25.1160, lng: 55.3785, source: 'AI Capture' },
-  { id: 'INC-SI-003', title: 'Lift Fault', location: 'Block C', severity: 'high', slaMinutes: 60, elapsed: 22, lat: 25.1195, lng: 55.3765, source: 'WhatsApp → Manual' },
-  { id: 'INC-SI-004', title: 'Power Trip', location: 'Villa 31', severity: 'low', slaMinutes: 240, elapsed: 31, lat: 25.1170, lng: 55.3750, source: 'Resident App' },
+  {
+    id: 'INC-SI-001', title: 'AC Failure', location: 'Villa 23, Cluster A',
+    severity: 'critical', slaMinutes: 45, elapsed: 6, lat: 25.1185, lng: 55.3755, source: 'AI Capture',
+    status: 'dispatched', assignedTech: 'Karim R.', techId: 'KR',
+    description: 'AI detected frost pattern on evaporator coil. Consistent with R-410A refrigerant depletion. Resident confirmed unit not cooling.',
+    activityLog: [
+      { time: '10:08 AM', event: 'AI Capture detected via resident photo', type: 'incident' },
+      { time: '10:10 AM', event: 'Auto-classified: HVAC · Critical · 45 min SLA', type: 'ai' },
+      { time: '10:12 AM', event: 'Karim R. dispatched — ETA 4 min · 0.4 km away', type: 'dispatch' },
+    ],
+  },
+  {
+    id: 'INC-SI-002', title: 'Water Leak', location: 'Villa 7, Cluster B',
+    severity: 'medium', slaMinutes: 120, elapsed: 14, lat: 25.1160, lng: 55.3785, source: 'AI Capture',
+    status: 'open', assignedTech: null, techId: null,
+    description: 'Resident submitted photo of water pooling under kitchen sink. AI matched pattern to slow pipe joint failure. No structural damage detected.',
+    activityLog: [
+      { time: '10:10 AM', event: 'Incident reported via Resident App with photo', type: 'incident' },
+      { time: '10:11 AM', event: 'Auto-classified: Plumbing · Medium · 120 min SLA', type: 'ai' },
+    ],
+  },
+  {
+    id: 'INC-SI-003', title: 'Lift Fault', location: 'Block C',
+    severity: 'high', slaMinutes: 60, elapsed: 22, lat: 25.1195, lng: 55.3765, source: 'WhatsApp → Manual',
+    status: 'in-progress', assignedTech: 'Faisal N.', techId: 'FN',
+    description: 'Lift stopped between floors — reported via WhatsApp message thread. Manual review escalated to high priority. No occupants trapped.',
+    activityLog: [
+      { time: '09:58 AM', event: 'WhatsApp message received from building supervisor', type: 'incident' },
+      { time: '10:00 AM', event: 'Manual review — escalated to High · 60 min SLA', type: 'escalation' },
+      { time: '10:05 AM', event: 'Faisal N. dispatched · General · 0.8 km', type: 'dispatch' },
+      { time: '10:18 AM', event: 'Faisal N. on-site — diagnosis in progress', type: 'update' },
+    ],
+  },
+  {
+    id: 'INC-SI-004', title: 'Power Trip', location: 'Villa 31',
+    severity: 'low', slaMinutes: 240, elapsed: 31, lat: 25.1170, lng: 55.3750, source: 'Resident App',
+    status: 'assigned', assignedTech: 'Sara M.', techId: 'SM',
+    description: 'Resident reported MCB tripping repeatedly. Likely caused by faulty appliance or overloaded circuit. Sara M. assigned for electrical inspection.',
+    activityLog: [
+      { time: '09:49 AM', event: 'Service request submitted via Resident App', type: 'incident' },
+      { time: '09:51 AM', event: 'Auto-classified: Electrical · Low · 240 min SLA', type: 'ai' },
+      { time: '09:55 AM', event: 'Sara M. assigned — ETA 22 min', type: 'dispatch' },
+    ],
+  },
+  {
+    id: 'INC-SI-005', title: 'Gate Intercom Down', location: 'Main Gate',
+    severity: 'medium', slaMinutes: 180, elapsed: 45, lat: 25.1175, lng: 55.3775, source: 'Resident App',
+    status: 'overdue', assignedTech: 'Omar T.', techId: 'OT',
+    description: 'Main gate intercom system unresponsive. Multiple residents unable to grant access to visitors. Omar T. assigned but job is now overdue.',
+    activityLog: [
+      { time: '09:30 AM', event: 'Multiple residents reported via app', type: 'incident' },
+      { time: '09:35 AM', event: 'Classified: Electrical · Medium · 180 min SLA', type: 'ai' },
+      { time: '09:40 AM', event: 'Omar T. assigned — ETA 15 min', type: 'dispatch' },
+      { time: '10:15 AM', event: 'SLA BREACH — job overdue by 15 min', type: 'escalation' },
+    ],
+  },
+  {
+    id: 'INC-SI-006', title: 'Pool Pump Noise', location: 'Recreation Area',
+    severity: 'low', slaMinutes: 360, elapsed: 12, lat: 25.1168, lng: 55.3762, source: 'Resident App',
+    status: 'open', assignedTech: null, techId: null,
+    description: 'Unusually loud grinding noise from pool pump reported. IoT sensor confirms anomalous vibration signature. Predictive risk flagged at 41%.',
+    activityLog: [
+      { time: '10:12 AM', event: 'Resident reported noise via app', type: 'incident' },
+      { time: '10:13 AM', event: 'IoT corroboration: vibration anomaly on PP-02', type: 'ai' },
+    ],
+  },
 ];
 
 export const mockClusters = [
@@ -23,6 +85,72 @@ export const mockPPMRisks = [
   { id: 'PPM-001', asset: 'Chiller Unit — Block C Gym', type: 'Quarterly HVAC Service', daysUntilDue: 8, lastDone: 83, riskLevel: 'high' },
   { id: 'PPM-002', asset: 'Lift — Villa Cluster A, Block 2', type: 'Monthly Safety Check', daysUntilDue: 2, lastDone: 29, riskLevel: 'critical' },
   { id: 'PPM-003', asset: 'Fire Suppression — Community Centre', type: '6-Month Inspection', daysUntilDue: 14, lastDone: 167, riskLevel: 'medium' },
+];
+
+export const mockPPMSchedule = [
+  {
+    id: 'PPM-S-001', assetId: 'AST-002', asset: 'Lift — Cluster A, Block 2', type: 'Lift',
+    task: 'Monthly Safety Check', skill: 'General', location: 'Cluster A, Block 2',
+    daysUntilDue: -3, lastDone: 32, daysScheduled: 30, riskLevel: 'overdue',
+    tech: 'Faisal N.', techId: 'FN', condition: 58, nextDueDate: '7 Apr',
+    notes: 'Motor vibration anomaly detected by IoT — do not defer.',
+  },
+  {
+    id: 'PPM-S-002', assetId: 'AST-001', asset: 'Chiller Unit C-04', type: 'HVAC',
+    task: 'Quarterly HVAC Service', skill: 'HVAC', location: 'Block C Gym',
+    daysUntilDue: 2, lastDone: 83, daysScheduled: 90, riskLevel: 'critical',
+    tech: 'Karim R.', techId: 'KR', condition: 72, nextDueDate: '12 Apr',
+    notes: 'Refrigerant pressure at 72%. Risk of failure in 4–6 days per prediction engine.',
+  },
+  {
+    id: 'PPM-S-003', assetId: 'AST-002', asset: 'Gate Intercom System', type: 'Electrical',
+    task: 'Annual Hardware Check', skill: 'Electrical', location: 'Main Gate',
+    daysUntilDue: 3, lastDone: 362, daysScheduled: 365, riskLevel: 'critical',
+    tech: 'Sara M.', techId: 'SM', condition: 61, nextDueDate: '13 Apr',
+    notes: 'Currently experiencing operational fault. PPM overdue alongside active incident.',
+  },
+  {
+    id: 'PPM-S-004', assetId: 'AST-005', asset: 'Fire Panel FP-01', type: 'Safety',
+    task: '6-Month Inspection', skill: 'Safety', location: 'Community Centre',
+    daysUntilDue: 8, lastDone: 172, daysScheduled: 180, riskLevel: 'high',
+    tech: 'Sara M.', techId: 'SM', condition: 97, nextDueDate: '18 Apr',
+    notes: 'Regulatory compliance requirement. Must not be deferred beyond due date.',
+  },
+  {
+    id: 'PPM-S-005', assetId: 'AST-001', asset: 'AHU — Block A Floor 2', type: 'HVAC',
+    task: 'Filter & Coil Clean', skill: 'HVAC', location: 'Block A, Floor 2',
+    daysUntilDue: 11, lastDone: 44, daysScheduled: 60, riskLevel: 'high',
+    tech: 'Karim R.', techId: 'KR', condition: 81, nextDueDate: '21 Apr',
+    notes: 'Scheduled routine service — no active faults.',
+  },
+  {
+    id: 'PPM-S-006', assetId: 'AST-003', asset: 'Fire Suppression — Block B', type: 'Safety',
+    task: '6-Month Suppression Test', skill: 'Safety', location: 'Block B',
+    daysUntilDue: 14, lastDone: 166, daysScheduled: 180, riskLevel: 'medium',
+    tech: null, techId: null, condition: 90, nextDueDate: '24 Apr',
+    notes: 'Unassigned — requires certified fire safety technician.',
+  },
+  {
+    id: 'PPM-S-007', assetId: 'AST-004', asset: 'Pool Pump PP-02', type: 'Plumbing',
+    task: 'Monthly Inspection', skill: 'Plumbing', location: 'Recreation Area',
+    daysUntilDue: 18, lastDone: 12, daysScheduled: 30, riskLevel: 'medium',
+    tech: 'Ahmed K.', techId: 'AK', condition: 89, nextDueDate: '28 Apr',
+    notes: 'Pressure variance detected over 5-day trend — monitor closely.',
+  },
+  {
+    id: 'PPM-S-008', assetId: 'AST-003', asset: 'Generator G-01', type: 'Electrical',
+    task: 'Quarterly Load Test', skill: 'Electrical', location: 'Community Centre',
+    daysUntilDue: 34, lastDone: 56, daysScheduled: 90, riskLevel: 'low',
+    tech: 'Sara M.', techId: 'SM', condition: 94, nextDueDate: '14 May',
+    notes: 'No issues — scheduled as planned.',
+  },
+  {
+    id: 'PPM-S-009', assetId: null, asset: 'Irrigation System', type: 'Plumbing',
+    task: 'Seasonal Service', skill: 'Plumbing', location: 'Landscape Areas',
+    daysUntilDue: 51, lastDone: 219, daysScheduled: 270, riskLevel: 'low',
+    tech: 'Faisal N.', techId: 'FN', condition: 85, nextDueDate: '31 May',
+    notes: 'Seasonal check — aligned with summer preparation schedule.',
+  },
 ];
 
 export const mockDispatchJobs = [
@@ -268,5 +396,134 @@ export const mockSmartDispatch = [
     recommendations: [
       { tech: 'Sara M.', techId: 'SM', skill: 'Electrical', distance: '0.8 km', eta: '7 min', skillMatch: 85, availability: 'available', reason: 'Electrical systems certified · Fully available · High rating' },
     ],
+  },
+];
+
+export const mockAICaptures = [
+  {
+    id: 'AIC-001', category: 'HVAC', subCategory: 'Cooling Failure',
+    title: 'Frost Pattern on AC Evaporator Coil', location: 'Villa 23, Cluster A',
+    severity: 'critical', confidence: 94, source: 'Resident App Photo',
+    capturedAt: '10:08 AM', status: 'confirmed' as const,
+    linkedIncident: 'INC-SI-001', linkedJob: 'KT-003',
+    signals: [
+      { label: 'Frost on evaporator coil', match: 97 },
+      { label: 'Compressor vibration profile', match: 91 },
+      { label: 'Asset last serviced 83 days ago', match: 88 },
+    ],
+    gradient: 'from-[#0a1f3a] to-[#061428]',
+    boxColor: '#00C6FF',
+  },
+  {
+    id: 'AIC-002', category: 'Plumbing', subCategory: 'Pipe Joint Failure',
+    title: 'Water Pooling Under Kitchen Sink', location: 'Villa 7, Cluster B',
+    severity: 'medium', confidence: 81, source: 'Resident App Photo',
+    capturedAt: '10:10 AM', status: 'pending' as const,
+    linkedIncident: 'INC-SI-002', linkedJob: null,
+    signals: [
+      { label: 'Water accumulation pattern', match: 89 },
+      { label: 'Drip trajectory analysis', match: 76 },
+      { label: 'Material corrosion markers', match: 64 },
+    ],
+    gradient: 'from-[#0f1e30] to-[#071522]',
+    boxColor: '#2E7FFF',
+  },
+  {
+    id: 'AIC-003', category: 'Mechanical', subCategory: 'Lift Motor Anomaly',
+    title: 'Lift Stopped — Floor Gap Detected', location: 'Block C, Lift 2',
+    severity: 'high', confidence: 88, source: 'IoT Sensor Alert',
+    capturedAt: '09:58 AM', status: 'confirmed' as const,
+    linkedIncident: 'INC-SI-003', linkedJob: 'KT-005',
+    signals: [
+      { label: 'Motor torque deviation', match: 93 },
+      { label: 'Door sensor misalignment', match: 86 },
+      { label: 'Historical fault pattern', match: 79 },
+    ],
+    gradient: 'from-[#1a1208] to-[#0d0b04]',
+    boxColor: '#FF9B38',
+  },
+  {
+    id: 'AIC-004', category: 'Electrical', subCategory: 'MCB Overload',
+    title: 'Repeated MCB Tripping — Villa 31', location: 'Villa 31',
+    severity: 'low', confidence: 72, source: 'Resident App Photo',
+    capturedAt: '09:49 AM', status: 'confirmed' as const,
+    linkedIncident: 'INC-SI-004', linkedJob: 'KT-004',
+    signals: [
+      { label: 'Trip pattern frequency', match: 78 },
+      { label: 'Panel heat signature', match: 69 },
+      { label: 'Load profile anomaly', match: 61 },
+    ],
+    gradient: 'from-[#0f1a2e] to-[#06101e]',
+    boxColor: '#38D98A',
+  },
+  {
+    id: 'AIC-005', category: 'Plumbing', subCategory: 'Pump Vibration',
+    title: 'Pool Pump Grinding Noise Detected', location: 'Recreation Area',
+    severity: 'low', confidence: 67, source: 'IoT Acoustic Sensor',
+    capturedAt: '10:12 AM', status: 'pending' as const,
+    linkedIncident: 'INC-SI-006', linkedJob: null,
+    signals: [
+      { label: 'Acoustic anomaly frequency', match: 71 },
+      { label: 'Vibration baseline deviation', match: 64 },
+      { label: 'Bearing wear signature', match: 58 },
+    ],
+    gradient: 'from-[#071a14] to-[#041010]',
+    boxColor: '#38D98A',
+  },
+  {
+    id: 'AIC-006', category: 'HVAC', subCategory: 'Filter Blockage',
+    title: 'AHU Filter Discolouration — Block A', location: 'Block A, Floor 2',
+    severity: 'medium', confidence: 85, source: 'QR Scan Photo',
+    capturedAt: '09:30 AM', status: 'pending' as const,
+    linkedIncident: null, linkedJob: 'KT-001',
+    signals: [
+      { label: 'Filter colour deviation', match: 91 },
+      { label: 'Airflow restriction indicator', match: 82 },
+      { label: 'PPM schedule overdue 14 days', match: 78 },
+    ],
+    gradient: 'from-[#0a1628] to-[#060e1a]',
+    boxColor: '#00C6FF',
+  },
+  {
+    id: 'AIC-007', category: 'Safety', subCategory: 'Corridor Hazard',
+    title: 'Spill Detected — Block B Corridor', location: 'Block B, Corridor 3',
+    severity: 'medium', confidence: 79, source: 'CCTV AI Module',
+    capturedAt: '09:15 AM', status: 'rejected' as const,
+    linkedIncident: null, linkedJob: null,
+    signals: [
+      { label: 'Floor reflectance anomaly', match: 82 },
+      { label: 'Slip hazard classification', match: 74 },
+      { label: 'Area foot traffic context', match: 61 },
+    ],
+    gradient: 'from-[#1a0a0a] to-[#0d0404]',
+    boxColor: '#FF4B4B',
+  },
+  {
+    id: 'AIC-008', category: 'HVAC', subCategory: 'Refrigerant Leak',
+    title: 'Oily Residue Near Compressor Unit', location: 'Roof — Block D',
+    severity: 'high', confidence: 83, source: 'Technician Photo',
+    capturedAt: '08:55 AM', status: 'pending' as const,
+    linkedIncident: null, linkedJob: 'KT-012',
+    signals: [
+      { label: 'Refrigerant residue pattern', match: 87 },
+      { label: 'Compressor surface analysis', match: 81 },
+      { label: 'Thermal imaging correlation', match: 74 },
+    ],
+    gradient: 'from-[#0a1628] to-[#050d1a]',
+    boxColor: '#FF9B38',
+  },
+  {
+    id: 'AIC-009', category: 'Electrical', subCategory: 'Light Failure',
+    title: 'Multiple Corridor Lights Out — Block B', location: 'Block B, Corridor 3',
+    severity: 'low', confidence: 96, source: 'CCTV AI Module',
+    capturedAt: '08:40 AM', status: 'confirmed' as const,
+    linkedIncident: null, linkedJob: 'KT-011',
+    signals: [
+      { label: 'Luminance zone failure', match: 98 },
+      { label: 'Circuit fault identifier', match: 94 },
+      { label: 'Ballast failure pattern', match: 88 },
+    ],
+    gradient: 'from-[#0f1525] to-[#080c18]',
+    boxColor: '#2E7FFF',
   },
 ];

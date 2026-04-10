@@ -1,0 +1,466 @@
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  AlertTriangle, X, Search, User, Clock, CheckCircle,
+  Zap, ChevronRight, Send, TrendingUp, AlertCircle,
+} from 'lucide-react';
+import { mockIncidents } from '@/data/mockData';
+import { SEVERITY_BADGE, slaStatus, type ToastFn } from '@/lib/ui';
+import { AnimatedBar } from '@/components/shared/AnimatedBar';
+import { TechAvatar } from '@/components/shared/TechAvatar';
+
+type Incident = typeof mockIncidents[0];
+
+const STATUS_CONFIG: Record<string, { label: string; dot: string; text: string; bg: string }> = {
+  open:        { label: 'Open',        dot: 'bg-[#7A94B4]',       text: 'text-[#7A94B4]',    bg: 'bg-white/5 border-white/10' },
+  dispatched:  { label: 'Dispatched',  dot: 'bg-blue-400',        text: 'text-blue-400',     bg: 'bg-blue-500/10 border-blue-500/30' },
+  'in-progress':{ label: 'In Progress', dot: 'bg-cyan-400 animate-pulse', text: 'text-cyan-400', bg: 'bg-cyan-500/10 border-cyan-500/30' },
+  assigned:    { label: 'Assigned',    dot: 'bg-blue-400',        text: 'text-blue-400',     bg: 'bg-blue-500/10 border-blue-500/30' },
+  overdue:     { label: 'Overdue',     dot: 'bg-red-400',         text: 'text-red-400',      bg: 'bg-red-500/10 border-red-500/30' },
+  closed:      { label: 'Closed',      dot: 'bg-emerald-400',     text: 'text-emerald-400',  bg: 'bg-emerald-500/10 border-emerald-500/30' },
+};
+
+const LOG_ICON: Record<string, React.ReactNode> = {
+  incident:    <AlertTriangle size={11} />,
+  ai:          <Zap size={11} />,
+  dispatch:    <Send size={11} />,
+  update:      <Clock size={11} />,
+  escalation:  <TrendingUp size={11} />,
+};
+
+const LOG_COLOR: Record<string, string> = {
+  incident:    'text-red-400 border-red-500/40 bg-red-500/10',
+  ai:          'text-cyan-400 border-cyan-500/40 bg-cyan-500/10',
+  dispatch:    'text-blue-400 border-blue-500/40 bg-blue-500/10',
+  update:      'text-[#7A94B4] border-white/10 bg-white/5',
+  escalation:  'text-amber-400 border-amber-500/40 bg-amber-500/10',
+};
+
+const ALL_SEVERITIES = ['All', 'critical', 'high', 'medium', 'low'];
+const ALL_STATUSES   = ['All', 'open', 'dispatched', 'in-progress', 'overdue', 'closed'];
+const ALL_SOURCES    = ['All', 'AI Capture', 'WhatsApp → Manual', 'Resident App'];
+
+const DETAIL_TABS = ['Overview', 'Timeline', 'AI Analysis', 'Actions'];
+
+const AI_SIGNALS: Record<string, { label: string; value: string; match: number }[]> = {
+  'INC-SI-001': [
+    { label: 'Visual signal',  value: 'Frost on evaporator coil',  match: 97 },
+    { label: 'Pattern match',  value: 'R-410A shortage profile',   match: 91 },
+    { label: 'Asset history',  value: 'Last serviced 83 days ago', match: 88 },
+  ],
+  'INC-SI-002': [
+    { label: 'Visual signal',  value: 'Water accumulation pattern', match: 89 },
+    { label: 'Pattern match',  value: 'Pipe joint failure profile', match: 76 },
+    { label: 'Material flag',  value: 'Corrosion markers present',  match: 64 },
+  ],
+  'INC-SI-006': [
+    { label: 'Acoustic sensor', value: 'Grinding at 1.2 kHz',       match: 71 },
+    { label: 'IoT vibration',   value: 'Baseline exceeded 3.4×',    match: 64 },
+    { label: 'Pattern match',   value: 'Bearing wear signature',     match: 58 },
+  ],
+};
+
+function SLABar({ incident }: { incident: Incident }) {
+  const sla = slaStatus(incident.elapsed, incident.slaMinutes);
+  return (
+    <div className="w-full">
+      <AnimatedBar value={sla.percent} color={sla.barColor} height="h-1" />
+      <div className="flex items-center justify-between mt-0.5">
+        <span className="text-[9px]" style={{ color: sla.chipColor }}>{sla.label}</span>
+        <span className="text-[9px] text-[#7A94B4]">{incident.elapsed}m elapsed</span>
+      </div>
+    </div>
+  );
+}
+
+function OverviewTab({ incident }: { incident: Incident }) {
+  const st = STATUS_CONFIG[incident.status] || STATUS_CONFIG['open'];
+  const sla = slaStatus(incident.elapsed, incident.slaMinutes);
+  return (
+    <div className="space-y-4">
+      <p className="text-[12px] text-[#7A94B4] leading-relaxed">{incident.description}</p>
+      <div className="grid grid-cols-2 gap-2">
+        {[
+          { label: 'Incident ID',   value: incident.id },
+          { label: 'Source',        value: incident.source },
+          { label: 'Severity',      value: incident.severity.charAt(0).toUpperCase() + incident.severity.slice(1) },
+          { label: 'SLA Window',    value: `${incident.slaMinutes} min` },
+          { label: 'Elapsed',       value: `${incident.elapsed} min` },
+          { label: 'Time Remaining', value: sla.overdue ? 'OVERDUE' : `${sla.left} min` },
+        ].map(r => (
+          <div key={r.label} className="bg-[#0A1628] rounded-lg p-2.5">
+            <div className="text-[9px] text-[#7A94B4] uppercase tracking-wide mb-0.5">{r.label}</div>
+            <div className="text-[11px] text-[#EEF3FA] font-semibold">{r.value}</div>
+          </div>
+        ))}
+      </div>
+      <div>
+        <div className="text-[10px] text-[#7A94B4] uppercase tracking-wide mb-1.5">SLA Progress</div>
+        <AnimatedBar value={sla.percent} color={sla.barColor} height="h-2" />
+        <div className="flex justify-between mt-1 text-[9px] text-[#7A94B4]">
+          <span>0 min</span>
+          <span>{incident.slaMinutes} min limit</span>
+        </div>
+      </div>
+      <div>
+        <div className="text-[10px] text-[#7A94B4] uppercase tracking-wide mb-1.5">Status</div>
+        <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-semibold ${st.bg} ${st.text}`}>
+          <div className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />
+          {st.label}
+        </div>
+      </div>
+      {incident.assignedTech && (
+        <div>
+          <div className="text-[10px] text-[#7A94B4] uppercase tracking-wide mb-1.5">Assigned Technician</div>
+          <div className="flex items-center gap-2.5 p-2.5 bg-[#112040] rounded-xl border border-[rgba(46,127,255,0.2)]">
+            <TechAvatar initials={incident.techId || '?'} size={8} />
+            <div>
+              <div className="text-[12px] text-[#EEF3FA] font-semibold">{incident.assignedTech}</div>
+              <div className="text-[10px] text-blue-400">En route · GPS tracking active</div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TimelineTab({ incident }: { incident: Incident }) {
+  return (
+    <div className="space-y-2">
+      <div className="text-[11px] text-[#7A94B4]">Activity log for {incident.id}</div>
+      <div className="relative pl-4">
+        <div className="absolute left-1.5 top-0 bottom-0 w-px bg-[rgba(46,127,255,0.2)]" />
+        {incident.activityLog.map((entry, i) => {
+          const color = LOG_COLOR[entry.type] || LOG_COLOR['update'];
+          const icon  = LOG_ICON[entry.type]  || <Clock size={11} />;
+          return (
+            <div key={i} className="relative mb-4 last:mb-0">
+              <div className={`absolute -left-4 top-1 w-5 h-5 rounded-full flex items-center justify-center border ${color}`}>
+                {icon}
+              </div>
+              <div className="ml-3">
+                <div className="text-[9px] text-[#7A94B4] font-mono mb-0.5">{entry.time}</div>
+                <div className="text-[11px] text-[#EEF3FA] leading-snug">{entry.event}</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function AIAnalysisTab({ incident }: { incident: Incident }) {
+  const signals = AI_SIGNALS[incident.id];
+  const hasAI = incident.source.includes('AI Capture') || incident.source.includes('IoT');
+  if (!hasAI && !signals) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 gap-3 text-center">
+        <AlertCircle size={28} className="text-[#7A94B4] opacity-40" />
+        <div className="text-[12px] text-[#7A94B4] opacity-60">No AI analysis — manually reported incident</div>
+        <div className="text-[11px] text-[#7A94B4] opacity-40">AI analysis is available for incidents captured via AI Capture or IoT sensors</div>
+      </div>
+    );
+  }
+  const confidence = incident.severity === 'critical' ? 94 : incident.severity === 'high' ? 88 : incident.severity === 'medium' ? 81 : 67;
+  const category   = incident.title.toLowerCase().includes('ac') || incident.title.toLowerCase().includes('hvac') ? 'HVAC / Cooling' :
+                     incident.title.toLowerCase().includes('lift') ? 'Mechanical / Lift' :
+                     incident.title.toLowerCase().includes('water') || incident.title.toLowerCase().includes('pool') ? 'Plumbing' :
+                     incident.title.toLowerCase().includes('power') ? 'Electrical' : 'General Facility';
+  return (
+    <div className="space-y-4">
+      <div className="p-3 bg-[rgba(46,127,255,0.08)] border border-[rgba(46,127,255,0.2)] rounded-xl">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-1.5">
+            <Zap size={13} className="text-cyan-400" />
+            <span className="text-[11px] text-cyan-400 font-bold">4C360 AI Classification</span>
+          </div>
+          <span className="text-[11px] font-bold text-emerald-400">{confidence}% conf.</span>
+        </div>
+        <div className="text-[13px] text-[#EEF3FA] font-semibold">{category}</div>
+        <div className="text-[10px] text-[#7A94B4] mt-0.5">Classified via {incident.source}</div>
+      </div>
+      <div>
+        <div className="text-[10px] text-[#7A94B4] uppercase tracking-wide mb-2">Confidence Score</div>
+        <AnimatedBar value={confidence} color={confidence >= 85 ? '#38D98A' : confidence >= 70 ? '#FF9B38' : '#FF4B4B'} height="h-2.5" />
+        <div className="text-[9px] text-[#7A94B4] mt-1">{confidence}% — {confidence >= 85 ? 'High confidence' : 'Medium confidence'}</div>
+      </div>
+      {signals && (
+        <div>
+          <div className="text-[10px] text-[#7A94B4] uppercase tracking-wide mb-2">Detection Signals</div>
+          <div className="space-y-2">
+            {signals.map((sig, i) => (
+              <div key={i} className="flex items-start gap-3 p-2.5 bg-[#0A1628] rounded-lg">
+                <div className="flex-1">
+                  <div className="text-[10px] text-[#7A94B4]">{sig.label}</div>
+                  <div className="text-[11px] text-[#EEF3FA] font-medium">{sig.value}</div>
+                </div>
+                <div className="flex flex-col items-end gap-0.5">
+                  <span className="text-[10px] font-bold text-emerald-400">{sig.match}%</span>
+                  <div className="w-14 h-1 bg-[#112040] rounded-full overflow-hidden">
+                    <motion.div initial={{ width: 0 }} animate={{ width: `${sig.match}%` }} transition={{ duration: 0.5, delay: i * 0.1 }}
+                      className="h-full rounded-full bg-emerald-400" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ActionsTab({ incident, onToast }: { incident: Incident; onToast: ToastFn }) {
+  const isClosed  = incident.status === 'closed';
+  const isOverdue = incident.status === 'overdue';
+  return (
+    <div className="space-y-3">
+      <div className="text-[11px] text-[#7A94B4]">Actions available for {incident.id}</div>
+      {!incident.assignedTech && !isClosed && (
+        <button
+          onClick={() => onToast(`Smart dispatch opened for ${incident.id}`, 'info')}
+          className="w-full flex items-center gap-2.5 p-3 rounded-xl bg-[#2E7FFF] text-white hover:bg-blue-500 transition-colors"
+        >
+          <Send size={14} />
+          <div className="text-left">
+            <div className="text-[12px] font-bold">Dispatch Technician</div>
+            <div className="text-[10px] opacity-80">Open AI smart-dispatch panel</div>
+          </div>
+        </button>
+      )}
+      {!isClosed && (
+        <button
+          onClick={() => onToast(`${incident.id} escalated to senior supervisor`, 'warning')}
+          className="w-full flex items-center gap-2.5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 transition-colors"
+        >
+          <TrendingUp size={14} />
+          <div className="text-left">
+            <div className="text-[12px] font-bold">Escalate</div>
+            <div className="text-[10px] opacity-80">Notify senior supervisor immediately</div>
+          </div>
+        </button>
+      )}
+      {isOverdue && (
+        <button
+          onClick={() => onToast(`SLA breach report generated for ${incident.id}`, 'error')}
+          className="w-full flex items-center gap-2.5 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 transition-colors"
+        >
+          <AlertTriangle size={14} />
+          <div className="text-left">
+            <div className="text-[12px] font-bold">Generate SLA Breach Report</div>
+            <div className="text-[10px] opacity-80">Document and notify compliance team</div>
+          </div>
+        </button>
+      )}
+      {!isClosed && (
+        <button
+          onClick={() => onToast(`${incident.id} closed — awaiting evidence submission`, 'success')}
+          className="w-full flex items-center gap-2.5 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 transition-colors"
+        >
+          <CheckCircle size={14} />
+          <div className="text-left">
+            <div className="text-[12px] font-bold">Close Incident</div>
+            <div className="text-[10px] opacity-80">Mark as resolved — technician closes on-site</div>
+          </div>
+        </button>
+      )}
+      {isClosed && (
+        <div className="flex items-center gap-2 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl">
+          <CheckCircle size={14} className="text-emerald-400" />
+          <span className="text-[12px] text-emerald-400 font-semibold">Incident closed · SLA met</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface Props { onToast: ToastFn }
+
+export function Incidents({ onToast }: Props) {
+  const [search,      setSearch]      = useState('');
+  const [severity,    setSeverity]    = useState('All');
+  const [status,      setStatus]      = useState('All');
+  const [source,      setSource]      = useState('All');
+  const [selected,    setSelected]    = useState<Incident | null>(null);
+  const [activeTab,   setActiveTab]   = useState('Overview');
+
+  const filtered = mockIncidents.filter(inc => {
+    if (severity !== 'All' && inc.severity !== severity) return false;
+    if (status   !== 'All' && inc.status   !== status)   return false;
+    if (source   !== 'All' && inc.source   !== source)   return false;
+    if (search && !inc.title.toLowerCase().includes(search.toLowerCase()) &&
+                  !inc.location.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  });
+
+  const openIncident = (inc: Incident) => { setSelected(inc); setActiveTab('Overview'); };
+
+  const counts = {
+    critical: mockIncidents.filter(i => i.severity === 'critical').length,
+    open:     mockIncidents.filter(i => i.status === 'open').length,
+    overdue:  mockIncidents.filter(i => i.status === 'overdue').length,
+  };
+
+  return (
+    <div className="h-full flex flex-col overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-3 border-b border-[rgba(46,127,255,0.15)] flex-shrink-0">
+        <div>
+          <h2 className="text-[#EEF3FA] font-bold text-base" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Incidents</h2>
+          <p className="text-[11px] text-[#7A94B4]">All active incidents · Silicon Oasis · {mockIncidents.length} total</p>
+        </div>
+        <div className="flex items-center gap-3">
+          {[
+            { label: 'Critical', value: counts.critical, color: 'text-red-400 bg-red-500/10 border-red-500/30' },
+            { label: 'Open',     value: counts.open,     color: 'text-[#7A94B4] bg-white/5 border-white/10' },
+            { label: 'Overdue',  value: counts.overdue,  color: 'text-amber-400 bg-amber-500/10 border-amber-500/30' },
+          ].map(k => (
+            <div key={k.label} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[10px] font-semibold ${k.color}`}>
+              <span className="text-[13px] font-bold">{k.value}</span>
+              <span>{k.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 px-5 py-2.5 border-b border-[rgba(46,127,255,0.1)] flex-shrink-0 flex-wrap gap-y-2">
+        <div className="flex items-center gap-1.5 bg-[#112040] rounded-lg px-2.5 py-1.5 border border-[rgba(46,127,255,0.2)] flex-shrink-0">
+          <Search size={11} className="text-[#7A94B4]" />
+          <input
+            value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Search incidents…"
+            className="bg-transparent text-[11px] text-[#EEF3FA] placeholder-[#7A94B4] outline-none w-28"
+          />
+        </div>
+        <div className="flex gap-1 flex-wrap">
+          {ALL_SEVERITIES.map(s => (
+            <button key={s} onClick={() => setSeverity(s)}
+              className={`text-[10px] px-2 py-1 rounded-lg border capitalize transition-all ${severity === s ? 'bg-[rgba(46,127,255,0.2)] border-[#2E7FFF] text-[#EEF3FA]' : 'border-[rgba(46,127,255,0.15)] text-[#7A94B4] hover:text-[#EEF3FA]'}`}>
+              {s}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-1 flex-wrap">
+          {ALL_STATUSES.map(s => (
+            <button key={s} onClick={() => setStatus(s)}
+              className={`text-[10px] px-2 py-1 rounded-lg border capitalize transition-all ${status === s ? 'bg-[rgba(46,127,255,0.2)] border-[#2E7FFF] text-[#EEF3FA]' : 'border-[rgba(46,127,255,0.15)] text-[#7A94B4] hover:text-[#EEF3FA]'}`}>
+              {s.replace('-', ' ')}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-1 flex-wrap">
+          {ALL_SOURCES.map(s => (
+            <button key={s} onClick={() => setSource(s)}
+              className={`text-[10px] px-2 py-1 rounded-lg border transition-all ${source === s ? 'bg-[rgba(46,127,255,0.2)] border-[#2E7FFF] text-[#EEF3FA]' : 'border-[rgba(46,127,255,0.15)] text-[#7A94B4] hover:text-[#EEF3FA]'}`}>
+              {s}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex flex-1 overflow-hidden">
+        <div className={`flex flex-col overflow-hidden transition-all duration-300 ${selected ? 'flex-[55]' : 'flex-1'}`}>
+          <div className="hidden sm:grid grid-cols-[2fr_1.5fr_1fr_1.5fr_1fr_1.4fr] px-5 py-2 text-[9px] text-[#7A94B4] uppercase tracking-wide border-b border-[rgba(46,127,255,0.08)] flex-shrink-0">
+            {['Incident', 'Location', 'Severity', 'SLA / Progress', 'Status', 'Tech'].map(h => <div key={h}>{h}</div>)}
+          </div>
+          <div className="flex-1 overflow-y-auto custom-scrollbar">
+            {filtered.map(inc => {
+              const st  = STATUS_CONFIG[inc.status] || STATUS_CONFIG['open'];
+              const isSelected = selected?.id === inc.id;
+              return (
+                <motion.button
+                  key={inc.id}
+                  onClick={() => openIncident(inc)}
+                  whileTap={{ scale: 0.995 }}
+                  className={`w-full text-left px-5 py-3 border-b border-[rgba(46,127,255,0.08)] hover:bg-white/[0.02] transition-all ${isSelected ? 'bg-[rgba(46,127,255,0.08)]' : ''}`}
+                >
+                  <div className="grid grid-cols-[2fr_1.5fr_1fr_1.5fr_1fr_1.4fr] items-center gap-2">
+                    <div>
+                      <div className="text-[12px] text-[#EEF3FA] font-semibold">{inc.title}</div>
+                      <div className="text-[9px] text-[#7A94B4]">{inc.id}</div>
+                    </div>
+                    <div className="text-[11px] text-[#7A94B4]">{inc.location}</div>
+                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border w-fit capitalize ${SEVERITY_BADGE[inc.severity]}`}>
+                      {inc.severity}
+                    </span>
+                    <SLABar incident={inc} />
+                    <div className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[9px] font-semibold w-fit ${st.bg} ${st.text}`}>
+                      <div className={`w-1 h-1 rounded-full flex-shrink-0 ${st.dot}`} />
+                      {st.label}
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      {inc.assignedTech ? (
+                        <>
+                          <TechAvatar initials={inc.techId || '?'} size={6} />
+                          <span className="text-[10px] text-[#EEF3FA]">{inc.assignedTech}</span>
+                        </>
+                      ) : (
+                        <span className="text-[10px] text-[#7A94B4] opacity-50">Unassigned</span>
+                      )}
+                      <ChevronRight size={11} className={`text-[#7A94B4] ml-auto transition-transform ${isSelected ? 'rotate-90' : ''}`} />
+                    </div>
+                  </div>
+                </motion.button>
+              );
+            })}
+            {filtered.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-20 gap-2">
+                <AlertTriangle size={28} className="text-[#7A94B4] opacity-30" />
+                <span className="text-[12px] text-[#7A94B4] opacity-60">No incidents match filters</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <AnimatePresence>
+          {selected && (
+            <motion.div
+              initial={{ opacity: 0, x: 24 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 24 }}
+              transition={{ duration: 0.22 }}
+              className="flex-[45] border-l border-[rgba(46,127,255,0.2)] flex flex-col overflow-hidden bg-[#0A1628]"
+            >
+              <div className="flex items-start justify-between px-5 py-4 border-b border-[rgba(46,127,255,0.15)] flex-shrink-0">
+                <div>
+                  <div className={`inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded border mb-1.5 capitalize ${SEVERITY_BADGE[selected.severity]}`}>
+                    {selected.severity}
+                  </div>
+                  <div className="text-[#EEF3FA] font-bold text-sm">{selected.title}</div>
+                  <div className="text-[10px] text-[#7A94B4]">{selected.location}</div>
+                </div>
+                <button onClick={() => setSelected(null)} className="text-[#7A94B4] hover:text-white transition-colors">
+                  <X size={15} />
+                </button>
+              </div>
+
+              <div className="flex gap-0 px-4 pt-3 border-b border-[rgba(46,127,255,0.1)] flex-shrink-0 overflow-x-auto no-scrollbar">
+                {DETAIL_TABS.map(tab => (
+                  <button key={tab} onClick={() => setActiveTab(tab)}
+                    className={`text-[10px] px-3 py-2 font-semibold whitespace-nowrap transition-all border-b-2 ${activeTab === tab ? 'text-[#2E7FFF] border-[#2E7FFF]' : 'text-[#7A94B4] border-transparent hover:text-[#EEF3FA]'}`}>
+                    {tab}
+                    {tab === 'AI Analysis' && (selected.source.includes('AI') || selected.source.includes('IoT')) && (
+                      <span className="ml-1 w-1.5 h-1.5 inline-block rounded-full bg-cyan-400" />
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex-1 overflow-y-auto custom-scrollbar p-5">
+                <AnimatePresence mode="wait">
+                  <motion.div key={`${selected.id}-${activeTab}`} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.15 }}>
+                    {activeTab === 'Overview'     && <OverviewTab     incident={selected} />}
+                    {activeTab === 'Timeline'     && <TimelineTab     incident={selected} />}
+                    {activeTab === 'AI Analysis'  && <AIAnalysisTab   incident={selected} />}
+                    {activeTab === 'Actions'      && <ActionsTab      incident={selected} onToast={onToast} />}
+                  </motion.div>
+                </AnimatePresence>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+}

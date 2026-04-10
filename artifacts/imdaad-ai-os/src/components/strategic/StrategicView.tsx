@@ -12,6 +12,10 @@ import { SmartDispatchPanel } from './SmartDispatchPanel';
 import { DataSources } from './DataSources';
 import { Benchmark } from './Benchmark';
 import { Replay } from './Replay';
+import { Incidents } from './Incidents';
+import { Tasks } from './Tasks';
+import { PPMSchedule } from './PPMSchedule';
+import { AICapture } from './AICapture';
 import type { StrategicPage } from '@/App';
 import type { ToastFn } from '@/lib/ui';
 
@@ -62,6 +66,10 @@ export function StrategicView({ onToast, page }: Props) {
         {page === 'datasources' && <DataSources   onToast={onToast} />}
         {page === 'benchmark'   && <Benchmark     onToast={onToast} />}
         {page === 'replay'      && <Replay        onToast={onToast} />}
+        {page === 'incidents'   && <Incidents     onToast={onToast} />}
+        {page === 'tasks'       && <Tasks         onToast={onToast} />}
+        {page === 'ppmschedule' && <PPMSchedule   onToast={onToast} />}
+        {page === 'aicapture'   && <AICapture     onToast={onToast} />}
       </motion.div>
     </AnimatePresence>
   );
