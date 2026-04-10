@@ -22,12 +22,105 @@ function generateTempPassword(): string {
   return password;
 }
 
-function buildWelcomeEmail(name: string, email: string, role: string, clientName: string): string {
+const ROLE_GUIDE: Record<string, string[]> = {
+  "FM Engineer": [
+    "Review all open work orders at the start of each shift and prioritise by SLA response time.",
+    "Log every asset intervention in the AI-OS Asset Intelligence module to keep predictive maintenance accurate.",
+    "Escalate any P1 fault to your Site Supervisor immediately; never attempt solo emergency isolation without approval.",
+    "Record spare-part consumption after each job to maintain accurate inventory forecasts.",
+  ],
+  "Site Supervisor": [
+    "Conduct a daily site walk-around and log observations in the Operations Dashboard before 09:00.",
+    "Ensure all field engineers hold valid permit-to-work documentation before commencing high-risk tasks.",
+    "Review team attendance and assign coverage for any gaps before the shift briefing.",
+    "Chase overdue work orders 30 minutes before SLA breach and escalate to the Account Manager if unresolved.",
+  ],
+  "Account Manager": [
+    "Review the weekly KPI summary in Strategic Reports every Monday and flag any amber/red metrics to leadership.",
+    "Schedule a monthly client review call and share the auto-generated performance report from AI-OS.",
+    "Track contract renewal dates in the client profile and initiate renewal conversations 90 days in advance.",
+    "Maintain accurate client contact records so escalation paths are always up to date.",
+  ],
+  "Project Manager": [
+    "Keep the project timeline updated in AI-OS and communicate milestone changes to all stakeholders promptly.",
+    "Run a weekly risk review and log mitigations in the Operations Dashboard.",
+    "Ensure resource allocations across sites are balanced and flag shortfalls to leadership.",
+    "Document lessons learned after each phase completion to improve future project delivery.",
+  ],
+  "Safety Officer": [
+    "Conduct monthly safety audits for all assigned sites and upload reports to the compliance module.",
+    "Ensure incident reports are filed within 24 hours of any near-miss or LTI event.",
+    "Maintain up-to-date COSHH and MSDS registers in AI-OS for all chemicals in use.",
+    "Deliver toolbox talks at least twice per month and record attendance in the platform.",
+  ],
+  "Client Success": [
+    "Check client satisfaction scores weekly and respond to any rating below 4/5 within 24 hours.",
+    "Proactively share platform adoption tips and new feature highlights with the client each month.",
+    "Coordinate with the Account Manager on renewal or upsell opportunities identified through usage data.",
+    "Document client feedback in AI-OS so product and operations teams can act on recurring themes.",
+  ],
+  "Executive": [
+    "Review the portfolio-level Strategic Report monthly to track revenue, SLA performance, and risk.",
+    "Use the AI Command Center heatmaps to identify underperforming sites and initiate corrective action.",
+    "Ensure all direct reports have completed their onboarding and are actively using AI-OS.",
+    "Align quarterly business reviews with the data exported from the platform for credibility and accuracy.",
+  ],
+};
+
+const DEFAULT_ROLE_GUIDE = [
+  "Familiarise yourself with the AI-OS Operations Dashboard on your first day.",
+  "Complete your profile and notification preferences in the platform settings.",
+  "Review the client's current SLA commitments so you can prioritise tasks appropriately.",
+  "Reach out to your line manager if you need access to additional modules or data.",
+];
+
+function getRoleGuide(role: string): string[] {
+  const normalized = role.trim();
+  return ROLE_GUIDE[normalized] ?? DEFAULT_ROLE_GUIDE;
+}
+
+interface ClientContext {
+  sector?: string;
+  contractType?: string;
+  slaTier?: string;
+  contractStartDate?: string;
+  contractEndDate?: string;
+  contractValue?: string;
+  siteNames?: string[];
+}
+
+function buildWelcomeEmail(
+  name: string,
+  email: string,
+  role: string,
+  clientName: string,
+  responsibilities: string,
+  ctx: ClientContext,
+): string {
   const tempPassword = generateTempPassword();
   const safeName = escapeHtml(name);
   const safeEmail = escapeHtml(email);
   const safeRole = escapeHtml(role);
   const safeClient = escapeHtml(clientName);
+
+  const safeSector = escapeHtml(ctx.sector ?? "—");
+  const safeContractType = escapeHtml(ctx.contractType ?? "—");
+  const safeSlaTier = escapeHtml(ctx.slaTier ?? "—");
+  const safeContractValue = ctx.contractValue ? escapeHtml(ctx.contractValue) : "—";
+  const safeStart = ctx.contractStartDate ? escapeHtml(ctx.contractStartDate) : "—";
+  const safeEnd = ctx.contractEndDate ? escapeHtml(ctx.contractEndDate) : "—";
+  const sites = (ctx.siteNames ?? []).filter(s => s.trim());
+  const safeSites = sites.length > 0
+    ? sites.map(s => `<span style="display:inline-block;background:#112040;border:1px solid rgba(46,127,255,0.25);border-radius:5px;padding:2px 8px;color:#EEF3FA;font-size:11px;margin:2px 3px 2px 0;">${escapeHtml(s)}</span>`).join("")
+    : '<span style="color:#4A6080;font-size:11px;">—</span>';
+
+  const safeResponsibilities = responsibilities?.trim()
+    ? responsibilities.trim().split("\n").filter(l => l.trim()).map(l => `<li style="color:#EEF3FA;font-size:12px;padding:3px 0;line-height:1.6;">${escapeHtml(l.trim())}</li>`).join("")
+    : '<li style="color:#4A6080;font-size:12px;font-style:italic;">No specific responsibilities listed — your manager will provide further guidance on your first day.</li>';
+
+  const roleGuide = getRoleGuide(role);
+  const safeRoleGuide = roleGuide.map(tip => `<li style="color:#EEF3FA;font-size:12px;padding:3px 0;line-height:1.6;">${escapeHtml(tip)}</li>`).join("");
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -96,6 +189,71 @@ function buildWelcomeEmail(name: string, email: string, role: string, clientName
                         <td style="color:#EEF3FA;font-size:12px;font-weight:600;padding:5px 0;">${safeClient}</td>
                       </tr>
                     </table>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Your Project -->
+              <p style="color:#7A94B4;font-size:10px;text-transform:uppercase;letter-spacing:2px;margin:0 0 14px;font-weight:700;">Your Project</p>
+              <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(46,127,255,0.07);border:1px solid rgba(46,127,255,0.22);border-radius:10px;margin-bottom:28px;">
+                <tr>
+                  <td style="padding:20px 24px;">
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="color:#7A94B4;font-size:12px;padding:5px 0;width:130px;vertical-align:top;">Client</td>
+                        <td style="color:#EEF3FA;font-size:12px;font-weight:600;padding:5px 0;">${safeClient}</td>
+                      </tr>
+                      <tr>
+                        <td style="color:#7A94B4;font-size:12px;padding:5px 0;vertical-align:top;">Sector</td>
+                        <td style="color:#EEF3FA;font-size:12px;font-weight:600;padding:5px 0;">${safeSector}</td>
+                      </tr>
+                      <tr>
+                        <td style="color:#7A94B4;font-size:12px;padding:5px 0;vertical-align:top;">Contract Type</td>
+                        <td style="color:#EEF3FA;font-size:12px;font-weight:600;padding:5px 0;">${safeContractType}</td>
+                      </tr>
+                      <tr>
+                        <td style="color:#7A94B4;font-size:12px;padding:5px 0;vertical-align:top;">SLA Tier</td>
+                        <td style="padding:5px 0;">
+                          <span style="background:rgba(46,127,255,0.15);border:1px solid rgba(46,127,255,0.3);border-radius:5px;padding:2px 8px;color:#2E7FFF;font-size:11px;font-weight:700;">${safeSlaTier}</span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="color:#7A94B4;font-size:12px;padding:5px 0;vertical-align:top;">Contract Period</td>
+                        <td style="color:#EEF3FA;font-size:12px;font-weight:600;padding:5px 0;">${safeStart} – ${safeEnd}</td>
+                      </tr>
+                      <tr>
+                        <td style="color:#7A94B4;font-size:12px;padding:5px 0;vertical-align:top;">Contract Value</td>
+                        <td style="color:#EEF3FA;font-size:12px;font-weight:600;padding:5px 0;">${safeContractValue}</td>
+                      </tr>
+                      <tr>
+                        <td style="color:#7A94B4;font-size:12px;padding:5px 0;vertical-align:top;">Your Sites</td>
+                        <td style="padding:5px 0;">${safeSites}</td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Your Responsibilities -->
+              <p style="color:#7A94B4;font-size:10px;text-transform:uppercase;letter-spacing:2px;margin:0 0 14px;font-weight:700;">Your Responsibilities</p>
+              <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.2);border-radius:10px;margin-bottom:28px;">
+                <tr>
+                  <td style="padding:16px 20px;">
+                    <ul style="margin:0;padding-left:18px;">
+                      ${safeResponsibilities}
+                    </ul>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Role Guide -->
+              <p style="color:#7A94B4;font-size:10px;text-transform:uppercase;letter-spacing:2px;margin:0 0 14px;font-weight:700;">Role Guide — ${safeRole}</p>
+              <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(139,92,246,0.06);border:1px solid rgba(139,92,246,0.2);border-radius:10px;margin-bottom:28px;">
+                <tr>
+                  <td style="padding:16px 20px;">
+                    <ul style="margin:0;padding-left:18px;">
+                      ${safeRoleGuide}
+                    </ul>
                   </td>
                 </tr>
               </table>
@@ -199,8 +357,30 @@ interface TeamMember {
   responsibilities?: string;
 }
 
+interface InviteBody {
+  clientName: string;
+  sector?: string;
+  contractType?: string;
+  slaTier?: string;
+  contractStartDate?: string;
+  contractEndDate?: string;
+  contractValue?: string;
+  siteNames?: string[];
+  teamMembers: TeamMember[];
+}
+
 router.post("/clients/invite", async (req, res) => {
-  const { clientName, teamMembers } = req.body as { clientName: string; teamMembers: TeamMember[] };
+  const {
+    clientName,
+    sector,
+    contractType,
+    slaTier,
+    contractStartDate,
+    contractEndDate,
+    contractValue,
+    siteNames,
+    teamMembers,
+  } = req.body as InviteBody;
 
   if (!clientName || !Array.isArray(teamMembers) || teamMembers.length === 0) {
     res.status(400).json({ error: "clientName and at least one teamMember are required" });
@@ -212,6 +392,16 @@ router.post("/clients/invite", async (req, res) => {
     res.status(400).json({ error: "Each team member must have name, email, and role" });
     return;
   }
+
+  const clientContext: ClientContext = {
+    sector,
+    contractType,
+    slaTier,
+    contractStartDate,
+    contractEndDate,
+    contractValue,
+    siteNames: Array.isArray(siteNames) ? siteNames : [],
+  };
 
   const transportConfig = createTransporter();
 
@@ -235,12 +425,19 @@ router.post("/clients/invite", async (req, res) => {
   const results: { email: string; status: "sent" | "preview" | "failed"; previewUrl?: string; error?: string }[] = [];
 
   for (const member of teamMembers) {
-    const html = buildWelcomeEmail(member.name, member.email, member.role, clientName);
+    const html = buildWelcomeEmail(
+      member.name,
+      member.email,
+      member.role,
+      clientName,
+      member.responsibilities ?? "",
+      clientContext,
+    );
     const fromAddr = transportConfig?.from ?? previewTransport?.from ?? '"Imdaad AI-OS" <noreply@imdaad.ae>';
     const mailOptions = {
       from: fromAddr,
       to: member.email,
-      subject: `Welcome to Imdaad AI-OS — ${clientName}`,
+      subject: `Welcome to Imdaad AI-OS — ${clientName} | ${member.role}`,
       html,
     };
 

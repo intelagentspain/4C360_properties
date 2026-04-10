@@ -303,7 +303,17 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
       const res = await fetch(`${base}/api/clients/invite`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clientName: clientData.name, teamMembers: filledMembers }),
+        body: JSON.stringify({
+          clientName: clientData.name,
+          sector: clientData.sector,
+          contractType: clientData.contractType,
+          slaTier: clientData.slaTier,
+          contractStartDate: clientData.contractStartDate,
+          contractEndDate: clientData.contractEndDate,
+          contractValue: clientData.contractValue,
+          siteNames: clientData.siteNames,
+          teamMembers: filledMembers,
+        }),
       });
       if (res.ok) {
         const data = await res.json() as { results: { email: string; status: string }[] };
