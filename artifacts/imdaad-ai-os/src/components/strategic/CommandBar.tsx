@@ -82,7 +82,7 @@ export interface TeamMember {
   name: string;
   email: string;
   role: string;
-  responsibilities: string;
+  privileges: string[];
 }
 
 interface AddClientModalProps {
@@ -137,7 +137,35 @@ const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
   { key: 'team',     label: 'Team',      icon: <Users size={11} /> },
 ];
 
-const EMPTY_MEMBER = (): TeamMember => ({ name: '', email: '', role: '', responsibilities: '' });
+const RBAC_PRIVILEGES = [
+  { key: 'view_dashboard',     label: 'View Dashboard' },
+  { key: 'view_work_orders',   label: 'View Work Orders' },
+  { key: 'create_work_orders', label: 'Create Work Orders' },
+  { key: 'approve_dispatch',   label: 'Approve Dispatches' },
+  { key: 'view_reports',       label: 'View Reports' },
+  { key: 'export_reports',     label: 'Export Reports' },
+  { key: 'manage_team',        label: 'Manage Team' },
+  { key: 'manage_assets',      label: 'Manage Assets' },
+  { key: 'manage_ppm',         label: 'Manage PPM Schedule' },
+  { key: 'view_ai_insights',   label: 'AI Insights' },
+  { key: 'configure_ai_rules', label: 'Configure AI Rules' },
+  { key: 'approve_invoices',   label: 'Approve Invoices' },
+  { key: 'manage_vendors',     label: 'Manage Vendors' },
+  { key: 'edit_client_profile',label: 'Edit Client Profile' },
+];
+
+const ROLE_DEFAULT_PRIVILEGES: Record<string, string[]> = {
+  'Client':          ['view_dashboard', 'view_reports', 'view_work_orders'],
+  'Account Manager': ['view_dashboard', 'view_work_orders', 'create_work_orders', 'view_reports', 'export_reports', 'manage_team', 'view_ai_insights'],
+  'Site Supervisor': ['view_dashboard', 'view_work_orders', 'create_work_orders', 'approve_dispatch', 'manage_assets', 'manage_ppm'],
+  'FM Engineer':     ['view_dashboard', 'view_work_orders', 'create_work_orders', 'manage_assets'],
+  'Project Manager': ['view_dashboard', 'view_work_orders', 'create_work_orders', 'view_reports', 'export_reports', 'manage_ppm', 'manage_vendors'],
+  'Safety Officer':  ['view_dashboard', 'view_work_orders', 'view_reports', 'manage_assets'],
+  'Client Success':  ['view_dashboard', 'view_work_orders', 'view_reports', 'export_reports', 'view_ai_insights'],
+  'Executive':       RBAC_PRIVILEGES.map(p => p.key),
+};
+
+const EMPTY_MEMBER = (): TeamMember => ({ name: '', email: '', role: '', privileges: [] });
 
 export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
   const [activeTab, setActiveTab]             = useState<Tab>('business');
@@ -178,9 +206,16 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
 
   const addMember = () => setTeamMembers(prev => [...prev, EMPTY_MEMBER()]);
   const removeMember = (i: number) => setTeamMembers(prev => prev.filter((_, idx) => idx !== i));
-  const updateMember = (i: number, field: keyof TeamMember, val: string) => {
+  const updateMember = (i: number, field: Exclude<keyof TeamMember, 'privileges'>, val: string) => {
     setTeamMembers(prev => {
-      const updated = prev.map((m, idx) => idx === i ? { ...m, [field]: val } : m);
+      const updated = prev.map((m, idx) => {
+        if (idx !== i) return m;
+        const updated_m = { ...m, [field]: val };
+        if (field === 'role' && val && ROLE_DEFAULT_PRIVILEGES[val]) {
+          updated_m.privileges = [...ROLE_DEFAULT_PRIVILEGES[val]];
+        }
+        return updated_m;
+      });
       const hasComplete = updated.some(m => m.name.trim() && m.email.trim() && m.role);
       setErrors(e => {
         const n = { ...e };
@@ -190,6 +225,13 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
       });
       return updated;
     });
+  };
+  const togglePrivilege = (i: number, key: string) => {
+    setTeamMembers(prev => prev.map((m, idx) => {
+      if (idx !== i) return m;
+      const has = m.privileges.includes(key);
+      return { ...m, privileges: has ? m.privileges.filter(p => p !== key) : [...m.privileges, key] };
+    }));
   };
 
   const validate = () => {
@@ -207,7 +249,7 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
       errs.team_required = 'At least one team member with name, email, and role is required';
     }
     teamMembers.forEach((m, i) => {
-      const isPartial = m.name.trim() || m.email.trim() || m.role || m.responsibilities.trim();
+      const isPartial = m.name.trim() || m.email.trim() || m.role;
       if (isPartial) {
         if (!m.name.trim())  errs[`team_name_${i}`]  = 'Name required';
         if (!m.email.trim()) errs[`team_email_${i}`] = 'Email required';
@@ -719,14 +761,50 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
                         {errors[`team_role_${i}`] && <p className="mt-0.5 text-[10px] text-red-400">{errors[`team_role_${i}`]}</p>}
                       </div>
 
-                      <div>
-                        <FieldLabel label="Responsibilities / Notes" />
-                        <input
-                          value={member.responsibilities}
-                          onChange={e => updateMember(i, 'responsibilities', e.target.value)}
-                          placeholder="Optional notes…"
-                          className={inputCls()}
-                        />
+                      <div className="col-span-2">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <FieldLabel label="Privileges" />
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setTeamMembers(prev => prev.map((m, idx) => idx === i ? { ...m, privileges: RBAC_PRIVILEGES.map(p => p.key) } : m))}
+                              className="text-[9px] text-[#2E7FFF] hover:text-blue-300 transition-colors"
+                            >
+                              Select all
+                            </button>
+                            <span className="text-[#7A94B4] opacity-30">|</span>
+                            <button
+                              type="button"
+                              onClick={() => setTeamMembers(prev => prev.map((m, idx) => idx === i ? { ...m, privileges: [] } : m))}
+                              className="text-[9px] text-[#7A94B4] hover:text-[#EEF3FA] transition-colors"
+                            >
+                              Clear
+                            </button>
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {RBAC_PRIVILEGES.map(p => {
+                            const active = member.privileges.includes(p.key);
+                            return (
+                              <button
+                                key={p.key}
+                                type="button"
+                                onClick={() => togglePrivilege(i, p.key)}
+                                className={`text-[10px] px-2 py-1 rounded-lg border transition-all font-medium ${
+                                  active
+                                    ? 'bg-[rgba(46,127,255,0.18)] border-[#2E7FFF] text-[#EEF3FA]'
+                                    : 'border-[rgba(46,127,255,0.15)] text-[#7A94B4] hover:border-[rgba(46,127,255,0.35)] hover:text-[#EEF3FA]'
+                                }`}
+                              >
+                                {active && <span className="mr-1 text-[#2E7FFF]">✓</span>}
+                                {p.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        {member.privileges.length > 0 && (
+                          <p className="mt-1.5 text-[9px] text-[#7A94B4]">{member.privileges.length} privilege{member.privileges.length !== 1 ? 's' : ''} selected</p>
+                        )}
                       </div>
                     </div>
                   </div>
