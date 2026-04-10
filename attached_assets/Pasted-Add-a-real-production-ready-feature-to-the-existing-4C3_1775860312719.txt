@@ -1,0 +1,336 @@
+Add a real production-ready feature to the existing 4C360 FM app called:
+
+“QR AI Issue Capture”
+
+This is NOT a demo-only mocked feature.
+Build it as a real end-to-end workflow where a user scans a QR code, takes a real photo, the backend sends the image to a real vision-capable AI service, the AI analyzes the image, and the system creates a real structured incident.
+
+Do not rebuild the app.
+Extend the existing architecture cleanly.
+Reuse current styling, navigation, and data structures where possible.
+
+--------------------------------------------------
+1. GOAL
+--------------------------------------------------
+
+Build a real mobile-first issue reporting flow for on-site users such as:
+- cleaner
+- tenant
+- security
+- technician
+- visitor / public user
+
+Flow:
+1. User scans QR code
+2. Lands on public issue reporting page
+3. Completes short onboarding
+4. Opens camera / uploads image
+5. Image is sent to backend
+6. Backend sends image to a real AI vision service
+7. AI returns:
+   - issue classification
+   - category
+   - severity
+   - structured description
+   - anomaly observations
+   - recommended next action
+8. User reviews result
+9. User submits incident
+10. Incident is saved in the system and appears in incidents, pulse feed, dispatch, and dashboard
+
+--------------------------------------------------
+2. PUBLIC ROUTE
+--------------------------------------------------
+
+Create a public route:
+
+/scan/:siteId/:assetId
+
+This route must work without login.
+
+It should load context from siteId / assetId:
+- site name
+- asset name if available
+- area / location name
+
+--------------------------------------------------
+3. STEP 1 — MOBILE LANDING / ONBOARDING
+--------------------------------------------------
+
+Create a mobile-first onboarding page for the QR flow.
+
+Show:
+- product logo / header
+- title: “Report an Issue”
+- subtitle: “Take a photo and AI will identify the issue”
+- site / asset context
+
+Collect minimal metadata:
+- reporter name (optional)
+- role (optional):
+  - Cleaner
+  - Tenant
+  - Security
+  - Technician
+  - Other
+
+Primary CTA:
+- Continue
+
+This step should be lightweight.
+
+--------------------------------------------------
+4. STEP 2 — CAMERA / PHOTO CAPTURE
+--------------------------------------------------
+
+Create a real image capture flow.
+
+Requirements:
+- support mobile camera capture
+- support file upload fallback
+- preview selected image
+- store image temporarily in local component state before upload
+
+Use browser-compatible image input:
+- mobile capture if supported
+- standard upload fallback
+
+Buttons:
+- Take Photo
+- Retake
+- Analyze with AI
+
+--------------------------------------------------
+5. STEP 3 — BACKEND IMAGE ANALYSIS
+--------------------------------------------------
+
+Build a backend endpoint to analyze the uploaded image with a real vision AI service.
+
+Create backend endpoint:
+POST /api/ai/analyze-issue-image
+
+Input:
+- image file
+- siteId
+- assetId
+- optional reporter metadata
+
+Backend must:
+1. validate file type and size
+2. upload/store image temporarily or process directly
+3. send the image to a real vision-capable AI model/service
+4. request structured JSON output
+
+Expected AI output format:
+{
+  "title": "string",
+  "description": "string",
+  "issueType": "string",
+  "category": "string",
+  "severity": "low | medium | high | critical",
+  "identifiedAsset": "string",
+  "observations": ["string", "string"],
+  "recommendedAction": "string",
+  "confidence": number
+}
+
+The model should classify issues relevant to FM, such as:
+- plumbing leak
+- HVAC issue
+- cleanliness / housekeeping issue
+- broken tile / visible damage
+- fire safety issue
+- electrical issue
+- general maintenance
+
+The prompt sent to the AI must instruct it to:
+- describe what is actually visible
+- avoid making unsafe claims without evidence
+- identify likely facility issue category
+- detect unusual or risky observations
+- recommend a practical action
+- return structured JSON only
+
+--------------------------------------------------
+6. AI PROMPTING REQUIREMENT
+--------------------------------------------------
+
+Implement server-side structured prompting for FM issue classification.
+
+The AI prompt should tell the model:
+- You are an FM incident triage assistant
+- Analyze the uploaded photo
+- Identify likely issue type
+- Write a concise but professional operational description
+- Identify abnormal conditions or safety concerns
+- Suggest severity based on visible evidence only
+- Suggest a recommended action
+- Return valid JSON only
+
+The response must be parsed server-side and validated before returning to frontend.
+
+If parsing fails:
+- return a safe fallback error
+- do not crash the flow
+
+--------------------------------------------------
+7. STEP 4 — ANALYSIS RESULT SCREEN
+--------------------------------------------------
+
+After backend returns AI analysis, show a structured result page.
+
+Display:
+- uploaded image preview
+- AI-generated title
+- AI-generated description
+- issue type
+- category
+- severity
+- identified asset / area
+- confidence score
+- observations list
+- recommended action
+
+Allow the user to:
+- edit title
+- edit description
+- adjust severity if needed
+- add optional note
+
+Buttons:
+- Submit Incident
+- Retake Photo
+
+--------------------------------------------------
+8. STEP 5 — INCIDENT CREATION
+--------------------------------------------------
+
+When user submits, create a real incident in the existing system.
+
+Incident must include:
+- source = QR Scan
+- siteId
+- assetId
+- uploaded image URL or file reference
+- AI title
+- AI description
+- AI category
+- AI severity
+- AI confidence
+- observations
+- recommended action
+- reporter metadata
+- created timestamp
+
+Create a real incident record in the same data layer used by the existing Incidents page.
+
+If the system already supports task creation:
+- also create linked task according to current dispatch mode
+
+--------------------------------------------------
+9. SYSTEM INTEGRATION
+--------------------------------------------------
+
+The new incident must appear in the existing app immediately:
+
+- Incidents page
+- Live Pulse / activity feed
+- Smart Dispatch panel
+- dashboard KPI counts
+- GIS map if supported
+
+Do not create an isolated fake incident store.
+Integrate with the current incident state / backend data model.
+
+--------------------------------------------------
+10. DISPATCH INTEGRATION
+--------------------------------------------------
+
+If existing dispatch logic exists, connect this new incident flow to it.
+
+Behavior:
+- Manual mode = incident created, waits for human assignment
+- Hybrid mode = AI suggests assignee
+- AI mode = auto-assign based on existing dispatch logic
+
+If assignment happens:
+- attach assigned technician / vendor to the incident or task
+- surface ETA and assignee in the success / tracking UI
+
+--------------------------------------------------
+11. SUCCESS / TRACKING SCREEN
+--------------------------------------------------
+
+After submission, show a clean success page.
+
+Display:
+- Incident ID
+- Submitted status
+- current classification
+- severity
+- optional assigned technician if available
+- ETA if available
+- button:
+  - Track Issue
+
+If client tracking route already exists, reuse it.
+
+--------------------------------------------------
+12. SECURITY / VALIDATION
+--------------------------------------------------
+
+Implement basic production-safe checks:
+- file type validation
+- file size limit
+- backend request validation
+- JSON schema validation on AI response
+- graceful fallback on AI failure
+
+If AI fails:
+- show user a manual fallback form prefilled with whatever can be extracted
+- still allow incident submission
+
+--------------------------------------------------
+13. STORAGE
+--------------------------------------------------
+
+Store uploaded images in the project’s current file/storage strategy.
+If no storage layer exists yet, implement a simple backend-accessible upload storage pattern suitable for development and demo.
+
+Persist:
+- image reference
+- AI analysis result
+- incident record
+
+--------------------------------------------------
+14. UX / DESIGN
+--------------------------------------------------
+
+Keep the current premium enterprise style.
+
+Make the mobile flow:
+- clean
+- fast
+- low friction
+- trustworthy
+
+Use:
+- strong spacing
+- large action buttons
+- clear loading state
+- polished AI analysis cards
+- minimal clutter
+
+This should feel like a serious production feature.
+
+--------------------------------------------------
+15. FILES / OUTPUT
+--------------------------------------------------
+
+After implementation, show:
+1. routes created
+2. backend endpoints added
+3. where AI integration was implemented
+4. how AI response is validated
+5. how incidents are written into the existing system
+6. any environment variables required

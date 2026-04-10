@@ -3,11 +3,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, X, Grid, List, AlertTriangle, CheckCircle, Clock,
   Zap, ChevronRight, Activity, Database, Users, BarChart2,
-  TrendingUp, MapPin, ArrowRight, Shield, Bot,
+  TrendingUp, MapPin, ArrowRight, Shield, Bot, Plus,
 } from 'lucide-react';
 import { mockPortfolioClients, type PortfolioClient } from '@/data/mockData';
 import { type ToastFn } from '@/lib/ui';
 import { AnimatedBar } from '@/components/shared/AnimatedBar';
+import { AddClientModal, type ClientData } from './CommandBar';
 
 const REGIONS   = ['All', 'Dubai East', 'Downtown', 'Business Bay', 'Dubai Marina', 'Jumeirah'];
 const SECTORS   = ['All', 'Mixed-Use Residential', 'Commercial Retail', 'Commercial Office', 'Residential Community', 'Luxury Residential'];
@@ -559,14 +560,20 @@ function ClientDetailDrawer({
 interface Props { onToast: ToastFn }
 
 export function AllClients({ onToast }: Props) {
-  const [search,     setSearch]     = useState('');
-  const [region,     setRegion]     = useState('All');
-  const [sector,     setSector]     = useState('All');
-  const [status,     setStatus]     = useState('All');
-  const [riskLevel,  setRiskLevel]  = useState('All');
-  const [sortKey,    setSortKey]    = useState('risk');
-  const [view,       setView]       = useState<'grid' | 'list'>('grid');
-  const [selected,   setSelected]   = useState<PortfolioClient | null>(null);
+  const [search,        setSearch]        = useState('');
+  const [region,        setRegion]        = useState('All');
+  const [sector,        setSector]        = useState('All');
+  const [status,        setStatus]        = useState('All');
+  const [riskLevel,     setRiskLevel]     = useState('All');
+  const [sortKey,       setSortKey]       = useState('risk');
+  const [view,          setView]          = useState<'grid' | 'list'>('grid');
+  const [selected,      setSelected]      = useState<PortfolioClient | null>(null);
+  const [showAddModal,  setShowAddModal]  = useState(false);
+
+  const handleAddClient = (data: ClientData) => {
+    setShowAddModal(false);
+    onToast(`${data.name} added — ${data.contractType} · ${data.slaTier} SLA`, 'success');
+  };
 
   const filtered = mockPortfolioClients
     .filter(c => {
@@ -605,6 +612,13 @@ export function AllClients({ onToast }: Props) {
               <span>{k.label}</span>
             </div>
           ))}
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#2E7FFF] hover:bg-blue-500 text-white text-[11px] font-semibold rounded-lg transition-colors shadow-[0_0_12px_rgba(46,127,255,0.35)]"
+          >
+            <Plus size={13} />
+            Add New Client
+          </button>
         </div>
       </div>
 
@@ -710,6 +724,15 @@ export function AllClients({ onToast }: Props) {
               onToast={onToast}
             />
           </>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showAddModal && (
+          <AddClientModal
+            onClose={() => setShowAddModal(false)}
+            onSave={handleAddClient}
+          />
         )}
       </AnimatePresence>
     </div>

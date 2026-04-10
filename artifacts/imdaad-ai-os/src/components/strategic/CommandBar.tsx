@@ -118,7 +118,7 @@ const inputCls = (hasErr?: boolean) =>
 
 const selectCls = `w-full px-2.5 py-1.5 bg-[#0A1628] border border-[rgba(46,127,255,0.22)] rounded-lg text-[11px] text-[#EEF3FA] focus:outline-none focus:border-[#2E7FFF] transition-colors appearance-none cursor-pointer`;
 
-function AddClientModal({ onClose, onSave }: AddClientModalProps) {
+export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
   const [name, setName]                       = useState('');
   const [sector, setSector]                   = useState('');
   const [industrySubtype, setIndustrySubtype] = useState('');
