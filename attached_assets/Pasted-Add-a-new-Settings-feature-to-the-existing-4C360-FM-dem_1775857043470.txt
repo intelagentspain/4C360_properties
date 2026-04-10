@@ -1,0 +1,317 @@
+Add a new Settings feature to the existing 4C360 FM demo app called:
+
+“Dispatch & AI Rules”
+
+Purpose:
+This page allows Admin / Super Admin users to configure how Smart Dispatch and AI Top Match behave.
+It should let users define when dispatch is manual, hybrid, or fully automatic, and control which parameters matter for different incident types, severity levels, sites, vendors, and situations.
+
+Important:
+- Do NOT rebuild the app
+- Reuse the existing dark enterprise UI, settings patterns, forms, cards, and layout
+- This is for DEMO use, so mock persistence is acceptable, but the feature must feel real and configurable
+- The settings should connect conceptually to the existing AI Smart Dispatch and incident assignment flows already in the app
+
+--------------------------------------------------
+1. PAGE / NAVIGATION
+--------------------------------------------------
+
+Add a new Settings sub-page:
+- Parent: Settings
+- New item: “Dispatch & AI Rules”
+
+This page should be visible only to:
+- Admin
+- Super Admin
+
+Page title:
+“Dispatch & AI Rules”
+
+Subtitle:
+“Control how incidents are classified, prioritized, matched, and auto-assigned”
+
+--------------------------------------------------
+2. PAGE LAYOUT
+--------------------------------------------------
+
+Use a 2-column layout:
+
+LEFT:
+- settings navigation panel / category list
+
+RIGHT:
+- active configuration workspace
+
+Categories in left panel:
+1. Dispatch Modes
+2. AI Top Match Logic
+3. Auto-Assignment Rules
+4. Severity & Ticket Type Rules
+5. SLA Rules
+6. Escalation Rules
+7. Vendor / Team Eligibility
+8. Preview & Testing
+
+--------------------------------------------------
+3. DISPATCH MODES SECTION
+--------------------------------------------------
+
+Create a settings card for global dispatch mode logic.
+
+Add controls for:
+- Global default mode:
+  - Manual
+  - Hybrid
+  - AI
+
+Add descriptive behavior:
+- Manual = all incidents assigned by human
+- Hybrid = AI suggests, human confirms
+- AI = system auto-assigns according to rules
+
+Add ability to override mode by:
+- Site
+- Region
+- Service line
+- Ticket type
+- Severity
+
+Example:
+- Critical fire incidents = Hybrid only
+- Low-priority cleaning tickets = AI
+- VIP client tickets = Manual
+
+UI:
+- rules table or rule cards
+- Add Rule button
+- Each rule should support:
+  - If [condition]
+  - Then mode = Manual / Hybrid / AI
+
+--------------------------------------------------
+4. AI TOP MATCH LOGIC SECTION
+--------------------------------------------------
+
+Create a settings panel where the user can define how AI chooses the best technician / vendor.
+
+Add weighted parameters with sliders or percentage inputs:
+
+Possible matching parameters:
+- Distance / proximity
+- Skill match
+- Certification match
+- Current workload
+- SLA urgency
+- Asset familiarity / prior history
+- Parts availability
+- Site familiarity
+- Shift availability
+- Performance score
+- Vendor contract priority
+
+Each parameter should be:
+- toggle on/off
+- adjustable weight
+- displayed as a scoring formula
+
+Example:
+- Distance = 20%
+- Skill match = 30%
+- SLA urgency = 25%
+- Parts availability = 15%
+- Site familiarity = 10%
+
+Show:
+“Top Match Formula Preview”
+
+--------------------------------------------------
+5. AUTO-ASSIGNMENT RULES SECTION
+--------------------------------------------------
+
+Create rule-based automation settings for incident assignment.
+
+Allow users to create conditional rules like:
+
+Examples:
+- If severity = low AND category = cleaning → auto assign to housekeeping team
+- If category = HVAC AND site = Silicon Oasis → assign in-house HVAC team
+- If after hours = true AND issue = electrical → assign approved vendor
+- If severity = critical → require supervisor confirmation
+
+Rule builder fields:
+- Incident category
+- Severity
+- Site / region
+- Time of day
+- Asset type
+- Client type
+- SLA threshold
+- Team / vendor target
+- Require confirmation? yes/no
+
+Actions:
+- auto assign
+- suggest only
+- block auto assignment
+- escalate to supervisor
+
+--------------------------------------------------
+6. SEVERITY & TICKET TYPE RULES
+--------------------------------------------------
+
+Add a settings section where the admin decides what kinds of tickets can be auto-handled by AI.
+
+This is very important.
+
+Allow rules like:
+- Non-critical tickets of type “Cleaning”, “General Maintenance”, “Low-priority HVAC” can be fully AI-assigned
+- Medium severity plumbing tickets = Hybrid
+- Critical fire / lift / safety incidents = Manual or Hybrid only
+- Repeat incidents on same asset always require supervisor review
+
+UI:
+- matrix table or rule cards
+- columns:
+  - Ticket type
+  - Severity
+  - Allowed mode
+  - Escalation requirement
+  - Evidence requirement
+  - Supervisor approval required
+
+--------------------------------------------------
+7. SLA RULES SECTION
+--------------------------------------------------
+
+Add settings for SLA-aware dispatch behavior.
+
+Allow user to define:
+- Which SLA levels increase AI urgency
+- Whether AI should prefer:
+  - nearest technician
+  - fastest ETA
+  - highest skill
+  - best-performing vendor
+
+Example controls:
+- If SLA under 30 min → prioritize ETA over workload
+- If SLA under 60 min and no qualified in-house engineer → assign approved vendor
+- If SLA under 15 min → escalate immediately
+
+Show a configurable urgency threshold panel.
+
+--------------------------------------------------
+8. ESCALATION RULES SECTION
+--------------------------------------------------
+
+Add escalation settings tied to dispatch and incident handling.
+
+Allow configuration of:
+- When AI should escalate instead of assign
+- When supervisor approval is required
+- When to notify regional manager
+- When to notify client
+
+Example rules:
+- Critical safety incident → notify supervisor immediately
+- Repeat failure 3x in 7 days → escalate to regional manager
+- Vendor rejection or no response in 10 min → escalate
+- SLA breach imminent → notify operations head
+
+--------------------------------------------------
+9. VENDOR / TEAM ELIGIBILITY SECTION
+--------------------------------------------------
+
+Create a section to manage which teams or vendors are eligible for certain situations.
+
+Allow settings by:
+- Skill / certification
+- Region
+- Client contract
+- Service line
+- Site
+- Asset type
+- Working hours
+
+Example:
+- Vendor A eligible only for HVAC in Dubai
+- Vendor B excluded from critical incidents
+- In-house team preferred for low-risk tickets
+- Only certified lift technicians can receive lift incidents
+
+--------------------------------------------------
+10. PREVIEW & TESTING SECTION
+--------------------------------------------------
+
+This section should make the feature feel smart and real.
+
+Create a simulation panel where the admin can test settings.
+
+Input fields:
+- Ticket type
+- Severity
+- Site
+- Asset
+- Time of day
+- SLA
+- Available technicians/vendors
+
+Output:
+- Recommended mode
+- Top Match technician/vendor
+- Why they were selected
+- Whether supervisor approval is needed
+- Whether escalation is triggered
+
+Example output:
+“Hybrid mode selected because issue is medium severity HVAC at a VIP site”
+“Karim R. chosen as top match: 92 score”
+“Reason: closest certified technician with parts available”
+“Supervisor confirmation required: No”
+
+--------------------------------------------------
+11. DATA MODEL / MOCK STRUCTURE
+--------------------------------------------------
+
+Create a mock settings data model such as:
+
+dispatchSettings = {
+  globalMode,
+  modeOverrides: [],
+  matchWeights: {},
+  autoAssignRules: [],
+  severityRules: [],
+  slaRules: [],
+  escalationRules: [],
+  eligibilityRules: []
+}
+
+Make it easy to later connect to backend persistence.
+
+--------------------------------------------------
+12. DESIGN RULES
+--------------------------------------------------
+
+Keep the current AI-OS / 4C360 design style:
+- dark navy background
+- premium enterprise settings UI
+- clean cards
+- blue / teal AI accents
+- amber / red for warnings
+- clear toggles, sliders, rule chips, and action buttons
+
+The page should feel:
+- powerful
+- configurable
+- enterprise-grade
+- operationally meaningful
+
+--------------------------------------------------
+13. FINAL REQUIREMENTS
+--------------------------------------------------
+
+After implementation, show:
+1. files changed / created
+2. components added
+3. mock state structure used
+4. how this connects to existing Smart Dispatch / AI Top Match UI
