@@ -35,8 +35,8 @@ const modeConfig: Record<AutomationMode, { label: string; icon: React.ReactNode;
 };
 
 const filters = {
-  Client: ['All Clients', 'Emaar', 'DEWA', 'Dubai Mall', 'Silicon Oasis'],
-  Region: ['All Regions', 'Silicon Oasis', 'Expo City', 'Al Furjan', 'JVC'],
+  Client: ['All Clients', 'Silicon Oasis Authority', 'Emaar', 'DEWA'],
+  Zone:    ['All Zones', 'Cluster A', 'Cluster B', 'Block C', 'Recreation Area', 'Main Gate'],
   Service: ['All Services', 'HVAC', 'Plumbing', 'Electrical', 'General'],
 };
 
@@ -47,7 +47,7 @@ export function CommandBar({ mode, onModeChange, onToast }: Props) {
   const [openFilter, setOpenFilter] = useState<FilterKey | null>(null);
   const [selected, setSelected] = useState<Record<FilterKey, string>>({
     Client: 'All Clients',
-    Region: 'All Regions',
+    Zone:   'All Zones',
     Service: 'All Services',
   });
   const [showModeDropdown, setShowModeDropdown] = useState(false);
