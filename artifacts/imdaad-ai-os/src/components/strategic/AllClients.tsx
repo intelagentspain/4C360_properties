@@ -8,7 +8,7 @@ import {
 import { mockPortfolioClients, type PortfolioClient } from '@/data/mockData';
 import { type ToastFn } from '@/lib/ui';
 import { AnimatedBar } from '@/components/shared/AnimatedBar';
-import { AddClientModal, type ClientData } from './CommandBar';
+import { AddClientModal, type ClientData, type TeamMember } from './CommandBar';
 
 const REGIONS   = ['All', 'Dubai East', 'Downtown', 'Business Bay', 'Dubai Marina', 'Jumeirah'];
 const SECTORS   = ['All', 'Mixed-Use Residential', 'Commercial Retail', 'Commercial Office', 'Residential Community', 'Luxury Residential'];
@@ -570,9 +570,18 @@ export function AllClients({ onToast }: Props) {
   const [selected,      setSelected]      = useState<PortfolioClient | null>(null);
   const [showAddModal,  setShowAddModal]  = useState(false);
 
-  const handleAddClient = (data: ClientData) => {
+  const handleAddClient = (data: ClientData, teamMembers: TeamMember[], inviteOk: boolean, failedCount: number) => {
     setShowAddModal(false);
-    onToast(`${data.name} added — ${data.contractType} · ${data.slaTier} SLA`, 'success');
+    if (teamMembers.length > 0 && !inviteOk) {
+      const msg = failedCount > 0
+        ? `${data.name} added — ${failedCount} invite${failedCount > 1 ? 's' : ''} failed to send`
+        : `${data.name} added — invites could not be delivered (check SMTP config)`;
+      onToast(msg, 'warning');
+    } else if (teamMembers.length > 0) {
+      onToast(`${data.name} added — invites sent to ${teamMembers.length} team member${teamMembers.length > 1 ? 's' : ''}`, 'success');
+    } else {
+      onToast(`${data.name} added — ${data.contractType} · ${data.slaTier} SLA`, 'success');
+    }
   };
 
   const filtered = mockPortfolioClients

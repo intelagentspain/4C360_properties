@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Bell, ChevronDown, Zap, Bot, Hand, Plus, X, Building2, MapPin, FileText, User } from 'lucide-react';
+import { Search, Bell, ChevronDown, Zap, Bot, Hand, Plus, X, Building2, MapPin, FileText, User, Users } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export type AutomationMode = 'manual' | 'hybrid' | 'ai';
@@ -55,6 +55,7 @@ const ZONE_OPTIONS   = ['All Zones', 'Cluster A', 'Cluster B', 'Block C', 'Recre
 const SECTOR_OPTIONS = ['Real Estate', 'Retail', 'Hospitality', 'Healthcare', 'Government', 'Education', 'Industrial', 'Mixed-Use', 'Other'];
 const SLA_TIERS      = ['Platinum', 'Gold', 'Silver', 'Bronze'];
 const ASSET_CATEGORIES = ['HVAC', 'Electrical', 'Plumbing', 'Civil', 'Landscaping', 'Cleaning', 'Security', 'Elevators', 'Other'];
+const TEAM_ROLES     = ['Account Manager', 'Site Supervisor', 'FM Engineer', 'Project Manager', 'Safety Officer', 'Client Success', 'Executive', 'Other'];
 
 export interface ClientData {
   name: string;
@@ -77,9 +78,16 @@ export interface ClientData {
   accountManager: string;
 }
 
+export interface TeamMember {
+  name: string;
+  email: string;
+  role: string;
+  responsibilities: string;
+}
+
 interface AddClientModalProps {
   onClose: () => void;
-  onSave: (data: ClientData) => void;
+  onSave: (data: ClientData, teamMembers: TeamMember[], inviteOk: boolean, failedCount: number) => void;
 }
 
 const SECTION_ICONS = {
@@ -87,6 +95,7 @@ const SECTION_ICONS = {
   sites:    <MapPin size={13} className="text-[#2E7FFF]" />,
   contract: <FileText size={13} className="text-[#2E7FFF]" />,
   contact:  <User size={13} className="text-[#2E7FFF]" />,
+  team:     <Users size={13} className="text-[#2E7FFF]" />,
 };
 
 function SectionHeader({ icon, title }: { icon: React.ReactNode; title: string }) {
@@ -118,7 +127,20 @@ const inputCls = (hasErr?: boolean) =>
 
 const selectCls = `w-full px-2.5 py-1.5 bg-[#0A1628] border border-[rgba(46,127,255,0.22)] rounded-lg text-[11px] text-[#EEF3FA] focus:outline-none focus:border-[#2E7FFF] transition-colors appearance-none cursor-pointer`;
 
+type Tab = 'business' | 'sites' | 'contract' | 'contact' | 'team';
+
+const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
+  { key: 'business', label: 'Business',  icon: <Building2 size={11} /> },
+  { key: 'sites',    label: 'Sites',     icon: <MapPin size={11} /> },
+  { key: 'contract', label: 'Contract',  icon: <FileText size={11} /> },
+  { key: 'contact',  label: 'Contact',   icon: <User size={11} /> },
+  { key: 'team',     label: 'Team',      icon: <Users size={11} /> },
+];
+
+const EMPTY_MEMBER = (): TeamMember => ({ name: '', email: '', role: '', responsibilities: '' });
+
 export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
+  const [activeTab, setActiveTab]             = useState<Tab>('business');
   const [name, setName]                       = useState('');
   const [sector, setSector]                   = useState('');
   const [industrySubtype, setIndustrySubtype] = useState('');
@@ -137,7 +159,10 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
   const [contactPhone, setContactPhone]       = useState('');
   const [accountManager, setAccountManager]   = useState('');
 
+  const [teamMembers, setTeamMembers]         = useState<TeamMember[]>([EMPTY_MEMBER()]);
+
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isSaving, setIsSaving] = useState(false);
 
   const toggleAsset = (cat: string) => {
     setAssetCategories(prev =>
@@ -151,6 +176,22 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
     setSiteNames(prev => prev.map((s, idx) => (idx === i ? val : s)));
   };
 
+  const addMember = () => setTeamMembers(prev => [...prev, EMPTY_MEMBER()]);
+  const removeMember = (i: number) => setTeamMembers(prev => prev.filter((_, idx) => idx !== i));
+  const updateMember = (i: number, field: keyof TeamMember, val: string) => {
+    setTeamMembers(prev => {
+      const updated = prev.map((m, idx) => idx === i ? { ...m, [field]: val } : m);
+      const hasComplete = updated.some(m => m.name.trim() && m.email.trim() && m.role);
+      setErrors(e => {
+        const n = { ...e };
+        delete n[`team_${field}_${i}`];
+        if (hasComplete) delete n.team_required;
+        return n;
+      });
+      return updated;
+    });
+  };
+
   const validate = () => {
     const errs: Record<string, string> = {};
     if (!name.trim())          errs.name = 'Client name is required';
@@ -160,16 +201,38 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
     if (!contractStart)        errs.contractStart = 'Start date is required';
     if (!slaTier)              errs.slaTier = 'SLA tier is required';
     if (!contactName.trim())   errs.contactName = 'Contact name is required';
+
+    const completedMembers = teamMembers.filter(m => m.name.trim() && m.email.trim() && m.role);
+    if (completedMembers.length === 0) {
+      errs.team_required = 'At least one team member with name, email, and role is required';
+    }
+    teamMembers.forEach((m, i) => {
+      const isPartial = m.name.trim() || m.email.trim() || m.role || m.responsibilities.trim();
+      if (isPartial) {
+        if (!m.name.trim())  errs[`team_name_${i}`]  = 'Name required';
+        if (!m.email.trim()) errs[`team_email_${i}`] = 'Email required';
+        if (!m.role)         errs[`team_role_${i}`]  = 'Role required';
+      }
+    });
+
     return errs;
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const errs = validate();
     if (Object.keys(errs).length > 0) {
       setErrors(errs);
+      const teamErrKeys = Object.keys(errs).filter(k => k.startsWith('team_'));
+      if (teamErrKeys.length > 0 || errs.team_required) setActiveTab('team');
+      else if (errs.contactName) setActiveTab('contact');
+      else if (errs.contractType || errs.contractStart || errs.slaTier) setActiveTab('contract');
+      else if (errs.sites) setActiveTab('sites');
+      else if (errs.name || errs.sector) setActiveTab('business');
       return;
     }
-    onSave({
+
+    const filledMembers = teamMembers.filter(m => m.name.trim() && m.email.trim() && m.role);
+    const clientData: ClientData = {
       name: name.trim(),
       sector,
       industrySubtype,
@@ -188,11 +251,45 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
       contactEmail,
       contactPhone,
       accountManager,
-    });
+    };
+
+    setIsSaving(true);
+    let inviteOk = true;
+    let failedCount = 0;
+    try {
+      const base = import.meta.env.BASE_URL?.replace(/\/$/, '') ?? '';
+      const res = await fetch(`${base}/api/clients/invite`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientName: clientData.name, teamMembers: filledMembers }),
+      });
+      if (res.ok) {
+        const data = await res.json() as { results: { email: string; status: string }[] };
+        failedCount = data.results.filter(r => r.status === 'failed').length;
+        if (failedCount > 0) inviteOk = false;
+      } else {
+        inviteOk = false;
+      }
+    } catch {
+      inviteOk = false;
+    } finally {
+      setIsSaving(false);
+    }
+
+    onSave(clientData, filledMembers, inviteOk, failedCount);
   };
 
   const clearErr = (key: string) => {
     if (errors[key]) setErrors(prev => { const n = { ...prev }; delete n[key]; return n; });
+  };
+
+  const tabHasError = (tab: Tab): boolean => {
+    if (tab === 'business') return !!(errors.name || errors.sector);
+    if (tab === 'sites') return !!errors.sites;
+    if (tab === 'contract') return !!(errors.contractType || errors.contractStart || errors.slaTier);
+    if (tab === 'contact') return !!errors.contactName;
+    if (tab === 'team') return !!(errors.team_required) || Object.keys(errors).some(k => k.startsWith('team_') && k !== 'team_required');
+    return false;
   };
 
   return (
@@ -203,7 +300,7 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.96, y: -10 }}
         transition={{ duration: 0.18 }}
-        className="fixed z-[2001] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[560px] max-h-[85vh] flex flex-col bg-[#0D1E38] border border-[rgba(46,127,255,0.3)] rounded-2xl shadow-2xl overflow-hidden"
+        className="fixed z-[2001] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[580px] max-h-[85vh] flex flex-col bg-[#0D1E38] border border-[rgba(46,127,255,0.3)] rounded-2xl shadow-2xl overflow-hidden"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-[rgba(46,127,255,0.15)] flex-shrink-0">
@@ -223,309 +320,442 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
           </button>
         </div>
 
-        {/* Scrollable Form Body */}
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5 custom-scrollbar">
+        {/* Tab Bar */}
+        <div className="flex items-center gap-0.5 px-5 pt-3 pb-0 flex-shrink-0 border-b border-[rgba(46,127,255,0.12)]">
+          {TABS.map(tab => {
+            const isActive = activeTab === tab.key;
+            const hasErr = tabHasError(tab.key);
+            return (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`flex items-center gap-1.5 px-3 py-2 text-[11px] font-semibold rounded-t-lg transition-all border-b-2 -mb-px relative ${
+                  isActive
+                    ? 'text-[#2E7FFF] border-[#2E7FFF] bg-[#2E7FFF]/08'
+                    : 'text-[#7A94B4] border-transparent hover:text-[#EEF3FA] hover:bg-white/4'
+                }`}
+              >
+                {tab.icon}
+                {tab.label}
+                {hasErr && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-400 absolute top-1.5 right-1.5" />
+                )}
+              </button>
+            );
+          })}
+        </div>
 
-          {/* ── Business Information ── */}
-          <div>
-            <SectionHeader icon={SECTION_ICONS.business} title="Business Information" />
-            <div className="grid grid-cols-2 gap-3">
-              <div className="col-span-2">
-                <FieldLabel label="Client Name" required />
-                <input
-                  autoFocus
-                  value={name}
-                  onChange={e => { setName(e.target.value); clearErr('name'); }}
-                  placeholder="e.g. Dubai Marina Estate"
-                  className={inputCls(!!errors.name)}
-                />
-                {errors.name && <p className="mt-0.5 text-[10px] text-red-400">{errors.name}</p>}
-              </div>
+        {/* Tab Content */}
+        <div className="flex-1 overflow-y-auto px-5 py-4 custom-scrollbar">
 
-              <div>
-                <FieldLabel label="Sector" required />
-                <div className="relative">
-                  <select
-                    value={sector}
-                    onChange={e => { setSector(e.target.value); clearErr('sector'); }}
-                    className={`${selectCls} ${errors.sector ? 'border-red-500/60' : ''}`}
-                  >
-                    <option value="" className="bg-[#0A1628]">Select sector…</option>
-                    {SECTOR_OPTIONS.map(s => (
-                      <option key={s} value={s} className="bg-[#0A1628]">{s}</option>
-                    ))}
-                  </select>
+          {activeTab === 'business' && (
+            <div className="space-y-4">
+              <SectionHeader icon={SECTION_ICONS.business} title="Business Information" />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2">
+                  <FieldLabel label="Client Name" required />
+                  <input
+                    autoFocus
+                    value={name}
+                    onChange={e => { setName(e.target.value); clearErr('name'); }}
+                    placeholder="e.g. Dubai Marina Estate"
+                    className={inputCls(!!errors.name)}
+                  />
+                  {errors.name && <p className="mt-0.5 text-[10px] text-red-400">{errors.name}</p>}
                 </div>
-                {errors.sector && <p className="mt-0.5 text-[10px] text-red-400">{errors.sector}</p>}
-              </div>
 
-              <div>
-                <FieldLabel label="Industry Sub-type" />
-                <input
-                  value={industrySubtype}
-                  onChange={e => setIndustrySubtype(e.target.value)}
-                  placeholder="e.g. Mixed Residential"
-                  className={inputCls()}
-                />
-              </div>
-
-              <div className="col-span-2">
-                <FieldLabel label="Initials Colour" />
-                <div className="flex items-center gap-2 flex-wrap">
-                  {INITIALS_COLORS.map(color => (
-                    <button
-                      key={color}
-                      type="button"
-                      onClick={() => setInitialsColor(color)}
-                      title={color}
-                      className={`w-6 h-6 rounded-full border-2 transition-all flex-shrink-0 ${
-                        initialsColor === color
-                          ? 'border-white scale-110 shadow-lg'
-                          : 'border-transparent opacity-70 hover:opacity-100 hover:scale-105'
-                      }`}
-                      style={{ backgroundColor: color }}
-                    />
-                  ))}
-                  <div className="flex items-center gap-1.5 ml-1">
-                    <div
-                      className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
-                      style={{ backgroundColor: initialsColor }}
+                <div>
+                  <FieldLabel label="Sector" required />
+                  <div className="relative">
+                    <select
+                      value={sector}
+                      onChange={e => { setSector(e.target.value); clearErr('sector'); }}
+                      className={`${selectCls} ${errors.sector ? 'border-red-500/60' : ''}`}
                     >
-                      {name.trim() ? name.trim().split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase() : 'AB'}
+                      <option value="" className="bg-[#0A1628]">Select sector…</option>
+                      {SECTOR_OPTIONS.map(s => (
+                        <option key={s} value={s} className="bg-[#0A1628]">{s}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {errors.sector && <p className="mt-0.5 text-[10px] text-red-400">{errors.sector}</p>}
+                </div>
+
+                <div>
+                  <FieldLabel label="Industry Sub-type" />
+                  <input
+                    value={industrySubtype}
+                    onChange={e => setIndustrySubtype(e.target.value)}
+                    placeholder="e.g. Mixed Residential"
+                    className={inputCls()}
+                  />
+                </div>
+
+                <div className="col-span-2">
+                  <FieldLabel label="Initials Colour" />
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {INITIALS_COLORS.map(color => (
+                      <button
+                        key={color}
+                        type="button"
+                        onClick={() => setInitialsColor(color)}
+                        title={color}
+                        className={`w-6 h-6 rounded-full border-2 transition-all flex-shrink-0 ${
+                          initialsColor === color
+                            ? 'border-white scale-110 shadow-lg'
+                            : 'border-transparent opacity-70 hover:opacity-100 hover:scale-105'
+                        }`}
+                        style={{ backgroundColor: color }}
+                      />
+                    ))}
+                    <div className="flex items-center gap-1.5 ml-1">
+                      <div
+                        className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
+                        style={{ backgroundColor: initialsColor }}
+                      >
+                        {name.trim() ? name.trim().split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase() : 'AB'}
+                      </div>
+                      <span className="text-[10px] text-[#7A94B4]">Preview</span>
                     </div>
-                    <span className="text-[10px] text-[#7A94B4]">Preview</span>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
 
-          {/* ── Sites & Assets ── */}
-          <div>
-            <SectionHeader icon={SECTION_ICONS.sites} title="Sites & Assets" />
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <FieldLabel label="Number of Sites" />
-                <div className={`${inputCls()} flex items-center text-[#7A94B4] cursor-default select-none`}>
-                  {siteNames.length}
-                  <span className="ml-1.5 text-[10px] text-[#4A6080]">(from site list below)</span>
+          {activeTab === 'sites' && (
+            <div className="space-y-4">
+              <SectionHeader icon={SECTION_ICONS.sites} title="Sites & Assets" />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <FieldLabel label="Number of Sites" />
+                  <div className={`${inputCls()} flex items-center text-[#7A94B4] cursor-default select-none`}>
+                    {siteNames.length}
+                    <span className="ml-1.5 text-[10px] text-[#4A6080]">(from site list below)</span>
+                  </div>
                 </div>
-              </div>
 
-              <div>
-                <FieldLabel label="Total Asset Count" />
-                <input
-                  type="number"
-                  min="0"
-                  value={totalAssets}
-                  onChange={e => setTotalAssets(e.target.value)}
-                  placeholder="e.g. 250"
-                  className={inputCls()}
-                />
-              </div>
-
-              <div className="col-span-2">
-                <FieldLabel label="Site Names / Locations" required />
-                <div className="space-y-1.5">
-                  {siteNames.map((site, i) => (
-                    <div key={i} className="flex gap-1.5">
-                      <input
-                        value={site}
-                        onChange={e => { updateSite(i, e.target.value); clearErr('sites'); }}
-                        placeholder={`Site ${i + 1} name or location`}
-                        className={`flex-1 ${inputCls(i === 0 && !!errors.sites)}`}
-                      />
-                      {siteNames.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => removeSite(i)}
-                          className="flex-shrink-0 w-7 h-7 flex items-center justify-center text-[#7A94B4] hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors border border-[rgba(46,127,255,0.15)]"
-                        >
-                          <X size={11} />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                  {errors.sites && <p className="text-[10px] text-red-400">{errors.sites}</p>}
-                  <button
-                    type="button"
-                    onClick={addSite}
-                    className="flex items-center gap-1.5 text-[11px] text-[#2E7FFF] hover:text-blue-300 transition-colors font-medium mt-0.5"
-                  >
-                    <Plus size={11} />
-                    Add another site
-                  </button>
-                </div>
-              </div>
-
-              <div className="col-span-2">
-                <FieldLabel label="Asset Categories" />
-                <div className="grid grid-cols-3 gap-1.5">
-                  {ASSET_CATEGORIES.map(cat => (
-                    <label
-                      key={cat}
-                      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px] cursor-pointer transition-all ${
-                        assetCategories.includes(cat)
-                          ? 'border-[#2E7FFF] bg-[#2E7FFF]/15 text-[#EEF3FA]'
-                          : 'border-[rgba(46,127,255,0.18)] text-[#7A94B4] hover:border-[rgba(46,127,255,0.35)] hover:text-[#EEF3FA]'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={assetCategories.includes(cat)}
-                        onChange={() => toggleAsset(cat)}
-                        className="hidden"
-                      />
-                      <span className={`w-3 h-3 rounded border flex-shrink-0 flex items-center justify-center ${
-                        assetCategories.includes(cat) ? 'bg-[#2E7FFF] border-[#2E7FFF]' : 'border-[rgba(46,127,255,0.3)]'
-                      }`}>
-                        {assetCategories.includes(cat) && (
-                          <svg viewBox="0 0 8 8" className="w-2 h-2 fill-white">
-                            <path d="M1 4l2 2 4-4" stroke="white" strokeWidth="1.5" fill="none" />
-                          </svg>
-                        )}
-                      </span>
-                      {cat}
-                    </label>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* ── Contract Details ── */}
-          <div>
-            <SectionHeader icon={SECTION_ICONS.contract} title="Contract Details" />
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <FieldLabel label="Contract Type" required />
-                <select
-                  value={contractType}
-                  onChange={e => { setContractType(e.target.value); clearErr('contractType'); }}
-                  className={`${selectCls} ${errors.contractType ? 'border-red-500/60' : ''}`}
-                >
-                  <option value="" className="bg-[#0A1628]">Select type…</option>
-                  {CONTRACT_TYPES.map(ct => (
-                    <option key={ct} value={ct} className="bg-[#0A1628]">{ct}</option>
-                  ))}
-                </select>
-                {errors.contractType && <p className="mt-0.5 text-[10px] text-red-400">{errors.contractType}</p>}
-              </div>
-
-              <div>
-                <FieldLabel label="SLA Tier" required />
-                <select
-                  value={slaTier}
-                  onChange={e => { setSlaTier(e.target.value); clearErr('slaTier'); }}
-                  className={`${selectCls} ${errors.slaTier ? 'border-red-500/60' : ''}`}
-                >
-                  <option value="" className="bg-[#0A1628]">Select tier…</option>
-                  {SLA_TIERS.map(t => (
-                    <option key={t} value={t} className="bg-[#0A1628]">{t}</option>
-                  ))}
-                </select>
-                {errors.slaTier && <p className="mt-0.5 text-[10px] text-red-400">{errors.slaTier}</p>}
-              </div>
-
-              <div>
-                <FieldLabel label="Contract Start Date" required />
-                <input
-                  type="date"
-                  value={contractStart}
-                  onChange={e => { setContractStart(e.target.value); clearErr('contractStart'); }}
-                  className={`${inputCls(!!errors.contractStart)} [color-scheme:dark]`}
-                />
-                {errors.contractStart && <p className="mt-0.5 text-[10px] text-red-400">{errors.contractStart}</p>}
-              </div>
-
-              <div>
-                <FieldLabel label="Contract End Date" />
-                <input
-                  type="date"
-                  value={contractEnd}
-                  onChange={e => setContractEnd(e.target.value)}
-                  className={`${inputCls()} [color-scheme:dark]`}
-                />
-              </div>
-
-              <div>
-                <FieldLabel label="Contract Value (AED)" />
-                <div className="relative">
-                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] text-[#7A94B4] font-medium">AED</span>
+                <div>
+                  <FieldLabel label="Total Asset Count" />
                   <input
                     type="number"
                     min="0"
-                    value={contractValue}
-                    onChange={e => setContractValue(e.target.value)}
-                    placeholder="0"
-                    className={`${inputCls()} pl-10`}
+                    value={totalAssets}
+                    onChange={e => setTotalAssets(e.target.value)}
+                    placeholder="e.g. 250"
+                    className={inputCls()}
+                  />
+                </div>
+
+                <div className="col-span-2">
+                  <FieldLabel label="Site Names / Locations" required />
+                  <div className="space-y-1.5">
+                    {siteNames.map((site, i) => (
+                      <div key={i} className="flex gap-1.5">
+                        <input
+                          value={site}
+                          onChange={e => { updateSite(i, e.target.value); clearErr('sites'); }}
+                          placeholder={`Site ${i + 1} name or location`}
+                          className={`flex-1 ${inputCls(i === 0 && !!errors.sites)}`}
+                        />
+                        {siteNames.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeSite(i)}
+                            className="flex-shrink-0 w-7 h-7 flex items-center justify-center text-[#7A94B4] hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors border border-[rgba(46,127,255,0.15)]"
+                          >
+                            <X size={11} />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    {errors.sites && <p className="text-[10px] text-red-400">{errors.sites}</p>}
+                    <button
+                      type="button"
+                      onClick={addSite}
+                      className="flex items-center gap-1.5 text-[11px] text-[#2E7FFF] hover:text-blue-300 transition-colors font-medium mt-0.5"
+                    >
+                      <Plus size={11} />
+                      Add another site
+                    </button>
+                  </div>
+                </div>
+
+                <div className="col-span-2">
+                  <FieldLabel label="Asset Categories" />
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {ASSET_CATEGORIES.map(cat => (
+                      <label
+                        key={cat}
+                        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px] cursor-pointer transition-all ${
+                          assetCategories.includes(cat)
+                            ? 'border-[#2E7FFF] bg-[#2E7FFF]/15 text-[#EEF3FA]'
+                            : 'border-[rgba(46,127,255,0.18)] text-[#7A94B4] hover:border-[rgba(46,127,255,0.35)] hover:text-[#EEF3FA]'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={assetCategories.includes(cat)}
+                          onChange={() => toggleAsset(cat)}
+                          className="hidden"
+                        />
+                        <span className={`w-3 h-3 rounded border flex-shrink-0 flex items-center justify-center ${
+                          assetCategories.includes(cat) ? 'bg-[#2E7FFF] border-[#2E7FFF]' : 'border-[rgba(46,127,255,0.3)]'
+                        }`}>
+                          {assetCategories.includes(cat) && (
+                            <svg viewBox="0 0 8 8" className="w-2 h-2 fill-white">
+                              <path d="M1 4l2 2 4-4" stroke="white" strokeWidth="1.5" fill="none" />
+                            </svg>
+                          )}
+                        </span>
+                        {cat}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'contract' && (
+            <div className="space-y-4">
+              <SectionHeader icon={SECTION_ICONS.contract} title="Contract Details" />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <FieldLabel label="Contract Type" required />
+                  <select
+                    value={contractType}
+                    onChange={e => { setContractType(e.target.value); clearErr('contractType'); }}
+                    className={`${selectCls} ${errors.contractType ? 'border-red-500/60' : ''}`}
+                  >
+                    <option value="" className="bg-[#0A1628]">Select type…</option>
+                    {CONTRACT_TYPES.map(ct => (
+                      <option key={ct} value={ct} className="bg-[#0A1628]">{ct}</option>
+                    ))}
+                  </select>
+                  {errors.contractType && <p className="mt-0.5 text-[10px] text-red-400">{errors.contractType}</p>}
+                </div>
+
+                <div>
+                  <FieldLabel label="SLA Tier" required />
+                  <select
+                    value={slaTier}
+                    onChange={e => { setSlaTier(e.target.value); clearErr('slaTier'); }}
+                    className={`${selectCls} ${errors.slaTier ? 'border-red-500/60' : ''}`}
+                  >
+                    <option value="" className="bg-[#0A1628]">Select tier…</option>
+                    {SLA_TIERS.map(t => (
+                      <option key={t} value={t} className="bg-[#0A1628]">{t}</option>
+                    ))}
+                  </select>
+                  {errors.slaTier && <p className="mt-0.5 text-[10px] text-red-400">{errors.slaTier}</p>}
+                </div>
+
+                <div>
+                  <FieldLabel label="Contract Start Date" required />
+                  <input
+                    type="date"
+                    value={contractStart}
+                    onChange={e => { setContractStart(e.target.value); clearErr('contractStart'); }}
+                    className={`${inputCls(!!errors.contractStart)} [color-scheme:dark]`}
+                  />
+                  {errors.contractStart && <p className="mt-0.5 text-[10px] text-red-400">{errors.contractStart}</p>}
+                </div>
+
+                <div>
+                  <FieldLabel label="Contract End Date" />
+                  <input
+                    type="date"
+                    value={contractEnd}
+                    onChange={e => setContractEnd(e.target.value)}
+                    className={`${inputCls()} [color-scheme:dark]`}
+                  />
+                </div>
+
+                <div>
+                  <FieldLabel label="Contract Value (AED)" />
+                  <div className="relative">
+                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] text-[#7A94B4] font-medium">AED</span>
+                    <input
+                      type="number"
+                      min="0"
+                      value={contractValue}
+                      onChange={e => setContractValue(e.target.value)}
+                      placeholder="0"
+                      className={`${inputCls()} pl-10`}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <FieldLabel label="Primary Zone" />
+                  <select
+                    value={zone}
+                    onChange={e => setZone(e.target.value)}
+                    className={selectCls}
+                  >
+                    {ZONE_OPTIONS.map(z => (
+                      <option key={z} value={z} className="bg-[#0A1628]">{z}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'contact' && (
+            <div className="space-y-4">
+              <SectionHeader icon={SECTION_ICONS.contact} title="Primary Contact" />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <FieldLabel label="Contact Name" required />
+                  <input
+                    value={contactName}
+                    onChange={e => { setContactName(e.target.value); clearErr('contactName'); }}
+                    placeholder="e.g. Ahmed Al Mansouri"
+                    className={inputCls(!!errors.contactName)}
+                  />
+                  {errors.contactName && <p className="mt-0.5 text-[10px] text-red-400">{errors.contactName}</p>}
+                </div>
+
+                <div>
+                  <FieldLabel label="Account Manager" />
+                  <input
+                    value={accountManager}
+                    onChange={e => setAccountManager(e.target.value)}
+                    placeholder="e.g. Sara Hassan"
+                    className={inputCls()}
+                  />
+                </div>
+
+                <div>
+                  <FieldLabel label="Contact Email" />
+                  <input
+                    type="email"
+                    value={contactEmail}
+                    onChange={e => setContactEmail(e.target.value)}
+                    placeholder="e.g. ahmed@client.ae"
+                    className={inputCls()}
+                  />
+                </div>
+
+                <div>
+                  <FieldLabel label="Contact Phone" />
+                  <input
+                    type="tel"
+                    value={contactPhone}
+                    onChange={e => setContactPhone(e.target.value)}
+                    placeholder="e.g. +971 50 123 4567"
+                    className={inputCls()}
                   />
                 </div>
               </div>
+            </div>
+          )}
 
-              <div>
-                <FieldLabel label="Primary Zone" />
-                <select
-                  value={zone}
-                  onChange={e => setZone(e.target.value)}
-                  className={selectCls}
-                >
-                  {ZONE_OPTIONS.map(z => (
-                    <option key={z} value={z} className="bg-[#0A1628]">{z}</option>
-                  ))}
-                </select>
+          {activeTab === 'team' && (
+            <div className="space-y-4">
+              <SectionHeader icon={SECTION_ICONS.team} title="Team Members" />
+              <p className="text-[11px] text-[#7A94B4] -mt-2 mb-2 leading-relaxed">
+                Invite team members to this client workspace. Each person will receive a welcome email with login credentials.
+              </p>
+
+              <div className="space-y-3">
+                {teamMembers.map((member, i) => (
+                  <div
+                    key={i}
+                    className="bg-[#0A1628] border border-[rgba(46,127,255,0.18)] rounded-xl p-3 space-y-2.5 relative"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[10px] font-bold text-[#4A6080] uppercase tracking-widest">Member {i + 1}</span>
+                      {teamMembers.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeMember(i)}
+                          className="flex items-center gap-1 text-[10px] text-[#7A94B4] hover:text-red-400 transition-colors"
+                        >
+                          <X size={10} />
+                          Remove
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <FieldLabel label="Full Name" required />
+                        <input
+                          value={member.name}
+                          onChange={e => updateMember(i, 'name', e.target.value)}
+                          placeholder="e.g. Ahmed Al Rashid"
+                          className={inputCls(!!errors[`team_name_${i}`])}
+                        />
+                        {errors[`team_name_${i}`] && <p className="mt-0.5 text-[10px] text-red-400">{errors[`team_name_${i}`]}</p>}
+                      </div>
+
+                      <div>
+                        <FieldLabel label="Email Address" required />
+                        <input
+                          type="email"
+                          value={member.email}
+                          onChange={e => updateMember(i, 'email', e.target.value)}
+                          placeholder="e.g. ahmed@imdaad.ae"
+                          className={inputCls(!!errors[`team_email_${i}`])}
+                        />
+                        {errors[`team_email_${i}`] && <p className="mt-0.5 text-[10px] text-red-400">{errors[`team_email_${i}`]}</p>}
+                      </div>
+
+                      <div>
+                        <FieldLabel label="Role" required />
+                        <select
+                          value={member.role}
+                          onChange={e => updateMember(i, 'role', e.target.value)}
+                          className={`${selectCls} ${errors[`team_role_${i}`] ? 'border-red-500/60' : ''}`}
+                        >
+                          <option value="" className="bg-[#0A1628]">Select role…</option>
+                          {TEAM_ROLES.map(r => (
+                            <option key={r} value={r} className="bg-[#0A1628]">{r}</option>
+                          ))}
+                        </select>
+                        {errors[`team_role_${i}`] && <p className="mt-0.5 text-[10px] text-red-400">{errors[`team_role_${i}`]}</p>}
+                      </div>
+
+                      <div>
+                        <FieldLabel label="Responsibilities / Notes" />
+                        <input
+                          value={member.responsibilities}
+                          onChange={e => updateMember(i, 'responsibilities', e.target.value)}
+                          placeholder="Optional notes…"
+                          className={inputCls()}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                onClick={addMember}
+                className="flex items-center gap-1.5 text-[11px] text-[#2E7FFF] hover:text-blue-300 transition-colors font-medium"
+              >
+                <Plus size={11} />
+                Add another team member
+              </button>
+
+              {errors.team_required && (
+                <p className="text-[11px] text-red-400 bg-red-500/10 border border-red-500/25 rounded-lg px-3 py-2">
+                  {errors.team_required}
+                </p>
+              )}
+
+              <div className="mt-1 p-3 bg-[rgba(46,127,255,0.06)] border border-[rgba(46,127,255,0.15)] rounded-xl">
+                <p className="text-[10px] text-[#7A94B4] leading-relaxed">
+                  <span className="text-[#2E7FFF] font-semibold">Note:</span> At least one team member with name, email, and role is required. Each invited member receives a welcome email with a platform access link.
+                </p>
               </div>
             </div>
-          </div>
+          )}
 
-          {/* ── Primary Contact ── */}
-          <div>
-            <SectionHeader icon={SECTION_ICONS.contact} title="Primary Contact" />
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <FieldLabel label="Contact Name" required />
-                <input
-                  value={contactName}
-                  onChange={e => { setContactName(e.target.value); clearErr('contactName'); }}
-                  placeholder="e.g. Ahmed Al Mansouri"
-                  className={inputCls(!!errors.contactName)}
-                />
-                {errors.contactName && <p className="mt-0.5 text-[10px] text-red-400">{errors.contactName}</p>}
-              </div>
-
-              <div>
-                <FieldLabel label="Account Manager" />
-                <input
-                  value={accountManager}
-                  onChange={e => setAccountManager(e.target.value)}
-                  placeholder="e.g. Sara Hassan"
-                  className={inputCls()}
-                />
-              </div>
-
-              <div>
-                <FieldLabel label="Contact Email" />
-                <input
-                  type="email"
-                  value={contactEmail}
-                  onChange={e => setContactEmail(e.target.value)}
-                  placeholder="e.g. ahmed@client.ae"
-                  className={inputCls()}
-                />
-              </div>
-
-              <div>
-                <FieldLabel label="Contact Phone" />
-                <input
-                  type="tel"
-                  value={contactPhone}
-                  onChange={e => setContactPhone(e.target.value)}
-                  placeholder="e.g. +971 50 123 4567"
-                  className={inputCls()}
-                />
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Footer */}
@@ -538,10 +768,23 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
           </button>
           <button
             onClick={handleSave}
-            className="flex-1 py-2 bg-[#2E7FFF] text-white text-xs font-semibold rounded-lg hover:bg-blue-500 transition-colors flex items-center justify-center gap-1.5"
+            disabled={isSaving}
+            className="flex-1 py-2 bg-[#2E7FFF] text-white text-xs font-semibold rounded-lg hover:bg-blue-500 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            <Plus size={11} />
-            Add Client
+            {isSaving ? (
+              <>
+                <svg className="animate-spin w-3 h-3" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                </svg>
+                Sending invites…
+              </>
+            ) : (
+              <>
+                <Plus size={11} />
+                Add Client
+              </>
+            )}
           </button>
         </div>
       </motion.div>
@@ -583,15 +826,29 @@ export function CommandBar({ mode, onModeChange, onToast }: Props) {
     setOpenFilter(null);
   };
 
-  const handleAddClient = (data: ClientData) => {
+  const handleAddClient = (data: ClientData, teamMembers: TeamMember[], inviteOk: boolean, failedCount: number) => {
     setClientData(prev => [...prev, data]);
     setSelected(prev => ({ ...prev, Client: data.name }));
     setShowAddClient(false);
     setOpenFilter(null);
-    onToast(
-      `${data.name} added — ${data.sector} · ${data.contractType} · ${data.slaTier}`,
-      'success'
-    );
+    if (!inviteOk) {
+      if (failedCount > 0) {
+        onToast(
+          `${data.name} added — ${failedCount} invite${failedCount > 1 ? 's' : ''} failed to send`,
+          'warning'
+        );
+      } else {
+        onToast(
+          `${data.name} added — invites could not be delivered (check SMTP config)`,
+          'warning'
+        );
+      }
+    } else {
+      onToast(
+        `${data.name} added — invites sent to ${teamMembers.length} team member${teamMembers.length > 1 ? 's' : ''}`,
+        'success'
+      );
+    }
   };
 
   const cfg = modeConfig[mode];
