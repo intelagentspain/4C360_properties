@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TrendingUp, TrendingDown, Minus, Info } from 'lucide-react';
+import { type ToastFn } from '@/lib/ui';
 
 interface KPI {
   label: string;
@@ -57,7 +58,7 @@ const kpis: KPI[] = [
 ];
 
 interface Props {
-  onToast?: (msg: string, type?: 'success' | 'warning' | 'error' | 'info') => void;
+  onToast?: ToastFn;
 }
 
 export function KPIPanel({ onToast }: Props) {
@@ -72,7 +73,7 @@ export function KPIPanel({ onToast }: Props) {
   return (
     <div className="grid grid-cols-2 gap-2 mb-4">
       {kpis.map(kpi => {
-        const isActive = activeKpi === kpi.label;
+        const isActive  = activeKpi  === kpi.label;
         const isHovered = hoveredKpi === kpi.label;
 
         return (
@@ -96,11 +97,9 @@ export function KPIPanel({ onToast }: Props) {
                 </div>
                 <Info size={11} className="text-[#7A94B4] mt-0.5 flex-shrink-0" />
               </div>
-
               <div className="text-[11px] text-[#7A94B4] mb-1.5">{kpi.label}</div>
-
               <div className={`flex items-center gap-1 text-[10px] font-medium ${kpi.trendGood ? 'text-emerald-400' : 'text-red-400'}`}>
-                {kpi.trend === 'up' ? <TrendingUp size={10} /> :
+                {kpi.trend === 'up'   ? <TrendingUp size={10} />   :
                  kpi.trend === 'down' ? <TrendingDown size={10} /> :
                  <Minus size={10} />}
                 <span className={kpi.trend === 'flat' ? 'text-[#7A94B4]' : ''}>{kpi.trendValue}</span>

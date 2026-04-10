@@ -122,6 +122,21 @@ export const mockTechPerformance = {
   ],
 };
 
+export const mockAiClassification = {
+  category: 'AC / HVAC',
+  subCategory: 'Refrigerant / Cooling Failure',
+  confidence: 94,
+  priority: 'critical' as const,
+  slaWindow: '2 hours',
+  reasoning:
+    'Frost pattern on evaporator coil detected. Compressor vibration signature visible in photo metadata. Consistent with low refrigerant pressure.',
+  signals: [
+    { label: 'Visual signal', value: 'Frost on coil unit', match: 97 },
+    { label: 'Pattern match', value: 'R-410A shortage profile', match: 91 },
+    { label: 'Asset history', value: 'Last serviced 83 days ago', match: 88 },
+  ],
+};
+
 export const mockSmartDispatch = [
   {
     incidentId: 'INC-SI-001',

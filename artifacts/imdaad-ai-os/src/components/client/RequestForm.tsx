@@ -1,43 +1,33 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MapPin, Camera, CheckCircle, Loader2, Zap, Brain, ChevronDown, ChevronUp } from 'lucide-react';
+import { mockAiClassification } from '@/data/mockData';
+import { SEVERITY_BADGE, type ToastFn } from '@/lib/ui';
+import { AnimatedBar, ConfidenceBar } from '@/components/shared/AnimatedBar';
+
+const ISSUE_TYPES = [
+  { id: 'hvac',       label: 'AC / HVAC',           emoji: '❄️' },
+  { id: 'electrical', label: 'Electrical',           emoji: '💡' },
+  { id: 'plumbing',   label: 'Plumbing',             emoji: '🚰' },
+  { id: 'general',    label: 'General Maintenance',  emoji: '🔧' },
+];
 
 interface Props {
   onSubmit: () => void;
-  onToast: (msg: string, type?: 'success' | 'warning' | 'error' | 'info') => void;
+  onToast: ToastFn;
 }
 
-const issueTypes = [
-  { id: 'hvac', label: 'AC / HVAC', emoji: '❄️' },
-  { id: 'electrical', label: 'Electrical', emoji: '💡' },
-  { id: 'plumbing', label: 'Plumbing', emoji: '🚰' },
-  { id: 'general', label: 'General Maintenance', emoji: '🔧' },
-];
-
-const aiClassification = {
-  category: 'AC / HVAC',
-  subCategory: 'Refrigerant / Cooling Failure',
-  confidence: 94,
-  priority: 'HIGH',
-  priorityColor: 'text-red-400 bg-red-500/20 border-red-500/40',
-  reasoning: 'Frost pattern on evaporator coil detected. Compressor vibration signature visible in photo metadata. Consistent with low refrigerant pressure.',
-  signals: [
-    { label: 'Visual signal', value: 'Frost on coil unit', match: 97 },
-    { label: 'Pattern match', value: 'R-410A shortage profile', match: 91 },
-    { label: 'Asset history', value: 'Last serviced 83 days ago', match: 88 },
-  ],
-  slaWindow: '2 hours',
-};
-
 export function RequestForm({ onSubmit, onToast }: Props) {
-  const [selected, setSelected] = useState('hvac');
+  const [selected,    setSelected]    = useState('hvac');
   const [description, setDescription] = useState('');
-  const [photoAdded, setPhotoAdded] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
+  const [photoAdded,  setPhotoAdded]  = useState(false);
+  const [loading,     setLoading]     = useState(false);
+  const [submitted,   setSubmitted]   = useState(false);
   const [classifying, setClassifying] = useState(false);
-  const [classified, setClassified] = useState(false);
-  const [aiExpanded, setAiExpanded] = useState(true);
+  const [classified,  setClassified]  = useState(false);
+  const [aiExpanded,  setAiExpanded]  = useState(true);
+
+  const cls = mockAiClassification;
 
   const handlePhotoAdd = () => {
     setClassifying(true);
@@ -45,7 +35,7 @@ export function RequestForm({ onSubmit, onToast }: Props) {
       setClassifying(false);
       setPhotoAdded(true);
       setClassified(true);
-      onToast('AI classified: HVAC · High Priority · 94% confidence', 'info');
+      onToast(`AI classified: ${cls.category} · High Priority · ${cls.confidence}% confidence`, 'info');
     }, 1800);
   };
 
@@ -72,12 +62,19 @@ export function RequestForm({ onSubmit, onToast }: Props) {
         <div className="text-[#EEF3FA] font-bold text-lg mb-1">Request Submitted</div>
         <div className="text-emerald-400 font-semibold text-sm mb-4">REQ-SI-2242</div>
         <div className="w-full bg-[rgba(17,32,64,0.85)] border border-[rgba(46,127,255,0.22)] rounded-xl p-4 text-left space-y-2">
-          <div className="flex justify-between text-xs"><span className="text-[#7A94B4]">Issue type</span><span className="text-[#EEF3FA]">AC / HVAC</span></div>
-          <div className="flex justify-between text-xs"><span className="text-[#7A94B4]">AI confidence</span><span className="text-emerald-400 font-bold">94%</span></div>
-          <div className="flex justify-between text-xs"><span className="text-[#7A94B4]">Location</span><span className="text-[#EEF3FA]">Villa 23</span></div>
-          <div className="flex justify-between text-xs"><span className="text-[#7A94B4]">Technician</span><span className="text-[#EEF3FA]">Karim R. · HVAC</span></div>
-          <div className="flex justify-between text-xs"><span className="text-[#7A94B4]">ETA</span><span className="text-emerald-400">~18 minutes</span></div>
-          <div className="flex justify-between text-xs"><span className="text-[#7A94B4]">SLA commitment</span><span className="text-[#EEF3FA]">2 hours</span></div>
+          {[
+            { label: 'Issue type',      value: cls.category,              color: '' },
+            { label: 'AI confidence',   value: `${cls.confidence}%`,      color: 'text-emerald-400 font-bold' },
+            { label: 'Location',        value: 'Villa 23',                color: '' },
+            { label: 'Technician',      value: 'Karim R. · HVAC',         color: '' },
+            { label: 'ETA',             value: '~18 minutes',             color: 'text-emerald-400' },
+            { label: 'SLA commitment',  value: cls.slaWindow,             color: '' },
+          ].map(r => (
+            <div key={r.label} className="flex justify-between text-xs">
+              <span className="text-[#7A94B4]">{r.label}</span>
+              <span className={r.color || 'text-[#EEF3FA]'}>{r.value}</span>
+            </div>
+          ))}
         </div>
         <button onClick={onSubmit} className="mt-4 text-[#2E7FFF] text-sm font-semibold hover:text-blue-400 transition-colors">
           Track Your Request →
@@ -98,7 +95,7 @@ export function RequestForm({ onSubmit, onToast }: Props) {
       <div>
         <div className="text-[11px] text-[#7A94B4] mb-2 uppercase tracking-wide font-medium">Issue Type</div>
         <div className="grid grid-cols-2 gap-2">
-          {issueTypes.map(type => (
+          {ISSUE_TYPES.map(type => (
             <button
               key={type.id}
               onClick={() => setSelected(type.id)}
@@ -147,6 +144,11 @@ export function RequestForm({ onSubmit, onToast }: Props) {
               <Brain size={16} className="text-[#2E7FFF] animate-pulse" />
               <span className="text-[12px] text-[#7A94B4]">AI analysing your photo…</span>
             </div>
+            <AnimatedBar
+              value={100}
+              color="url(#blueGrad)"
+              height="h-1.5"
+            />
             <div className="w-full h-1.5 bg-[#0A1628] rounded-full overflow-hidden">
               <motion.div
                 initial={{ width: '0%' }}
@@ -198,10 +200,12 @@ export function RequestForm({ onSubmit, onToast }: Props) {
                     <Brain size={12} className="text-purple-400" />
                     <span className="text-[11px] font-bold text-purple-400 uppercase tracking-wide">AI Classification</span>
                     <span className="text-[10px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded-full border border-purple-500/30 font-bold">
-                      {aiClassification.confidence}% confident
+                      {cls.confidence}% confident
                     </span>
                   </div>
-                  {aiExpanded ? <ChevronUp size={12} className="text-[#7A94B4]" /> : <ChevronDown size={12} className="text-[#7A94B4]" />}
+                  {aiExpanded
+                    ? <ChevronUp size={12} className="text-[#7A94B4]" />
+                    : <ChevronDown size={12} className="text-[#7A94B4]" />}
                 </button>
 
                 <AnimatePresence>
@@ -216,58 +220,38 @@ export function RequestForm({ onSubmit, onToast }: Props) {
                       <div className="px-3 pb-3 pt-2.5 space-y-2.5">
                         <div className="flex items-start gap-2">
                           <div className="flex-1">
-                            <div className="text-[12px] text-[#EEF3FA] font-bold">{aiClassification.category}</div>
-                            <div className="text-[10px] text-[#7A94B4]">{aiClassification.subCategory}</div>
+                            <div className="text-[12px] text-[#EEF3FA] font-bold">{cls.category}</div>
+                            <div className="text-[10px] text-[#7A94B4]">{cls.subCategory}</div>
                           </div>
-                          <span className={`text-[9px] font-bold px-2 py-0.5 rounded border ${aiClassification.priorityColor}`}>
-                            {aiClassification.priority} PRIORITY
+                          <span className={`text-[9px] font-bold px-2 py-0.5 rounded border ${SEVERITY_BADGE[cls.priority]}`}>
+                            {cls.priority.toUpperCase()} PRIORITY
                           </span>
                         </div>
 
-                        <div>
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-[9px] text-[#7A94B4] uppercase tracking-wide">Confidence</span>
-                            <span className="text-[10px] font-bold text-purple-400">{aiClassification.confidence}%</span>
-                          </div>
-                          <div className="h-1.5 bg-[#0A1628] rounded-full overflow-hidden">
-                            <motion.div
-                              initial={{ width: 0 }}
-                              animate={{ width: `${aiClassification.confidence}%` }}
-                              transition={{ duration: 0.6 }}
-                              className="h-full rounded-full bg-gradient-to-r from-purple-500 to-purple-400"
-                            />
-                          </div>
-                        </div>
+                        <ConfidenceBar label="Confidence" value={cls.confidence} color="#a78bfa" />
 
                         <div className="bg-[#0A1628] rounded-lg p-2.5">
                           <div className="text-[9px] text-[#7A94B4] mb-1 uppercase tracking-wide">How we classified this</div>
-                          <p className="text-[10px] text-[#EEF3FA] leading-relaxed">{aiClassification.reasoning}</p>
+                          <p className="text-[10px] text-[#EEF3FA] leading-relaxed">{cls.reasoning}</p>
                         </div>
 
                         <div className="space-y-1.5">
-                          {aiClassification.signals.map(sig => (
-                            <div key={sig.label} className="flex items-center gap-2">
-                              <div className="flex-1">
-                                <div className="flex items-center justify-between mb-0.5">
-                                  <span className="text-[9px] text-[#7A94B4]">{sig.label}: <span className="text-[#EEF3FA]">{sig.value}</span></span>
-                                  <span className="text-[9px] font-bold text-purple-400">{sig.match}%</span>
-                                </div>
-                                <div className="h-1 bg-[#0A1628] rounded-full overflow-hidden">
-                                  <motion.div
-                                    initial={{ width: 0 }}
-                                    animate={{ width: `${sig.match}%` }}
-                                    transition={{ duration: 0.5 }}
-                                    className="h-full rounded-full bg-purple-500/70"
-                                  />
-                                </div>
-                              </div>
-                            </div>
+                          {cls.signals.map((sig, i) => (
+                            <ConfidenceBar
+                              key={sig.label}
+                              label={`${sig.label}: ${sig.value}`}
+                              value={sig.match}
+                              color="#a78bfa"
+                              delay={i * 0.08}
+                            />
                           ))}
                         </div>
 
                         <div className="flex items-center gap-2 pt-1 border-t border-purple-500/15">
                           <CheckCircle size={10} className="text-emerald-400" />
-                          <span className="text-[10px] text-[#7A94B4]">SLA window: <span className="text-[#EEF3FA] font-semibold">{aiClassification.slaWindow}</span></span>
+                          <span className="text-[10px] text-[#7A94B4]">
+                            SLA window: <span className="text-[#EEF3FA] font-semibold">{cls.slaWindow}</span>
+                          </span>
                         </div>
                       </div>
                     </motion.div>

@@ -6,6 +6,8 @@ import {
   FileImage, ThumbsUp,
 } from 'lucide-react';
 import { TrackingMap } from './TrackingMap';
+import { ConfidenceBar } from '@/components/shared/AnimatedBar';
+import { TechAvatar } from '@/components/shared/TechAvatar';
 
 type StepStatus = 'done' | 'active' | 'pending';
 
@@ -15,90 +17,79 @@ interface Step {
   time?: string;
   status: StepStatus;
   icon: React.ReactNode;
-  accentColor: string;
 }
 
-const steps: Step[] = [
-  { id: 'received', label: 'Request Received', time: '10:14 AM', status: 'done', icon: <CheckCircle size={11} />, accentColor: '#38D98A' },
-  { id: 'assigned', label: 'Technician Assigned', time: '10:14 AM', status: 'done', icon: <Shield size={11} />, accentColor: '#38D98A' },
-  { id: 'enroute', label: 'En Route', time: '10:16 AM', status: 'active', icon: <Navigation size={11} />, accentColor: '#2E7FFF' },
-  { id: 'inprogress', label: 'Repair in Progress', status: 'pending', icon: <Wrench size={11} />, accentColor: '#7A94B4' },
-  { id: 'completed', label: 'Completed & Confirmed', status: 'pending', icon: <CheckCircle size={11} />, accentColor: '#7A94B4' },
+const STEPS: Step[] = [
+  { id: 'received',   label: 'Request Received',       time: '10:14 AM', status: 'done',   icon: <CheckCircle size={11} /> },
+  { id: 'assigned',   label: 'Technician Assigned',    time: '10:14 AM', status: 'done',   icon: <Shield size={11} /> },
+  { id: 'enroute',    label: 'En Route',               time: '10:16 AM', status: 'active', icon: <Navigation size={11} /> },
+  { id: 'inprogress', label: 'Repair in Progress',                       status: 'pending', icon: <Wrench size={11} /> },
+  { id: 'completed',  label: 'Completed & Confirmed',                    status: 'pending', icon: <CheckCircle size={11} /> },
 ];
 
-function ConfidenceBar({ value, color = '#38D98A', label }: { value: number; color?: string; label: string }) {
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-0.5">
-        <span className="text-[9px] text-[#7A94B4]">{label}</span>
-        <span className="text-[9px] font-bold" style={{ color }}>{value}%</span>
-      </div>
-      <div className="h-1 bg-[#0A1628] rounded-full overflow-hidden">
-        <motion.div
-          initial={{ width: 0 }}
-          animate={{ width: `${value}%` }}
-          transition={{ duration: 0.6, delay: 0.1 }}
-          className="h-full rounded-full"
-          style={{ background: color }}
-        />
-      </div>
-    </div>
-  );
-}
+const TECH_BADGES = [
+  { icon: <Shield size={10} />,   text: 'HVAC Certified',   color: 'text-emerald-400' },
+  { icon: <ThumbsUp size={10} />, text: '94% SLA rate',     color: 'text-blue-400' },
+  { icon: <Zap size={10} />,      text: '8.4 min avg resp.', color: 'text-cyan-400' },
+];
+
+const ETA_ROWS = [
+  { label: 'GPS distance',     value: '0.6 km' },
+  { label: 'Traffic condition', value: 'Light — 9 min drive' },
+  { label: 'Check-in & prep',  value: '~5 min' },
+  { label: 'Total estimated',  value: '18 min', highlight: true },
+];
 
 export function ServiceTimeline() {
-  const [rating, setRating] = useState(4);
-  const [ratingDone, setRatingDone] = useState(false);
+  const [rating,       setRating]       = useState(4);
+  const [ratingDone,   setRatingDone]   = useState(false);
   const [expandedStep, setExpandedStep] = useState<string | null>('enroute');
 
-  const handleRate = (r: number) => {
+  const handleRate  = (r: number) => {
     setRating(r);
     setRatingDone(true);
     setTimeout(() => setRatingDone(false), 2500);
   };
 
-  const toggleStep = (id: string) => setExpandedStep(prev => prev === id ? null : id);
+  const toggleStep  = (id: string) => setExpandedStep(prev => prev === id ? null : id);
+  const canExpand   = (s: StepStatus) => s === 'done' || s === 'active';
 
   return (
     <div className="h-full overflow-y-auto custom-scrollbar p-4 space-y-4">
       <TrackingMap />
 
       <div className="space-y-0">
-        {steps.map((step, i) => {
+        {STEPS.map((step, i) => {
           const isExpanded = expandedStep === step.id;
-          const canExpand = step.status === 'done' || step.status === 'active';
+          const expandable = canExpand(step.status);
 
           return (
             <div key={step.id} className="flex gap-3">
               <div className="flex flex-col items-center">
-                <div
-                  className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${
-                    step.status === 'done'
-                      ? 'bg-emerald-500'
-                      : step.status === 'active'
-                      ? 'bg-[#2E7FFF] shadow-lg shadow-blue-500/40 animate-pulse'
-                      : 'bg-[#1A3260]'
-                  }`}
-                  style={step.status === 'done' || step.status === 'active' ? { color: 'white' } : { color: '#7A94B4' }}
-                >
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${
+                  step.status === 'done'   ? 'bg-emerald-500' :
+                  step.status === 'active' ? 'bg-[#2E7FFF] shadow-lg shadow-blue-500/40 animate-pulse' :
+                                             'bg-[#1A3260]'
+                }`} style={step.status !== 'pending' ? { color: 'white' } : { color: '#7A94B4' }}>
                   {step.icon}
                 </div>
-                {i < steps.length - 1 && (
-                  <div className={`w-0.5 mt-1 mb-0 min-h-[28px] ${step.status === 'done' ? 'bg-emerald-500/40' : 'bg-[#1A3260]'}`}
-                    style={{ height: isExpanded ? undefined : 28 }}
+                {i < STEPS.length - 1 && (
+                  <div
+                    className={`w-0.5 mt-1 min-h-[28px] ${step.status === 'done' ? 'bg-emerald-500/40' : 'bg-[#1A3260]'}`}
                   />
                 )}
               </div>
 
               <div className="flex-1 pb-4 min-w-0">
                 <button
-                  onClick={() => canExpand && toggleStep(step.id)}
-                  className={`w-full text-left flex items-center justify-between gap-2 mb-0.5 ${canExpand ? 'cursor-pointer' : 'cursor-default'}`}
+                  onClick={() => expandable && toggleStep(step.id)}
+                  className={`w-full text-left flex items-center justify-between gap-2 mb-0.5 ${expandable ? 'cursor-pointer' : 'cursor-default'}`}
                 >
                   <div className="flex items-center gap-2">
                     <span className={`text-[12px] font-semibold ${
-                      step.status === 'done' ? 'text-emerald-400' :
-                      step.status === 'active' ? 'text-[#EEF3FA]' : 'text-[#7A94B4]'
+                      step.status === 'done'   ? 'text-emerald-400' :
+                      step.status === 'active' ? 'text-[#EEF3FA]' :
+                                                 'text-[#7A94B4]'
                     }`}>{step.label}</span>
                     {step.status === 'pending' && (
                       <span className="text-[9px] text-[#7A94B4] border border-[rgba(46,127,255,0.15)] rounded px-1.5 py-0.5">Pending</span>
@@ -106,7 +97,7 @@ export function ServiceTimeline() {
                   </div>
                   <div className="flex items-center gap-1.5 flex-shrink-0">
                     {step.time && <span className="text-[9px] text-[#7A94B4]">{step.time}</span>}
-                    {canExpand && (
+                    {expandable && (
                       isExpanded
                         ? <ChevronUp size={11} className="text-[#7A94B4]" />
                         : <ChevronDown size={11} className="text-[#7A94B4]" />
@@ -138,9 +129,9 @@ export function ServiceTimeline() {
                             <span className="text-[9px] font-bold px-2 py-0.5 rounded border text-red-400 bg-red-500/20 border-red-500/40">HIGH</span>
                           </div>
                           <div className="space-y-1.5">
-                            <ConfidenceBar value={97} color="#a78bfa" label="Visual signal match" />
-                            <ConfidenceBar value={91} color="#a78bfa" label="R-410A shortage profile" />
-                            <ConfidenceBar value={88} color="#a78bfa" label="Asset service history" />
+                            <ConfidenceBar label="Visual signal match"    value={97} color="#a78bfa" delay={0}    />
+                            <ConfidenceBar label="R-410A shortage profile" value={91} color="#a78bfa" delay={0.08} />
+                            <ConfidenceBar label="Asset service history"   value={88} color="#a78bfa" delay={0.16} />
                           </div>
                           <div className="bg-[#0A1628] rounded-lg p-2 text-[10px] text-[#7A94B4] leading-relaxed">
                             Frost on evaporator coil + compressor vibration signature detected. Consistent with low refrigerant pressure.
@@ -151,13 +142,13 @@ export function ServiceTimeline() {
                       {step.id === 'assigned' && (
                         <div className="mt-2 p-3 bg-[rgba(17,32,64,0.85)] border border-[rgba(46,127,255,0.2)] rounded-xl space-y-2.5">
                           <div className="flex items-center gap-3 pb-2 border-b border-[rgba(46,127,255,0.1)]">
-                            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#2E7FFF] to-[#00C6FF] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">KR</div>
+                            <TechAvatar initials="KR" size={9} />
                             <div className="flex-1">
                               <div className="text-[12px] text-[#EEF3FA] font-bold">Karim R.</div>
                               <div className="text-[10px] text-[#7A94B4]">HVAC Specialist · Imdaad</div>
                               <div className="flex items-center gap-1">
                                 {[1,2,3,4,5].map(s => (
-                                  <Star key={s} size={9} className={s <= 5 ? 'text-amber-400 fill-amber-400' : 'text-[#7A94B4]'} />
+                                  <Star key={s} size={9} className="text-amber-400 fill-amber-400" />
                                 ))}
                                 <span className="text-[9px] text-amber-400 ml-0.5">4.8 · 142 jobs</span>
                               </div>
@@ -165,16 +156,16 @@ export function ServiceTimeline() {
                           </div>
                           <div className="text-[9px] text-[#7A94B4] uppercase tracking-wide font-semibold">Why Karim was selected</div>
                           <div className="space-y-1.5">
-                            <ConfidenceBar value={98} color="#38D98A" label="HVAC skill match" />
-                            <ConfidenceBar value={94} color="#38D98A" label="Proximity score (0.4 km)" />
-                            <ConfidenceBar value={96} color="#38D98A" label="Tools & parts availability" />
+                            <ConfidenceBar label="HVAC skill match"             value={98} color="#38D98A" delay={0}    />
+                            <ConfidenceBar label="Proximity score (0.4 km)"     value={94} color="#38D98A" delay={0.08} />
+                            <ConfidenceBar label="Tools & parts availability"   value={96} color="#38D98A" delay={0.16} />
                           </div>
                           <div className="grid grid-cols-2 gap-1.5">
                             {[
-                              { icon: <Shield size={10} />, text: 'HVAC Certified', color: 'text-emerald-400' },
-                              { icon: <CheckCircle size={10} />, text: '142 jobs done', color: 'text-emerald-400' },
-                              { icon: <Zap size={10} />, text: 'No active jobs', color: 'text-cyan-400' },
-                              { icon: <MapPin size={10} />, text: '0.4 km away', color: 'text-blue-400' },
+                              { icon: <Shield size={10} />,       text: 'HVAC Certified', color: 'text-emerald-400' },
+                              { icon: <CheckCircle size={10} />,  text: '142 jobs done',  color: 'text-emerald-400' },
+                              { icon: <Zap size={10} />,          text: 'No active jobs', color: 'text-cyan-400'    },
+                              { icon: <MapPin size={10} />,       text: '0.4 km away',    color: 'text-blue-400'    },
                             ].map((b, i) => (
                               <div key={i} className={`flex items-center gap-1.5 text-[10px] bg-[#0A1628] rounded-lg px-2 py-1.5 ${b.color}`}>
                                 {b.icon} {b.text}
@@ -195,7 +186,7 @@ export function ServiceTimeline() {
                           </div>
 
                           <div className="flex items-center gap-2">
-                            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#2E7FFF] to-[#00C6FF] flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0">KR</div>
+                            <TechAvatar initials="KR" size={7} />
                             <div>
                               <span className="text-[12px] text-[#EEF3FA] font-semibold">Karim R.</span>
                               <span className="text-[10px] text-[#7A94B4] ml-2">0.6 km away</span>
@@ -206,15 +197,10 @@ export function ServiceTimeline() {
                             <div className="text-[9px] text-[#7A94B4] font-semibold uppercase tracking-wide flex items-center gap-1">
                               <Clock size={9} /> ETA Logic
                             </div>
-                            {[
-                              { label: 'GPS distance', value: '0.6 km' },
-                              { label: 'Traffic condition', value: 'Light — 9 min drive' },
-                              { label: 'Check-in & prep', value: '~5 min' },
-                              { label: 'Total estimated', value: '18 min', highlight: true },
-                            ].map(r => (
+                            {ETA_ROWS.map(r => (
                               <div key={r.label} className="flex items-center justify-between">
                                 <span className="text-[10px] text-[#7A94B4]">{r.label}</span>
-                                <span className={`text-[10px] font-medium ${r.highlight ? 'text-[#EEF3FA] font-bold' : 'text-[#EEF3FA]'}`}>{r.value}</span>
+                                <span className={`text-[10px] ${r.highlight ? 'text-[#EEF3FA] font-bold' : 'text-[#EEF3FA]'}`}>{r.value}</span>
                               </div>
                             ))}
                           </div>
@@ -222,7 +208,7 @@ export function ServiceTimeline() {
                           <div className="grid grid-cols-2 gap-1.5">
                             {[
                               { icon: <Shield size={10} />, text: 'HVAC Certified', color: 'text-emerald-400' },
-                              { icon: <Wrench size={10} />, text: 'Tools on-board', color: 'text-blue-400' },
+                              { icon: <Wrench size={10} />, text: 'Tools on-board', color: 'text-blue-400'    },
                             ].map((b, i) => (
                               <div key={i} className={`flex items-center gap-1.5 text-[10px] bg-[#0A1628] rounded-lg px-2 py-1.5 ${b.color}`}>
                                 {b.icon} {b.text}
@@ -246,7 +232,7 @@ export function ServiceTimeline() {
         </div>
         <div className="p-3 space-y-2">
           <div className="text-[11px] text-[#7A94B4]">
-            Your technician will upload before & after photos. They'll appear here once the job starts.
+            Your technician will upload before &amp; after photos. They'll appear here once the job starts.
           </div>
           <div className="grid grid-cols-2 gap-2">
             {['Before', 'After'].map(label => (
@@ -266,7 +252,7 @@ export function ServiceTimeline() {
 
       <div className="rounded-xl border border-[rgba(46,127,255,0.22)] bg-[rgba(17,32,64,0.85)] p-3">
         <div className="flex items-center gap-3 mb-3">
-          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#2E7FFF] to-[#00C6FF] flex items-center justify-center text-white text-xs font-bold">KR</div>
+          <TechAvatar initials="KR" size={9} />
           <div>
             <div className="text-[#EEF3FA] text-sm font-semibold">Karim R.</div>
             <div className="text-[11px] text-[#7A94B4]">HVAC Specialist</div>
@@ -277,14 +263,10 @@ export function ServiceTimeline() {
           </div>
         </div>
         <div className="grid grid-cols-3 gap-2 mb-2">
-          {[
-            { icon: <Shield size={10} />, label: 'HVAC Certified', color: 'text-emerald-400' },
-            { icon: <ThumbsUp size={10} />, label: '94% SLA rate', color: 'text-blue-400' },
-            { icon: <Zap size={10} />, label: '8.4 min avg resp.', color: 'text-cyan-400' },
-          ].map((b, i) => (
+          {TECH_BADGES.map((b, i) => (
             <div key={i} className={`flex flex-col items-center gap-1 bg-[#0A1628] rounded-lg p-1.5 ${b.color}`}>
               {b.icon}
-              <span className="text-[9px] text-center leading-tight text-[#7A94B4]">{b.label}</span>
+              <span className="text-[9px] text-center leading-tight text-[#7A94B4]">{b.text}</span>
             </div>
           ))}
         </div>

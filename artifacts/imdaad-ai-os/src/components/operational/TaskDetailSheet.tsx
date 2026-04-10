@@ -2,29 +2,15 @@ import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Clock, MapPin, Wrench, User, Camera, Upload, CheckCircle, AlertTriangle, FileImage } from 'lucide-react';
 import { mockKanbanTasks } from '@/data/mockData';
+import { SEVERITY_BADGE, TASK_STATUS_COLOR, slaStatus, type ToastFn } from '@/lib/ui';
+import { AnimatedBar } from '@/components/shared/AnimatedBar';
 
 type Task = typeof mockKanbanTasks[0];
-
-const priorityColor: Record<string, string> = {
-  critical: 'text-red-400 bg-red-500/20 border-red-500/40',
-  high: 'text-orange-400 bg-orange-500/20 border-orange-500/40',
-  medium: 'text-amber-400 bg-amber-500/20 border-amber-500/40',
-  low: 'text-[#7A94B4] bg-white/5 border-white/10',
-};
-
-const statusColor: Record<string, string> = {
-  new: 'text-[#7A94B4]',
-  assigned: 'text-blue-400',
-  'in-progress': 'text-cyan-400',
-  'awaiting-evidence': 'text-amber-400',
-  closed: 'text-emerald-400',
-  overdue: 'text-red-400',
-};
 
 interface Props {
   task: Task | null;
   onClose: () => void;
-  onToast: (msg: string, type?: 'success' | 'warning' | 'error' | 'info') => void;
+  onToast: ToastFn;
 }
 
 export function TaskDetailSheet({ task, onClose, onToast }: Props) {
@@ -34,23 +20,17 @@ export function TaskDetailSheet({ task, onClose, onToast }: Props) {
 
   if (!task) return null;
 
-  const slaLeft = task.slaMinutes - task.elapsed;
-  const slaPercent = Math.min(100, (task.elapsed / task.slaMinutes) * 100);
-  const slaOverdue = slaLeft <= 0;
-  const slaCritical = slaLeft <= 10 && !slaOverdue;
-  const slaColor = slaOverdue ? '#FF4B4B' : slaCritical ? '#FF9B38' : '#38D98A';
+  const sla = slaStatus(task.elapsed, task.slaMinutes);
+  const allEvidence = [...task.evidence, ...uploadedFiles];
 
   const handleUpload = () => {
     setUploading(true);
     setTimeout(() => {
       setUploading(false);
-      const name = `evidence_${Date.now()}.jpg`;
-      setUploadedFiles(f => [...f, name]);
+      setUploadedFiles(f => [...f, `evidence_${Date.now()}.jpg`]);
       onToast('Evidence photo uploaded', 'success');
     }, 1400);
   };
-
-  const allEvidence = [...task.evidence, ...uploadedFiles];
 
   return (
     <AnimatePresence>
@@ -75,14 +55,16 @@ export function TaskDetailSheet({ task, onClose, onToast }: Props) {
             <div className="flex items-start justify-between px-4 pb-3 border-b border-[rgba(46,127,255,0.15)] flex-shrink-0">
               <div>
                 <div className="flex items-center gap-2 mb-0.5">
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded border capitalize ${priorityColor[task.priority]}`}>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded border capitalize ${SEVERITY_BADGE[task.priority]}`}>
                     {task.priority}
                   </span>
                   <span className="text-[10px] text-[#7A94B4] font-mono">{task.id}</span>
                 </div>
                 <h3 className="text-[#EEF3FA] font-bold text-sm leading-tight">{task.title}</h3>
               </div>
-              <button onClick={onClose} className="text-[#7A94B4] hover:text-white transition-colors ml-2 mt-0.5"><X size={16} /></button>
+              <button onClick={onClose} className="text-[#7A94B4] hover:text-white transition-colors ml-2 mt-0.5">
+                <X size={16} />
+              </button>
             </div>
 
             <div className="flex-1 overflow-y-auto custom-scrollbar px-4 pt-3 pb-4 space-y-4">
@@ -92,19 +74,11 @@ export function TaskDetailSheet({ task, onClose, onToast }: Props) {
                     <Clock size={12} className="text-[#7A94B4]" />
                     <span className="text-[10px] text-[#7A94B4] uppercase tracking-wide">SLA Status</span>
                   </div>
-                  <span className="text-[12px] font-bold font-mono" style={{ color: slaColor }}>
-                    {slaOverdue ? `⚠ OVERDUE ${Math.abs(slaLeft)}min` : `${slaLeft} min remaining`}
+                  <span className="text-[12px] font-bold font-mono" style={{ color: sla.barColor }}>
+                    {sla.overdue ? `⚠ ${sla.label}` : `${sla.left} min remaining`}
                   </span>
                 </div>
-                <div className="h-1.5 bg-[#0A1628] rounded-full overflow-hidden">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${slaPercent}%` }}
-                    transition={{ duration: 0.6 }}
-                    className="h-full rounded-full"
-                    style={{ background: slaColor }}
-                  />
-                </div>
+                <AnimatedBar value={sla.percent} color={sla.barColor} />
                 <div className="flex justify-between mt-1.5">
                   <span className="text-[9px] text-[#7A94B4]">Elapsed: {task.elapsed} min</span>
                   <span className="text-[9px] text-[#7A94B4]">SLA Window: {task.slaMinutes} min</span>
@@ -113,10 +87,10 @@ export function TaskDetailSheet({ task, onClose, onToast }: Props) {
 
               <div className="space-y-2">
                 {[
-                  { icon: <MapPin size={11} />, label: 'Location', value: task.location },
-                  { icon: <Wrench size={11} />, label: 'Asset', value: task.asset },
-                  { icon: <User size={11} />, label: 'Assigned To', value: task.tech || 'Unassigned' },
-                  { icon: <Clock size={11} />, label: 'Reported By', value: task.reportedBy },
+                  { icon: <MapPin size={11} />, label: 'Location',    value: task.location },
+                  { icon: <Wrench size={11} />, label: 'Asset',       value: task.asset },
+                  { icon: <User size={11} />,   label: 'Assigned To', value: task.tech || 'Unassigned' },
+                  { icon: <Clock size={11} />,  label: 'Reported By', value: task.reportedBy },
                 ].map(row => (
                   <div key={row.label} className="flex items-center gap-2.5">
                     <div className="w-6 h-6 rounded-md bg-[#112040] border border-[rgba(46,127,255,0.15)] flex items-center justify-center text-[#2E7FFF] flex-shrink-0">
@@ -124,7 +98,9 @@ export function TaskDetailSheet({ task, onClose, onToast }: Props) {
                     </div>
                     <div className="flex-1 flex items-center justify-between">
                       <span className="text-[10px] text-[#7A94B4]">{row.label}</span>
-                      <span className={`text-[11px] font-medium ${row.value === 'Unassigned' ? 'text-[#7A94B4] italic' : 'text-[#EEF3FA]'}`}>{row.value}</span>
+                      <span className={`text-[11px] font-medium ${row.value === 'Unassigned' ? 'text-[#7A94B4] italic' : 'text-[#EEF3FA]'}`}>
+                        {row.value}
+                      </span>
                     </div>
                   </div>
                 ))}
@@ -137,7 +113,9 @@ export function TaskDetailSheet({ task, onClose, onToast }: Props) {
                     <span className="text-[10px] text-[#7A94B4] uppercase tracking-wide">Evidence</span>
                   </div>
                   {task.status === 'awaiting-evidence' && (
-                    <span className="text-[9px] text-amber-400 flex items-center gap-1"><AlertTriangle size={9} /> Required</span>
+                    <span className="text-[9px] text-amber-400 flex items-center gap-1">
+                      <AlertTriangle size={9} /> Required
+                    </span>
                   )}
                 </div>
 

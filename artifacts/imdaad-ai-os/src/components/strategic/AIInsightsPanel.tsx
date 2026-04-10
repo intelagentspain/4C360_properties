@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Brain, TrendingUp, AlertTriangle, Clock, CheckCircle, X, Eye, UserCheck } from 'lucide-react';
+import { type ToastFn } from '@/lib/ui';
+import { AnimatedBar } from '@/components/shared/AnimatedBar';
 
 interface Insight {
   id: string;
@@ -46,17 +48,23 @@ const insights: Insight[] = [
   },
 ];
 
-const categoryConfig = {
-  risk: { icon: <AlertTriangle size={11} />, color: 'text-red-400', bg: 'bg-red-500/20', label: 'Risk' },
-  efficiency: { icon: <TrendingUp size={11} />, color: 'text-cyan-400', bg: 'bg-cyan-500/20', label: 'Efficiency' },
-  prediction: { icon: <Clock size={11} />, color: 'text-amber-400', bg: 'bg-amber-500/20', label: 'Prediction' },
-  anomaly: { icon: <Brain size={11} />, color: 'text-purple-400', bg: 'bg-purple-500/20', label: 'Anomaly' },
+const CATEGORY_CONFIG: Record<Insight['category'], { icon: React.ReactNode; color: string; bg: string; label: string }> = {
+  risk:       { icon: <AlertTriangle size={11} />, color: 'text-red-400',    bg: 'bg-red-500/20',    label: 'Risk' },
+  efficiency: { icon: <TrendingUp size={11} />,   color: 'text-cyan-400',   bg: 'bg-cyan-500/20',   label: 'Efficiency' },
+  prediction: { icon: <Clock size={11} />,        color: 'text-amber-400',  bg: 'bg-amber-500/20',  label: 'Prediction' },
+  anomaly:    { icon: <Brain size={11} />,        color: 'text-purple-400', bg: 'bg-purple-500/20', label: 'Anomaly' },
 };
 
-const impactColor = { high: 'text-red-400', medium: 'text-amber-400', low: 'text-emerald-400' };
+const IMPACT_COLOR: Record<Insight['impact'], string> = {
+  high:   'text-red-400',
+  medium: 'text-amber-400',
+  low:    'text-emerald-400',
+};
+
+const CONFIDENCE_COLOR = (c: number) => c >= 80 ? '#38D98A' : c >= 60 ? '#FF9B38' : '#FF4B4B';
 
 interface Props {
-  onToast: (msg: string, type?: 'success' | 'warning' | 'error' | 'info') => void;
+  onToast: ToastFn;
 }
 
 export function AIInsightsPanel({ onToast }: Props) {
@@ -64,6 +72,9 @@ export function AIInsightsPanel({ onToast }: Props) {
   const [expanded, setExpanded] = useState<string | null>('i1');
 
   const visible = insights.filter(i => !dismissed.includes(i.id));
+
+  const dismiss = (id: string) => setDismissed(d => [...d, id]);
+  const toggle  = (id: string) => setExpanded(prev => prev === id ? null : id);
 
   return (
     <div className="mb-4">
@@ -84,7 +95,7 @@ export function AIInsightsPanel({ onToast }: Props) {
       <div className="space-y-2">
         <AnimatePresence>
           {visible.map(insight => {
-            const cat = categoryConfig[insight.category];
+            const cat = CATEGORY_CONFIG[insight.category];
             const isOpen = expanded === insight.id;
 
             return (
@@ -98,27 +109,25 @@ export function AIInsightsPanel({ onToast }: Props) {
               >
                 <div className="flex items-start gap-2.5 p-3 hover:bg-white/[0.02] transition-colors">
                   <button
-                    onClick={() => setExpanded(isOpen ? null : insight.id)}
+                    onClick={() => toggle(insight.id)}
                     className="flex items-start gap-2.5 flex-1 min-w-0 text-left"
                   >
                     <div className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 mt-0.5 ${cat.bg} ${cat.color}`}>
                       {cat.icon}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 mb-0.5">
-                        <span className="text-[12px] text-[#EEF3FA] font-medium leading-snug">{insight.title}</span>
-                      </div>
+                      <div className="text-[12px] text-[#EEF3FA] font-medium leading-snug mb-0.5">{insight.title}</div>
                       <div className="flex items-center gap-2">
                         <span className={`text-[10px] font-bold ${cat.color}`}>{cat.label}</span>
                         <span className="text-[10px] text-[#7A94B4]">·</span>
-                        <span className={`text-[10px] font-semibold ${impactColor[insight.impact]}`}>{insight.impact} impact</span>
+                        <span className={`text-[10px] font-semibold ${IMPACT_COLOR[insight.impact]}`}>{insight.impact} impact</span>
                         <span className="text-[10px] text-[#7A94B4]">·</span>
                         <span className="text-[10px] text-[#7A94B4]">{insight.confidence}% confidence</span>
                       </div>
                     </div>
                   </button>
                   <button
-                    onClick={() => setDismissed(d => [...d, insight.id])}
+                    onClick={() => dismiss(insight.id)}
                     className="flex-shrink-0 text-[#7A94B4] hover:text-white transition-colors p-0.5"
                   >
                     <X size={12} />
@@ -142,17 +151,7 @@ export function AIInsightsPanel({ onToast }: Props) {
                             <span className="text-[10px] text-[#7A94B4]">Confidence</span>
                             <span className="text-[10px] font-bold text-[#EEF3FA]">{insight.confidence}%</span>
                           </div>
-                          <div className="h-1 bg-[#0A1628] rounded-full overflow-hidden">
-                            <motion.div
-                              initial={{ width: 0 }}
-                              animate={{ width: `${insight.confidence}%` }}
-                              transition={{ duration: 0.6, delay: 0.1 }}
-                              className={`h-full rounded-full ${
-                                insight.confidence >= 80 ? 'bg-emerald-400' :
-                                insight.confidence >= 60 ? 'bg-amber-400' : 'bg-red-400'
-                              }`}
-                            />
-                          </div>
+                          <AnimatedBar value={insight.confidence} color={CONFIDENCE_COLOR(insight.confidence)} delay={0.1} />
                         </div>
 
                         <div className="flex gap-2">
@@ -169,7 +168,7 @@ export function AIInsightsPanel({ onToast }: Props) {
                             <UserCheck size={11} /> Assign
                           </button>
                           <button
-                            onClick={() => setDismissed(d => [...d, insight.id])}
+                            onClick={() => dismiss(insight.id)}
                             className="flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-[#0A1628] text-[11px] text-[#7A94B4] hover:text-[#EEF3FA] border border-[rgba(46,127,255,0.2)] transition-all ml-auto"
                           >
                             <X size={11} /> Ignore

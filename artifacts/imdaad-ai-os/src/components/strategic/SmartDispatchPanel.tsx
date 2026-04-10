@@ -1,25 +1,13 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bot, MapPin, Clock, Zap, ChevronDown, UserCheck, RotateCcw, Star, CheckCircle } from 'lucide-react';
+import { Bot, MapPin, Clock, ChevronDown, UserCheck, RotateCcw, CheckCircle } from 'lucide-react';
 import { mockSmartDispatch } from '@/data/mockData';
-
-const severityColor: Record<string, string> = {
-  critical: 'text-red-400 bg-red-500/20 border-red-500/40',
-  high: 'text-orange-400 bg-orange-500/20 border-orange-500/40',
-  medium: 'text-amber-400 bg-amber-500/20 border-amber-500/40',
-  low: 'text-blue-400 bg-blue-500/20 border-blue-500/40',
-};
-
-const availColor: Record<string, string> = {
-  available: 'text-emerald-400',
-  'en-route': 'text-blue-400',
-  busy: 'text-amber-400',
-};
-
-const matchColor = (score: number) => score >= 90 ? '#38D98A' : score >= 70 ? '#FF9B38' : '#FF4B4B';
+import { SEVERITY_BADGE, AVAIL_COLOR, scoreColor, type ToastFn } from '@/lib/ui';
+import { AnimatedBar } from '@/components/shared/AnimatedBar';
+import { TechAvatar } from '@/components/shared/TechAvatar';
 
 interface Props {
-  onToast: (msg: string, type?: 'success' | 'warning' | 'error' | 'info') => void;
+  onToast: ToastFn;
 }
 
 export function SmartDispatchPanel({ onToast }: Props) {
@@ -66,7 +54,9 @@ export function SmartDispatchPanel({ onToast }: Props) {
                 : 'bg-[rgba(17,32,64,0.6)] border-[rgba(46,127,255,0.2)] text-[#7A94B4] hover:text-[#EEF3FA]'
             }`}
           >
-            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${d.severity === 'critical' ? 'bg-red-400' : d.severity === 'high' ? 'bg-orange-400' : 'bg-amber-400'}`} />
+            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+              d.severity === 'critical' ? 'bg-red-400' : d.severity === 'high' ? 'bg-orange-400' : 'bg-amber-400'
+            }`} />
             {d.incidentId}
             {assigned[d.incidentId] && <CheckCircle size={9} className="text-emerald-400" />}
           </button>
@@ -84,7 +74,7 @@ export function SmartDispatchPanel({ onToast }: Props) {
         >
           <div className="px-3 pt-3 pb-2 border-b border-[rgba(46,127,255,0.12)]">
             <div className="flex items-start gap-2">
-              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border capitalize flex-shrink-0 mt-0.5 ${severityColor[current.severity]}`}>
+              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border capitalize flex-shrink-0 mt-0.5 ${SEVERITY_BADGE[current.severity]}`}>
                 {current.severity}
               </span>
               <div className="flex-1 min-w-0">
@@ -118,7 +108,7 @@ export function SmartDispatchPanel({ onToast }: Props) {
               {current.recommendations
                 .slice(0, showAll[activeIncident] ? undefined : 1)
                 .map((rec, idx) => (
-                  <div key={rec.techId} className={`p-3 ${idx === 0 ? '' : 'opacity-70'}`}>
+                  <div key={rec.techId} className={`p-3 ${idx > 0 ? 'opacity-70' : ''}`}>
                     {idx === 0 && (
                       <div className="flex items-center gap-1 mb-2">
                         <Bot size={9} className="text-cyan-400" />
@@ -127,15 +117,15 @@ export function SmartDispatchPanel({ onToast }: Props) {
                     )}
 
                     <div className="flex items-center gap-2.5 mb-2.5">
-                      <div className="w-8 h-8 rounded-full flex items-center justify-center bg-[#1A3260] border border-[rgba(46,127,255,0.3)] text-[#EEF3FA] text-xs font-bold flex-shrink-0">
-                        {rec.techId}
-                      </div>
+                      <TechAvatar initials={rec.techId} size={8} />
                       <div className="flex-1">
                         <div className="text-[12px] text-[#EEF3FA] font-semibold">{rec.tech}</div>
-                        <div className={`text-[10px] font-medium capitalize ${availColor[rec.availability]}`}>{rec.availability.replace('-', ' ')}</div>
+                        <div className={`text-[10px] font-medium capitalize ${AVAIL_COLOR[rec.availability]}`}>
+                          {rec.availability.replace('-', ' ')}
+                        </div>
                       </div>
                       <div className="text-right flex-shrink-0">
-                        <div className="text-[11px] font-bold" style={{ color: matchColor(rec.skillMatch) }}>{rec.skillMatch}%</div>
+                        <div className="text-[11px] font-bold" style={{ color: scoreColor(rec.skillMatch) }}>{rec.skillMatch}%</div>
                         <div className="text-[9px] text-[#7A94B4]">match</div>
                       </div>
                     </div>
@@ -154,17 +144,9 @@ export function SmartDispatchPanel({ onToast }: Props) {
                     <div className="mb-2">
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-[9px] text-[#7A94B4]">Skill Match</span>
-                        <span className="text-[9px] font-bold" style={{ color: matchColor(rec.skillMatch) }}>{rec.skillMatch}%</span>
+                        <span className="text-[9px] font-bold" style={{ color: scoreColor(rec.skillMatch) }}>{rec.skillMatch}%</span>
                       </div>
-                      <div className="h-1 bg-[#0A1628] rounded-full overflow-hidden">
-                        <motion.div
-                          initial={{ width: 0 }}
-                          animate={{ width: `${rec.skillMatch}%` }}
-                          transition={{ duration: 0.5 }}
-                          className="h-full rounded-full"
-                          style={{ background: matchColor(rec.skillMatch) }}
-                        />
-                      </div>
+                      <AnimatedBar value={rec.skillMatch} color={scoreColor(rec.skillMatch)} />
                     </div>
 
                     <div className="text-[10px] text-[#7A94B4] mb-2.5 leading-snug">{rec.reason}</div>
@@ -194,7 +176,9 @@ export function SmartDispatchPanel({ onToast }: Props) {
                   className="w-full flex items-center justify-center gap-1 py-2 text-[10px] text-[#7A94B4] hover:text-[#EEF3FA] transition-colors"
                 >
                   <ChevronDown size={11} className={`transition-transform ${showAll[activeIncident] ? 'rotate-180' : ''}`} />
-                  {showAll[activeIncident] ? 'Show less' : `${current.recommendations.length - 1} more option${current.recommendations.length > 2 ? 's' : ''}`}
+                  {showAll[activeIncident]
+                    ? 'Show less'
+                    : `${current.recommendations.length - 1} more option${current.recommendations.length > 2 ? 's' : ''}`}
                 </button>
               )}
             </div>

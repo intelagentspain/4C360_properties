@@ -1,0 +1,170 @@
+Add an “Ecosystem Intelligence Layer” to the existing 4C360 FM platform.
+
+Do not modify or break existing pages (Strategic, Operational, Client, GIS, etc.).
+This is an ADDITION of new system-level capabilities.
+
+Create 3 new sections in the platform:
+1. Data Sources
+2. Benchmarking
+3. Operational Replay
+
+These should integrate with existing data (incidents, tasks, assets, technicians, vendors).
+
+---
+
+1. DATA SOURCES PAGE
+
+Create a new page: DataSources.tsx
+
+Purpose:
+Show all data inputs feeding the system.
+
+Add a table with the following columns:
+- Source Name
+- Type (API, WhatsApp, QR, IoT, Manual, External System)
+- Status (Active, Error, Syncing)
+- Last Sync Timestamp
+- Data Volume (records/day)
+- Data Quality Score (0–100)
+- Owner
+
+Add filters:
+- Source type
+- Status
+
+Add a detail drawer when clicking a source:
+Tabs:
+- Overview
+- Deployment
+- Assignments
+- Scheduling
+- Validation
+- Logs
+- Settings
+
+Each source should show:
+- what data it feeds (incidents, inspections, tasks, etc.)
+- failure logs if any
+- sync frequency
+- error states
+
+Optional:
+Add “Add Source” button (UI only for now)
+
+---
+
+2. BENCHMARKING PAGE
+
+Create a new page: Benchmark.tsx
+
+Purpose:
+Compare performance across sites, vendors, and regions.
+
+Add 3 sections:
+
+A. Site Comparison
+- SLA performance by site
+- Incident volume by site
+- Compliance score by site
+
+B. Vendor Comparison
+- SLA breaches by vendor
+- average resolution time
+- repeat failure rate
+
+C. Region Comparison
+- incident density
+- risk concentration
+- performance trend
+
+Components:
+- Bar charts
+- Line charts
+- Ranked tables
+
+Add filters:
+- Client
+- Region
+- Time range
+
+Add ability to click a bar → drill into details (reuse existing data structures)
+
+---
+
+3. OPERATIONAL REPLAY
+
+Create a new component: ReplayTimeline.tsx
+
+Add a new page: Replay.tsx
+
+Purpose:
+Allow users to replay operational events over time.
+
+UI:
+- Timeline scrubber (like video playback)
+- Play / Pause controls
+- Speed control (1x, 2x, 4x)
+
+Events to display:
+- Incident created
+- Assignment
+- SLA escalation
+- Task updates
+- Closure
+
+When scrubbing timeline:
+- Update map state (reuse GIS if possible)
+- Update event feed
+- Show what happened at that moment
+
+Add event list below timeline:
+- clickable events
+- timestamp
+- type
+- linked entity
+
+---
+
+4. GLOBAL INTEGRATION
+
+Ensure all 3 pages use existing system data:
+- incidents
+- tasks
+- assets
+- technicians
+- vendors
+
+Do not create isolated mock data structures unless necessary.
+
+---
+
+5. UI STYLE
+
+Keep existing:
+- dark theme
+- layout structure
+- navigation system
+
+Add these pages to sidebar:
+- Data Sources
+- Benchmark
+- Replay
+
+---
+
+6. BEHAVIOR
+
+- All pages must be interactive
+- Clicking items opens existing drawers where possible
+- Charts must reflect real data structures
+- No static dashboards — everything should feel connected
+
+---
+
+7. GOAL
+
+These features should communicate:
+
+“This system is not just managing operations — it is integrating, analyzing, and replaying your entire operation.”
+
+Focus on clarity, not decoration.
