@@ -55,7 +55,7 @@ const ZONE_OPTIONS   = ['All Zones', 'Cluster A', 'Cluster B', 'Block C', 'Recre
 const SECTOR_OPTIONS = ['Real Estate', 'Retail', 'Hospitality', 'Healthcare', 'Government', 'Education', 'Industrial', 'Mixed-Use', 'Other'];
 const SLA_TIERS      = ['Platinum', 'Gold', 'Silver', 'Bronze'];
 const ASSET_CATEGORIES = ['HVAC', 'Electrical', 'Plumbing', 'Civil', 'Landscaping', 'Cleaning', 'Security', 'Elevators', 'Other'];
-const TEAM_ROLES     = ['Account Manager', 'Site Supervisor', 'FM Engineer', 'Project Manager', 'Safety Officer', 'Client Success', 'Executive', 'Other'];
+const TEAM_ROLES     = ['Client', 'Account Manager', 'Site Supervisor', 'FM Engineer', 'Project Manager', 'Safety Officer', 'Client Success', 'Executive', 'Other'];
 
 export interface ClientData {
   name: string;
