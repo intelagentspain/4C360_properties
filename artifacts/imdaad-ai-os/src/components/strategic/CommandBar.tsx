@@ -83,6 +83,12 @@ export interface TeamMember {
   email: string;
   role: string;
   privileges: string[];
+  mobile: string;
+  whatsapp: string;
+  location: string;
+  availability: string;
+  shift: string;
+  commChannels: string[];
 }
 
 interface AddClientModalProps {
@@ -165,7 +171,23 @@ const ROLE_DEFAULT_PRIVILEGES: Record<string, string[]> = {
   'Executive':       RBAC_PRIVILEGES.map(p => p.key),
 };
 
-const EMPTY_MEMBER = (): TeamMember => ({ name: '', email: '', role: '', privileges: [] });
+const AVAILABILITY_OPTS = ['Full-time', 'Part-time', 'On-call', 'Contractor', 'Freelance'];
+const SHIFT_OPTS = ['Business Hours (08:00–17:00)', 'Morning (06:00–14:00)', 'Afternoon (14:00–22:00)', 'Night (22:00–06:00)', 'Rotating / Flexible'];
+const COMM_CHANNELS = [
+  { key: 'whatsapp', label: 'WhatsApp',       icon: '💬' },
+  { key: 'email',    label: 'Email',           icon: '✉️' },
+  { key: 'phone',    label: 'Phone Call',      icon: '📞' },
+  { key: 'teams',    label: 'Microsoft Teams', icon: '🟦' },
+  { key: 'sms',      label: 'SMS',             icon: '📱' },
+  { key: 'radio',    label: 'Walkie-Talkie',   icon: '📻' },
+];
+
+const EMPTY_MEMBER = (): TeamMember => ({
+  name: '', email: '', role: '', privileges: [],
+  mobile: '', whatsapp: '', location: '',
+  availability: '', shift: '',
+  commChannels: ['whatsapp', 'email'],
+});
 
 export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
   const [activeTab, setActiveTab]             = useState<Tab>('business');
@@ -206,7 +228,7 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
 
   const addMember = () => setTeamMembers(prev => [...prev, EMPTY_MEMBER()]);
   const removeMember = (i: number) => setTeamMembers(prev => prev.filter((_, idx) => idx !== i));
-  const updateMember = (i: number, field: Exclude<keyof TeamMember, 'privileges'>, val: string) => {
+  const updateMember = (i: number, field: Exclude<keyof TeamMember, 'privileges' | 'commChannels'>, val: string) => {
     setTeamMembers(prev => {
       const updated = prev.map((m, idx) => {
         if (idx !== i) return m;
@@ -231,6 +253,13 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
       if (idx !== i) return m;
       const has = m.privileges.includes(key);
       return { ...m, privileges: has ? m.privileges.filter(p => p !== key) : [...m.privileges, key] };
+    }));
+  };
+  const toggleCommChannel = (i: number, key: string) => {
+    setTeamMembers(prev => prev.map((m, idx) => {
+      if (idx !== i) return m;
+      const has = m.commChannels.includes(key);
+      return { ...m, commChannels: has ? m.commChannels.filter(c => c !== key) : [...m.commChannels, key] };
     }));
   };
 
@@ -816,6 +845,96 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
                           <p className="mt-1.5 text-[9px] text-[#7A94B4]">{member.privileges.length} privilege{member.privileges.length !== 1 ? 's' : ''} selected</p>
                         )}
                       </div>
+
+                      {/* ── Comm & Availability ── */}
+                      <div className="col-span-2 pt-3 mt-1 border-t border-[rgba(46,127,255,0.12)]">
+                        <p className="text-[9px] font-bold text-[#4A6080] uppercase tracking-widest mb-2.5">Comm &amp; Availability</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <FieldLabel label="Mobile Number" />
+                            <input
+                              value={member.mobile}
+                              onChange={e => updateMember(i, 'mobile', e.target.value)}
+                              placeholder="+971 50 000 0000"
+                              className={inputCls()}
+                            />
+                          </div>
+                          <div>
+                            <FieldLabel label="WhatsApp Number" />
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                value={member.whatsapp}
+                                onChange={e => updateMember(i, 'whatsapp', e.target.value)}
+                                placeholder="+971 50 000 0000"
+                                className={`${inputCls()} flex-1`}
+                              />
+                              <button
+                                type="button"
+                                title="Same as mobile"
+                                onClick={() => updateMember(i, 'whatsapp', member.mobile)}
+                                className="flex-shrink-0 text-[9px] px-1.5 py-1.5 rounded-lg border border-[rgba(46,127,255,0.2)] text-[#7A94B4] hover:text-[#EEF3FA] hover:border-[rgba(46,127,255,0.4)] transition-all whitespace-nowrap"
+                              >
+                                = Mobile
+                              </button>
+                            </div>
+                          </div>
+                          <div>
+                            <FieldLabel label="Base Location" />
+                            <input
+                              value={member.location}
+                              onChange={e => updateMember(i, 'location', e.target.value)}
+                              placeholder="e.g. Silicon Oasis, Dubai"
+                              className={inputCls()}
+                            />
+                          </div>
+                          <div>
+                            <FieldLabel label="Availability" />
+                            <select
+                              value={member.availability}
+                              onChange={e => updateMember(i, 'availability', e.target.value)}
+                              className={selectCls}
+                            >
+                              <option value="" className="bg-[#0A1628]">Select…</option>
+                              {AVAILABILITY_OPTS.map(o => <option key={o} value={o} className="bg-[#0A1628]">{o}</option>)}
+                            </select>
+                          </div>
+                          <div className="col-span-2">
+                            <FieldLabel label="Shift" />
+                            <select
+                              value={member.shift}
+                              onChange={e => updateMember(i, 'shift', e.target.value)}
+                              className={selectCls}
+                            >
+                              <option value="" className="bg-[#0A1628]">Select shift…</option>
+                              {SHIFT_OPTS.map(o => <option key={o} value={o} className="bg-[#0A1628]">{o}</option>)}
+                            </select>
+                          </div>
+                          <div className="col-span-2">
+                            <FieldLabel label="Preferred Comm Channels" />
+                            <div className="flex flex-wrap gap-1.5 mt-1">
+                              {COMM_CHANNELS.map(ch => {
+                                const active = member.commChannels.includes(ch.key);
+                                return (
+                                  <button
+                                    key={ch.key}
+                                    type="button"
+                                    onClick={() => toggleCommChannel(i, ch.key)}
+                                    className={`flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-lg border transition-all font-medium ${
+                                      active
+                                        ? 'bg-[rgba(46,127,255,0.18)] border-[#2E7FFF] text-[#EEF3FA]'
+                                        : 'border-[rgba(46,127,255,0.15)] text-[#7A94B4] hover:border-[rgba(46,127,255,0.35)] hover:text-[#EEF3FA]'
+                                    }`}
+                                  >
+                                    <span>{ch.icon}</span>
+                                    {ch.label}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
                     </div>
                   </div>
                 ))}
