@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { MapPin, AlertTriangle, CheckCircle, Plus } from 'lucide-react';
 import { mockKanbanTasks } from '@/data/mockData';
 import { PRIORITY_DOT, slaStatus, type ToastFn } from '@/lib/ui';
 import { TaskDetailSheet } from './TaskDetailSheet';
+import { useMemberFilter, isFilterActive } from '@/context/MemberFilterContext';
 
 type Task = typeof mockKanbanTasks[0];
 type Status = 'new' | 'assigned' | 'in-progress' | 'awaiting-evidence' | 'closed' | 'overdue';
@@ -22,11 +23,20 @@ interface Props {
 }
 
 export function KanbanBoard({ onToast }: Props) {
+  const memberFilter = useMemberFilter();
+  const isMemberMode = isFilterActive(memberFilter);
   const [tasks]         = useState(mockKanbanTasks);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [activeCol, setActiveCol]       = useState<Status>('new');
 
-  const colTasks = (status: Status) => tasks.filter(t => t.status === status);
+  const visibleTasks = useMemo(() => {
+    if (!isMemberMode || memberFilter.zones.length === 0) return tasks;
+    return tasks.filter(t =>
+      memberFilter.zones.some(z => t.location.toLowerCase().includes(z.toLowerCase()))
+    );
+  }, [tasks, isMemberMode, memberFilter.zones]);
+
+  const colTasks = (status: Status) => visibleTasks.filter(t => t.status === status);
 
   return (
     <div className="h-full flex flex-col">

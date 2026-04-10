@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, X, Grid, List, AlertTriangle, CheckCircle, Clock,
@@ -9,6 +9,8 @@ import { mockPortfolioClients, type PortfolioClient } from '@/data/mockData';
 import { type ToastFn } from '@/lib/ui';
 import { AnimatedBar } from '@/components/shared/AnimatedBar';
 import { AddClientModal, type ClientData, type TeamMember } from './CommandBar';
+import { useMemberFilter, isFilterActive } from '@/context/MemberFilterContext';
+import { useMemberProfiles } from '@/context/MemberProfilesContext';
 
 const REGIONS   = ['All', 'Dubai East', 'Downtown', 'Business Bay', 'Dubai Marina', 'Jumeirah'];
 const SECTORS   = ['All', 'Mixed-Use Residential', 'Commercial Retail', 'Commercial Office', 'Residential Community', 'Luxury Residential'];
@@ -560,8 +562,18 @@ function ClientDetailDrawer({
 interface Props { onToast: ToastFn }
 
 export function AllClients({ onToast }: Props) {
+  const memberFilter  = useMemberFilter();
+  const { addProfiles } = useMemberProfiles();
+  const isMemberMode  = isFilterActive(memberFilter);
+
+  const defaultRegion = useMemo(() => {
+    if (!isMemberMode || memberFilter.zones.length === 0) return 'All';
+    const regionMatch = REGIONS.find(r => r !== 'All' && memberFilter.zones.some(z => z.toLowerCase().includes(r.toLowerCase())));
+    return regionMatch ?? 'All';
+  }, [isMemberMode, memberFilter.zones]);
+
   const [search,        setSearch]        = useState('');
-  const [region,        setRegion]        = useState('All');
+  const [region,        setRegion]        = useState(defaultRegion);
   const [sector,        setSector]        = useState('All');
   const [status,        setStatus]        = useState('All');
   const [riskLevel,     setRiskLevel]     = useState('All');
@@ -571,6 +583,7 @@ export function AllClients({ onToast }: Props) {
   const [showAddModal,  setShowAddModal]  = useState(false);
 
   const handleAddClient = (data: ClientData, teamMembers: TeamMember[], inviteOk: boolean, failedCount: number) => {
+    addProfiles(teamMembers);
     setShowAddModal(false);
     if (teamMembers.length > 0 && !inviteOk) {
       const msg = failedCount > 0
@@ -586,6 +599,10 @@ export function AllClients({ onToast }: Props) {
 
   const filtered = mockPortfolioClients
     .filter(c => {
+      if (isMemberMode && memberFilter.assignedClients.length > 0 &&
+          !memberFilter.assignedClients.some(ac => c.name.toLowerCase().includes(ac.toLowerCase()) || ac.toLowerCase().includes(c.name.toLowerCase()))) {
+        return false;
+      }
       if (region    !== 'All' && c.region    !== region)    return false;
       if (sector    !== 'All' && c.sector    !== sector)    return false;
       if (status    !== 'All' && c.status    !== status)    return false;
@@ -607,8 +624,14 @@ export function AllClients({ onToast }: Props) {
     <div className="h-full flex flex-col overflow-hidden relative">
       <div className="flex items-center justify-between px-5 py-3 border-b border-[rgba(46,127,255,0.15)] flex-shrink-0">
         <div>
-          <h2 className="text-[#EEF3FA] font-bold text-base" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>All Clients</h2>
-          <p className="text-[11px] text-[#7A94B4]">Portfolio command view · {mockPortfolioClients.length} clients · Master Admin</p>
+          <h2 className="text-[#EEF3FA] font-bold text-base" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+            {isMemberMode ? 'My Clients' : 'All Clients'}
+          </h2>
+          <p className="text-[11px] text-[#7A94B4]">
+            {isMemberMode
+              ? `Personalized scope · ${filtered.length} assigned client${filtered.length !== 1 ? 's' : ''}`
+              : `Portfolio command view · ${mockPortfolioClients.length} clients · Master Admin`}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           {[

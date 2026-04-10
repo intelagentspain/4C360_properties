@@ -43,6 +43,9 @@ See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and pa
   - Client service timeline with animated tech marker
   - Toast notification system
   - All data is mock/hardcoded client-side — no backend needed
+  - **Personalized dashboard per team member**: Deep-link routing via `?member=<id>` URL param; each member gets a pre-loaded dashboard matching their perspective, zones, and assigned clients
+  - **Welcome email integration**: API generates unique dashboard links per team member; email includes "Go to My Dashboard" CTA button with zones/skills/perspective metadata
+  - **Extended member profile schema**: TeamMember now includes `perspective` (Strategic/Operational/Client), `assignedClients`, `zones`, `skills`, `responsibilities`; form updated with multi-select UI for these fields
 
 ### API Server (`artifacts/api-server`)
 - **Type**: api

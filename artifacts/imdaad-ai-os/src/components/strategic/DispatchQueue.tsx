@@ -1,15 +1,25 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Bot, CheckCircle, MapPin, Clock } from 'lucide-react';
 import { mockDispatchJobs } from '@/data/mockData';
 import { StatusBadge } from '@/components/shared/StatusBadge';
+import { useMemberFilter, isFilterActive } from '@/context/MemberFilterContext';
 
 interface Props {
   onToast: (msg: string, type?: 'success' | 'warning' | 'error' | 'info') => void;
 }
 
 export function DispatchQueue({ onToast }: Props) {
+  const memberFilter = useMemberFilter();
+  const isMemberMode = isFilterActive(memberFilter);
   const [assigned, setAssigned] = useState<Record<string, boolean>>({});
+
+  const visibleJobs = useMemo(() => {
+    if (!isMemberMode || memberFilter.zones.length === 0) return mockDispatchJobs;
+    return mockDispatchJobs.filter(job =>
+      memberFilter.zones.some(z => job.title.toLowerCase().includes(z.toLowerCase()))
+    );
+  }, [isMemberMode, memberFilter.zones]);
 
   const handleAssign = (id: string, tech: string) => {
     setAssigned(prev => ({ ...prev, [id]: true }));
@@ -32,7 +42,7 @@ export function DispatchQueue({ onToast }: Props) {
         </span>
       </div>
       <div className="flex flex-col gap-2">
-        {mockDispatchJobs.map(job => (
+        {visibleJobs.map(job => (
           <motion.div
             key={job.id}
             className={`rounded-lg border p-3 backdrop-blur-xl transition-all duration-200 hover:-translate-y-0.5 ${

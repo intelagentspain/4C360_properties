@@ -96,6 +96,10 @@ function buildWelcomeEmail(
   clientName: string,
   responsibilities: string,
   ctx: ClientContext,
+  dashboardUrl?: string,
+  perspective?: string,
+  zones?: string[],
+  skills?: string,
 ): string {
   const tempPassword = generateTempPassword();
   const safeName = escapeHtml(name);
@@ -113,6 +117,20 @@ function buildWelcomeEmail(
   const safeSites = sites.length > 0
     ? sites.map(s => `<span style="display:inline-block;background:#112040;border:1px solid rgba(46,127,255,0.25);border-radius:5px;padding:2px 8px;color:#EEF3FA;font-size:11px;margin:2px 3px 2px 0;">${escapeHtml(s)}</span>`).join("")
     : '<span style="color:#4A6080;font-size:11px;">—</span>';
+
+  const safePerspective = perspective ? escapeHtml(perspective) : "Operational";
+  const perspectiveColor = perspective === "Strategic" ? "#2E7FFF" : perspective === "Client" ? "#F59E0B" : "#10B981";
+  const perspectiveDesc = perspective === "Strategic"
+    ? "Command-level panels · KPIs · AI dispatch · All assigned clients"
+    : perspective === "Client"
+    ? "Service request form · Live tracking · Service timeline"
+    : "Field-oriented panels · Assigned tasks · Kanban · Smart scan";
+
+  const safeZones = zones && zones.length > 0
+    ? zones.map(z => `<span style="display:inline-block;background:#112040;border:1px solid rgba(46,127,255,0.25);border-radius:5px;padding:2px 8px;color:#EEF3FA;font-size:11px;margin:2px 3px 2px 0;">${escapeHtml(z)}</span>`).join("")
+    : '<span style="color:#4A6080;font-size:11px;">All Zones</span>';
+
+  const safeSkills = skills ? escapeHtml(skills) : "—";
 
   const safeResponsibilities = responsibilities?.trim()
     ? responsibilities.trim().split("\n").filter(l => l.trim()).map(l => `<li style="color:#EEF3FA;font-size:12px;padding:3px 0;line-height:1.6;">${escapeHtml(l.trim())}</li>`).join("")
@@ -294,14 +312,44 @@ function buildWelcomeEmail(
                 </tr>
               </table>
 
-              <!-- CTA -->
-              <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+              <!-- Your Dashboard -->
+              <p style="color:#7A94B4;font-size:10px;text-transform:uppercase;letter-spacing:2px;margin:0 0 14px;font-weight:700;">Your Personalized Dashboard</p>
+              <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(46,127,255,0.07);border:1px solid rgba(46,127,255,0.22);border-radius:10px;margin-bottom:28px;">
                 <tr>
-                  <td align="center">
-                    <a href="#" style="display:inline-block;background:#2E7FFF;color:#fff;text-decoration:none;font-size:13px;font-weight:700;padding:12px 36px;border-radius:8px;letter-spacing:0.5px;">Accept Invitation &amp; Get Started</a>
+                  <td style="padding:20px 24px;">
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="color:#7A94B4;font-size:12px;padding:5px 0;width:130px;vertical-align:top;">Perspective</td>
+                        <td style="padding:5px 0;">
+                          <span style="background:rgba(46,127,255,0.15);border:1px solid ${perspectiveColor}44;border-radius:5px;padding:2px 8px;color:${perspectiveColor};font-size:11px;font-weight:700;">${safePerspective}</span>
+                          <span style="color:#7A94B4;font-size:11px;margin-left:8px;">${perspectiveDesc}</span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="color:#7A94B4;font-size:12px;padding:5px 0;vertical-align:top;">Your Zones</td>
+                        <td style="padding:5px 0;">${safeZones}</td>
+                      </tr>
+                      <tr>
+                        <td style="color:#7A94B4;font-size:12px;padding:5px 0;vertical-align:top;">Skills</td>
+                        <td style="color:#EEF3FA;font-size:12px;font-weight:600;padding:5px 0;">${safeSkills}</td>
+                      </tr>
+                    </table>
                   </td>
                 </tr>
               </table>
+
+              <!-- CTA -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
+                <tr>
+                  <td align="center">
+                    ${dashboardUrl
+                      ? `<a href="${dashboardUrl}" style="display:inline-block;background:#2E7FFF;color:#fff;text-decoration:none;font-size:13px;font-weight:700;padding:14px 40px;border-radius:8px;letter-spacing:0.5px;margin-bottom:8px;">Go to My Dashboard →</a>`
+                      : `<a href="#" style="display:inline-block;background:#2E7FFF;color:#fff;text-decoration:none;font-size:13px;font-weight:700;padding:14px 40px;border-radius:8px;letter-spacing:0.5px;margin-bottom:8px;">Accept Invitation &amp; Get Started</a>`
+                    }
+                  </td>
+                </tr>
+              </table>
+              ${dashboardUrl ? `<p style="color:#4A6080;font-size:10px;text-align:center;margin:0 0 24px;word-break:break-all;">Direct link: <a href="${dashboardUrl}" style="color:#2E7FFF;">${dashboardUrl}</a></p>` : ''}
 
               <p style="color:#4A6080;font-size:11px;line-height:1.6;margin:0;">
                 If you did not expect this invitation or believe it was sent in error, please ignore this email or contact your system administrator.
@@ -351,9 +399,14 @@ function createTransporter() {
 }
 
 interface TeamMember {
+  id?: string;
   name: string;
   email: string;
   role: string;
+  perspective?: string;
+  assignedClients?: string[];
+  zones?: string[];
+  skills?: string;
   responsibilities?: string;
 }
 
@@ -367,6 +420,13 @@ interface InviteBody {
   contractValue?: string;
   siteNames?: string[];
   teamMembers: TeamMember[];
+}
+
+const TRUSTED_APP_BASE = process.env.APP_BASE_URL?.replace(/\/$/, '') ?? '';
+
+function buildMemberDashboardUrl(memberId: string): string | undefined {
+  if (!memberId || !TRUSTED_APP_BASE) return undefined;
+  return `${TRUSTED_APP_BASE}?member=${encodeURIComponent(memberId)}`;
 }
 
 router.post("/clients/invite", async (req, res) => {
@@ -425,6 +485,9 @@ router.post("/clients/invite", async (req, res) => {
   const results: { email: string; status: "sent" | "preview" | "failed"; previewUrl?: string; error?: string }[] = [];
 
   for (const member of teamMembers) {
+    const memberId = member.id?.trim();
+    const dashboardUrl = memberId ? buildMemberDashboardUrl(memberId) : undefined;
+
     const html = buildWelcomeEmail(
       member.name,
       member.email,
@@ -432,6 +495,10 @@ router.post("/clients/invite", async (req, res) => {
       clientName,
       member.responsibilities ?? "",
       clientContext,
+      dashboardUrl,
+      member.perspective,
+      member.zones,
+      member.skills,
     );
     const fromAddr = transportConfig?.from ?? previewTransport?.from ?? '"Imdaad AI-OS" <noreply@imdaad.ae>';
     const mailOptions = {

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, CircleMarker, Circle } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -7,6 +7,7 @@ import {
   mockTechnicians, mockIncidents, mockAssets,
   mockTasks, mockSLAZones, mockPredictedFailures,
 } from '@/data/mockData';
+import { useMemberFilter, isFilterActive } from '@/context/MemberFilterContext';
 import {
   X, Users, AlertTriangle, Layers, ClipboardList,
   ShieldAlert, Cpu, MapPin, Clock, Star, Wrench,
@@ -326,7 +327,26 @@ interface Props {
   onToast?: (msg: string, type?: 'success' | 'warning' | 'error' | 'info') => void;
 }
 
+function matchesZone(location: string, zones: string[]): boolean {
+  if (zones.length === 0) return true;
+  const loc = location.toLowerCase();
+  return zones.some(z => loc.includes(z.toLowerCase()) || z.toLowerCase().includes(loc));
+}
+
 export function CommunityMap({ onToast }: Props) {
+  const memberFilter = useMemberFilter();
+  const isMemberMode = isFilterActive(memberFilter);
+
+  const visibleIncidents = useMemo(() => {
+    if (!isMemberMode || memberFilter.zones.length === 0) return mockIncidents;
+    return mockIncidents.filter(inc => matchesZone(inc.location, memberFilter.zones));
+  }, [isMemberMode, memberFilter.zones]);
+
+  const visibleTasks = useMemo(() => {
+    if (!isMemberMode || memberFilter.zones.length === 0) return mockTasks;
+    return mockTasks.filter(t => matchesZone(t.title, memberFilter.zones));
+  }, [isMemberMode, memberFilter.zones]);
+
   const [activeLayers, setActiveLayers] = useState<Record<LayerKey, boolean>>({
     technicians: true,
     incidents: true,
@@ -380,7 +400,7 @@ export function CommunityMap({ onToast }: Props) {
           />
         ))}
 
-        {activeLayers.incidents && mockIncidents.map(inc => (
+        {activeLayers.incidents && visibleIncidents.map(inc => (
           <CircleMarker
             key={inc.id}
             center={[inc.lat, inc.lng]}
@@ -399,7 +419,7 @@ export function CommunityMap({ onToast }: Props) {
           />
         ))}
 
-        {activeLayers.tasks && mockTasks.map(task => (
+        {activeLayers.tasks && visibleTasks.map(task => (
           <Marker
             key={task.id}
             position={[task.lat, task.lng]}

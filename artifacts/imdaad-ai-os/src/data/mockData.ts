@@ -1,3 +1,75 @@
+export type MemberPerspective = 'Strategic' | 'Operational' | 'Client';
+
+export interface MockMemberProfile {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  perspective: MemberPerspective;
+  assignedClients: string[];
+  zones: string[];
+  skills: string;
+  responsibilities: string;
+}
+
+export const mockMemberProfiles: MockMemberProfile[] = [
+  {
+    id: 'mbr-001',
+    name: 'Hassan Yousef',
+    email: 'hassan.yousef@imdaad.ae',
+    role: 'FM Manager',
+    perspective: 'Strategic',
+    assignedClients: ['Dubai Silicon Oasis', 'Gate Avenue DIFC'],
+    zones: ['Cluster A', 'Cluster B', 'Block C'],
+    skills: 'HVAC, Electrical, PPM Management, Asset Intelligence',
+    responsibilities: 'Oversee FM operations for Dubai Silicon Oasis and Gate Avenue DIFC\nMonitor SLA performance and escalate breaches immediately\nReview AI dispatch recommendations and adjust automation rules weekly\nConduct monthly KPI reviews with account managers',
+  },
+  {
+    id: 'mbr-002',
+    name: 'Karim R.',
+    email: 'karim.r@imdaad.ae',
+    role: 'FM Engineer',
+    perspective: 'Operational',
+    assignedClients: ['Dubai Silicon Oasis'],
+    zones: ['Cluster A', 'Block C'],
+    skills: 'HVAC Specialist, Refrigerant Handling, Predictive Maintenance',
+    responsibilities: 'Respond to HVAC incidents in Cluster A within SLA targets\nConduct quarterly chiller and AHU servicing\nLog all interventions in the platform after each job\nTrain junior technicians on HVAC diagnostic procedures',
+  },
+  {
+    id: 'mbr-003',
+    name: 'Rania Al-Farsi',
+    email: 'rania.alfarsi@imdaad.ae',
+    role: 'Account Manager',
+    perspective: 'Strategic',
+    assignedClients: ['Dubai Silicon Oasis'],
+    zones: ['Dubai East'],
+    skills: 'Client Relations, KPI Reporting, Contract Management',
+    responsibilities: 'Manage the Dubai Silicon Oasis client relationship\nDeliver monthly performance reports to the client board\nTrack contract renewal milestones and renewal readiness\nCoordinate with FM Manager on escalation resolution',
+  },
+  {
+    id: 'mbr-004',
+    name: 'Tariq Mansour',
+    email: 'tariq.mansour@imdaad.ae',
+    role: 'Site Supervisor',
+    perspective: 'Operational',
+    assignedClients: ['Dubai Silicon Oasis'],
+    zones: ['Cluster A', 'Cluster B', 'Block C', 'Recreation Area'],
+    skills: 'HVAC & Electrical, Site Safety, Permit to Work',
+    responsibilities: 'Conduct daily site walk-arounds and log observations before 09:00\nEnsure all technicians hold valid permits for high-risk tasks\nChase overdue work orders 30 min before SLA breach\nReview team attendance and assign shift coverage',
+  },
+  {
+    id: 'mbr-005',
+    name: 'Lina Barakat',
+    email: 'lina.barakat@client.ae',
+    role: 'Client',
+    perspective: 'Client',
+    assignedClients: ['JLT North Cluster'],
+    zones: ['Dubai Marina'],
+    skills: 'Facility Management Oversight, Compliance Review',
+    responsibilities: 'Review service request status and SLA compliance\nSubmit and track maintenance requests for JLT North\nAccess performance reports and satisfaction data\nEscalate unresolved issues to Imdaad account management',
+  },
+];
+
 export const mockTechnicians = [
   { id: 'AK', name: 'Ahmed K.', skill: 'Plumbing', status: 'active', job: '#SI-301', lat: 25.1190, lng: 55.3760, rating: 4.6, jobsCompleted: 98 },
   { id: 'SM', name: 'Sara M.', skill: 'Electrical', status: 'available', lat: 25.1165, lng: 55.3790, rating: 4.9, jobsCompleted: 210 },

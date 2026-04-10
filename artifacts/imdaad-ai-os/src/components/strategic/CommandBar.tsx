@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Search, Bell, ChevronDown, Zap, Bot, Hand, Plus, X, Building2, MapPin, FileText, User, Users, Layers, Sparkles, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useMemberProfiles } from '@/context/MemberProfilesContext';
+import { useMemberFilter, isFilterActive } from '@/context/MemberFilterContext';
 
 export type AutomationMode = 'manual' | 'hybrid' | 'ai';
 
@@ -211,10 +213,18 @@ export interface ClientData {
   accountManager: string;
 }
 
+export type MemberPerspective = 'Strategic' | 'Operational' | 'Client';
+
 export interface TeamMember {
+  id: string;
   name: string;
   email: string;
   role: string;
+  perspective: MemberPerspective;
+  assignedClients: string[];
+  zones: string[];
+  skills: string;
+  responsibilities: string;
   privileges: string[];
   mobile: string;
   whatsapp: string;
@@ -317,8 +327,15 @@ const COMM_CHANNELS = [
   { key: 'radio',    label: 'Walkie-Talkie',   icon: '📻' },
 ];
 
+const PERSPECTIVE_OPTS: MemberPerspective[] = ['Strategic', 'Operational', 'Client'];
+
+const ZONE_MULTI_OPTIONS = ['Cluster A', 'Cluster B', 'Block C', 'Recreation Area', 'Main Gate', 'Dubai Marina', 'Downtown', 'Dubai East', 'Jumeirah', 'Business Bay'];
+
 const EMPTY_MEMBER = (): TeamMember => ({
-  name: '', email: '', role: '', privileges: [],
+  id: Math.random().toString(36).slice(2, 10),
+  name: '', email: '', role: '', perspective: 'Operational',
+  assignedClients: [], zones: [], skills: '', responsibilities: '',
+  privileges: [],
   mobile: '', whatsapp: '', location: '',
   availability: '', shift: '',
   commChannels: ['whatsapp', 'email'],
@@ -439,7 +456,7 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
 
   const addMember = () => setTeamMembers(prev => [...prev, EMPTY_MEMBER()]);
   const removeMember = (i: number) => setTeamMembers(prev => prev.filter((_, idx) => idx !== i));
-  const updateMember = (i: number, field: Exclude<keyof TeamMember, 'privileges' | 'commChannels'>, val: string) => {
+  const updateMember = (i: number, field: Exclude<keyof TeamMember, 'privileges' | 'commChannels' | 'assignedClients' | 'zones'>, val: string) => {
     setTeamMembers(prev => {
       const updated = prev.map((m, idx) => {
         if (idx !== i) return m;
@@ -458,6 +475,20 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
       });
       return updated;
     });
+  };
+  const toggleMemberClient = (i: number, client: string) => {
+    setTeamMembers(prev => prev.map((m, idx) => {
+      if (idx !== i) return m;
+      const has = m.assignedClients.includes(client);
+      return { ...m, assignedClients: has ? m.assignedClients.filter(c => c !== client) : [...m.assignedClients, client] };
+    }));
+  };
+  const toggleMemberZone = (i: number, zone: string) => {
+    setTeamMembers(prev => prev.map((m, idx) => {
+      if (idx !== i) return m;
+      const has = m.zones.includes(zone);
+      return { ...m, zones: has ? m.zones.filter(z => z !== zone) : [...m.zones, zone] };
+    }));
   };
   const togglePrivilege = (i: number, key: string) => {
     setTeamMembers(prev => prev.map((m, idx) => {
@@ -1224,6 +1255,94 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
                         {errors[`team_role_${i}`] && <p className="mt-0.5 text-[10px] text-red-400">{errors[`team_role_${i}`]}</p>}
                       </div>
 
+                      <div>
+                        <FieldLabel label="Dashboard Perspective" />
+                        <select
+                          value={member.perspective}
+                          onChange={e => updateMember(i, 'perspective', e.target.value as MemberPerspective)}
+                          className={selectCls}
+                        >
+                          {PERSPECTIVE_OPTS.map(p => (
+                            <option key={p} value={p} className="bg-[#0A1628]">{p}</option>
+                          ))}
+                        </select>
+                        <p className="mt-0.5 text-[9px] text-[#4A6080]">
+                          {member.perspective === 'Strategic' ? 'KPIs, dispatch, AI rules, all clients' : member.perspective === 'Operational' ? 'Tasks, kanban, smart scan' : 'Service requests & tracking'}
+                        </p>
+                      </div>
+
+                      <div className="col-span-2">
+                        <FieldLabel label="Assigned Clients" />
+                        <div className="flex flex-wrap gap-1.5 mt-1">
+                          {INITIAL_CLIENT_DATA.map(c => {
+                            const active = member.assignedClients.includes(c.name);
+                            return (
+                              <button
+                                key={c.name}
+                                type="button"
+                                onClick={() => toggleMemberClient(i, c.name)}
+                                className={`text-[10px] px-2 py-1 rounded-lg border transition-all font-medium ${
+                                  active
+                                    ? 'bg-[rgba(46,127,255,0.18)] border-[#2E7FFF] text-[#EEF3FA]'
+                                    : 'border-[rgba(46,127,255,0.15)] text-[#7A94B4] hover:border-[rgba(46,127,255,0.35)] hover:text-[#EEF3FA]'
+                                }`}
+                              >
+                                {active && <span className="mr-1 text-[#2E7FFF]">✓</span>}
+                                {c.name}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <p className="mt-1 text-[9px] text-[#4A6080]">Leave empty to grant access to all clients</p>
+                      </div>
+
+                      <div className="col-span-2">
+                        <FieldLabel label="Geographical Zones" />
+                        <div className="flex flex-wrap gap-1.5 mt-1">
+                          {ZONE_MULTI_OPTIONS.map(z => {
+                            const active = member.zones.includes(z);
+                            return (
+                              <button
+                                key={z}
+                                type="button"
+                                onClick={() => toggleMemberZone(i, z)}
+                                className={`text-[10px] px-2 py-1 rounded-lg border transition-all font-medium ${
+                                  active
+                                    ? 'bg-[rgba(46,127,255,0.18)] border-[#2E7FFF] text-[#EEF3FA]'
+                                    : 'border-[rgba(46,127,255,0.15)] text-[#7A94B4] hover:border-[rgba(46,127,255,0.35)] hover:text-[#EEF3FA]'
+                                }`}
+                              >
+                                {active && <span className="mr-1 text-[#2E7FFF]">✓</span>}
+                                {z}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <p className="mt-1 text-[9px] text-[#4A6080]">Dashboard map and dispatch panels will be pre-filtered to these zones</p>
+                      </div>
+
+                      <div className="col-span-2">
+                        <FieldLabel label="Skills / Specialisation" />
+                        <input
+                          value={member.skills}
+                          onChange={e => updateMember(i, 'skills', e.target.value)}
+                          placeholder="e.g. HVAC, Electrical, PPM Management"
+                          className={inputCls()}
+                        />
+                      </div>
+
+                      <div className="col-span-2">
+                        <FieldLabel label="Responsibilities" />
+                        <textarea
+                          value={member.responsibilities}
+                          onChange={e => updateMember(i, 'responsibilities', e.target.value)}
+                          placeholder="e.g. Manage all HVAC assets in Cluster A. Respond to critical incidents within 45 min."
+                          rows={2}
+                          className={`${inputCls()} resize-none`}
+                        />
+                        <p className="mt-0.5 text-[9px] text-[#4A6080]">These will appear in the welcome email and on their personalized dashboard</p>
+                      </div>
+
                       <div className="col-span-2">
                         <div className="flex items-center justify-between mb-1.5">
                           <FieldLabel label="Privileges" />
@@ -1426,14 +1545,24 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
 type FilterKey = 'Client' | 'Zone' | 'Service';
 
 export function CommandBar({ mode, onModeChange, onToast }: Props) {
+  const { addProfiles }                         = useMemberProfiles();
+  const memberFilter                            = useMemberFilter();
+  const isMemberMode                            = isFilterActive(memberFilter);
+
+  const initialSelected: Record<FilterKey, string> = {
+    Client: isMemberMode && memberFilter.assignedClients.length === 1
+      ? memberFilter.assignedClients[0]
+      : 'All Clients',
+    Zone: isMemberMode && memberFilter.zones.length === 1
+      ? memberFilter.zones[0]
+      : 'All Zones',
+    Service: 'All Services',
+  };
+
   const [search, setSearch]                     = useState('');
   const [clientData, setClientData]             = useState<ClientData[]>(INITIAL_CLIENT_DATA);
   const [openFilter, setOpenFilter]             = useState<FilterKey | null>(null);
-  const [selected, setSelected]                 = useState<Record<FilterKey, string>>({
-    Client: 'All Clients',
-    Zone:   'All Zones',
-    Service: 'All Services',
-  });
+  const [selected, setSelected]                 = useState<Record<FilterKey, string>>(initialSelected);
   const [showModeDropdown, setShowModeDropdown] = useState(false);
   const [showAddClient, setShowAddClient]       = useState(false);
 
@@ -1462,6 +1591,7 @@ export function CommandBar({ mode, onModeChange, onToast }: Props) {
     setSelected(prev => ({ ...prev, Client: data.name }));
     setShowAddClient(false);
     setOpenFilter(null);
+    addProfiles(teamMembers);
     if (!inviteOk) {
       if (failedCount > 0) {
         onToast(

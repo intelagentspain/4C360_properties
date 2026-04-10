@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AlertTriangle, Clock, Bot, CheckCircle, X, MapPin, User, ArrowRight, QrCode } from 'lucide-react';
 import { useIncidents } from '@/context/IncidentContext';
+import { useMemberFilter, isFilterActive } from '@/context/MemberFilterContext';
 
 type EventType = 'incident' | 'sla' | 'ai' | 'task';
 
@@ -152,12 +153,26 @@ interface Props {
   onToast: (msg: string, type?: 'success' | 'warning' | 'error' | 'info') => void;
 }
 
+function matchesZone(location: string | undefined, zones: string[]): boolean {
+  if (zones.length === 0 || !location) return true;
+  const loc = location.toLowerCase();
+  return zones.some(z => loc.includes(z.toLowerCase()) || z.toLowerCase().includes(loc));
+}
+
 export function LivePulseFeed({ onToast }: Props) {
   const { incidents } = useIncidents();
+  const memberFilter = useMemberFilter();
+  const isMemberMode = isFilterActive(memberFilter);
+
   const [events, setEvents] = useState<PulseEvent[]>(initialEvents);
   const [selected, setSelected] = useState<PulseEvent | null>(null);
   const [tick, setTick] = useState(0);
   const seenIncidentIds = useRef<Set<string>>(new Set(initialEvents.map(e => e.id)));
+
+  const visibleEvents = useMemo(() => {
+    if (!isMemberMode || memberFilter.zones.length === 0) return events;
+    return events.filter(e => matchesZone(e.location, memberFilter.zones));
+  }, [events, isMemberMode, memberFilter.zones]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -202,12 +217,12 @@ export function LivePulseFeed({ onToast }: Props) {
           <div className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
           <span className="text-[10px] font-semibold text-[#EEF3FA] uppercase tracking-wide">Live Pulse</span>
         </div>
-        <span className="text-[10px] text-[#7A94B4]">{events.length} events</span>
+        <span className="text-[10px] text-[#7A94B4]">{visibleEvents.length} events</span>
       </div>
 
       <div className="flex-1 overflow-y-auto custom-scrollbar">
         <AnimatePresence initial={false}>
-          {events.map(ev => {
+          {visibleEvents.map(ev => {
             const cfg = typeConfig[ev.type];
             const border = severityBorder[ev.severity || 'info'];
             return (

@@ -1,25 +1,82 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { TopBar } from '@/components/layout/TopBar';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { StrategicView } from '@/components/strategic/StrategicView';
 import { OperationalView } from '@/components/operational/OperationalView';
 import { ClientView } from '@/components/client/ClientView';
+import { MemberDashboardView } from '@/components/MemberDashboardView';
 import { ToastContainer } from '@/components/shared/ToastContainer';
 import { useToast } from '@/hooks/useToast';
+import { useMemberProfiles } from '@/context/MemberProfilesContext';
+import type { MockMemberProfile } from '@/data/mockData';
 
 export type Perspective = 'strategic' | 'operational' | 'client';
 export type StrategicPage = 'dashboard' | 'datasources' | 'benchmark' | 'replay' | 'incidents' | 'tasks' | 'ppmschedule' | 'aicapture' | 'settings' | 'allclients';
 
+function getMemberIdFromUrl(): string | null {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('member');
+}
+
+const PERSP_MAP: Record<string, Perspective> = {
+  Strategic: 'strategic',
+  Operational: 'operational',
+  Client: 'client',
+};
+
 function App() {
-  const [perspective,    setPerspective]    = useState<Perspective>('strategic');
-  const [strategicPage,  setStrategicPage]  = useState<StrategicPage>('dashboard');
-  const { toasts, addToast, removeToast }   = useToast();
+  const { getById }                          = useMemberProfiles();
+  const [perspective,    setPerspective]     = useState<Perspective>('strategic');
+  const [strategicPage,  setStrategicPage]   = useState<StrategicPage>('dashboard');
+  const { toasts, addToast, removeToast }    = useToast();
+  const [activeMember,   setActiveMember]    = useState<MockMemberProfile | null>(null);
+
+  useEffect(() => {
+    const memberId = getMemberIdFromUrl();
+    if (!memberId) return;
+    const member = getById(memberId);
+    if (member) {
+      setActiveMember(member);
+      setPerspective(PERSP_MAP[member.perspective] ?? 'strategic');
+      setTimeout(() => addToast(`Welcome, ${member.name} — personalized dashboard loaded`, 'success'), 400);
+    } else {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('member');
+      window.history.replaceState({}, '', url.toString());
+      setTimeout(() => addToast('Member profile not found — showing default dashboard', 'warning'), 400);
+    }
+  }, []);
 
   const handleSetPerspective = (p: Perspective) => {
     setPerspective(p);
     if (p === 'strategic') setStrategicPage('dashboard');
   };
+
+  const handleDismissMemberView = () => {
+    setActiveMember(null);
+    const url = new URL(window.location.href);
+    url.searchParams.delete('member');
+    window.history.replaceState({}, '', url.toString());
+  };
+
+  if (activeMember) {
+    return (
+      <div className="flex flex-col h-screen bg-[#0A1628] overflow-hidden">
+        <TopBar perspective={perspective} setPerspective={handleSetPerspective} />
+        <div className="flex flex-1 overflow-hidden">
+          <main className="flex-1 overflow-hidden relative">
+            <MemberDashboardView
+              member={activeMember}
+              onToast={addToast}
+              onDismiss={handleDismissMemberView}
+            />
+          </main>
+        </div>
+        <ToastContainer toasts={toasts} removeToast={removeToast} />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-screen bg-[#0A1628] overflow-hidden">

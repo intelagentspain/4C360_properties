@@ -3,6 +3,7 @@ import App from "./App";
 import { ScanPage } from "./pages/ScanPage";
 import { IncidentProvider, useIncidents } from "./context/IncidentContext";
 import { NotificationProvider } from "./context/NotificationContext";
+import { MemberProfilesProvider } from "./context/MemberProfilesContext";
 import "./index.css";
 
 function ScanRoute() {
@@ -47,11 +48,13 @@ function Root() {
   }
 
   return (
-    <NotificationProvider>
-      <IncidentProvider>
-        <App />
-      </IncidentProvider>
-    </NotificationProvider>
+    <MemberProfilesProvider>
+      <NotificationProvider>
+        <IncidentProvider>
+          <App />
+        </IncidentProvider>
+      </NotificationProvider>
+    </MemberProfilesProvider>
   );
 }
 
