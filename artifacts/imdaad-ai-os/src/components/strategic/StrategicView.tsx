@@ -18,6 +18,7 @@ import { PPMSchedule } from './PPMSchedule';
 import { AICapture } from './AICapture';
 import { DispatchAIRules } from './DispatchAIRules';
 import { initialDispatchSettings, type DispatchSettings } from '@/data/dispatchSettings';
+import { AllClients } from './AllClients';
 import type { StrategicPage } from '@/App';
 import type { ToastFn } from '@/lib/ui';
 
@@ -81,6 +82,7 @@ export function StrategicView({ onToast, page }: Props) {
             setSettings={setDispatchSettings}
           />
         )}
+        {page === 'allclients'  && <AllClients    onToast={onToast} />}
       </motion.div>
     </AnimatePresence>
   );

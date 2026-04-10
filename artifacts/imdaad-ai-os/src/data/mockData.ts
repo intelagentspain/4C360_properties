@@ -540,3 +540,546 @@ export const mockAICaptures = [
     boxColor: '#2E7FFF',
   },
 ];
+
+export interface PortfolioDataSource {
+  label: string;
+  count: number;
+}
+
+export interface PortfolioClientPerson {
+  name: string;
+  role: string;
+  initials: string;
+  status: 'available' | 'on-site' | 'off-duty' | 'transit';
+  skill?: string;
+  jobsThisMonth?: number;
+  slaRate?: number;
+}
+
+export interface PortfolioClientResources {
+  budgetUsed: number;
+  budgetTotal: number;
+  fleet: { label: string; available: number; total: number }[];
+  partsStock: { name: string; qty: number; status: 'ok' | 'low' | 'out' }[];
+  equipment: { name: string; condition: number; nextService: string }[];
+}
+
+export interface PortfolioClientContract {
+  number: string;
+  tier: 'Platinum' | 'Gold' | 'Silver' | 'Standard';
+  startDate: string;
+  endDate: string;
+  renewalDate: string;
+  annualValue: string;
+  penalties: string;
+  responseTimes: { severity: string; target: string }[];
+  vendorManager: string;
+  notes: string;
+}
+
+export interface PortfolioClient {
+  id: string;
+  name: string;
+  status: 'live' | 'warning' | 'critical';
+  region: string;
+  sector: string;
+  sites: number;
+  workOrders: number;
+  incidents: number;
+  sla: number;
+  compliance: number;
+  riskLevel: 'low' | 'medium' | 'high' | 'critical';
+  overdueTasks: number;
+  dataSources: PortfolioDataSource[];
+  aiInsight: string;
+  lastUpdated: string;
+  topSites: { name: string; status: 'ok' | 'warning' | 'critical'; incidents: number }[];
+  recentActivity: { time: string; event: string; type: string }[];
+  people: {
+    accountManager: PortfolioClientPerson;
+    fmManager: PortfolioClientPerson;
+    supervisors: PortfolioClientPerson[];
+    technicians: PortfolioClientPerson[];
+  };
+  resources: PortfolioClientResources;
+  contract: PortfolioClientContract;
+}
+
+export const mockPortfolioClients: PortfolioClient[] = [
+  {
+    id: 'CLT-001',
+    name: 'Dubai Silicon Oasis',
+    status: 'live',
+    region: 'Dubai East',
+    sector: 'Mixed-Use Residential',
+    sites: 14,
+    workOrders: 47,
+    incidents: 3,
+    sla: 94,
+    compliance: 98,
+    riskLevel: 'low',
+    overdueTasks: 1,
+    dataSources: [
+      { label: 'Maximo API', count: 1240 },
+      { label: 'IoT Sensors', count: 86 },
+      { label: 'Resident App', count: 210 },
+    ],
+    aiInsight: 'All critical assets within SLA. Chiller C-04 flagged for proactive service within 6 days.',
+    lastUpdated: '2 min ago',
+    topSites: [
+      { name: 'Cluster A — Villas', status: 'warning', incidents: 2 },
+      { name: 'Block C — Towers', status: 'ok', incidents: 1 },
+      { name: 'Recreation Centre', status: 'ok', incidents: 0 },
+    ],
+    recentActivity: [
+      { time: '10:22 AM', event: 'AC Failure resolved — Villa 23', type: 'task' },
+      { time: '09:45 AM', event: 'IoT anomaly: Pool Pump vibration flagged', type: 'ai' },
+      { time: '09:10 AM', event: 'SLA met: Lift fault closed in 58 min', type: 'ok' },
+    ],
+    people: {
+      accountManager: { name: 'Rania Al-Farsi', role: 'Account Manager', initials: 'RA', status: 'available' },
+      fmManager: { name: 'Hassan Yousef', role: 'FM Manager', initials: 'HY', status: 'on-site' },
+      supervisors: [
+        { name: 'Tariq Mansour', role: 'Site Supervisor', initials: 'TM', status: 'on-site', skill: 'HVAC & Electrical' },
+        { name: 'Layla Nour', role: 'Compliance Lead', initials: 'LN', status: 'available', skill: 'Safety & PPM' },
+      ],
+      technicians: [
+        { name: 'Karim R.', role: 'HVAC Specialist', initials: 'KR', status: 'on-site', skill: 'HVAC', jobsThisMonth: 18, slaRate: 94 },
+        { name: 'Ahmed K.', role: 'Plumber', initials: 'AK', status: 'transit', skill: 'Plumbing', jobsThisMonth: 12, slaRate: 91 },
+        { name: 'Sara M.', role: 'Electrician', initials: 'SM', status: 'available', skill: 'Electrical', jobsThisMonth: 15, slaRate: 97 },
+        { name: 'Faisal N.', role: 'General Tech', initials: 'FN', status: 'on-site', skill: 'General', jobsThisMonth: 10, slaRate: 88 },
+      ],
+    },
+    resources: {
+      budgetUsed: 820000,
+      budgetTotal: 1100000,
+      fleet: [
+        { label: 'Service Vans', available: 4, total: 5 },
+        { label: 'Pickup Trucks', available: 2, total: 2 },
+      ],
+      partsStock: [
+        { name: 'R-410A Refrigerant', qty: 8, status: 'ok' },
+        { name: 'Filter Type-B', qty: 3, status: 'low' },
+        { name: 'Condenser Belt', qty: 12, status: 'ok' },
+        { name: 'MCB 63A', qty: 0, status: 'out' },
+      ],
+      equipment: [
+        { name: 'HVAC Diagnostic Kit', condition: 92, nextService: '30 days' },
+        { name: 'Pressure Test Rig', condition: 85, nextService: '45 days' },
+        { name: 'Thermal Camera', condition: 98, nextService: '90 days' },
+      ],
+    },
+    contract: {
+      number: 'IMD-2024-DSO-001',
+      tier: 'Platinum',
+      startDate: '1 Jan 2024',
+      endDate: '31 Dec 2026',
+      renewalDate: '1 Oct 2026',
+      annualValue: 'AED 1.1M',
+      penalties: 'AED 5,000 per SLA breach beyond 3 per quarter',
+      responseTimes: [
+        { severity: 'Critical', target: '< 45 min' },
+        { severity: 'High',     target: '< 2 hrs' },
+        { severity: 'Medium',   target: '< 4 hrs' },
+        { severity: 'Low',      target: '< 24 hrs' },
+      ],
+      vendorManager: 'Zaid Al-Hamdan — Imdaad HQ',
+      notes: 'Renewal auto-triggers at 85% contract term. Resident satisfaction score included in KPI review.',
+    },
+  },
+  {
+    id: 'CLT-002',
+    name: 'Gate Avenue DIFC',
+    status: 'live',
+    region: 'Downtown',
+    sector: 'Commercial Retail',
+    sites: 6,
+    workOrders: 31,
+    incidents: 1,
+    sla: 97,
+    compliance: 99,
+    riskLevel: 'low',
+    overdueTasks: 0,
+    dataSources: [
+      { label: 'Oracle ERP', count: 560 },
+      { label: 'WhatsApp Gateway', count: 120 },
+      { label: 'QR Scanner', count: 88 },
+    ],
+    aiInsight: 'Exemplary compliance across all zones. Zero overdue tasks. SLA track record above portfolio average.',
+    lastUpdated: '5 min ago',
+    topSites: [
+      { name: 'Retail Boulevard Level 1', status: 'ok', incidents: 1 },
+      { name: 'Parking Structure B', status: 'ok', incidents: 0 },
+      { name: 'Food Court Zone', status: 'ok', incidents: 0 },
+    ],
+    recentActivity: [
+      { time: '10:18 AM', event: 'Routine PPM completed — HVAC Zone 3', type: 'task' },
+      { time: '09:30 AM', event: 'QR scan inspection: Parking Level 2 passed', type: 'ok' },
+      { time: '08:55 AM', event: 'Service request submitted: Escalator noise', type: 'incident' },
+    ],
+    people: {
+      accountManager: { name: 'Nadia Samir', role: 'Account Manager', initials: 'NS', status: 'available' },
+      fmManager: { name: 'Walid Kareem', role: 'FM Manager', initials: 'WK', status: 'available' },
+      supervisors: [
+        { name: 'Amira Haddad', role: 'Operations Supervisor', initials: 'AH', status: 'on-site', skill: 'Retail FM' },
+      ],
+      technicians: [
+        { name: 'Omar T.', role: 'MEP Technician', initials: 'OT', status: 'on-site', skill: 'Electrical', jobsThisMonth: 14, slaRate: 99 },
+        { name: 'Bilal S.', role: 'HVAC Tech', initials: 'BS', status: 'available', skill: 'HVAC', jobsThisMonth: 11, slaRate: 97 },
+        { name: 'Nour A.', role: 'General Tech', initials: 'NA', status: 'available', skill: 'General', jobsThisMonth: 9, slaRate: 96 },
+      ],
+    },
+    resources: {
+      budgetUsed: 390000,
+      budgetTotal: 600000,
+      fleet: [
+        { label: 'Service Vans', available: 2, total: 2 },
+        { label: 'Cargo Bikes', available: 3, total: 3 },
+      ],
+      partsStock: [
+        { name: 'LED Panel 60W', qty: 24, status: 'ok' },
+        { name: 'Escalator Chain Link', qty: 6, status: 'ok' },
+        { name: 'HVAC Filter G4', qty: 2, status: 'low' },
+      ],
+      equipment: [
+        { name: 'Escalator Diagnostic Tool', condition: 97, nextService: '60 days' },
+        { name: 'Electrical Test Kit', condition: 94, nextService: '30 days' },
+      ],
+    },
+    contract: {
+      number: 'IMD-2024-GAV-002',
+      tier: 'Platinum',
+      startDate: '1 Mar 2024',
+      endDate: '28 Feb 2027',
+      renewalDate: '1 Dec 2026',
+      annualValue: 'AED 600K',
+      penalties: 'AED 3,000 per SLA breach beyond 2 per quarter',
+      responseTimes: [
+        { severity: 'Critical', target: '< 30 min' },
+        { severity: 'High',     target: '< 1 hr' },
+        { severity: 'Medium',   target: '< 3 hrs' },
+        { severity: 'Low',      target: '< 12 hrs' },
+      ],
+      vendorManager: 'Zaid Al-Hamdan — Imdaad HQ',
+      notes: 'DIFC compliance audit scheduled Q3. Retail trading hours limit maintenance windows to 10 PM–6 AM.',
+    },
+  },
+  {
+    id: 'CLT-003',
+    name: 'Business Bay Tower Complex',
+    status: 'warning',
+    region: 'Business Bay',
+    sector: 'Commercial Office',
+    sites: 9,
+    workOrders: 62,
+    incidents: 7,
+    sla: 81,
+    compliance: 84,
+    riskLevel: 'high',
+    overdueTasks: 5,
+    dataSources: [
+      { label: 'Maximo API', count: 980 },
+      { label: 'IoT Sensors', count: 54 },
+      { label: 'Power BI', count: 0 },
+    ],
+    aiInsight: 'Power BI sync failure causing reporting gaps. 5 overdue tasks require immediate escalation. SLA degrading — 3 open breaches.',
+    lastUpdated: '12 min ago',
+    topSites: [
+      { name: 'Tower A — Floors 1–20', status: 'critical', incidents: 4 },
+      { name: 'Tower B — Floors 1–18', status: 'warning', incidents: 2 },
+      { name: 'Podium Retail', status: 'ok', incidents: 1 },
+    ],
+    recentActivity: [
+      { time: '10:05 AM', event: 'SLA breach: Generator fault unreached 4h', type: 'escalation' },
+      { time: '09:50 AM', event: 'Power BI sync failure — token expired', type: 'ai' },
+      { time: '09:20 AM', event: 'Chiller fault escalated to critical — Tower A', type: 'incident' },
+    ],
+    people: {
+      accountManager: { name: 'Khaled Badawi', role: 'Account Manager', initials: 'KB', status: 'available' },
+      fmManager: { name: 'Fatima Aziz', role: 'FM Manager', initials: 'FA', status: 'on-site' },
+      supervisors: [
+        { name: 'Yusuf Rahimi', role: 'Operations Supervisor', initials: 'YR', status: 'on-site', skill: 'MEP' },
+        { name: 'Dana Saleh', role: 'Safety Supervisor', initials: 'DS', status: 'off-duty', skill: 'Safety' },
+      ],
+      technicians: [
+        { name: 'Rami B.', role: 'Electrical Tech', initials: 'RB', status: 'on-site', skill: 'Electrical', jobsThisMonth: 16, slaRate: 78 },
+        { name: 'Ali M.', role: 'HVAC Specialist', initials: 'AM', status: 'transit', skill: 'HVAC', jobsThisMonth: 14, slaRate: 82 },
+        { name: 'Hassan T.', role: 'Plumber', initials: 'HT', status: 'off-duty', skill: 'Plumbing', jobsThisMonth: 8, slaRate: 75 },
+      ],
+    },
+    resources: {
+      budgetUsed: 1050000,
+      budgetTotal: 1200000,
+      fleet: [
+        { label: 'Service Vans', available: 3, total: 5 },
+        { label: 'Pickup Trucks', available: 0, total: 2 },
+      ],
+      partsStock: [
+        { name: 'Circuit Breaker 100A', qty: 1, status: 'low' },
+        { name: 'Chiller Refrigerant', qty: 0, status: 'out' },
+        { name: 'UPS Battery Module', qty: 4, status: 'ok' },
+        { name: 'Fire Damper Actuator', qty: 2, status: 'low' },
+      ],
+      equipment: [
+        { name: 'Generator Test Set', condition: 68, nextService: '5 days' },
+        { name: 'Thermal Imaging Camera', condition: 72, nextService: '14 days' },
+        { name: 'Cable Fault Locator', condition: 55, nextService: 'Overdue' },
+      ],
+    },
+    contract: {
+      number: 'IMD-2023-BBT-003',
+      tier: 'Gold',
+      startDate: '1 Jul 2023',
+      endDate: '30 Jun 2026',
+      renewalDate: '1 Apr 2026',
+      annualValue: 'AED 1.2M',
+      penalties: 'AED 8,000 per SLA breach — 3 breaches triggered this quarter',
+      responseTimes: [
+        { severity: 'Critical', target: '< 60 min' },
+        { severity: 'High',     target: '< 3 hrs' },
+        { severity: 'Medium',   target: '< 6 hrs' },
+        { severity: 'Low',      target: '< 24 hrs' },
+      ],
+      vendorManager: 'Mariam Nasser — Imdaad HQ',
+      notes: 'Penalty review scheduled end of month. Upgrade to Platinum tier being discussed pending SLA recovery.',
+    },
+  },
+  {
+    id: 'CLT-004',
+    name: 'JLT North Cluster',
+    status: 'critical',
+    region: 'Dubai Marina',
+    sector: 'Mixed-Use Residential',
+    sites: 11,
+    workOrders: 78,
+    incidents: 12,
+    sla: 67,
+    compliance: 71,
+    riskLevel: 'critical',
+    overdueTasks: 9,
+    dataSources: [
+      { label: 'WhatsApp Gateway', count: 340 },
+      { label: 'Resident App', count: 195 },
+      { label: 'IoT Sensors', count: 31 },
+    ],
+    aiInsight: 'CRITICAL: 9 overdue tasks and SLA at 67%. AI predicts further deterioration without immediate supervisor intervention. Lift safety checks overdue.',
+    lastUpdated: '1 min ago',
+    topSites: [
+      { name: 'Cluster N1 — Towers', status: 'critical', incidents: 6 },
+      { name: 'Cluster N2 — Villas', status: 'critical', incidents: 4 },
+      { name: 'Community Amenities', status: 'warning', incidents: 2 },
+    ],
+    recentActivity: [
+      { time: '10:20 AM', event: 'CRITICAL: Lift fault — 3 residents affected', type: 'incident' },
+      { time: '10:10 AM', event: 'SLA breach cascade — 4 jobs overdue simultaneously', type: 'escalation' },
+      { time: '09:55 AM', event: 'AI flag: Technician shortage detected — reassignment required', type: 'ai' },
+    ],
+    people: {
+      accountManager: { name: 'Sami Qasem', role: 'Account Manager', initials: 'SQ', status: 'available' },
+      fmManager: { name: 'Lina Barakat', role: 'FM Manager', initials: 'LB', status: 'on-site' },
+      supervisors: [
+        { name: 'Ismail Rashid', role: 'Site Supervisor', initials: 'IR', status: 'on-site', skill: 'General FM' },
+      ],
+      technicians: [
+        { name: 'Tariq H.', role: 'HVAC Tech', initials: 'TH', status: 'on-site', skill: 'HVAC', jobsThisMonth: 22, slaRate: 63 },
+        { name: 'Ziad K.', role: 'Electrician', initials: 'ZK', status: 'on-site', skill: 'Electrical', jobsThisMonth: 19, slaRate: 68 },
+      ],
+    },
+    resources: {
+      budgetUsed: 1380000,
+      budgetTotal: 1400000,
+      fleet: [
+        { label: 'Service Vans', available: 1, total: 4 },
+        { label: 'Pickup Trucks', available: 0, total: 2 },
+      ],
+      partsStock: [
+        { name: 'Lift Motor Drive', qty: 0, status: 'out' },
+        { name: 'Emergency Light Units', qty: 0, status: 'out' },
+        { name: 'Pipe Joint 22mm', qty: 1, status: 'low' },
+        { name: 'MCB 32A', qty: 2, status: 'low' },
+      ],
+      equipment: [
+        { name: 'Lift Diagnostic Console', condition: 42, nextService: 'Overdue' },
+        { name: 'Electrical Test Set', condition: 58, nextService: 'Overdue' },
+        { name: 'Safety Harness Kit', condition: 61, nextService: '3 days' },
+      ],
+    },
+    contract: {
+      number: 'IMD-2022-JLT-004',
+      tier: 'Silver',
+      startDate: '1 Jan 2023',
+      endDate: '31 Dec 2025',
+      renewalDate: '1 Sep 2025',
+      annualValue: 'AED 1.4M',
+      penalties: 'AED 10,000 per breach — 9 breaches triggered YTD · Escalation notice issued',
+      responseTimes: [
+        { severity: 'Critical', target: '< 90 min' },
+        { severity: 'High',     target: '< 4 hrs' },
+        { severity: 'Medium',   target: '< 8 hrs' },
+        { severity: 'Low',      target: '< 48 hrs' },
+      ],
+      vendorManager: 'Mariam Nasser — Imdaad HQ',
+      notes: 'Formal improvement plan in progress. Client has requested senior management review. Contract at risk of non-renewal.',
+    },
+  },
+  {
+    id: 'CLT-005',
+    name: 'Jumeirah Village Circle',
+    status: 'warning',
+    region: 'Jumeirah',
+    sector: 'Residential Community',
+    sites: 18,
+    workOrders: 54,
+    incidents: 5,
+    sla: 88,
+    compliance: 91,
+    riskLevel: 'medium',
+    overdueTasks: 3,
+    dataSources: [
+      { label: 'Maximo API', count: 870 },
+      { label: 'Resident App', count: 310 },
+      { label: 'QR Scanner', count: 145 },
+    ],
+    aiInsight: 'Irrigation system seasonal service overdue by 18 days. Pool maintenance compliance dipped below threshold last week.',
+    lastUpdated: '8 min ago',
+    topSites: [
+      { name: 'District 10 — North', status: 'warning', incidents: 3 },
+      { name: 'District 14 — South', status: 'ok', incidents: 1 },
+      { name: 'Community Pool & Gym', status: 'warning', incidents: 1 },
+    ],
+    recentActivity: [
+      { time: '10:12 AM', event: 'Irrigation seasonal service — 18 days overdue', type: 'escalation' },
+      { time: '09:40 AM', event: 'Pool pump inspection completed — PPM met', type: 'task' },
+      { time: '09:15 AM', event: 'Resident feedback: 4.6 avg — improved from last month', type: 'ok' },
+    ],
+    people: {
+      accountManager: { name: 'Dina Moussa', role: 'Account Manager', initials: 'DM', status: 'available' },
+      fmManager: { name: 'Yassir Nabil', role: 'FM Manager', initials: 'YN', status: 'on-site' },
+      supervisors: [
+        { name: 'Samira Kamel', role: 'Community Supervisor', initials: 'SK', status: 'on-site', skill: 'Landscape & Plumbing' },
+        { name: 'Adel Farouk', role: 'Safety Lead', initials: 'AF', status: 'available', skill: 'Safety & Compliance' },
+      ],
+      technicians: [
+        { name: 'Malik R.', role: 'Plumber', initials: 'MR', status: 'on-site', skill: 'Plumbing', jobsThisMonth: 13, slaRate: 87 },
+        { name: 'Jad T.', role: 'General Tech', initials: 'JT', status: 'transit', skill: 'General', jobsThisMonth: 11, slaRate: 84 },
+        { name: 'Rana H.', role: 'Electrician', initials: 'RH', status: 'available', skill: 'Electrical', jobsThisMonth: 9, slaRate: 91 },
+      ],
+    },
+    resources: {
+      budgetUsed: 760000,
+      budgetTotal: 950000,
+      fleet: [
+        { label: 'Service Vans', available: 4, total: 5 },
+        { label: 'Landscape Trucks', available: 1, total: 2 },
+      ],
+      partsStock: [
+        { name: 'Irrigation Valve 25mm', qty: 3, status: 'low' },
+        { name: 'Pool Chemical Pack', qty: 8, status: 'ok' },
+        { name: 'Pump Seal Kit', qty: 0, status: 'out' },
+        { name: 'LED Garden Light', qty: 12, status: 'ok' },
+      ],
+      equipment: [
+        { name: 'Irrigation Control Unit', condition: 74, nextService: '7 days' },
+        { name: 'Pool Test Kit', condition: 88, nextService: '30 days' },
+        { name: 'Pressure Washer', condition: 82, nextService: '21 days' },
+      ],
+    },
+    contract: {
+      number: 'IMD-2024-JVC-005',
+      tier: 'Gold',
+      startDate: '1 Apr 2024',
+      endDate: '31 Mar 2027',
+      renewalDate: '1 Jan 2027',
+      annualValue: 'AED 950K',
+      penalties: 'AED 4,000 per SLA breach beyond 4 per quarter — 1 triggered this quarter',
+      responseTimes: [
+        { severity: 'Critical', target: '< 60 min' },
+        { severity: 'High',     target: '< 3 hrs' },
+        { severity: 'Medium',   target: '< 6 hrs' },
+        { severity: 'Low',      target: '< 24 hrs' },
+      ],
+      vendorManager: 'Zaid Al-Hamdan — Imdaad HQ',
+      notes: 'Community management board review every 6 months. Landscape KPIs tracked separately to FM KPIs.',
+    },
+  },
+  {
+    id: 'CLT-006',
+    name: 'Downtown Burj Area',
+    status: 'live',
+    region: 'Downtown',
+    sector: 'Luxury Residential',
+    sites: 5,
+    workOrders: 22,
+    incidents: 2,
+    sla: 96,
+    compliance: 97,
+    riskLevel: 'low',
+    overdueTasks: 0,
+    dataSources: [
+      { label: 'Oracle ERP', count: 420 },
+      { label: 'IoT Sensors', count: 112 },
+      { label: 'Maximo API', count: 680 },
+    ],
+    aiInsight: 'Portfolio best performer. IoT coverage at 112 sensors. Proactive failure prediction prevented 2 major HVAC faults this quarter.',
+    lastUpdated: '4 min ago',
+    topSites: [
+      { name: 'Residence Tower 1', status: 'ok', incidents: 1 },
+      { name: 'Residence Tower 2', status: 'ok', incidents: 1 },
+      { name: 'Amenities & Podium', status: 'ok', incidents: 0 },
+    ],
+    recentActivity: [
+      { time: '10:15 AM', event: 'AI prevented HVAC fault — proactive PPM dispatched', type: 'ai' },
+      { time: '09:30 AM', event: 'Quarterly compliance report: 97% — approved', type: 'ok' },
+      { time: '08:50 AM', event: 'IoT anomaly cleared — false positive confirmed', type: 'task' },
+    ],
+    people: {
+      accountManager: { name: 'Leila Mahmoud', role: 'Account Manager', initials: 'LM', status: 'available' },
+      fmManager: { name: 'Samir Haddad', role: 'FM Manager', initials: 'SH', status: 'available' },
+      supervisors: [
+        { name: 'Camille Raza', role: 'Luxury Standards Supervisor', initials: 'CR', status: 'on-site', skill: 'MEP & Concierge FM' },
+        { name: 'Nabil Oueida', role: 'Engineering Supervisor', initials: 'NO', status: 'available', skill: 'HVAC & BMS' },
+      ],
+      technicians: [
+        { name: 'Emad S.', role: 'BMS Specialist', initials: 'ES', status: 'available', skill: 'BMS / Smart Systems', jobsThisMonth: 8, slaRate: 100 },
+        { name: 'Lara K.', role: 'HVAC Specialist', initials: 'LK', status: 'on-site', skill: 'HVAC', jobsThisMonth: 10, slaRate: 96 },
+        { name: 'Fares M.', role: 'Electrician', initials: 'FM', status: 'available', skill: 'Electrical', jobsThisMonth: 7, slaRate: 97 },
+      ],
+    },
+    resources: {
+      budgetUsed: 480000,
+      budgetTotal: 750000,
+      fleet: [
+        { label: 'Premium Service Vans', available: 2, total: 2 },
+        { label: 'Electric Vehicles', available: 1, total: 1 },
+      ],
+      partsStock: [
+        { name: 'BMS Sensor Node', qty: 18, status: 'ok' },
+        { name: 'HVAC Filter F9', qty: 12, status: 'ok' },
+        { name: 'Emergency Generator Fuel', qty: 6, status: 'ok' },
+        { name: 'LED Chandelier Bulb', qty: 24, status: 'ok' },
+      ],
+      equipment: [
+        { name: 'BMS Diagnostic Terminal', condition: 99, nextService: '120 days' },
+        { name: 'Thermal Imaging Suite', condition: 97, nextService: '90 days' },
+        { name: 'Air Quality Monitor', condition: 94, nextService: '60 days' },
+      ],
+    },
+    contract: {
+      number: 'IMD-2024-DBA-006',
+      tier: 'Platinum',
+      startDate: '1 Jun 2024',
+      endDate: '31 May 2027',
+      renewalDate: '1 Mar 2027',
+      annualValue: 'AED 750K',
+      penalties: 'AED 6,000 per SLA breach — zero breaches YTD',
+      responseTimes: [
+        { severity: 'Critical', target: '< 30 min' },
+        { severity: 'High',     target: '< 1 hr' },
+        { severity: 'Medium',   target: '< 2 hrs' },
+        { severity: 'Low',      target: '< 8 hrs' },
+      ],
+      vendorManager: 'Leila Mahmoud — Imdaad HQ',
+      notes: 'White-glove service standard. All staff must hold valid DTCM certification. Branded uniforms mandatory on-site.',
+    },
+  },
+];
