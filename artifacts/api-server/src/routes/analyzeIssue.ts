@@ -5,6 +5,7 @@ import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import OpenAI from "openai";
 import { z } from "zod";
+import { logger } from "../lib/logger";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const uploadsDir = path.resolve(__dirname, "../uploads");
@@ -41,28 +42,37 @@ const AnalysisSchema = z.object({
   description: z.string().min(1),
   issueType: z.string().min(1),
   category: z.string().min(1),
-  severity: z.enum(["critical", "high", "medium", "low"]),
+  severity: z
+    .string()
+    .transform((s) => s.toLowerCase().trim())
+    .pipe(z.enum(["critical", "high", "medium", "low"])),
   identifiedAsset: z.string().min(1),
-  observations: z.array(z.string()),
+  observations: z.array(z.string()).default([]),
   recommendedAction: z.string().min(1),
-  confidence: z.number().min(0).max(100),
+  confidence: z
+    .union([z.number(), z.string().transform((s) => parseFloat(s.replace("%", "")))])
+    .pipe(z.number().min(0).max(100)),
 });
 
 type Analysis = z.infer<typeof AnalysisSchema>;
 
-const FM_PROMPT = `You are an expert Facilities Management AI assistant specialized in rapid incident triage for commercial and residential properties. Analyze the provided photo and return a structured JSON assessment.
+const FM_PROMPT = `You are an expert Facilities Management AI assistant specialized in rapid incident triage for commercial and residential properties in Dubai.
 
-Return ONLY valid JSON with these exact fields:
+CRITICAL INSTRUCTION: You MUST respond with ONLY a valid JSON object. No markdown, no code blocks, no explanation text, no preamble. Start your response with { and end with }. Do not include anything outside the JSON object.
+
+Analyze the provided photo. Even if the image is unclear or does not show an obvious facility issue, use your best judgment to produce a valid FM assessment based on what you can observe. Never refuse — always return JSON.
+
+Return exactly this structure:
 {
   "title": "Short incident title (max 6 words)",
   "description": "Detailed description of what you see, the likely cause, and impact (2-3 sentences)",
   "issueType": "Primary issue type (e.g. Mechanical Failure, Water Damage, Electrical Fault, Structural, Safety Hazard, Cleanliness, General Wear)",
   "category": "FM category (e.g. HVAC, Plumbing, Electrical, Structural, Safety, Cleaning, General Maintenance)",
-  "severity": "One of: critical, high, medium, low — based on safety risk, resident impact, and urgency",
+  "severity": "exactly one of: critical, high, medium, low",
   "identifiedAsset": "The specific asset or area affected (e.g. Air Handling Unit, Kitchen Sink Pipe, MCB Panel, Lobby Floor, Lift Door)",
   "observations": ["Observation 1", "Observation 2", "Observation 3"],
   "recommendedAction": "Specific recommended next action for the maintenance team",
-  "confidence": 85
+  "confidence": 70
 }
 
 Severity guidelines:
@@ -71,7 +81,7 @@ Severity guidelines:
 - medium: notable issue requiring attention within hours/day
 - low: minor issue, can be scheduled in routine maintenance
 
-Be specific and professional. Return only the JSON object, no markdown.`;
+If image content is unclear, use "General Maintenance" as category, "low" severity, and set confidence to a low value (10-30). Always return valid JSON — this is non-negotiable.`;
 
 async function callOpenAIVision(
   imageBuffer: Buffer,
@@ -114,21 +124,33 @@ async function callOpenAIVision(
         ],
       },
     ],
-    max_tokens: 600,
+    max_tokens: 800,
     temperature: 0.2,
   });
 
   const raw = response.choices[0]?.message?.content?.trim() ?? "";
+  logger.info({ rawLength: raw.length, rawPreview: raw.slice(0, 300) }, "OpenAI raw response received");
+
+  if (!raw) {
+    throw new Error("OpenAI returned empty response (finish_reason: " + (response.choices[0]?.finish_reason ?? "unknown") + ")");
+  }
 
   let parsed: unknown;
   try {
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    parsed = JSON.parse(jsonMatch ? jsonMatch[0] : raw);
-  } catch {
-    throw new Error("AI returned invalid JSON");
+    const jsonStr = jsonMatch ? jsonMatch[0] : raw;
+    parsed = JSON.parse(jsonStr);
+  } catch (jsonErr) {
+    logger.error({ raw, jsonErr }, "Failed to parse OpenAI JSON response");
+    throw new Error(`AI returned non-JSON response: ${raw.slice(0, 200)}`);
   }
 
-  return AnalysisSchema.parse(parsed);
+  try {
+    return AnalysisSchema.parse(parsed);
+  } catch (zodErr) {
+    logger.error({ parsed, zodErr }, "Zod schema validation failed on OpenAI response");
+    throw zodErr;
+  }
 }
 
 function getMockAnalysis(context: {
@@ -293,7 +315,11 @@ router.post(
         analysis,
         meta: { siteId, assetId, reporterName, reporterRole },
       });
-    } catch {
+    } catch (err) {
+      logger.warn(
+        { err: err instanceof Error ? { message: err.message, stack: err.stack } : err, siteId, assetId },
+        "OpenAI vision call failed — falling back to mock",
+      );
       const analysis = getMockAnalysis({ siteId, assetId, reporterRole });
       res.json({
         success: true,
