@@ -1,69 +1,106 @@
 import {
-  LayoutDashboard, Map, AlertTriangle, CheckSquare, Calendar, Camera, BarChart2, Settings,
-  ClipboardList, Scan, ListChecks, Package, Image, Home, Clock, History
+  LayoutDashboard, Map, AlertTriangle, CheckSquare, Calendar,
+  Camera, BarChart2, Settings, ClipboardList, Scan, ListChecks,
+  Package, Image, Home, Clock, History, Database, PlayCircle,
 } from 'lucide-react';
+import type { Perspective, StrategicPage } from '@/App';
 
-type Perspective = 'strategic' | 'operational' | 'client';
+interface NavItem {
+  icon: React.ComponentType<{ size?: number }>;
+  label: string;
+  page?: StrategicPage;
+  active?: boolean;
+}
+
+const strategicItems: NavItem[] = [
+  { icon: LayoutDashboard, label: 'Dashboard',          page: 'dashboard' },
+  { icon: Map,             label: 'GIS Map',            page: 'dashboard' },
+  { icon: AlertTriangle,   label: 'Incidents' },
+  { icon: CheckSquare,     label: 'Tasks' },
+  { icon: Calendar,        label: 'PPM Schedule' },
+  { icon: Camera,          label: 'AI Capture' },
+  { icon: Database,        label: 'Data Sources',       page: 'datasources' },
+  { icon: BarChart2,       label: 'Benchmark',          page: 'benchmark' },
+  { icon: PlayCircle,      label: 'Operational Replay', page: 'replay' },
+  { icon: Settings,        label: 'Settings' },
+];
+
+const operationalItems: NavItem[] = [
+  { icon: ClipboardList, label: 'My Task',     active: true },
+  { icon: Scan,          label: 'Smart Scan',  active: true },
+  { icon: ListChecks,    label: 'Checklist',   active: true },
+  { icon: Package,       label: 'Parts & PO',  active: true },
+  { icon: Image,         label: 'Evidence' },
+  { icon: Settings,      label: 'Settings' },
+];
+
+const clientItems: NavItem[] = [
+  { icon: Home,     label: 'My Requests',  active: true },
+  { icon: Clock,    label: 'Track Service', active: true },
+  { icon: History,  label: 'History' },
+  { icon: Settings, label: 'Settings' },
+];
+
+const itemSets: Record<Perspective, NavItem[]> = {
+  strategic:   strategicItems,
+  operational: operationalItems,
+  client:      clientItems,
+};
 
 interface Props {
   perspective: Perspective;
+  strategicPage: StrategicPage;
+  onStrategicPageChange: (page: StrategicPage) => void;
   onToast: (msg: string) => void;
 }
 
-const strategicIcons = [
-  { icon: LayoutDashboard, label: 'Dashboard', active: true },
-  { icon: Map, label: 'GIS Map', active: true },
-  { icon: AlertTriangle, label: 'Incidents', active: false },
-  { icon: CheckSquare, label: 'Tasks', active: false },
-  { icon: Calendar, label: 'PPM Schedule', active: false },
-  { icon: Camera, label: 'AI Capture', active: false },
-  { icon: BarChart2, label: 'Reports', active: false },
-  { icon: Settings, label: 'Settings', active: false },
-];
+export function Sidebar({ perspective, strategicPage, onStrategicPageChange, onToast }: Props) {
+  const items = itemSets[perspective];
 
-const operationalIcons = [
-  { icon: ClipboardList, label: 'My Task', active: true },
-  { icon: Scan, label: 'Smart Scan', active: true },
-  { icon: ListChecks, label: 'Checklist', active: true },
-  { icon: Package, label: 'Parts & PO', active: true },
-  { icon: Image, label: 'Evidence', active: false },
-  { icon: Settings, label: 'Settings', active: false },
-];
+  const isItemActive = (item: NavItem, idx: number): boolean => {
+    if (perspective === 'strategic') {
+      if (item.page) return item.page === strategicPage;
+      return false;
+    }
+    return idx === 0 && (item.active ?? false);
+  };
 
-const clientIcons = [
-  { icon: Home, label: 'My Requests', active: true },
-  { icon: Clock, label: 'Track Service', active: true },
-  { icon: History, label: 'History', active: false },
-  { icon: Settings, label: 'Settings', active: false },
-];
+  const handleClick = (item: NavItem) => {
+    if (perspective === 'strategic' && item.page) {
+      onStrategicPageChange(item.page);
+    } else if (!item.active && !item.page) {
+      onToast(`${item.label} — available in full deployment`);
+    }
+  };
 
-const iconSets: Record<Perspective, typeof strategicIcons> = {
-  strategic: strategicIcons,
-  operational: operationalIcons,
-  client: clientIcons,
-};
-
-export function Sidebar({ perspective, onToast }: Props) {
-  const icons = iconSets[perspective];
   return (
-    <aside className="w-13 bg-[#0A1628] border-r border-[rgba(46,127,255,0.22)] flex flex-col items-center py-3 gap-1.5 z-[50]" style={{ width: '52px' }}>
-      {icons.map(({ icon: Icon, label, active }, i) => (
-        <div key={i} className="relative group">
-          <button
-            onClick={() => !active && onToast(`${label} — Available in full deployment`)}
-            className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-150 ${
-              i === 0 && active
-                ? 'bg-[#2E7FFF] text-white shadow-lg shadow-blue-500/30'
-                : 'text-[#7A94B4] hover:bg-white/5 hover:text-[#EEF3FA]'
-            }`}
-          >
-            <Icon size={16} />
-          </button>
-          <div className="absolute left-11 top-1/2 -translate-y-1/2 bg-[#1A3260] border border-[rgba(46,127,255,0.3)] text-[#EEF3FA] text-[11px] px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-            {label}
+    <aside className="bg-[#0A1628] border-r border-[rgba(46,127,255,0.22)] flex flex-col items-center py-3 gap-1.5 z-[50]" style={{ width: '52px' }}>
+      {items.map((item, i) => {
+        const Icon     = item.icon;
+        const active   = isItemActive(item, i);
+        const hasPage  = perspective === 'strategic' && !!item.page;
+        const clickable = hasPage || item.active;
+
+        return (
+          <div key={i} className="relative group">
+            <button
+              onClick={() => handleClick(item)}
+              className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-150 ${
+                active
+                  ? 'bg-[#2E7FFF] text-white shadow-lg shadow-blue-500/30'
+                  : clickable
+                  ? 'text-[#7A94B4] hover:bg-white/5 hover:text-[#EEF3FA] cursor-pointer'
+                  : 'text-[#7A94B4] hover:bg-white/5 hover:text-[#EEF3FA] opacity-50'
+              }`}
+            >
+              <Icon size={16} />
+            </button>
+            <div className="absolute left-11 top-1/2 -translate-y-1/2 bg-[#1A3260] border border-[rgba(46,127,255,0.3)] text-[#EEF3FA] text-[11px] px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+              {item.label}
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </aside>
   );
 }

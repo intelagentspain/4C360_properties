@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { CommunityMap } from './CommunityMap';
 import { IntegrationBanner } from './IntegrationBanner';
 import { KPIPanel } from './KPIPanel';
@@ -8,14 +9,19 @@ import { CommandBar, AutomationMode } from './CommandBar';
 import { LivePulseFeed } from './LivePulseFeed';
 import { AIInsightsPanel } from './AIInsightsPanel';
 import { SmartDispatchPanel } from './SmartDispatchPanel';
+import { DataSources } from './DataSources';
+import { Benchmark } from './Benchmark';
+import { Replay } from './Replay';
+import type { StrategicPage } from '@/App';
+import type { ToastFn } from '@/lib/ui';
 
 interface Props {
-  onToast: (msg: string, type?: 'success' | 'warning' | 'error' | 'info') => void;
+  onToast: ToastFn;
+  page: StrategicPage;
 }
 
-export function StrategicView({ onToast }: Props) {
+function Dashboard({ onToast }: { onToast: ToastFn }) {
   const [mode, setMode] = useState<AutomationMode>('hybrid');
-
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <CommandBar mode={mode} onModeChange={setMode} onToast={onToast} />
@@ -38,5 +44,25 @@ export function StrategicView({ onToast }: Props) {
         </div>
       </div>
     </div>
+  );
+}
+
+export function StrategicView({ onToast, page }: Props) {
+  return (
+    <AnimatePresence mode="wait">
+      <motion.div
+        key={page}
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -8 }}
+        transition={{ duration: 0.18 }}
+        className="absolute inset-0 flex flex-col"
+      >
+        {page === 'dashboard'   && <Dashboard     onToast={onToast} />}
+        {page === 'datasources' && <DataSources   onToast={onToast} />}
+        {page === 'benchmark'   && <Benchmark     onToast={onToast} />}
+        {page === 'replay'      && <Replay        onToast={onToast} />}
+      </motion.div>
+    </AnimatePresence>
   );
 }

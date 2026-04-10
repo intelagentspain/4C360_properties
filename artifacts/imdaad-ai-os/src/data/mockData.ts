@@ -122,6 +122,108 @@ export const mockTechPerformance = {
   ],
 };
 
+export const mockDataSources = [
+  {
+    id: 'DS-001', name: 'Maximo API', type: 'API', status: 'active' as const,
+    lastSync: '2 min ago', lastSyncTime: '10:22 AM', volume: 1240, quality: 96,
+    owner: 'IT Ops', frequency: 'Every 5 min',
+    feeds: ['Work Orders', 'Assets', 'PPM Tasks'],
+    errors: [] as { time: string; message: string; severity: string }[],
+    description: 'Primary IBM Maximo integration — syncs all field work orders, asset records, and planned maintenance tasks in real-time.',
+  },
+  {
+    id: 'DS-002', name: 'WhatsApp Gateway', type: 'WhatsApp', status: 'active' as const,
+    lastSync: '5 min ago', lastSyncTime: '10:19 AM', volume: 340, quality: 72,
+    owner: 'Operations', frequency: 'Real-time',
+    feeds: ['Incidents', 'Photo evidence'],
+    errors: [] as { time: string; message: string; severity: string }[],
+    description: 'Captures resident-reported issues via WhatsApp and converts them to structured incidents using AI parsing.',
+  },
+  {
+    id: 'DS-003', name: 'IoT Sensor Network', type: 'IoT', status: 'active' as const,
+    lastSync: '30 sec ago', lastSyncTime: '10:23 AM', volume: 8600, quality: 99,
+    owner: 'Engineering', frequency: 'Every 30 sec',
+    feeds: ['Asset telemetry', 'Predicted failures'],
+    errors: [] as { time: string; message: string; severity: string }[],
+    description: 'Network of 86 IoT sensors across HVAC units, lifts, and water systems. Feeds the predictive failure engine.',
+  },
+  {
+    id: 'DS-004', name: 'QR Inspection Scanner', type: 'QR', status: 'active' as const,
+    lastSync: '18 min ago', lastSyncTime: '10:06 AM', volume: 120, quality: 88,
+    owner: 'Supervisors', frequency: 'On scan',
+    feeds: ['Inspection records', 'Checklists'],
+    errors: [] as { time: string; message: string; severity: string }[],
+    description: 'Mobile QR code scanning for physical asset inspections. Technicians scan on-site to log inspection results.',
+  },
+  {
+    id: 'DS-005', name: 'Oracle ERP', type: 'External System', status: 'syncing' as const,
+    lastSync: '1 hr ago', lastSyncTime: '09:24 AM', volume: 560, quality: 91,
+    owner: 'Finance', frequency: 'Hourly',
+    feeds: ['Vendor contracts', 'PO records', 'Cost tracking'],
+    errors: [] as { time: string; message: string; severity: string }[],
+    description: 'Integration with Oracle ERP for vendor management, purchase orders, and financial cost attribution.',
+  },
+  {
+    id: 'DS-006', name: 'Resident App API', type: 'API', status: 'active' as const,
+    lastSync: '1 min ago', lastSyncTime: '10:23 AM', volume: 210, quality: 95,
+    owner: 'Product', frequency: 'Real-time',
+    feeds: ['Service requests', 'Ratings', 'Feedback'],
+    errors: [] as { time: string; message: string; severity: string }[],
+    description: 'Resident-facing mobile application. Submits requests, captures photos, and receives live service updates.',
+  },
+  {
+    id: 'DS-007', name: 'Power BI Reports', type: 'External System', status: 'error' as const,
+    lastSync: '3 hr ago', lastSyncTime: '07:22 AM', volume: 0, quality: 0,
+    owner: 'Analytics', frequency: 'Every 6 hrs',
+    feeds: ['SLA reports', 'KPI dashboards'],
+    errors: [
+      { time: '07:22 AM', message: 'Authentication token expired — refresh required', severity: 'error' },
+      { time: '01:22 AM', message: 'Connection timeout after 30s — retry failed', severity: 'warning' },
+    ],
+    description: 'Microsoft Power BI integration for executive reporting. Currently experiencing authentication token issues.',
+  },
+];
+
+export const mockBenchmarkData = {
+  sites: [
+    { name: 'Silicon Oasis', sla: 94, incidents: 47, compliance: 94 },
+    { name: 'Gate Avenue',   sla: 88, incidents: 31, compliance: 88 },
+    { name: 'Business Bay',  sla: 91, incidents: 52, compliance: 91 },
+    { name: 'JLT North',     sla: 79, incidents: 63, compliance: 79 },
+    { name: 'DIFC Tower',    sla: 96, incidents: 18, compliance: 96 },
+  ],
+  vendors: [
+    { name: 'Imdaad Core',  slaBreaches: 2,  avgResolution: 38, repeatFailure: 4,  rating: 4.8 },
+    { name: 'TechServ ME',  slaBreaches: 8,  avgResolution: 62, repeatFailure: 12, rating: 3.9 },
+    { name: 'Emrill FM',    slaBreaches: 5,  avgResolution: 47, repeatFailure: 7,  rating: 4.2 },
+    { name: 'Farnek Serv.', slaBreaches: 11, avgResolution: 71, repeatFailure: 15, rating: 3.6 },
+  ],
+  regions: [
+    { name: 'Dubai East',    incidentDensity: 4.2, riskScore: 68, trend: +12 },
+    { name: 'Dubai Marina',  incidentDensity: 2.1, riskScore: 42, trend: -8  },
+    { name: 'Downtown',      incidentDensity: 6.8, riskScore: 81, trend: +24 },
+    { name: 'Jumeirah',      incidentDensity: 1.4, riskScore: 31, trend: -3  },
+    { name: 'Business Bay',  incidentDensity: 5.3, riskScore: 74, trend: +18 },
+  ],
+};
+
+export const mockReplayEvents = [
+  { id: 'EV-001', time: '09:00', minute: 0,  type: 'incident',      entity: 'INC-SI-004', title: 'Power Trip reported — Villa 31', severity: 'low',      lat: 25.1170, lng: 55.3750 },
+  { id: 'EV-002', time: '09:02', minute: 2,  type: 'assignment',    entity: 'INC-SI-004', title: 'Sara M. dispatched — Electrical', severity: 'info',    lat: 25.1165, lng: 55.3790 },
+  { id: 'EV-003', time: '09:08', minute: 8,  type: 'incident',      entity: 'INC-SI-001', title: 'AC Failure reported — Villa 23 · AI Capture', severity: 'critical', lat: 25.1185, lng: 55.3755 },
+  { id: 'EV-004', time: '09:10', minute: 10, type: 'assignment',    entity: 'INC-SI-001', title: 'Karim R. dispatched — HVAC · 0.4 km', severity: 'info', lat: 25.1180, lng: 55.3740 },
+  { id: 'EV-005', time: '09:16', minute: 16, type: 'task-update',   entity: 'TSK-2241',   title: 'Karim R. arrived on-site — Villa 23', severity: 'info', lat: 25.1185, lng: 55.3755 },
+  { id: 'EV-006', time: '09:22', minute: 22, type: 'incident',      entity: 'INC-SI-003', title: 'Lift Fault reported — Block C', severity: 'high',        lat: 25.1195, lng: 55.3765 },
+  { id: 'EV-007', time: '09:25', minute: 25, type: 'sla-escalation',entity: 'INC-SI-003', title: 'SLA warning — Lift Fault · 35 min remaining', severity: 'warning', lat: 25.1195, lng: 55.3765 },
+  { id: 'EV-008', time: '09:30', minute: 30, type: 'assignment',    entity: 'INC-SI-003', title: 'Faisal N. dispatched — General · 0.8 km', severity: 'info', lat: 25.1155, lng: 55.3800 },
+  { id: 'EV-009', time: '09:41', minute: 41, type: 'task-update',   entity: 'TSK-2241',   title: 'Repair in progress — HVAC Villa 23', severity: 'info',    lat: 25.1185, lng: 55.3755 },
+  { id: 'EV-010', time: '09:54', minute: 54, type: 'closure',       entity: 'TSK-2241',   title: 'Job closed — HVAC Villa 23 · SLA Met ✓', severity: 'success', lat: 25.1185, lng: 55.3755 },
+  { id: 'EV-011', time: '10:02', minute: 62, type: 'sla-escalation',entity: 'INC-SI-002', title: 'SLA breached — Water Leak Villa 7', severity: 'error',   lat: 25.1160, lng: 55.3785 },
+  { id: 'EV-012', time: '10:06', minute: 66, type: 'incident',      entity: 'INC-SI-002', title: 'Water Leak escalated — Cluster B', severity: 'medium',   lat: 25.1160, lng: 55.3785 },
+  { id: 'EV-013', time: '10:14', minute: 74, type: 'incident',      entity: 'INC-SI-005', title: 'New AC request — Villa 23 · Resident App', severity: 'critical', lat: 25.1185, lng: 55.3755 },
+  { id: 'EV-014', time: '10:16', minute: 76, type: 'assignment',    entity: 'INC-SI-005', title: 'Karim R. re-dispatched · ETA 18 min', severity: 'info',  lat: 25.1180, lng: 55.3740 },
+];
+
 export const mockAiClassification = {
   category: 'AC / HVAC',
   subCategory: 'Refrigerant / Cooling Failure',
