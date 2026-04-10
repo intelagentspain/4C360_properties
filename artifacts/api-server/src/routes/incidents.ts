@@ -380,6 +380,245 @@ interface NotifyResult {
   error?: string;
 }
 
+interface WorkOrderPayload {
+  id: string;
+  title?: string;
+  location?: string;
+  priority?: string;
+  asset?: string;
+  skill?: string;
+  siteId?: string;
+  incidentId?: string;
+  description?: string;
+}
+
+interface WorkOrderNotifyBody {
+  workOrder: WorkOrderPayload;
+  incidentId?: string;
+  inviteList?: InviteListMember[];
+}
+
+interface WorkOrderRecipientWithPhone extends Recipient {
+  phone?: string;
+}
+
+const MOCK_TEAM_MEMBER_PHONES: Record<string, string> = {
+  "sara.alhassan@imdaad.ae":   "+971501112233",
+  "omar.khalid@imdaad.ae":     "+971502223344",
+  "layla.mansoor@imdaad.ae":   "+971503334455",
+  "james.whitfield@imdaad.ae": "+971504445566",
+  "priya.nair@imdaad.ae":      "+971505556677",
+};
+
+function resolveWorkOrderRecipients(
+  wo: WorkOrderPayload,
+  inviteList?: InviteListMember[],
+): WorkOrderRecipientWithPhone[] {
+  const incidentProxy: IncidentPayload = {
+    id: wo.incidentId ?? wo.id,
+    location: wo.location,
+    siteId: wo.siteId,
+  };
+  const base = resolveRecipients(incidentProxy, inviteList);
+  return base.map(r => ({
+    ...r,
+    phone: MOCK_TEAM_MEMBER_PHONES[r.email],
+  }));
+}
+
+function priorityColor(priority: string): string {
+  switch (priority?.toLowerCase()) {
+    case "critical": return "#EF4444";
+    case "high":     return "#F97316";
+    case "medium":   return "#F59E0B";
+    default:         return "#10B981";
+  }
+}
+
+function buildWorkOrderEmail(
+  wo: WorkOrderPayload,
+  incidentId: string | undefined,
+  recipientName: string,
+  recipientEmail: string,
+): string {
+  const pri      = wo.priority ?? "medium";
+  const priColor = priorityColor(pri);
+  const priLabel = pri.charAt(0).toUpperCase() + pri.slice(1);
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>Work Order Created — ${escapeHtml(wo.id)}</title></head>
+<body style="margin:0;padding:0;background:#060F1E;font-family:'Segoe UI',Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#060F1E;padding:40px 0;">
+  <tr><td align="center">
+    <table width="580" cellpadding="0" cellspacing="0" style="background:#0D1E38;border:1px solid rgba(46,127,255,0.25);border-radius:16px;overflow:hidden;">
+      <tr><td style="background:linear-gradient(135deg,#0A1628 0%,#112040 100%);padding:28px 40px;border-bottom:1px solid rgba(46,127,255,0.2);">
+        <table width="100%" cellpadding="0" cellspacing="0"><tr>
+          <td><div style="display:inline-block;background:rgba(46,127,255,0.15);border:1px solid rgba(46,127,255,0.3);border-radius:10px;padding:8px 16px;"><span style="color:#2E7FFF;font-size:18px;font-weight:800;letter-spacing:1px;">IMDAAD</span><span style="color:#7A94B4;font-size:14px;font-weight:400;margin-left:6px;">AI-OS</span></div><p style="color:#7A94B4;font-size:11px;letter-spacing:2px;text-transform:uppercase;margin:10px 0 0;">Work Order Created</p></td>
+          <td align="right" style="vertical-align:top;"><div style="display:inline-block;background:${priColor}22;border:1px solid ${priColor}66;border-radius:8px;padding:6px 14px;"><span style="color:${priColor};font-size:13px;font-weight:800;letter-spacing:0.5px;">${priLabel}</span></div></td>
+        </tr></table>
+      </td></tr>
+      <tr><td style="padding:32px 40px;">
+        <h1 style="color:#EEF3FA;font-size:20px;font-weight:700;margin:0 0 6px;">${escapeHtml(wo.title ?? "New Work Order")}</h1>
+        <p style="color:#7A94B4;font-size:13px;margin:0 0 24px;">Hello ${escapeHtml(recipientName)}, a new work order has been raised on the Imdaad AI-OS platform.</p>
+
+        <p style="color:#7A94B4;font-size:10px;text-transform:uppercase;letter-spacing:2px;margin:0 0 12px;font-weight:700;">Work Order Details</p>
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(46,127,255,0.07);border:1px solid rgba(46,127,255,0.22);border-radius:10px;margin-bottom:20px;">
+          <tr><td style="padding:20px 24px;"><table width="100%" cellpadding="0" cellspacing="0">
+            <tr><td style="color:#7A94B4;font-size:12px;padding:5px 0;width:140px;">Work Order ID</td><td style="color:#2E7FFF;font-size:12px;font-weight:700;font-family:monospace;padding:5px 0;">${escapeHtml(wo.id)}</td></tr>
+            <tr><td style="color:#7A94B4;font-size:12px;padding:5px 0;">Priority</td><td style="padding:5px 0;"><span style="background:${priColor}22;border:1px solid ${priColor}66;border-radius:5px;padding:2px 8px;color:${priColor};font-size:11px;font-weight:700;">${priLabel}</span></td></tr>
+            <tr><td style="color:#7A94B4;font-size:12px;padding:5px 0;">Location</td><td style="color:#EEF3FA;font-size:12px;font-weight:600;padding:5px 0;">${escapeHtml(wo.location ?? "—")}</td></tr>
+            <tr><td style="color:#7A94B4;font-size:12px;padding:5px 0;">Asset</td><td style="color:#EEF3FA;font-size:12px;font-weight:600;padding:5px 0;">${escapeHtml(wo.asset ?? "—")}</td></tr>
+            <tr><td style="color:#7A94B4;font-size:12px;padding:5px 0;">Skill Required</td><td style="color:#EEF3FA;font-size:12px;font-weight:600;padding:5px 0;">${escapeHtml(wo.skill ?? "—")}</td></tr>
+            ${incidentId ? `<tr><td style="color:#7A94B4;font-size:12px;padding:5px 0;">Originating Incident</td><td style="color:#2E7FFF;font-size:12px;font-weight:700;font-family:monospace;padding:5px 0;">${escapeHtml(incidentId)}</td></tr>` : ""}
+          </table></td></tr>
+        </table>
+
+        ${wo.description ? `
+        <p style="color:#7A94B4;font-size:10px;text-transform:uppercase;letter-spacing:2px;margin:0 0 12px;font-weight:700;">Description</p>
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.2);border-radius:10px;margin-bottom:20px;">
+          <tr><td style="padding:16px 20px;"><p style="color:#EEF3FA;font-size:12px;margin:0;line-height:1.7;">${escapeHtml(wo.description)}</p></td></tr>
+        </table>` : ""}
+
+        <p style="color:#4A6080;font-size:11px;line-height:1.6;margin:24px 0 0;text-align:center;">
+          You are receiving this because you are assigned to this site/client as an operational team member.
+        </p>
+      </td></tr>
+      <tr><td style="background:#0A1628;padding:20px 40px;border-top:1px solid rgba(46,127,255,0.12);">
+        <table width="100%" cellpadding="0" cellspacing="0"><tr>
+          <td><p style="color:#4A6080;font-size:10px;margin:0;">© ${new Date().getFullYear()} Imdaad. All rights reserved.</p><p style="color:#4A6080;font-size:10px;margin:4px 0 0;">AI-OS Platform · Dubai, UAE</p></td>
+          <td align="right"><p style="color:#4A6080;font-size:10px;margin:0;">Sent to: ${escapeHtml(recipientEmail)}</p><p style="color:#4A6080;font-size:10px;margin:4px 0 0;">Work Order: ${escapeHtml(wo.id)}</p></td>
+        </tr></table>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>`;
+}
+
+router.post("/workorders/notify", async (req: Request, res: Response) => {
+  const body = req.body as Partial<WorkOrderNotifyBody>;
+  const wo = body.workOrder;
+
+  if (!wo || !wo.id) {
+    res.status(400).json({ error: "workOrder with id is required" });
+    return;
+  }
+
+  const incidentId = body.incidentId ?? wo.incidentId;
+  const recipients = resolveWorkOrderRecipients(wo, body.inviteList);
+
+  const transportConfig = createTransporter();
+  let previewTransport: { transporter: nodemailer.Transporter; from: string } | null = null;
+
+  if (!transportConfig) {
+    try {
+      const testAccount = await nodemailer.createTestAccount();
+      previewTransport = {
+        transporter: nodemailer.createTransport({
+          host: "smtp.ethereal.email",
+          port: 587,
+          auth: { user: testAccount.user, pass: testAccount.pass },
+        }),
+        from: '"Imdaad AI-OS" <noreply@imdaad.ae>',
+      };
+    } catch (err) {
+      logger.error({ err }, "Failed to create Ethereal test account for work order notify");
+    }
+  }
+
+  const results: (NotifyResult & { phone?: string; whatsappStatus?: string })[] = [];
+
+  const apiBase =
+    process.env.API_BASE_URL ??
+    `http://localhost:${process.env.PORT ?? 3001}`;
+
+  for (const member of recipients) {
+    const html = buildWorkOrderEmail(wo, incidentId, member.name, member.email);
+    const fromAddr =
+      transportConfig?.from ??
+      previewTransport?.from ??
+      '"Imdaad AI-OS" <noreply@imdaad.ae>';
+
+    const mailOptions = {
+      from: fromAddr,
+      to: member.email,
+      subject: `[Work Order] ${wo.title ?? "New Work Order"} — ${wo.id}`,
+      html,
+    };
+
+    let emailStatus: "sent" | "preview" | "failed" = "failed";
+    let previewUrl: string | undefined;
+    let emailError: string | undefined;
+
+    if (transportConfig) {
+      try {
+        await transportConfig.transporter.sendMail(mailOptions);
+        emailStatus = "sent";
+      } catch (err) {
+        emailError = (err as Error).message;
+        logger.error({ err, email: member.email }, "Failed to send work order email");
+      }
+    } else if (previewTransport) {
+      try {
+        const info = await previewTransport.transporter.sendMail(mailOptions);
+        const rawPreview = nodemailer.getTestMessageUrl(info);
+        previewUrl = rawPreview || undefined;
+        emailStatus = "preview";
+        logger.info({ email: member.email, previewUrl, workOrderId: wo.id }, "Work order email preview");
+      } catch (err) {
+        emailError = (err as Error).message;
+        logger.error({ err, email: member.email }, "Failed to send preview work order email");
+      }
+    }
+
+    let whatsappStatus: string | undefined;
+    if (member.phone) {
+      const woMessage =
+        `*Imdaad AI-OS — Work Order Created*\n\n` +
+        `📋 *${wo.title ?? "New Work Order"}*\n` +
+        `ID: ${wo.id}\n` +
+        `Priority: ${(wo.priority ?? "medium").toUpperCase()}\n` +
+        `Location: ${wo.location ?? "—"}\n` +
+        `Asset: ${wo.asset ?? "—"}\n` +
+        `Skill: ${wo.skill ?? "—"}\n` +
+        (incidentId ? `Incident Ref: ${incidentId}\n` : "") +
+        `\nPlease check the AI-OS platform for full details.`;
+
+      try {
+        const waRes = await fetch(`${apiBase}/api/whatsapp/send`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ to: member.phone, message: woMessage }),
+        });
+        if (waRes.ok) {
+          whatsappStatus = "sent";
+          logger.info({ phone: member.phone, workOrderId: wo.id }, "Work order WhatsApp sent");
+        } else {
+          const errData = await waRes.json().catch(() => ({})) as { error?: string };
+          whatsappStatus = `failed: ${errData.error ?? waRes.status}`;
+          logger.warn({ phone: member.phone, workOrderId: wo.id, status: waRes.status }, "Work order WhatsApp not sent");
+        }
+      } catch (err) {
+        whatsappStatus = `error: ${(err as Error).message}`;
+        logger.error({ err, phone: member.phone }, "Exception sending work order WhatsApp");
+      }
+    }
+
+    results.push({
+      email: member.email,
+      status: emailStatus,
+      previewUrl,
+      error: emailError,
+      phone: member.phone,
+      whatsappStatus,
+    });
+  }
+
+  res.json({ workOrderId: wo.id, incidentId, results });
+});
+
 router.post("/incidents/notify", async (req: Request, res: Response) => {
   const body = req.body as Partial<NotifyBody>;
   const incident = body.incident;

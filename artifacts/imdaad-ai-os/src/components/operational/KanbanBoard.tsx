@@ -5,6 +5,7 @@ import { mockKanbanTasks } from '@/data/mockData';
 import { PRIORITY_DOT, slaStatus, type ToastFn } from '@/lib/ui';
 import { TaskDetailSheet } from './TaskDetailSheet';
 import { useMemberFilter, isFilterActive } from '@/context/MemberFilterContext';
+import { useIncidents, type WorkOrderTask } from '@/context/IncidentContext';
 
 type Task = typeof mockKanbanTasks[0];
 type Status = 'new' | 'assigned' | 'in-progress' | 'awaiting-evidence' | 'closed' | 'overdue';
@@ -25,16 +26,34 @@ interface Props {
 export function KanbanBoard({ onToast }: Props) {
   const memberFilter = useMemberFilter();
   const isMemberMode = isFilterActive(memberFilter);
-  const [tasks]         = useState(mockKanbanTasks);
+  const { workOrders } = useIncidents();
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [activeCol, setActiveCol]       = useState<Status>('new');
 
+  const allTasks = useMemo<Task[]>(() => {
+    const promoted = workOrders.map(wo => ({
+      id: wo.id,
+      title: wo.title,
+      asset: wo.asset,
+      location: wo.location,
+      skill: wo.skill,
+      priority: wo.priority,
+      status: wo.status,
+      tech: wo.tech,
+      slaMinutes: wo.slaMinutes,
+      elapsed: wo.elapsed,
+      reportedBy: wo.reportedBy,
+      evidence: wo.evidence,
+    })) as Task[];
+    return [...promoted, ...mockKanbanTasks];
+  }, [workOrders]);
+
   const visibleTasks = useMemo(() => {
-    if (!isMemberMode || memberFilter.zones.length === 0) return tasks;
-    return tasks.filter(t =>
+    if (!isMemberMode || memberFilter.zones.length === 0) return allTasks;
+    return allTasks.filter(t =>
       memberFilter.zones.some(z => t.location.toLowerCase().includes(z.toLowerCase()))
     );
-  }, [tasks, isMemberMode, memberFilter.zones]);
+  }, [allTasks, isMemberMode, memberFilter.zones]);
 
   const colTasks = (status: Status) => visibleTasks.filter(t => t.status === status);
 
@@ -103,6 +122,7 @@ export function KanbanBoard({ onToast }: Props) {
 
               {list.map(task => {
                 const sla = slaStatus(task.elapsed, task.slaMinutes);
+                const isPromoted = workOrders.some(wo => wo.id === task.id);
                 return (
                   <motion.button
                     key={task.id}
@@ -111,7 +131,7 @@ export function KanbanBoard({ onToast }: Props) {
                     whileTap={{ scale: 0.98 }}
                     onClick={() => setSelectedTask(task)}
                     className="w-full text-left bg-[#112040] rounded-xl border border-[rgba(46,127,255,0.2)] p-3 hover:border-[rgba(46,127,255,0.45)] transition-all"
-                    style={{ borderLeftWidth: 3, borderLeftColor: col.accent }}
+                    style={{ borderLeftWidth: 3, borderLeftColor: isPromoted ? '#38D98A' : col.accent }}
                   >
                     <div className="flex items-start gap-2 mb-2">
                       <div className={`w-2 h-2 rounded-full flex-shrink-0 mt-1 ${PRIORITY_DOT[task.priority]}`} />
@@ -123,6 +143,14 @@ export function KanbanBoard({ onToast }: Props) {
                         </span>
                       </div>
                     </div>
+
+                    {isPromoted && (
+                      <div className="flex items-center gap-1 mb-2">
+                        <span className="text-[9px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 px-1.5 py-0.5 rounded font-semibold">
+                          From Incident
+                        </span>
+                      </div>
+                    )}
 
                     <div className="flex items-center gap-3">
                       {task.tech ? (

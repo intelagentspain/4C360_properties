@@ -1,5 +1,5 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
-import { mockIncidents, mockPortfolioClients } from '@/data/mockData';
+import { createContext, useContext, useState, useCallback, useRef, type ReactNode } from 'react';
+import { mockIncidents, mockPortfolioClients, mockKanbanTasks } from '@/data/mockData';
 import { useNotifications } from './NotificationContext';
 
 export type Incident = {
@@ -21,6 +21,7 @@ export type Incident = {
   imageUrl?: string;
   siteId?: string;
   clientId?: string;
+  workOrderId?: string;
   aiMetadata?: {
     confidence: number;
     issueType: string;
@@ -33,6 +34,11 @@ export type Incident = {
     siteId?: string;
     assetId?: string;
   };
+};
+
+export type WorkOrderTask = typeof mockKanbanTasks[0] & {
+  fromIncidentId?: string;
+  siteId?: string;
 };
 
 interface InviteListMember {
@@ -64,9 +70,21 @@ function deriveInviteList(clientId?: string): InviteListMember[] {
   return list;
 }
 
+export interface CreateWorkOrderInput {
+  title: string;
+  location: string;
+  priority: string;
+  asset: string;
+  skill: string;
+  description?: string;
+  siteId?: string;
+}
+
 interface IncidentContextValue {
   incidents: Incident[];
   addIncident: (inc: Incident) => void;
+  workOrders: WorkOrderTask[];
+  createWorkOrder: (incidentId: string, data: CreateWorkOrderInput) => WorkOrderTask;
 }
 
 const IncidentContext = createContext<IncidentContextValue | null>(null);
@@ -77,18 +95,77 @@ const BASE_INCIDENTS: Incident[] = mockIncidents.map(i => ({
   lng: (i as unknown as Record<string, number>).lng,
 }));
 
+let workOrderCounter = 100;
+
+function generateWorkOrderId(): string {
+  workOrderCounter += 1;
+  return `WO-${String(workOrderCounter).padStart(3, '0')}`;
+}
+
 function IncidentProviderInner({ children }: { children: ReactNode }) {
   const [incidents, setIncidents] = useState<Incident[]>(BASE_INCIDENTS);
-  const { addIncidentNotification } = useNotifications();
+  const [workOrders, setWorkOrders] = useState<WorkOrderTask[]>([]);
+  const incidentsRef = useRef<Incident[]>(BASE_INCIDENTS);
+  const { addIncidentNotification, addWorkOrderNotification } = useNotifications();
 
   const addIncident = useCallback((inc: Incident) => {
-    setIncidents(prev => [inc, ...prev]);
+    incidentsRef.current = [inc, ...incidentsRef.current];
+    setIncidents(incidentsRef.current);
     const inviteList = deriveInviteList(inc.clientId);
     addIncidentNotification(inc, inviteList);
   }, [addIncidentNotification]);
 
+  const createWorkOrder = useCallback((incidentId: string, data: CreateWorkOrderInput): WorkOrderTask => {
+    const id = generateWorkOrderId();
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+
+    const incident = incidentsRef.current.find(inc => inc.id === incidentId);
+    const clientId = incident?.clientId;
+    const siteId   = data.siteId ?? incident?.siteId ?? incident?.aiMetadata?.siteId;
+
+    const slaMinutes = data.priority === 'critical' ? 45 : data.priority === 'high' ? 60 : data.priority === 'medium' ? 120 : 240;
+
+    const wo: WorkOrderTask = {
+      id,
+      title: data.title,
+      asset: data.asset,
+      location: data.location,
+      skill: data.skill,
+      priority: data.priority,
+      status: 'new',
+      tech: null,
+      slaMinutes,
+      elapsed: 0,
+      reportedBy: incidentId,
+      evidence: [],
+      fromIncidentId: incidentId,
+      siteId,
+    };
+
+    incidentsRef.current = incidentsRef.current.map(inc =>
+      inc.id === incidentId
+        ? {
+            ...inc,
+            status: 'dispatched',
+            workOrderId: id,
+            activityLog: [
+              ...inc.activityLog,
+              { time: timeStr, event: `Work Order ${id} raised — promoted to formal work order`, type: 'dispatch' },
+            ],
+          }
+        : inc,
+    );
+    setIncidents(incidentsRef.current);
+
+    setWorkOrders(wos => [wo, ...wos]);
+    addWorkOrderNotification(wo, incidentId, siteId, deriveInviteList(clientId));
+
+    return wo;
+  }, [addWorkOrderNotification]);
+
   return (
-    <IncidentContext.Provider value={{ incidents, addIncident }}>
+    <IncidentContext.Provider value={{ incidents, addIncident, workOrders, createWorkOrder }}>
       {children}
     </IncidentContext.Provider>
   );

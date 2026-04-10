@@ -4,13 +4,17 @@ import {
   AlertTriangle, X, Search, User, Clock, CheckCircle,
   Zap, ChevronRight, Send, TrendingUp, AlertCircle,
   ChevronUp, ChevronDown as ChevronDownIcon, QrCode, Plus,
-  MessageSquare, Smartphone, Bot,
+  MessageSquare, Smartphone, Bot, Briefcase,
 } from 'lucide-react';
 import { SEVERITY_BADGE, slaStatus, type ToastFn } from '@/lib/ui';
 import { AnimatedBar } from '@/components/shared/AnimatedBar';
 import { TechAvatar } from '@/components/shared/TechAvatar';
-import { useIncidents, type Incident } from '@/context/IncidentContext';
+import { useIncidents, type Incident, type CreateWorkOrderInput } from '@/context/IncidentContext';
 import { WhatsAppModal } from '@/components/shared/WhatsAppModal';
+import { CURRENT_USER } from '@/lib/currentUser';
+
+const WO_ALLOWED_ROLES = new Set(['FM Engineer', 'Site Supervisor', 'FM Manager', 'Safety Officer', 'Project Manager', 'Account Manager', 'Executive']);
+const canCreateWorkOrder = WO_ALLOWED_ROLES.has(CURRENT_USER.role);
 
 const STATUS_CONFIG: Record<string, { label: string; dot: string; text: string; bg: string }> = {
   open:        { label: 'Open',        dot: 'bg-[#7A94B4]',       text: 'text-[#7A94B4]',    bg: 'bg-white/5 border-white/10' },
@@ -308,10 +312,150 @@ const TECH_WHATSAPP: Record<string, string> = {
   'Omar T.':   '+971505556677',
 };
 
-function ActionsTab({ incident, onToast }: { incident: Incident; onToast: ToastFn }) {
+function deriveSkillFromIncident(incident: Incident): string {
+  const cat = (incident.aiMetadata?.category ?? incident.title ?? '').toLowerCase();
+  if (cat.includes('hvac') || cat.includes('ac') || cat.includes('cooling') || cat.includes('chiller')) return 'HVAC';
+  if (cat.includes('plumb') || cat.includes('water') || cat.includes('pool') || cat.includes('leak')) return 'Plumbing';
+  if (cat.includes('electrical') || cat.includes('power') || cat.includes('lift') || cat.includes('intercom')) return 'Electrical';
+  if (cat.includes('safety') || cat.includes('fire')) return 'Safety';
+  return 'General';
+}
+
+interface CreateWorkOrderModalProps {
+  incident: Incident;
+  onClose: () => void;
+  onConfirm: (data: CreateWorkOrderInput) => void;
+}
+
+function CreateWorkOrderModal({ incident, onClose, onConfirm }: CreateWorkOrderModalProps) {
+  const [form, setForm] = useState<CreateWorkOrderInput>({
+    title: incident.title,
+    location: incident.location,
+    priority: incident.severity === 'critical' ? 'critical' : incident.severity === 'high' ? 'high' : incident.severity === 'medium' ? 'medium' : 'low',
+    asset: incident.aiMetadata?.identifiedAsset ?? '',
+    skill: deriveSkillFromIncident(incident),
+    description: incident.description,
+    siteId: incident.siteId,
+  });
+
+  const set = <K extends keyof CreateWorkOrderInput>(k: K, v: CreateWorkOrderInput[K]) =>
+    setForm(prev => ({ ...prev, [k]: v }));
+
+  const valid = form.title.trim() && form.location.trim();
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4"
+        onClick={onClose}
+      >
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95, y: 12 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95, y: 12 }}
+          transition={{ duration: 0.2 }}
+          className="bg-[#0D1F3C] border border-[rgba(46,127,255,0.25)] rounded-2xl w-full max-w-md shadow-2xl"
+          onClick={e => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between px-5 py-4 border-b border-[rgba(46,127,255,0.15)]">
+            <div>
+              <h3 className="text-[#EEF3FA] font-bold text-sm" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+                Create Work Order
+              </h3>
+              <p className="text-[10px] text-[#7A94B4] mt-0.5">Promote incident {incident.id} to a formal work order</p>
+            </div>
+            <button onClick={onClose} className="text-[#7A94B4] hover:text-white transition-colors">
+              <X size={15} />
+            </button>
+          </div>
+
+          <div className="px-5 py-4 space-y-3 max-h-[65vh] overflow-y-auto custom-scrollbar">
+            <div className="p-2.5 bg-blue-500/5 border border-blue-500/20 rounded-xl text-[11px] text-[#7A94B4]">
+              Pre-filled from incident data. Adjust as needed before confirming.
+            </div>
+            <div>
+              <label className="block text-[9px] text-[#7A94B4] uppercase tracking-wide mb-1">Title *</label>
+              <input
+                value={form.title}
+                onChange={e => set('title', e.target.value)}
+                className="w-full bg-[#112040] border border-[rgba(46,127,255,0.2)] rounded-lg px-3 py-2 text-[12px] text-[#EEF3FA] outline-none focus:border-[#2E7FFF] transition-colors"
+              />
+            </div>
+            <div>
+              <label className="block text-[9px] text-[#7A94B4] uppercase tracking-wide mb-1">Location *</label>
+              <input
+                value={form.location}
+                onChange={e => set('location', e.target.value)}
+                className="w-full bg-[#112040] border border-[rgba(46,127,255,0.2)] rounded-lg px-3 py-2 text-[12px] text-[#EEF3FA] outline-none focus:border-[#2E7FFF] transition-colors"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[9px] text-[#7A94B4] uppercase tracking-wide mb-1">Priority</label>
+                <select
+                  value={form.priority}
+                  onChange={e => set('priority', e.target.value)}
+                  className="w-full bg-[#112040] border border-[rgba(46,127,255,0.2)] rounded-lg px-3 py-2 text-[12px] text-[#EEF3FA] outline-none focus:border-[#2E7FFF] transition-colors capitalize"
+                >
+                  {['critical', 'high', 'medium', 'low'].map(p => (
+                    <option key={p} value={p} className="bg-[#0D1F3C] capitalize">{p.charAt(0).toUpperCase() + p.slice(1)}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[9px] text-[#7A94B4] uppercase tracking-wide mb-1">Skill</label>
+                <select
+                  value={form.skill}
+                  onChange={e => set('skill', e.target.value)}
+                  className="w-full bg-[#112040] border border-[rgba(46,127,255,0.2)] rounded-lg px-3 py-2 text-[12px] text-[#EEF3FA] outline-none focus:border-[#2E7FFF] transition-colors"
+                >
+                  {['HVAC', 'Plumbing', 'Electrical', 'Safety', 'General'].map(s => (
+                    <option key={s} value={s} className="bg-[#0D1F3C]">{s}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="block text-[9px] text-[#7A94B4] uppercase tracking-wide mb-1">Asset</label>
+              <input
+                value={form.asset}
+                onChange={e => set('asset', e.target.value)}
+                placeholder="e.g. Chiller C-04"
+                className="w-full bg-[#112040] border border-[rgba(46,127,255,0.2)] rounded-lg px-3 py-2 text-[12px] text-[#EEF3FA] placeholder-[#7A94B4]/50 outline-none focus:border-[#2E7FFF] transition-colors"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 px-5 pb-5">
+            <button
+              onClick={onClose}
+              className="flex-1 py-2 rounded-lg border border-[rgba(46,127,255,0.2)] text-[11px] text-[#7A94B4] hover:text-[#EEF3FA] hover:border-[rgba(46,127,255,0.4)] transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => valid && onConfirm(form)}
+              disabled={!valid}
+              className={`flex-1 py-2 rounded-lg text-[11px] font-semibold transition-colors flex items-center justify-center gap-1.5 ${valid ? 'bg-emerald-600 text-white hover:bg-emerald-500' : 'bg-emerald-600/30 text-white/40 cursor-not-allowed'}`}
+            >
+              <Briefcase size={12} />
+              Create Work Order
+            </button>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
+function ActionsTab({ incident, onToast, onCreateWorkOrder }: { incident: Incident; onToast: ToastFn; onCreateWorkOrder: () => void }) {
   const [whatsappOpen, setWhatsappOpen] = useState(false);
   const isClosed  = incident.status === 'closed';
   const isOverdue = incident.status === 'overdue';
+  const hasWorkOrder = !!incident.workOrderId;
   const techWhatsapp = incident.assignedTech ? TECH_WHATSAPP[incident.assignedTech] : null;
 
   const defaultWhatsappMsg = incident.assignedTech
@@ -332,6 +476,29 @@ function ActionsTab({ incident, onToast }: { incident: Incident; onToast: ToastF
       )}
 
       <div className="text-[11px] text-[#7A94B4]">Actions available for {incident.id}</div>
+
+      {canCreateWorkOrder && !isClosed && !hasWorkOrder && (
+        <button
+          onClick={onCreateWorkOrder}
+          className="w-full flex items-center gap-2.5 p-3 rounded-xl bg-emerald-600/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-600/20 transition-colors"
+        >
+          <Briefcase size={14} />
+          <div className="text-left">
+            <div className="text-[12px] font-bold">Create Work Order</div>
+            <div className="text-[10px] opacity-80">Promote to formal work order · notifies stakeholders</div>
+          </div>
+        </button>
+      )}
+      {hasWorkOrder && (
+        <div className="flex items-center gap-2 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl">
+          <Briefcase size={14} className="text-emerald-400" />
+          <div>
+            <div className="text-[12px] text-emerald-400 font-semibold">Work Order Raised</div>
+            <div className="text-[10px] text-[#7A94B4]">ID: {incident.workOrderId} · Appears in Kanban Board</div>
+          </div>
+        </div>
+      )}
+
       {!incident.assignedTech && !isClosed && (
         <button
           onClick={() => onToast(`Smart dispatch opened for ${incident.id}`, 'info')}
@@ -533,7 +700,7 @@ const SEVERITY_ORDER: Record<string, number> = { critical: 0, high: 1, medium: 2
 const STATUS_ORDER: Record<string, number>   = { overdue: 0, 'in-progress': 1, open: 2, dispatched: 3, assigned: 4, closed: 5 };
 
 export function Incidents({ onToast }: Props) {
-  const { incidents, addIncident } = useIncidents();
+  const { incidents, addIncident, createWorkOrder } = useIncidents();
   const [search,      setSearch]      = useState('');
   const [severity,    setSeverity]    = useState('All');
   const [status,      setStatus]      = useState('All');
@@ -543,6 +710,7 @@ export function Incidents({ onToast }: Props) {
   const [sortKey,     setSortKey]     = useState<SortKey>('none');
   const [sortDir,     setSortDir]     = useState<SortDir>('asc');
   const [showModal,   setShowModal]   = useState(false);
+  const [woModalFor,  setWoModalFor]  = useState<Incident | null>(null);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -594,6 +762,14 @@ export function Incidents({ onToast }: Props) {
     onToast(`Incident ${newInc.id} created`, 'success');
   };
 
+  const handleCreateWorkOrder = (data: CreateWorkOrderInput) => {
+    if (!woModalFor) return;
+    const wo = createWorkOrder(woModalFor.id, data);
+    setWoModalFor(null);
+    setSelected(prev => prev?.id === woModalFor.id ? { ...prev, status: 'dispatched', workOrderId: wo.id } : prev);
+    onToast(`Work Order ${wo.id} created · stakeholders notified`, 'success');
+  };
+
   const filtered = incidents
     .filter(inc => {
       if (severity !== 'All' && inc.severity !== severity) return false;
@@ -626,6 +802,13 @@ export function Incidents({ onToast }: Props) {
         <NewIncidentModal
           onClose={() => setShowModal(false)}
           onSubmit={handleCreateIncident}
+        />
+      )}
+      {woModalFor && (
+        <CreateWorkOrderModal
+          incident={woModalFor}
+          onClose={() => setWoModalFor(null)}
+          onConfirm={handleCreateWorkOrder}
         />
       )}
 
@@ -716,17 +899,25 @@ export function Incidents({ onToast }: Props) {
             {filtered.map(inc => {
               const st  = STATUS_CONFIG[inc.status] || STATUS_CONFIG['open'];
               const isSelected = selected?.id === inc.id;
+              const hasWO = !!inc.workOrderId;
               return (
-                <motion.button
+                <motion.div
                   key={inc.id}
-                  onClick={() => openIncident(inc)}
                   whileTap={{ scale: 0.995 }}
-                  className={`w-full text-left px-5 py-3 border-b border-[rgba(46,127,255,0.08)] hover:bg-white/[0.02] transition-all ${isSelected ? 'bg-[rgba(46,127,255,0.08)]' : ''}`}
+                  className={`w-full text-left px-5 py-3 border-b border-[rgba(46,127,255,0.08)] hover:bg-white/[0.02] transition-all cursor-pointer ${isSelected ? 'bg-[rgba(46,127,255,0.08)]' : ''}`}
+                  onClick={() => openIncident(inc)}
                 >
                   <div className="grid grid-cols-[2fr_1.2fr_0.9fr_1.4fr_0.9fr_1.1fr_1.2fr] items-center gap-2">
                     <div>
                       <div className="text-[12px] text-[#EEF3FA] font-semibold">{inc.title}</div>
-                      <div className="text-[9px] text-[#7A94B4]">{inc.id}</div>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <span className="text-[9px] text-[#7A94B4]">{inc.id}</span>
+                        {hasWO && (
+                          <span className="text-[8px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 px-1 py-0.5 rounded font-semibold">
+                            WO: {inc.workOrderId}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div className="text-[11px] text-[#7A94B4]">{inc.location}</div>
                     <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border w-fit capitalize ${SEVERITY_BADGE[inc.severity]}`}>
@@ -747,10 +938,22 @@ export function Incidents({ onToast }: Props) {
                       ) : (
                         <span className="text-[10px] text-[#7A94B4] opacity-50">Unassigned</span>
                       )}
-                      <ChevronRight size={11} className={`text-[#7A94B4] ml-auto transition-transform ${isSelected ? 'rotate-90' : ''}`} />
+                      {canCreateWorkOrder && !hasWO && inc.status !== 'closed' && (
+                        <button
+                          onClick={e => { e.stopPropagation(); setWoModalFor(inc); }}
+                          className="ml-auto flex items-center gap-1 px-1.5 py-0.5 rounded-lg border border-emerald-500/30 text-emerald-400 text-[9px] font-semibold hover:bg-emerald-500/10 transition-colors flex-shrink-0"
+                        >
+                          <Briefcase size={9} />
+                          <span className="hidden xl:inline">WO</span>
+                        </button>
+                      )}
+                      {hasWO && (
+                        <Briefcase size={10} className="text-emerald-400 ml-auto flex-shrink-0" />
+                      )}
+                      <ChevronRight size={11} className={`text-[#7A94B4] transition-transform ${isSelected ? 'rotate-90' : ''} ${hasWO ? '' : 'ml-auto'}`} />
                     </div>
                   </div>
-                </motion.button>
+                </motion.div>
               );
             })}
             {filtered.length === 0 && (
@@ -802,7 +1005,7 @@ export function Incidents({ onToast }: Props) {
                     {activeTab === 'Overview'     && <OverviewTab     incident={selected} />}
                     {activeTab === 'Timeline'     && <TimelineTab     incident={selected} />}
                     {activeTab === 'AI Analysis'  && <AIAnalysisTab   incident={selected} />}
-                    {activeTab === 'Actions'      && <ActionsTab      incident={selected} onToast={onToast} />}
+                    {activeTab === 'Actions'      && <ActionsTab      incident={selected} onToast={onToast} onCreateWorkOrder={() => setWoModalFor(selected)} />}
                   </motion.div>
                 </AnimatePresence>
               </div>
