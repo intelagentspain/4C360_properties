@@ -1,11 +1,12 @@
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bot, MapPin, Clock, ChevronDown, UserCheck, RotateCcw, CheckCircle, QrCode } from 'lucide-react';
+import { Bot, MapPin, Clock, ChevronDown, UserCheck, RotateCcw, CheckCircle, QrCode, MessageSquare } from 'lucide-react';
 import { mockSmartDispatch } from '@/data/mockData';
 import { SEVERITY_BADGE, AVAIL_COLOR, scoreColor, type ToastFn } from '@/lib/ui';
 import { AnimatedBar } from '@/components/shared/AnimatedBar';
 import { TechAvatar } from '@/components/shared/TechAvatar';
 import { useIncidents } from '@/context/IncidentContext';
+import { WhatsAppModal } from '@/components/shared/WhatsAppModal';
 
 const TECH_POOL = [
   { tech: 'Karim R.', techId: 'KR', skill: 'HVAC', distance: '0.4 km', eta: '8 min', skillMatch: 92, availability: 'available' as const, reason: 'HVAC specialist · Available now · QR scan priority' },
@@ -18,6 +19,14 @@ function matchTech(category: string) {
   const cat = category.toLowerCase();
   return TECH_POOL.find(t => cat.includes(t.skill.toLowerCase()) || t.skill === 'General') ?? TECH_POOL[3];
 }
+
+const TECH_WHATSAPP: Record<string, string> = {
+  'Karim R.':  '+971501112233',
+  'Sara M.':   '+971502223344',
+  'Ahmed K.':  '+971503334455',
+  'Faisal N.': '+971504445566',
+  'Omar T.':   '+971505556677',
+};
 
 interface Props {
   onToast: ToastFn;
@@ -46,6 +55,7 @@ export function SmartDispatchPanel({ onToast }: Props) {
   const [activeIncident, setActiveIncident] = useState(mockSmartDispatch[0].incidentId);
   const [assigned, setAssigned] = useState<Record<string, string>>({});
   const [showAll, setShowAll] = useState<Record<string, boolean>>({});
+  const [whatsappTarget, setWhatsappTarget] = useState<{ name: string; phone: string; message: string } | null>(null);
 
   const current = allDispatch.find(d => d.incidentId === activeIncident) ?? allDispatch[0];
 
@@ -61,6 +71,16 @@ export function SmartDispatchPanel({ onToast }: Props) {
 
   return (
     <div className="mb-4">
+      {whatsappTarget && (
+        <WhatsAppModal
+          recipientName={whatsappTarget.name}
+          recipientPhone={whatsappTarget.phone}
+          defaultMessage={whatsappTarget.message}
+          onClose={() => setWhatsappTarget(null)}
+          onSent={name => onToast(`WhatsApp sent to ${name}`, 'success')}
+          onError={name => onToast(`Failed to send — check number for ${name}`, 'error')}
+        />
+      )}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           <h3 className="text-[#EEF3FA] text-xs font-semibold uppercase tracking-wide" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
@@ -129,6 +149,23 @@ export function SmartDispatchPanel({ onToast }: Props) {
                   <div className="text-[10px] text-[#7A94B4]">Technician notified · GPS tracking started</div>
                 </div>
               </div>
+              {TECH_WHATSAPP[assigned[activeIncident]] && (
+                <button
+                  onClick={() => {
+                    const techName = assigned[activeIncident];
+                    const phone = TECH_WHATSAPP[techName];
+                    const dispatchItem = allDispatch.find(d => d.incidentId === activeIncident);
+                    setWhatsappTarget({
+                      name: techName,
+                      phone,
+                      message: `Hi ${techName}, you have been assigned to incident ${activeIncident}.\n\n${dispatchItem?.incidentTitle ?? ''}\n\nPlease confirm dispatch and provide your ETA. GPS tracking is now active.`,
+                    });
+                  }}
+                  className="w-full flex items-center justify-center gap-1.5 py-1.5 mb-2 bg-emerald-600/10 border border-emerald-500/30 text-emerald-400 text-[11px] font-semibold rounded-lg hover:bg-emerald-600/20 transition-colors"
+                >
+                  <MessageSquare size={11} /> Send WhatsApp to {assigned[activeIncident]}
+                </button>
+              )}
               <button
                 onClick={() => handleOverride(activeIncident)}
                 className="w-full flex items-center justify-center gap-1.5 py-1.5 border border-[rgba(46,127,255,0.3)] text-[#7A94B4] text-[11px] rounded-lg hover:bg-white/5 transition-colors"

@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Search, Bell, ChevronDown, Zap, Bot, Hand, Plus, X, Building2, MapPin, FileText, User, Users, Layers, Sparkles, Loader2 } from 'lucide-react';
+import { Search, Bell, ChevronDown, Zap, Bot, Hand, Plus, X, Building2, MapPin, FileText, User, Users, Layers, Sparkles, Loader2, MessageSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMemberProfiles } from '@/context/MemberProfilesContext';
 import { useMemberFilter, isFilterActive } from '@/context/MemberFilterContext';
+import { WhatsAppModal } from '@/components/shared/WhatsAppModal';
 
 export type AutomationMode = 'manual' | 'hybrid' | 'ai';
 
@@ -367,6 +368,7 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [isSuggestingAssets, setIsSuggestingAssets] = useState(false);
+  const [whatsappTarget, setWhatsappTarget] = useState<{ name: string; phone: string; message: string } | null>(null);
 
   const toggleAsset = (cat: string) => {
     setAssetCategories(prev =>
@@ -630,6 +632,16 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
 
   return (
     <>
+      {whatsappTarget && (
+        <WhatsAppModal
+          recipientName={whatsappTarget.name}
+          recipientPhone={whatsappTarget.phone}
+          defaultMessage={whatsappTarget.message}
+          onClose={() => setWhatsappTarget(null)}
+          onSent={n => setWhatsappTarget(null)}
+          onError={() => setWhatsappTarget(null)}
+        />
+      )}
       <div className="fixed inset-0 z-[2000] bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <motion.div
         initial={{ opacity: 0, scale: 0.96, y: -10 }}
@@ -1419,6 +1431,20 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
                               >
                                 = Mobile
                               </button>
+                              {member.whatsapp.trim() && (
+                                <button
+                                  type="button"
+                                  title="Send WhatsApp"
+                                  onClick={() => setWhatsappTarget({
+                                    name: member.name || `Member ${i + 1}`,
+                                    phone: member.whatsapp.trim(),
+                                    message: `Hi ${member.name || 'there'}, welcome to Imdaad AI-OS! You have been added as ${member.role || 'a team member'}. Please check your email for login credentials.`,
+                                  })}
+                                  className="flex-shrink-0 p-1.5 rounded-lg border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 transition-all"
+                                >
+                                  <MessageSquare size={11} />
+                                </button>
+                              )}
                             </div>
                           </div>
                           <div>

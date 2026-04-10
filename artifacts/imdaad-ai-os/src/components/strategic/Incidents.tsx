@@ -10,6 +10,7 @@ import { SEVERITY_BADGE, slaStatus, type ToastFn } from '@/lib/ui';
 import { AnimatedBar } from '@/components/shared/AnimatedBar';
 import { TechAvatar } from '@/components/shared/TechAvatar';
 import { useIncidents, type Incident } from '@/context/IncidentContext';
+import { WhatsAppModal } from '@/components/shared/WhatsAppModal';
 
 const STATUS_CONFIG: Record<string, { label: string; dot: string; text: string; bg: string }> = {
   open:        { label: 'Open',        dot: 'bg-[#7A94B4]',       text: 'text-[#7A94B4]',    bg: 'bg-white/5 border-white/10' },
@@ -299,11 +300,37 @@ function AIAnalysisTab({ incident }: { incident: Incident }) {
   );
 }
 
+const TECH_WHATSAPP: Record<string, string> = {
+  'Karim R.':  '+971501112233',
+  'Sara M.':   '+971502223344',
+  'Ahmed K.':  '+971503334455',
+  'Faisal N.': '+971504445566',
+  'Omar T.':   '+971505556677',
+};
+
 function ActionsTab({ incident, onToast }: { incident: Incident; onToast: ToastFn }) {
+  const [whatsappOpen, setWhatsappOpen] = useState(false);
   const isClosed  = incident.status === 'closed';
   const isOverdue = incident.status === 'overdue';
+  const techWhatsapp = incident.assignedTech ? TECH_WHATSAPP[incident.assignedTech] : null;
+
+  const defaultWhatsappMsg = incident.assignedTech
+    ? `Hi ${incident.assignedTech}, this is Imdaad AI-OS.\n\nIncident ${incident.id}: ${incident.title}\nLocation: ${incident.location}\nSeverity: ${incident.severity.toUpperCase()}\n\nPlease acknowledge this message and confirm your ETA.`
+    : '';
+
   return (
     <div className="space-y-3">
+      {whatsappOpen && incident.assignedTech && techWhatsapp && (
+        <WhatsAppModal
+          recipientName={incident.assignedTech}
+          recipientPhone={techWhatsapp}
+          defaultMessage={defaultWhatsappMsg}
+          onClose={() => setWhatsappOpen(false)}
+          onSent={name => onToast(`WhatsApp sent to ${name}`, 'success')}
+          onError={name => onToast(`Failed to send — check number for ${name}`, 'error')}
+        />
+      )}
+
       <div className="text-[11px] text-[#7A94B4]">Actions available for {incident.id}</div>
       {!incident.assignedTech && !isClosed && (
         <button
@@ -314,6 +341,18 @@ function ActionsTab({ incident, onToast }: { incident: Incident; onToast: ToastF
           <div className="text-left">
             <div className="text-[12px] font-bold">Dispatch Technician</div>
             <div className="text-[10px] opacity-80">Open AI smart-dispatch panel</div>
+          </div>
+        </button>
+      )}
+      {incident.assignedTech && techWhatsapp && !isClosed && (
+        <button
+          onClick={() => setWhatsappOpen(true)}
+          className="w-full flex items-center gap-2.5 p-3 rounded-xl bg-emerald-600/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-600/20 transition-colors"
+        >
+          <MessageSquare size={14} />
+          <div className="text-left">
+            <div className="text-[12px] font-bold">Send WhatsApp to {incident.assignedTech}</div>
+            <div className="text-[10px] opacity-80">Notify technician via WhatsApp</div>
           </div>
         </button>
       )}

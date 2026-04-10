@@ -22,6 +22,7 @@
     "openai": "^6.34.0",
     "pino": "^9",
     "pino-http": "^10",
+    "twilio": "^5.13.1",
     "zod": "catalog:"
   },
   "devDependencies": {
