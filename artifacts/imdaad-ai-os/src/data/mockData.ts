@@ -72,6 +72,20 @@ export const mockIncidents = [
       { time: '10:12 AM', event: 'Resident reported noise via app', type: 'incident' },
       { time: '10:13 AM', event: 'IoT corroboration: vibration anomaly on PP-02', type: 'ai' },
     ],
+    closureNotes: null,
+  },
+  {
+    id: 'INC-SI-007', title: 'Gym AC Serviced', location: 'Block C Gym',
+    severity: 'medium', slaMinutes: 240, elapsed: 210, lat: 25.1190, lng: 55.3770, source: 'WhatsApp → Manual',
+    status: 'closed', assignedTech: 'Karim R.', techId: 'KR',
+    description: 'Scheduled maintenance service completed on gym AHU. Filter replaced, coils cleaned, refrigerant pressure verified. Unit operating within spec.',
+    activityLog: [
+      { time: 'Yesterday 09:00 AM', event: 'PPM task triggered — scheduled service due', type: 'incident' },
+      { time: 'Yesterday 09:15 AM', event: 'Karim R. assigned for HVAC service', type: 'dispatch' },
+      { time: 'Yesterday 11:30 AM', event: 'Service completed — photos submitted', type: 'update' },
+      { time: 'Yesterday 11:45 AM', event: 'Supervisor approved closure — SLA met (210/240 min)', type: 'update' },
+    ],
+    closureNotes: 'Filter replaced (Grade F7). Coils cleaned — 15% fouling removed. Refrigerant at 98% nominal. No further action required. Next PPM due in 60 days.',
   },
 ];
 

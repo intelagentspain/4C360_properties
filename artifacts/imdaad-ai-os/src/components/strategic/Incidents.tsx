@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   AlertTriangle, X, Search, User, Clock, CheckCircle,
   Zap, ChevronRight, Send, TrendingUp, AlertCircle,
+  ChevronUp, ChevronDown as ChevronDownIcon,
 } from 'lucide-react';
 import { mockIncidents } from '@/data/mockData';
 import { SEVERITY_BADGE, slaStatus, type ToastFn } from '@/lib/ui';
@@ -116,8 +117,20 @@ function OverviewTab({ incident }: { incident: Incident }) {
             <TechAvatar initials={incident.techId || '?'} size={8} />
             <div>
               <div className="text-[12px] text-[#EEF3FA] font-semibold">{incident.assignedTech}</div>
-              <div className="text-[10px] text-blue-400">En route · GPS tracking active</div>
+              <div className="text-[10px] text-blue-400">{incident.status === 'closed' ? 'Closed by technician' : 'En route · GPS tracking active'}</div>
             </div>
+          </div>
+        </div>
+      )}
+      {(incident as { closureNotes?: string | null }).closureNotes && (
+        <div>
+          <div className="text-[10px] text-[#7A94B4] uppercase tracking-wide mb-1.5">Closure Notes</div>
+          <div className="p-2.5 bg-emerald-500/5 border border-emerald-500/20 rounded-xl">
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <CheckCircle size={11} className="text-emerald-400" />
+              <span className="text-[10px] text-emerald-400 font-semibold">Incident Closed · SLA Met</span>
+            </div>
+            <p className="text-[11px] text-[#EEF3FA] leading-relaxed">{(incident as { closureNotes?: string | null }).closureNotes}</p>
           </div>
         </div>
       )}
@@ -278,6 +291,12 @@ function ActionsTab({ incident, onToast }: { incident: Incident; onToast: ToastF
 
 interface Props { onToast: ToastFn }
 
+type SortKey = 'severity' | 'sla' | 'status' | 'none';
+type SortDir = 'asc' | 'desc';
+
+const SEVERITY_ORDER: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
+const STATUS_ORDER: Record<string, number>   = { overdue: 0, 'in-progress': 1, open: 2, dispatched: 3, assigned: 4, closed: 5 };
+
 export function Incidents({ onToast }: Props) {
   const [search,      setSearch]      = useState('');
   const [severity,    setSeverity]    = useState('All');
@@ -285,15 +304,31 @@ export function Incidents({ onToast }: Props) {
   const [source,      setSource]      = useState('All');
   const [selected,    setSelected]    = useState<Incident | null>(null);
   const [activeTab,   setActiveTab]   = useState('Overview');
+  const [sortKey,     setSortKey]     = useState<SortKey>('none');
+  const [sortDir,     setSortDir]     = useState<SortDir>('asc');
 
-  const filtered = mockIncidents.filter(inc => {
-    if (severity !== 'All' && inc.severity !== severity) return false;
-    if (status   !== 'All' && inc.status   !== status)   return false;
-    if (source   !== 'All' && inc.source   !== source)   return false;
-    if (search && !inc.title.toLowerCase().includes(search.toLowerCase()) &&
-                  !inc.location.toLowerCase().includes(search.toLowerCase())) return false;
-    return true;
-  });
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortKey(key); setSortDir('asc'); }
+  };
+
+  const filtered = mockIncidents
+    .filter(inc => {
+      if (severity !== 'All' && inc.severity !== severity) return false;
+      if (status   !== 'All' && inc.status   !== status)   return false;
+      if (source   !== 'All' && inc.source   !== source)   return false;
+      if (search && !inc.title.toLowerCase().includes(search.toLowerCase()) &&
+                    !inc.location.toLowerCase().includes(search.toLowerCase())) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      if (sortKey === 'none') return 0;
+      let cmp = 0;
+      if (sortKey === 'severity') cmp = (SEVERITY_ORDER[a.severity] ?? 9) - (SEVERITY_ORDER[b.severity] ?? 9);
+      if (sortKey === 'sla')      cmp = slaStatus(a.elapsed, a.slaMinutes).percent - slaStatus(b.elapsed, b.slaMinutes).percent;
+      if (sortKey === 'status')   cmp = (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9);
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
 
   const openIncident = (inc: Incident) => { setSelected(inc); setActiveTab('Overview'); };
 
@@ -362,7 +397,23 @@ export function Incidents({ onToast }: Props) {
       <div className="flex flex-1 overflow-hidden">
         <div className={`flex flex-col overflow-hidden transition-all duration-300 ${selected ? 'flex-[55]' : 'flex-1'}`}>
           <div className="hidden sm:grid grid-cols-[2fr_1.5fr_1fr_1.5fr_1fr_1.4fr] px-5 py-2 text-[9px] text-[#7A94B4] uppercase tracking-wide border-b border-[rgba(46,127,255,0.08)] flex-shrink-0">
-            {['Incident', 'Location', 'Severity', 'SLA / Progress', 'Status', 'Tech'].map(h => <div key={h}>{h}</div>)}
+            {[
+              { label: 'Incident',     key: null },
+              { label: 'Location',     key: null },
+              { label: 'Severity',     key: 'severity' as SortKey },
+              { label: 'SLA / Progress', key: 'sla' as SortKey },
+              { label: 'Status',       key: 'status' as SortKey },
+              { label: 'Tech',         key: null },
+            ].map(h => (
+              <div key={h.label}
+                className={`flex items-center gap-0.5 ${h.key ? 'cursor-pointer hover:text-[#EEF3FA] select-none' : ''} ${sortKey === h.key ? 'text-[#EEF3FA]' : ''}`}
+                onClick={() => h.key && handleSort(h.key)}
+              >
+                {h.label}
+                {h.key && sortKey === h.key && (sortDir === 'asc' ? <ChevronUp size={9} /> : <ChevronDownIcon size={9} />)}
+                {h.key && sortKey !== h.key && <ChevronUp size={9} className="opacity-0 group-hover:opacity-40" />}
+              </div>
+            ))}
           </div>
           <div className="flex-1 overflow-y-auto custom-scrollbar">
             {filtered.map(inc => {

@@ -8,8 +8,27 @@ import { mockAICaptures } from '@/data/mockData';
 import { SEVERITY_BADGE, scoreColor, type ToastFn } from '@/lib/ui';
 import { AnimatedBar } from '@/components/shared/AnimatedBar';
 
-type Capture = typeof mockAICaptures[0];
 type CaptureStatus = 'pending' | 'confirmed' | 'rejected';
+
+interface CaptureSignal { label: string; match: number; }
+
+interface Capture {
+  id: string;
+  category: string;
+  subCategory: string;
+  title: string;
+  location: string;
+  severity: string;
+  confidence: number;
+  source: string;
+  capturedAt: string;
+  status: CaptureStatus;
+  linkedIncident: string | null;
+  linkedJob: string | null;
+  signals: CaptureSignal[];
+  gradient: string;
+  boxColor: string;
+}
 
 const CATEGORY_COLOR: Record<string, string> = {
   HVAC:       'text-blue-400 bg-blue-500/15 border-blue-500/30',
@@ -116,7 +135,7 @@ function CaptureCard({ capture, onAction, onSelect, isSelected }: {
 
         <div className="text-[9px] text-[#7A94B4] flex items-center gap-1">
           <Zap size={9} className="text-cyan-400" />
-          {capture.signals[0]?.label}: {capture.signals[0]?.value}
+          {capture.signals[0]?.label} · {capture.signals[0]?.match}% match
         </div>
 
         <div className="flex gap-1.5 pt-1">
@@ -209,8 +228,8 @@ function DetailPanel({ capture, onClose, onAction }: {
             {capture.signals.map((sig, i) => (
               <div key={i} className="flex items-center gap-3 p-2.5 bg-[rgba(46,127,255,0.06)] border border-[rgba(46,127,255,0.15)] rounded-lg">
                 <div className="flex-1 min-w-0">
-                  <div className="text-[9px] text-[#7A94B4]">{sig.label}</div>
-                  <div className="text-[11px] text-[#EEF3FA]">{sig.value}</div>
+                  <div className="text-[9px] text-[#7A94B4]">Detection signal</div>
+                  <div className="text-[11px] text-[#EEF3FA]">{sig.label}</div>
                 </div>
                 <div className="text-right flex-shrink-0">
                   <div className="text-[10px] font-bold text-emerald-400">{sig.match}%</div>
@@ -278,7 +297,7 @@ export function AICapture({ onToast }: Props) {
     () => Object.fromEntries(mockAICaptures.map(c => [c.id, c.status as CaptureStatus]))
   );
 
-  const enriched = mockAICaptures.map(c => ({ ...c, status: statuses[c.id] as CaptureStatus }));
+  const enriched: Capture[] = mockAICaptures.map(c => ({ ...c, status: statuses[c.id] }));
 
   const filtered = enriched.filter(c => {
     if (statusFilter   !== 'All' && c.status   !== statusFilter)   return false;
