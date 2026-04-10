@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Bell, ChevronDown, Zap, Bot, Hand, Plus, X, Building2, MapPin, FileText, User, Users } from 'lucide-react';
+import { Search, Bell, ChevronDown, Zap, Bot, Hand, Plus, X, Building2, MapPin, FileText, User, Users, Layers, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export type AutomationMode = 'manual' | 'hybrid' | 'ai';
@@ -45,9 +45,9 @@ const INITIALS_COLORS = [
 ];
 
 const INITIAL_CLIENT_DATA: ClientData[] = [
-  { name: 'Silicon Oasis Authority', sector: 'Government', industrySubtype: '', contractType: 'FM Contract', contractStartDate: '', contractEndDate: '', contractValue: '', slaTier: 'Gold', zone: 'All Zones', numSites: '1', siteNames: ['Silicon Oasis'], totalAssets: '', assetCategories: [], contactName: '', contactEmail: '', contactPhone: '', accountManager: '', initialsColor: '#2E7FFF' },
-  { name: 'Emaar', sector: 'Real Estate', industrySubtype: '', contractType: 'Integrated FM', contractStartDate: '', contractEndDate: '', contractValue: '', slaTier: 'Platinum', zone: 'All Zones', numSites: '1', siteNames: ['Downtown Dubai'], totalAssets: '', assetCategories: [], contactName: '', contactEmail: '', contactPhone: '', accountManager: '', initialsColor: '#10B981' },
-  { name: 'DEWA', sector: 'Government', industrySubtype: '', contractType: 'Hard Services', contractStartDate: '', contractEndDate: '', contractValue: '', slaTier: 'Gold', zone: 'All Zones', numSites: '1', siteNames: ['HQ'], totalAssets: '', assetCategories: [], contactName: '', contactEmail: '', contactPhone: '', accountManager: '', initialsColor: '#F59E0B' },
+  { name: 'Silicon Oasis Authority', sector: 'Government', industrySubtype: '', contractType: 'FM Contract', contractStartDate: '', contractEndDate: '', contractValue: '', slaTier: 'Gold', zone: 'All Zones', numSites: '1', siteNames: ['Silicon Oasis'], totalAssets: '', assetCategories: [], assets: [], contactName: '', contactEmail: '', contactPhone: '', accountManager: '', initialsColor: '#2E7FFF' },
+  { name: 'Emaar', sector: 'Real Estate', industrySubtype: '', contractType: 'Integrated FM', contractStartDate: '', contractEndDate: '', contractValue: '', slaTier: 'Platinum', zone: 'All Zones', numSites: '1', siteNames: ['Downtown Dubai'], totalAssets: '', assetCategories: [], assets: [], contactName: '', contactEmail: '', contactPhone: '', accountManager: '', initialsColor: '#10B981' },
+  { name: 'DEWA', sector: 'Government', industrySubtype: '', contractType: 'Hard Services', contractStartDate: '', contractEndDate: '', contractValue: '', slaTier: 'Gold', zone: 'All Zones', numSites: '1', siteNames: ['HQ'], totalAssets: '', assetCategories: [], assets: [], contactName: '', contactEmail: '', contactPhone: '', accountManager: '', initialsColor: '#F59E0B' },
 ];
 
 const CONTRACT_TYPES = ['FM Contract', 'Soft Services', 'Hard Services', 'Integrated FM', 'Consultancy'];
@@ -56,6 +56,138 @@ const SECTOR_OPTIONS = ['Real Estate', 'Retail', 'Hospitality', 'Healthcare', 'G
 const SLA_TIERS      = ['Platinum', 'Gold', 'Silver', 'Bronze'];
 const ASSET_CATEGORIES = ['HVAC', 'Electrical', 'Plumbing', 'Civil', 'Landscaping', 'Cleaning', 'Security', 'Elevators', 'Other'];
 const TEAM_ROLES     = ['Client', 'Account Manager', 'Site Supervisor', 'FM Engineer', 'Project Manager', 'Safety Officer', 'Client Success', 'Executive', 'Other'];
+
+const ASSET_CONDITION_OPTS = ['Excellent', 'Good', 'Fair', 'Poor'];
+
+interface SectorAssetDef {
+  category: string;
+  types: string[];
+  defaultCondition: string;
+  ppmNote: string;
+  complianceNote: string;
+}
+
+const SECTOR_ASSET_MAP: Record<string, SectorAssetDef[]> = {
+  'Healthcare': [
+    { category: 'Medical Gas', types: ['Oxygen Pipeline', 'Vacuum System', 'Medical Air Compressor'], defaultCondition: 'Good', ppmNote: 'Monthly inspection required per DHA standards', complianceNote: 'Complies with DHA Medical Gas Guidelines' },
+    { category: 'HVAC', types: ['Air Handling Unit', 'Fan Coil Unit', 'Chiller', 'Cooling Tower'], defaultCondition: 'Good', ppmNote: 'Quarterly maintenance; HEPA filter replacement every 6 months', complianceNote: 'Infection control HVAC per JCI/CBAHI standards' },
+    { category: 'Nurse Call', types: ['Nurse Call Panel', 'Patient Bedhead Unit', 'Emergency Pull Cord'], defaultCondition: 'Good', ppmNote: 'Bi-annual testing and calibration', complianceNote: 'Must comply with HTM 08-03' },
+    { category: 'Electrical', types: ['UPS System', 'Generator', 'LV Switchgear', 'Emergency Lighting'], defaultCondition: 'Good', ppmNote: 'Annual load testing; monthly battery checks', complianceNote: 'IEC 60364 & local DEWA standards' },
+    { category: 'Plumbing', types: ['Hot & Cold Water System', 'Steam Boiler', 'Water Treatment Unit'], defaultCondition: 'Good', ppmNote: 'Quarterly legionella risk assessment', complianceNote: 'DHA water safety regulations' },
+  ],
+  'Hospitality': [
+    { category: 'Chiller', types: ['Centrifugal Chiller', 'Screw Chiller', 'Absorption Chiller'], defaultCondition: 'Good', ppmNote: 'Quarterly servicing; annual refrigerant check', complianceNote: 'ASHRAE 15 refrigerant safety' },
+    { category: 'Pool & Spa', types: ['Pool Pump', 'Filtration System', 'Spa Jet Pump', 'Pool Heating'], defaultCondition: 'Good', ppmNote: 'Weekly water quality checks; monthly equipment inspection', complianceNote: 'Dubai Municipality pool health standards' },
+    { category: 'BMS', types: ['Building Management System', 'SCADA Panel', 'DDC Controller'], defaultCondition: 'Good', ppmNote: 'Semi-annual software audit and sensor calibration', complianceNote: 'DEWA smart building compliance' },
+    { category: 'Kitchen', types: ['Commercial Range', 'Walk-in Refrigerator', 'Exhaust Hood', 'Dishwasher'], defaultCondition: 'Good', ppmNote: 'Monthly deep clean and grease trap inspection', complianceNote: 'Dubai Municipality food safety regulations' },
+    { category: 'Elevators', types: ['Passenger Elevator', 'Service Elevator', 'Escalator'], defaultCondition: 'Good', ppmNote: 'Monthly inspection; annual load test', complianceNote: 'Dubai Municipality elevator regulations' },
+  ],
+  'Retail': [
+    { category: 'Escalators', types: ['Passenger Escalator', 'Moving Walkway'], defaultCondition: 'Good', ppmNote: 'Monthly safety inspection; annual load test', complianceNote: 'BS EN 115 safety standard' },
+    { category: 'CCTV', types: ['IP Camera', 'DVR/NVR System', 'Access Control Panel'], defaultCondition: 'Good', ppmNote: 'Quarterly camera alignment and recording verification', complianceNote: 'Dubai Police CCTV code of practice' },
+    { category: 'Refrigeration', types: ['Display Case Refrigerator', 'Cold Storage Room', 'Ice Machine'], defaultCondition: 'Good', ppmNote: 'Monthly coil cleaning; quarterly refrigerant check', complianceNote: 'Food safety cold chain regulations' },
+    { category: 'HVAC', types: ['Split AC', 'FAHU', 'Air Handling Unit', 'Chiller'], defaultCondition: 'Good', ppmNote: 'Quarterly filter replacement and coil cleaning', complianceNote: 'ASHRAE 62.1 ventilation standard' },
+    { category: 'Fire Safety', types: ['Fire Alarm Panel', 'Sprinkler System', 'Fire Suppression System'], defaultCondition: 'Good', ppmNote: 'Monthly testing; annual full commissioning', complianceNote: 'DCD / NFPA 72 compliance' },
+  ],
+  'Real Estate': [
+    { category: 'HVAC', types: ['Split AC', 'FAHU', 'Chiller', 'Cooling Tower', 'AHU'], defaultCondition: 'Good', ppmNote: 'Quarterly filter change; annual full service', complianceNote: 'ASHRAE 90.1 energy standard' },
+    { category: 'Electrical', types: ['LV Panel', 'Transformer', 'Generator', 'Emergency Lighting'], defaultCondition: 'Good', ppmNote: 'Annual thermographic scan; monthly visual inspection', complianceNote: 'DEWA grid connection requirements' },
+    { category: 'Elevators', types: ['Passenger Elevator', 'Goods Elevator'], defaultCondition: 'Good', ppmNote: 'Monthly inspection; annual load test', complianceNote: 'Dubai Municipality elevator regulations' },
+    { category: 'Plumbing', types: ['Fire Fighting System', 'Water Tanks', 'Booster Pumps', 'Drainage'], defaultCondition: 'Good', ppmNote: 'Bi-annual tank cleaning; monthly pump checks', complianceNote: 'Dubai Civil Defense firefighting code' },
+    { category: 'Security', types: ['CCTV System', 'Access Control', 'Intercom System'], defaultCondition: 'Good', ppmNote: 'Quarterly system audit and camera check', complianceNote: 'Dubai Police CCTV code of practice' },
+  ],
+  'Government': [
+    { category: 'HVAC', types: ['Chiller', 'AHU', 'FCU', 'FAHU'], defaultCondition: 'Good', ppmNote: 'Quarterly full service; monthly filter checks', complianceNote: 'Dubai Government energy efficiency mandate' },
+    { category: 'Electrical', types: ['LV Switchgear', 'UPS System', 'Generator', 'Solar PV'], defaultCondition: 'Good', ppmNote: 'Annual thermographic scan; monthly testing', complianceNote: 'DEWA net metering policy for solar' },
+    { category: 'BMS', types: ['Building Management System', 'Energy Meters', 'DDC Controllers'], defaultCondition: 'Good', ppmNote: 'Semi-annual software audit and optimization', complianceNote: 'Smart Dubai green building requirements' },
+    { category: 'Fire Safety', types: ['Fire Alarm Panel', 'Sprinkler System', 'Gas Suppression'], defaultCondition: 'Good', ppmNote: 'Monthly testing; annual commissioning', complianceNote: 'DCD / NFPA compliance' },
+    { category: 'Security', types: ['CCTV', 'Biometric Access Control', 'Perimeter Fencing System'], defaultCondition: 'Good', ppmNote: 'Monthly system check and recording verification', complianceNote: 'Dubai Police security standards' },
+  ],
+  'Education': [
+    { category: 'HVAC', types: ['Split AC', 'FAHU', 'Chiller', 'AHU'], defaultCondition: 'Good', ppmNote: 'Quarterly filter replacement; annual coil cleaning', complianceNote: 'KHDA building standards' },
+    { category: 'Fire Safety', types: ['Fire Alarm Panel', 'Sprinkler System', 'Emergency Lighting'], defaultCondition: 'Good', ppmNote: 'Monthly testing; annual drill and commissioning', complianceNote: 'DCD / NFPA 72 & 13' },
+    { category: 'Electrical', types: ['LV Distribution Board', 'UPS', 'Emergency Lighting'], defaultCondition: 'Good', ppmNote: 'Annual thermographic scan; monthly checks', complianceNote: 'DEWA standards' },
+    { category: 'Plumbing', types: ['Water Tanks', 'Hot Water Boilers', 'Booster Pumps'], defaultCondition: 'Good', ppmNote: 'Quarterly legionella test; bi-annual tank clean', complianceNote: 'DM water safety guidelines' },
+    { category: 'ICT', types: ['Server Room AC', 'UPS / PDU', 'Structured Cabling'], defaultCondition: 'Good', ppmNote: 'Monthly monitoring; annual infrastructure audit', complianceNote: 'TIA-942 data centre standard' },
+  ],
+  'Industrial': [
+    { category: 'Mechanical', types: ['Compressors', 'Conveyors', 'Cooling Towers', 'Boilers'], defaultCondition: 'Good', ppmNote: 'Weekly vibration check; quarterly full maintenance', complianceNote: 'ISO 55001 asset management' },
+    { category: 'Electrical', types: ['HV Switchgear', 'Transformers', 'VFDs', 'Motor Control Centers'], defaultCondition: 'Good', ppmNote: 'Monthly inspection; annual thermographic scan', complianceNote: 'IEC 61439 LV switchgear standard' },
+    { category: 'Fire & Gas', types: ['Gas Detector', 'Flame Detector', 'Deluge System', 'CO2 System'], defaultCondition: 'Good', ppmNote: 'Monthly sensor calibration; quarterly system test', complianceNote: 'NFPA 72 / local DCD requirements' },
+    { category: 'HVAC', types: ['Process Air Handling Unit', 'Dust Collector', 'Exhaust Fans'], defaultCondition: 'Good', ppmNote: 'Monthly filter service; quarterly duct inspection', complianceNote: 'ASHRAE industrial ventilation standards' },
+    { category: 'Plumbing', types: ['Process Water System', 'Effluent Treatment Plant', 'Fire Fighting Pumps'], defaultCondition: 'Good', ppmNote: 'Weekly water quality test; quarterly pump checks', complianceNote: 'DM industrial effluent regulations' },
+  ],
+  'Mixed-Use': [
+    { category: 'HVAC', types: ['District Cooling Connection', 'AHU', 'FCU', 'Chiller'], defaultCondition: 'Good', ppmNote: 'Quarterly service; annual energy audit', complianceNote: 'ASHRAE 90.1 / DEWA standards' },
+    { category: 'Electrical', types: ['HV/LV Substation', 'Generator', 'UPS', 'Emergency Lighting'], defaultCondition: 'Good', ppmNote: 'Annual thermographic scan; monthly visual checks', complianceNote: 'DEWA grid connection requirements' },
+    { category: 'Elevators', types: ['Passenger Elevator', 'Service Elevator', 'Escalator', 'Moving Walkway'], defaultCondition: 'Good', ppmNote: 'Monthly inspection; annual load test', complianceNote: 'Dubai Municipality elevator regulations' },
+    { category: 'BMS', types: ['Integrated BMS', 'Energy Meters', 'Tenant Sub-metering'], defaultCondition: 'Good', ppmNote: 'Semi-annual audit; monthly data review', complianceNote: 'Smart Dubai green building requirements' },
+    { category: 'Security', types: ['CCTV', 'Access Control', 'Perimeter Security', 'Parking Management'], defaultCondition: 'Good', ppmNote: 'Quarterly audit; monthly recording verification', complianceNote: 'Dubai Police CCTV code of practice' },
+  ],
+  'Other': [
+    { category: 'HVAC', types: ['Split AC', 'Package Unit', 'AHU'], defaultCondition: 'Good', ppmNote: 'Quarterly filter replacement and coil cleaning', complianceNote: 'ASHRAE standards' },
+    { category: 'Electrical', types: ['LV Panel', 'Emergency Lighting', 'Generator'], defaultCondition: 'Good', ppmNote: 'Annual thermographic scan; monthly checks', complianceNote: 'DEWA standards' },
+    { category: 'Fire Safety', types: ['Fire Alarm Panel', 'Sprinkler System'], defaultCondition: 'Good', ppmNote: 'Monthly testing; annual commissioning', complianceNote: 'DCD / NFPA compliance' },
+  ],
+};
+
+export interface AssetRow {
+  id: string;
+  assetName: string;
+  category: string;
+  type: string;
+  assignedSite: string;
+  quantity: string;
+  installYear: string;
+  condition: string;
+  notes: string;
+}
+
+const EMPTY_ASSET = (): AssetRow => ({
+  id: Math.random().toString(36).slice(2),
+  assetName: '',
+  category: '',
+  type: '',
+  assignedSite: '',
+  quantity: '1',
+  installYear: '',
+  condition: '',
+  notes: '',
+});
+
+const TYPE_LEVEL_NOTES: Record<string, { condition: string; ppmNote: string; complianceNote: string }> = {
+  'Oxygen Pipeline':            { condition: 'Good', ppmNote: 'Monthly pressure & flow test; quarterly valve inspection', complianceNote: 'DHA Medical Gas Guidelines — mandatory annual certification' },
+  'UPS System':                 { condition: 'Good', ppmNote: 'Monthly battery check; annual full-load test', complianceNote: 'IEC 62040-3 UPS standard; DEWA grid code' },
+  'Generator':                  { condition: 'Good', ppmNote: 'Weekly run test; quarterly full-load exercise', complianceNote: 'NFPA 110 emergency power; Dubai Civil Defense approval' },
+  'Centrifugal Chiller':        { condition: 'Good', ppmNote: 'Monthly oil/refrigerant check; annual oil analysis', complianceNote: 'ASHRAE 15 refrigerant safety; DEWA efficiency mandate' },
+  'Pool Pump':                  { condition: 'Good', ppmNote: 'Weekly water quality test; monthly pump/filter service', complianceNote: 'Dubai Municipality pool health standards' },
+  'Passenger Escalator':        { condition: 'Good', ppmNote: 'Monthly safety trip test; semi-annual brake inspection', complianceNote: 'BS EN 115; Dubai Municipality elevator regulations' },
+  'IP Camera':                  { condition: 'Good', ppmNote: 'Quarterly lens/recording verification; annual firmware update', complianceNote: 'Dubai Police CCTV code of practice' },
+  'Display Case Refrigerator':  { condition: 'Good', ppmNote: 'Monthly coil cleaning; quarterly refrigerant leak check', complianceNote: 'Food safety cold chain regulations — DM' },
+  'Fire Alarm Panel':           { condition: 'Good', ppmNote: 'Monthly detector test; annual full commissioning', complianceNote: 'NFPA 72; Dubai Civil Defense fire code' },
+  'Sprinkler System':           { condition: 'Good', ppmNote: 'Monthly valve inspection; annual flush & pressure test', complianceNote: 'NFPA 13; Dubai Civil Defense approval' },
+  'Building Management System': { condition: 'Good', ppmNote: 'Semi-annual software audit; monthly sensor calibration', complianceNote: 'Smart Dubai green building requirements; DEWA BMS standard' },
+  'Air Handling Unit':          { condition: 'Good', ppmNote: 'Quarterly filter replacement; annual coil & duct inspection', complianceNote: 'ASHRAE 62.1 indoor air quality; DEWA energy efficiency' },
+  'Solar PV':                   { condition: 'Excellent', ppmNote: 'Bi-annual panel cleaning; annual inverter inspection', complianceNote: 'DEWA net metering policy; Dubai Clean Energy Strategy 2050' },
+  'Biometric Access Control':   { condition: 'Good', ppmNote: 'Monthly database audit; quarterly hardware check', complianceNote: 'Dubai Police security standards; UAE data privacy law' },
+  'Effluent Treatment Plant':   { condition: 'Good', ppmNote: 'Weekly effluent sampling; quarterly process audit', complianceNote: 'Dubai Municipality industrial effluent discharge standards' },
+};
+
+interface SubtypeHint {
+  defaultCondition?: string;
+  ppmNote?: string;
+}
+
+const INDUSTRY_SUBTYPE_ASSET_HINTS: Record<string, SubtypeHint> = {
+  'Mixed Residential':  { ppmNote: 'Residential-grade maintenance schedule applies; coordinate with building management during off-peak hours' },
+  'Office Tower':       { ppmNote: 'Business hours access constraints; ensure night/weekend maintenance windows' },
+  'Luxury Hotel':       { defaultCondition: 'Excellent', ppmNote: 'Highest presentation standard required; use non-disruptive maintenance windows' },
+  'Hospital':           { defaultCondition: 'Excellent', ppmNote: 'Infection control protocols mandatory; maintain 24/7 clinical environment' },
+  'School':             { ppmNote: 'School holiday windows preferred for major works; adhere to KHDA building standards' },
+  'Mall':               { ppmNote: 'Night maintenance windows (00:00–06:00); zero disruption to retail trading hours' },
+  'Warehouse':          { ppmNote: 'Coordinate with operations team; priority on mechanical reliability' },
+  'Data Centre':        { defaultCondition: 'Excellent', ppmNote: 'N+1 redundancy required; no single-point-of-failure maintenance; 24/7 monitoring' },
+};
 
 export interface ClientData {
   name: string;
@@ -72,6 +204,7 @@ export interface ClientData {
   siteNames: string[];
   totalAssets: string;
   assetCategories: string[];
+  assets: AssetRow[];
   contactName: string;
   contactEmail: string;
   contactPhone: string;
@@ -99,6 +232,7 @@ interface AddClientModalProps {
 const SECTION_ICONS = {
   business: <Building2 size={13} className="text-[#2E7FFF]" />,
   sites:    <MapPin size={13} className="text-[#2E7FFF]" />,
+  assets:   <Layers size={13} className="text-[#2E7FFF]" />,
   contract: <FileText size={13} className="text-[#2E7FFF]" />,
   contact:  <User size={13} className="text-[#2E7FFF]" />,
   team:     <Users size={13} className="text-[#2E7FFF]" />,
@@ -133,11 +267,12 @@ const inputCls = (hasErr?: boolean) =>
 
 const selectCls = `w-full px-2.5 py-1.5 bg-[#0A1628] border border-[rgba(46,127,255,0.22)] rounded-lg text-[11px] text-[#EEF3FA] focus:outline-none focus:border-[#2E7FFF] transition-colors appearance-none cursor-pointer`;
 
-type Tab = 'business' | 'sites' | 'contract' | 'contact' | 'team';
+type Tab = 'business' | 'sites' | 'assets' | 'contract' | 'contact' | 'team';
 
 const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
   { key: 'business', label: 'Business',  icon: <Building2 size={11} /> },
   { key: 'sites',    label: 'Sites',     icon: <MapPin size={11} /> },
+  { key: 'assets',   label: 'Assets',    icon: <Layers size={11} /> },
   { key: 'contract', label: 'Contract',  icon: <FileText size={11} /> },
   { key: 'contact',  label: 'Contact',   icon: <User size={11} /> },
   { key: 'team',     label: 'Team',      icon: <Users size={11} /> },
@@ -210,6 +345,7 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
   const [accountManager, setAccountManager]   = useState('');
 
   const [teamMembers, setTeamMembers]         = useState<TeamMember[]>([EMPTY_MEMBER()]);
+  const [assetRows, setAssetRows]             = useState<AssetRow[]>([]);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
@@ -224,6 +360,60 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
   const removeSite = (i: number) => setSiteNames(prev => prev.filter((_, idx) => idx !== i));
   const updateSite = (i: number, val: string) => {
     setSiteNames(prev => prev.map((s, idx) => (idx === i ? val : s)));
+  };
+
+  const addAssetRow = () => setAssetRows(prev => [...prev, EMPTY_ASSET()]);
+  const removeAssetRow = (id: string) => setAssetRows(prev => prev.filter(a => a.id !== id));
+  const updateAssetRow = (id: string, field: keyof AssetRow, val: string) => {
+    setAssetRows(prev => prev.map(a => {
+      if (a.id !== id) return a;
+      const updated = { ...a, [field]: val };
+      if (field === 'category') updated.type = '';
+      return updated;
+    }));
+    setErrors(e => { const n = { ...e }; delete n[`asset_${field}_${id}`]; return n; });
+  };
+
+  const aiSuggestAssets = () => {
+    const defs = SECTOR_ASSET_MAP[sector] ?? SECTOR_ASSET_MAP['Other'];
+    const subtypeHint = industrySubtype ? INDUSTRY_SUBTYPE_ASSET_HINTS[industrySubtype] : undefined;
+    const suggested: AssetRow[] = defs.map(def => {
+      const primaryType = def.types[0];
+      const typeLvl = TYPE_LEVEL_NOTES[primaryType];
+      const condition = subtypeHint?.defaultCondition ?? typeLvl?.condition ?? def.defaultCondition;
+      const ppmNote = subtypeHint?.ppmNote ?? typeLvl?.ppmNote ?? def.ppmNote;
+      const complianceNote = typeLvl?.complianceNote ?? def.complianceNote;
+      return {
+        id: Math.random().toString(36).slice(2),
+        assetName: primaryType,
+        category: def.category,
+        type: primaryType,
+        assignedSite: siteNames.filter(s => s.trim())[0] ?? '',
+        quantity: '1',
+        installYear: String(new Date().getFullYear() - 2),
+        condition,
+        notes: `${ppmNote} | ${complianceNote}`,
+      };
+    });
+    setAssetRows(suggested);
+  };
+
+  const aiSuggestRow = (id: string) => {
+    setAssetRows(prev => prev.map(a => {
+      if (a.id !== id) return a;
+      const defs = SECTOR_ASSET_MAP[sector] ?? SECTOR_ASSET_MAP['Other'];
+      const def = defs.find(d => d.category === a.category) ?? defs[0];
+      const typeLvl = TYPE_LEVEL_NOTES[a.type] ?? TYPE_LEVEL_NOTES[a.assetName];
+      const subtypeHint = industrySubtype ? INDUSTRY_SUBTYPE_ASSET_HINTS[industrySubtype] : undefined;
+      const condition = subtypeHint?.defaultCondition ?? typeLvl?.condition ?? (a.condition || def.defaultCondition);
+      const ppmNote = subtypeHint?.ppmNote ?? typeLvl?.ppmNote ?? def.ppmNote;
+      const complianceNote = typeLvl?.complianceNote ?? def.complianceNote;
+      return {
+        ...a,
+        condition,
+        notes: `${ppmNote} | ${complianceNote}`,
+      };
+    }));
   };
 
   const addMember = () => setTeamMembers(prev => [...prev, EMPTY_MEMBER()]);
@@ -273,6 +463,15 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
     if (!slaTier)              errs.slaTier = 'SLA tier is required';
     if (!contactName.trim())   errs.contactName = 'Contact name is required';
 
+    assetRows.forEach(a => {
+      const isPartial = a.assetName.trim() || a.category || a.type;
+      if (isPartial) {
+        if (!a.assetName.trim()) errs[`asset_assetName_${a.id}`] = 'Asset name required';
+        if (!a.category)         errs[`asset_category_${a.id}`]  = 'Category required';
+        if (!a.type)             errs[`asset_type_${a.id}`]      = 'Type required';
+      }
+    });
+
     const completedMembers = teamMembers.filter(m => m.name.trim() && m.email.trim() && m.role);
     if (completedMembers.length === 0) {
       errs.team_required = 'At least one team member with name, email, and role is required';
@@ -294,9 +493,11 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
     if (Object.keys(errs).length > 0) {
       setErrors(errs);
       const teamErrKeys = Object.keys(errs).filter(k => k.startsWith('team_'));
+      const assetErrKeys = Object.keys(errs).filter(k => k.startsWith('asset_'));
       if (teamErrKeys.length > 0 || errs.team_required) setActiveTab('team');
       else if (errs.contactName) setActiveTab('contact');
       else if (errs.contractType || errs.contractStart || errs.slaTier) setActiveTab('contract');
+      else if (assetErrKeys.length > 0) setActiveTab('assets');
       else if (errs.sites) setActiveTab('sites');
       else if (errs.name || errs.sector) setActiveTab('business');
       return;
@@ -318,6 +519,7 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
       siteNames: siteNames.filter(s => s.trim()),
       totalAssets,
       assetCategories,
+      assets: assetRows,
       contactName: contactName.trim(),
       contactEmail,
       contactPhone,
@@ -367,6 +569,7 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
   const tabHasError = (tab: Tab): boolean => {
     if (tab === 'business') return !!(errors.name || errors.sector);
     if (tab === 'sites') return !!errors.sites;
+    if (tab === 'assets') return Object.keys(errors).some(k => k.startsWith('asset_'));
     if (tab === 'contract') return !!(errors.contractType || errors.contractStart || errors.slaTier);
     if (tab === 'contact') return !!errors.contactName;
     if (tab === 'team') return !!(errors.team_required) || Object.keys(errors).some(k => k.startsWith('team_') && k !== 'team_required');
@@ -594,6 +797,208 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
                     ))}
                   </div>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'assets' && (
+            <div className="space-y-4">
+              <SectionHeader icon={SECTION_ICONS.assets} title="Asset Register" />
+
+              {/* AI Suggest strip */}
+              <div className="flex items-center justify-between bg-[rgba(46,127,255,0.06)] border border-[rgba(46,127,255,0.18)] rounded-xl px-3 py-2.5">
+                <div>
+                  <p className="text-[11px] text-[#EEF3FA] font-semibold">AI Asset Suggestion</p>
+                  <p className="text-[10px] text-[#7A94B4] mt-0.5">
+                    {sector
+                      ? `Pre-fill recommended assets for ${sector} sector`
+                      : 'Select a sector in the Business tab first'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={aiSuggestAssets}
+                  disabled={!sector}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-[#2E7FFF]/20 border border-[#2E7FFF]/40 text-[#2E7FFF] hover:bg-[#2E7FFF]/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
+                >
+                  <Sparkles size={11} />
+                  AI Suggest Assets
+                </button>
+              </div>
+
+              {/* Asset rows */}
+              {assetRows.length === 0 && (
+                <div className="text-center py-6 text-[11px] text-[#4A6080]">
+                  No assets added yet. Use "AI Suggest Assets" or add manually below.
+                </div>
+              )}
+
+              <div className="space-y-3">
+                {assetRows.map((asset) => {
+                  const sectorDefs = SECTOR_ASSET_MAP[sector] ?? SECTOR_ASSET_MAP['Other'];
+                  const categories = sectorDefs.map(d => d.category);
+                  const selectedDef = sectorDefs.find(d => d.category === asset.category);
+                  const types = selectedDef ? selectedDef.types : [];
+                  const filledSites = siteNames.filter(s => s.trim());
+
+                  return (
+                    <div
+                      key={asset.id}
+                      className="bg-[#0A1628] border border-[rgba(46,127,255,0.18)] rounded-xl p-3 space-y-2.5 relative"
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[10px] font-bold text-[#4A6080] uppercase tracking-widest">Asset</span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => aiSuggestRow(asset.id)}
+                            disabled={!sector}
+                            title="AI fill condition & notes"
+                            className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg border border-[rgba(46,127,255,0.25)] text-[#2E7FFF] hover:bg-[#2E7FFF]/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            <Sparkles size={9} />
+                            AI Fill
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => removeAssetRow(asset.id)}
+                            className="flex items-center gap-1 text-[10px] text-[#7A94B4] hover:text-red-400 transition-colors"
+                          >
+                            <X size={10} />
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <FieldLabel label="Asset Name" required />
+                          <input
+                            value={asset.assetName}
+                            onChange={e => updateAssetRow(asset.id, 'assetName', e.target.value)}
+                            placeholder="e.g. Rooftop AHU-01"
+                            className={inputCls(!!errors[`asset_assetName_${asset.id}`])}
+                          />
+                          {errors[`asset_assetName_${asset.id}`] && (
+                            <p className="mt-0.5 text-[10px] text-red-400">{errors[`asset_assetName_${asset.id}`]}</p>
+                          )}
+                        </div>
+
+                        <div>
+                          <FieldLabel label="Category" required />
+                          <select
+                            value={asset.category}
+                            onChange={e => updateAssetRow(asset.id, 'category', e.target.value)}
+                            className={`${selectCls} ${errors[`asset_category_${asset.id}`] ? 'border-red-500/60' : ''}`}
+                          >
+                            <option value="" className="bg-[#0A1628]">Select category…</option>
+                            {categories.map(c => (
+                              <option key={c} value={c} className="bg-[#0A1628]">{c}</option>
+                            ))}
+                          </select>
+                          {errors[`asset_category_${asset.id}`] && (
+                            <p className="mt-0.5 text-[10px] text-red-400">{errors[`asset_category_${asset.id}`]}</p>
+                          )}
+                        </div>
+
+                        <div>
+                          <FieldLabel label="Type" required />
+                          <select
+                            value={asset.type}
+                            onChange={e => updateAssetRow(asset.id, 'type', e.target.value)}
+                            className={`${selectCls} ${errors[`asset_type_${asset.id}`] ? 'border-red-500/60' : ''}`}
+                          >
+                            <option value="" className="bg-[#0A1628]">Select type…</option>
+                            {types.map(t => (
+                              <option key={t} value={t} className="bg-[#0A1628]">{t}</option>
+                            ))}
+                          </select>
+                          {errors[`asset_type_${asset.id}`] && (
+                            <p className="mt-0.5 text-[10px] text-red-400">{errors[`asset_type_${asset.id}`]}</p>
+                          )}
+                        </div>
+
+                        <div>
+                          <FieldLabel label="Assigned Site" />
+                          <select
+                            value={asset.assignedSite}
+                            onChange={e => updateAssetRow(asset.id, 'assignedSite', e.target.value)}
+                            className={selectCls}
+                          >
+                            <option value="" className="bg-[#0A1628]">Select site…</option>
+                            {filledSites.map(s => (
+                              <option key={s} value={s} className="bg-[#0A1628]">{s}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <FieldLabel label="Quantity" />
+                          <input
+                            type="number"
+                            min="1"
+                            value={asset.quantity}
+                            onChange={e => updateAssetRow(asset.id, 'quantity', e.target.value)}
+                            placeholder="1"
+                            className={inputCls()}
+                          />
+                        </div>
+
+                        <div>
+                          <FieldLabel label="Installation Year" />
+                          <input
+                            type="number"
+                            min="1990"
+                            max={new Date().getFullYear()}
+                            value={asset.installYear}
+                            onChange={e => updateAssetRow(asset.id, 'installYear', e.target.value)}
+                            placeholder={String(new Date().getFullYear())}
+                            className={inputCls()}
+                          />
+                        </div>
+
+                        <div>
+                          <FieldLabel label="Condition" />
+                          <select
+                            value={asset.condition}
+                            onChange={e => updateAssetRow(asset.id, 'condition', e.target.value)}
+                            className={selectCls}
+                          >
+                            <option value="" className="bg-[#0A1628]">Select…</option>
+                            {ASSET_CONDITION_OPTS.map(c => (
+                              <option key={c} value={c} className="bg-[#0A1628]">{c}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="col-span-2">
+                          <FieldLabel label="Notes / PPM Interval" />
+                          <input
+                            value={asset.notes}
+                            onChange={e => updateAssetRow(asset.id, 'notes', e.target.value)}
+                            placeholder="e.g. Quarterly service; Annual refrigerant check"
+                            className={inputCls()}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <button
+                type="button"
+                onClick={addAssetRow}
+                className="flex items-center gap-1.5 text-[11px] text-[#2E7FFF] hover:text-blue-300 transition-colors font-medium"
+              >
+                <Plus size={11} />
+                Add asset manually
+              </button>
+
+              <div className="mt-1 p-3 bg-[rgba(46,127,255,0.06)] border border-[rgba(46,127,255,0.15)] rounded-xl">
+                <p className="text-[10px] text-[#7A94B4] leading-relaxed">
+                  <span className="text-[#2E7FFF] font-semibold">Optional:</span> Asset registration is not required to save the client. Partially entered rows must have a name, category, and type filled.
+                </p>
               </div>
             </div>
           )}
