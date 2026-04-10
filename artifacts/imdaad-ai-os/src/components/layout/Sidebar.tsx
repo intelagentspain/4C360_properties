@@ -10,6 +10,7 @@ interface NavItem {
   label: string;
   page?: StrategicPage;
   active?: boolean;
+  scanLink?: boolean;
 }
 
 const strategicItems: NavItem[] = [
@@ -28,7 +29,7 @@ const strategicItems: NavItem[] = [
 
 const operationalItems: NavItem[] = [
   { icon: ClipboardList, label: 'My Task',     active: true },
-  { icon: Scan,          label: 'Smart Scan',  active: true },
+  { icon: Scan,          label: 'Smart Scan',  active: true, scanLink: true },
   { icon: ListChecks,    label: 'Checklist',   active: true },
   { icon: Package,       label: 'Parts & PO',  active: true },
   { icon: Image,         label: 'Evidence' },
@@ -67,6 +68,10 @@ export function Sidebar({ perspective, strategicPage, onStrategicPageChange, onT
   };
 
   const handleClick = (item: NavItem) => {
+    if (item.scanLink) {
+      window.location.href = import.meta.env.BASE_URL + 'scan/silicon-oasis/general';
+      return;
+    }
     if (perspective === 'strategic' && item.page) {
       onStrategicPageChange(item.page);
     } else if (!item.active && !item.page) {
