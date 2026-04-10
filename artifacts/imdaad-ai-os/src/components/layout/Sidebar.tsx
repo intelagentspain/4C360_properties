@@ -22,7 +22,7 @@ const strategicItems: NavItem[] = [
   { icon: Database,        label: 'Data Sources',       page: 'datasources' },
   { icon: BarChart2,       label: 'Benchmark',          page: 'benchmark' },
   { icon: PlayCircle,      label: 'Operational Replay', page: 'replay' },
-  { icon: Settings,        label: 'Settings' },
+  { icon: Settings,        label: 'Settings', page: 'settings' },
 ];
 
 const operationalItems: NavItem[] = [

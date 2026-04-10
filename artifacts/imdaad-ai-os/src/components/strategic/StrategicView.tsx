@@ -16,6 +16,7 @@ import { Incidents } from './Incidents';
 import { Tasks } from './Tasks';
 import { PPMSchedule } from './PPMSchedule';
 import { AICapture } from './AICapture';
+import { DispatchAIRules } from './DispatchAIRules';
 import type { StrategicPage } from '@/App';
 import type { ToastFn } from '@/lib/ui';
 
@@ -69,7 +70,8 @@ export function StrategicView({ onToast, page }: Props) {
         {page === 'incidents'   && <Incidents     onToast={onToast} />}
         {page === 'tasks'       && <Tasks         onToast={onToast} />}
         {page === 'ppmschedule' && <PPMSchedule   onToast={onToast} />}
-        {page === 'aicapture'   && <AICapture     onToast={onToast} />}
+        {page === 'aicapture'   && <AICapture        onToast={onToast} />}
+        {page === 'settings'    && <DispatchAIRules  onToast={onToast} />}
       </motion.div>
     </AnimatePresence>
   );

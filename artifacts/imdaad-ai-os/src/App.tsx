@@ -9,7 +9,7 @@ import { ToastContainer } from '@/components/shared/ToastContainer';
 import { useToast } from '@/hooks/useToast';
 
 export type Perspective = 'strategic' | 'operational' | 'client';
-export type StrategicPage = 'dashboard' | 'datasources' | 'benchmark' | 'replay' | 'incidents' | 'tasks' | 'ppmschedule' | 'aicapture';
+export type StrategicPage = 'dashboard' | 'datasources' | 'benchmark' | 'replay' | 'incidents' | 'tasks' | 'ppmschedule' | 'aicapture' | 'settings';
 
 function App() {
   const [perspective,    setPerspective]    = useState<Perspective>('strategic');
