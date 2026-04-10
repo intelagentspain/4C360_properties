@@ -157,12 +157,12 @@ function CaptureCard({ capture, onAction, onSelect, isSelected }: {
           )}
           <button
             onClick={onSelect}
-            className={`${capture.status === 'pending' ? 'w-8' : 'flex-1'} flex items-center justify-center gap-1 py-1.5 rounded-lg border transition-colors ${
+            className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg border transition-colors ${
               isSelected ? 'bg-[rgba(46,127,255,0.2)] border-[#2E7FFF] text-blue-400' : 'bg-white/5 border-white/10 text-[#7A94B4] hover:text-[#EEF3FA]'
             } text-[10px]`}
           >
             <Eye size={10} />
-            {capture.status !== 'pending' && <span>Detail</span>}
+            <span>{capture.status === 'pending' ? 'Review' : 'Detail'}</span>
           </button>
         </div>
       </div>

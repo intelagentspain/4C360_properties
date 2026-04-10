@@ -11,12 +11,12 @@ import { TechAvatar } from '@/components/shared/TechAvatar';
 
 type PPMItem = typeof mockPPMSchedule[0];
 
-const RISK_CONFIG: Record<string, { label: string; dot: string; text: string; border: string; bg: string; headerBg: string }> = {
-  overdue:  { label: 'Overdue',          dot: 'bg-red-400',    text: 'text-red-400',    border: 'border-red-500/30',    bg: 'bg-red-500/5',     headerBg: 'bg-red-500/10' },
-  critical: { label: 'Critical — ≤3 days', dot: 'bg-orange-400', text: 'text-orange-400', border: 'border-orange-500/30', bg: 'bg-orange-500/5',  headerBg: 'bg-orange-500/10' },
-  high:     { label: 'High Risk — ≤14 days', dot: 'bg-amber-400', text: 'text-amber-400', border: 'border-amber-500/30',  bg: 'bg-amber-500/5',   headerBg: 'bg-amber-500/10' },
-  medium:   { label: 'Medium Risk — ≤30 days', dot: 'bg-blue-400', text: 'text-blue-400',  border: 'border-blue-500/30',   bg: 'bg-blue-500/5',    headerBg: 'bg-blue-500/10' },
-  low:      { label: 'Scheduled',        dot: 'bg-emerald-400', text: 'text-emerald-400', border: 'border-emerald-500/30', bg: 'bg-emerald-500/5', headerBg: 'bg-emerald-500/10' },
+const RISK_CONFIG: Record<string, { label: string; sublabel: string; dot: string; text: string; border: string; bg: string; headerBg: string }> = {
+  overdue:  { label: 'Overdue',          sublabel: 'Past due date',         dot: 'bg-red-400',    text: 'text-red-400',    border: 'border-red-500/30',    bg: 'bg-red-500/5',     headerBg: 'bg-red-500/10' },
+  critical: { label: 'Critical',         sublabel: 'Due within 3 days',     dot: 'bg-orange-400', text: 'text-orange-400', border: 'border-orange-500/30', bg: 'bg-orange-500/5',  headerBg: 'bg-orange-500/10' },
+  high:     { label: 'This Week',        sublabel: 'Due within 14 days',    dot: 'bg-amber-400',  text: 'text-amber-400',  border: 'border-amber-500/30',  bg: 'bg-amber-500/5',   headerBg: 'bg-amber-500/10' },
+  medium:   { label: 'This Month',       sublabel: 'Due within 30 days',    dot: 'bg-blue-400',   text: 'text-blue-400',   border: 'border-blue-500/30',   bg: 'bg-blue-500/5',    headerBg: 'bg-blue-500/10' },
+  low:      { label: 'Upcoming',         sublabel: 'Scheduled — 30+ days',  dot: 'bg-emerald-400', text: 'text-emerald-400', border: 'border-emerald-500/30', bg: 'bg-emerald-500/5', headerBg: 'bg-emerald-500/10' },
 };
 
 const RISK_ORDER = ['overdue', 'critical', 'high', 'medium', 'low'];
@@ -229,7 +229,8 @@ export function PPMSchedule({ onToast }: Props) {
                   <div className={`flex items-center gap-2 px-5 py-2 ${cfg.headerBg} border-b border-[rgba(46,127,255,0.08)]`}>
                     <div className={`w-2 h-2 rounded-full ${cfg.dot}`} />
                     <span className={`text-[10px] font-bold uppercase tracking-wide ${cfg.text}`}>{cfg.label}</span>
-                    <span className={`text-[9px] ${cfg.text} opacity-60`}>· {items.length} task{items.length > 1 ? 's' : ''}</span>
+                    <span className={`text-[9px] ${cfg.text} opacity-60`}>· {cfg.sublabel}</span>
+                    <span className={`text-[9px] ${cfg.text} opacity-40 ml-auto`}>{items.length} task{items.length > 1 ? 's' : ''}</span>
                   </div>
                   {items.map(item => <PPMRow key={item.id} item={item} onToast={onToast} />)}
                 </div>
