@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Bell, ChevronDown, Zap, Bot, Hand, Plus, X, Building2, MapPin, FileText, User, Users, Layers, Sparkles } from 'lucide-react';
+import { Search, Bell, ChevronDown, Zap, Bot, Hand, Plus, X, Building2, MapPin, FileText, User, Users, Layers, Sparkles, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export type AutomationMode = 'manual' | 'hybrid' | 'ai';
@@ -349,6 +349,7 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
+  const [isSuggestingAssets, setIsSuggestingAssets] = useState(false);
 
   const toggleAsset = (cat: string) => {
     setAssetCategories(prev =>
@@ -374,28 +375,48 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
     setErrors(e => { const n = { ...e }; delete n[`asset_${field}_${id}`]; return n; });
   };
 
-  const aiSuggestAssets = () => {
-    const defs = SECTOR_ASSET_MAP[sector] ?? SECTOR_ASSET_MAP['Other'];
-    const subtypeHint = industrySubtype ? INDUSTRY_SUBTYPE_ASSET_HINTS[industrySubtype] : undefined;
-    const suggested: AssetRow[] = defs.map(def => {
-      const primaryType = def.types[0];
-      const typeLvl = TYPE_LEVEL_NOTES[primaryType];
-      const condition = subtypeHint?.defaultCondition ?? typeLvl?.condition ?? def.defaultCondition;
-      const ppmNote = subtypeHint?.ppmNote ?? typeLvl?.ppmNote ?? def.ppmNote;
-      const complianceNote = typeLvl?.complianceNote ?? def.complianceNote;
-      return {
-        id: Math.random().toString(36).slice(2),
-        assetName: primaryType,
-        category: def.category,
-        type: primaryType,
-        assignedSite: siteNames.filter(s => s.trim())[0] ?? '',
-        quantity: '1',
-        installYear: String(new Date().getFullYear() - 2),
-        condition,
-        notes: `${ppmNote} | ${complianceNote}`,
-      };
-    });
-    setAssetRows(suggested);
+  const aiSuggestAssets = async () => {
+    setIsSuggestingAssets(true);
+    try {
+      const base = import.meta.env.BASE_URL?.replace(/\/$/, '') ?? '';
+      const res = await fetch(`${base}/api/suggest-assets`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sector,
+          industrySubtype,
+          siteNames: siteNames.filter(s => s.trim()),
+        }),
+      });
+      if (!res.ok) throw new Error('API error');
+      const data = await res.json() as { success: boolean; assets?: AssetRow[] };
+      if (!data.success || !Array.isArray(data.assets) || data.assets.length === 0) throw new Error('Empty response');
+      setAssetRows(data.assets);
+    } catch {
+      const defs = SECTOR_ASSET_MAP[sector] ?? SECTOR_ASSET_MAP['Other'];
+      const subtypeHint = industrySubtype ? INDUSTRY_SUBTYPE_ASSET_HINTS[industrySubtype] : undefined;
+      const suggested: AssetRow[] = defs.map(def => {
+        const primaryType = def.types[0];
+        const typeLvl = TYPE_LEVEL_NOTES[primaryType];
+        const condition = subtypeHint?.defaultCondition ?? typeLvl?.condition ?? def.defaultCondition;
+        const ppmNote = subtypeHint?.ppmNote ?? typeLvl?.ppmNote ?? def.ppmNote;
+        const complianceNote = typeLvl?.complianceNote ?? def.complianceNote;
+        return {
+          id: Math.random().toString(36).slice(2),
+          assetName: primaryType,
+          category: def.category,
+          type: primaryType,
+          assignedSite: siteNames.filter(s => s.trim())[0] ?? '',
+          quantity: '1',
+          installYear: String(new Date().getFullYear() - 2),
+          condition,
+          notes: `${ppmNote} | ${complianceNote}`,
+        };
+      });
+      setAssetRows(suggested);
+    } finally {
+      setIsSuggestingAssets(false);
+    }
   };
 
   const aiSuggestRow = (id: string) => {
@@ -810,18 +831,16 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
                 <div>
                   <p className="text-[11px] text-[#EEF3FA] font-semibold">AI Asset Suggestion</p>
                   <p className="text-[10px] text-[#7A94B4] mt-0.5">
-                    {sector
-                      ? `Pre-fill recommended assets for ${sector} sector`
-                      : 'Select a sector in the Business tab first'}
+                    Suggest assets based on entered details
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={aiSuggestAssets}
-                  disabled={!sector}
+                  disabled={isSuggestingAssets}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-[#2E7FFF]/20 border border-[#2E7FFF]/40 text-[#2E7FFF] hover:bg-[#2E7FFF]/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
                 >
-                  <Sparkles size={11} />
+                  {isSuggestingAssets ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
                   AI Suggest Assets
                 </button>
               </div>
