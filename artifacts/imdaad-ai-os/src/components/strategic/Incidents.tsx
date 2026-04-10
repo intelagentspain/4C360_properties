@@ -122,7 +122,7 @@ function OverviewTab({ incident }: { incident: Incident }) {
           </div>
         </div>
       )}
-      {(incident as { closureNotes?: string | null }).closureNotes && (
+      {incident.closureNotes && (
         <div>
           <div className="text-[10px] text-[#7A94B4] uppercase tracking-wide mb-1.5">Closure Notes</div>
           <div className="p-2.5 bg-emerald-500/5 border border-emerald-500/20 rounded-xl">
@@ -130,7 +130,7 @@ function OverviewTab({ incident }: { incident: Incident }) {
               <CheckCircle size={11} className="text-emerald-400" />
               <span className="text-[10px] text-emerald-400 font-semibold">Incident Closed · SLA Met</span>
             </div>
-            <p className="text-[11px] text-[#EEF3FA] leading-relaxed">{(incident as { closureNotes?: string | null }).closureNotes}</p>
+            <p className="text-[11px] text-[#EEF3FA] leading-relaxed">{incident.closureNotes}</p>
           </div>
         </div>
       )}
