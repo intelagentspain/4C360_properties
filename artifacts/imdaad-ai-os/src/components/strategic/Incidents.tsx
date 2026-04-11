@@ -13,6 +13,7 @@ import { TechAvatar } from '@/components/shared/TechAvatar';
 import { useIncidents, type Incident, type CreateWorkOrderInput } from '@/context/IncidentContext';
 import { WhatsAppModal } from '@/components/shared/WhatsAppModal';
 import { CURRENT_USER } from '@/lib/currentUser';
+import { mockPortfolioClients } from '../../data/mockData';
 
 const WO_ALLOWED_ROLES = new Set(['FM Engineer', 'Site Supervisor', 'FM Manager', 'Safety Officer', 'Project Manager', 'Account Manager', 'Executive']);
 const canCreateWorkOrder = WO_ALLOWED_ROLES.has(CURRENT_USER.role);
@@ -1036,6 +1037,8 @@ export function Incidents({ onToast }: Props) {
   const [severity,    setSeverity]    = useState('All');
   const [status,      setStatus]      = useState('All');
   const [source,      setSource]      = useState('All');
+  const [client,      setClient]      = useState('All');
+  const [site,        setSite]        = useState('All');
   const [selected,    setSelected]    = useState<Incident | null>(null);
   const [activeTab,   setActiveTab]   = useState('Overview');
   const [sortKey,     setSortKey]     = useState<SortKey>('none');
@@ -1117,11 +1120,15 @@ export function Incidents({ onToast }: Props) {
     onToast(`Work Order ${wo.id} created · stakeholders notified`, 'success');
   };
 
+  const anyFilterActive = client !== 'All' || site !== 'All' || severity !== 'All' || status !== 'All' || source !== 'All' || search !== '';
+
   const filtered = incidents
     .filter(inc => {
       if (severity !== 'All' && inc.severity !== severity) return false;
       if (status   !== 'All' && inc.status   !== status)   return false;
       if (source   !== 'All' && inc.source   !== source)   return false;
+      if (client   !== 'All' && inc.clientId !== client)   return false;
+      if (site     !== 'All' && inc.siteId   !== site)     return false;
       if (search && !inc.title.toLowerCase().includes(search.toLowerCase()) &&
                     !inc.location.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
@@ -1190,6 +1197,18 @@ export function Incidents({ onToast }: Props) {
       </div>
 
       <div className="flex items-center gap-2 px-5 py-2.5 border-b border-[rgba(46,127,255,0.1)] flex-shrink-0 flex-wrap gap-y-2">
+        <select value={client} onChange={e => setClient(e.target.value)} className="bg-[#112040] border border-[rgba(46,127,255,0.2)] rounded-lg px-2 py-1.5 text-[11px] text-[#EEF3FA] outline-none cursor-pointer">
+          <option value="All">All clients</option>
+          {mockPortfolioClients.map(c => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </select>
+        <select value={site} onChange={e => setSite(e.target.value)} className="bg-[#112040] border border-[rgba(46,127,255,0.2)] rounded-lg px-2 py-1.5 text-[11px] text-[#EEF3FA] outline-none cursor-pointer">
+          <option value="All">All sites</option>
+          {['silicon-oasis', 'gate-avenue', 'business-bay', 'jlt-north', 'difc-tower'].map(s => (
+            <option key={s} value={s}>{s.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</option>
+          ))}
+        </select>
         <div className="flex items-center gap-1.5 bg-[#112040] rounded-lg px-2.5 py-1.5 border border-[rgba(46,127,255,0.2)] flex-shrink-0">
           <Search size={11} className="text-[#7A94B4]" />
           <input
@@ -1222,6 +1241,14 @@ export function Incidents({ onToast }: Props) {
             </button>
           ))}
         </div>
+        {anyFilterActive && (
+          <button
+            onClick={() => { setClient('All'); setSite('All'); setSeverity('All'); setStatus('All'); setSource('All'); setSearch(''); }}
+            className="flex items-center gap-1 text-[10px] text-[#7A94B4] hover:text-red-400 transition-colors px-2 py-1 rounded-lg border border-[rgba(255,255,255,0.08)] hover:border-red-500/30 ml-auto"
+          >
+            <X size={10} /> Clear filters
+          </button>
+        )}
       </div>
 
       <div className="flex flex-1 overflow-hidden">

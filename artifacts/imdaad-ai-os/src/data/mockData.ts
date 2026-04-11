@@ -83,6 +83,7 @@ export const mockIncidents = [
     id: 'INC-SI-001', title: 'AC Failure', location: 'Villa 23, Cluster A',
     severity: 'critical', slaMinutes: 45, elapsed: 6, lat: 25.1185, lng: 55.3755, source: 'AI Capture',
     status: 'dispatched', assignedTech: 'Karim R.', techId: 'KR', closureNotes: null,
+    clientId: 'CLT-001', siteId: 'silicon-oasis',
     description: 'AI detected frost pattern on evaporator coil. Consistent with R-410A refrigerant depletion. Resident confirmed unit not cooling.',
     activityLog: [
       { time: '10:08 AM', event: 'AI Capture detected via resident photo', type: 'incident' },
@@ -94,6 +95,7 @@ export const mockIncidents = [
     id: 'INC-SI-002', title: 'Water Leak', location: 'Villa 7, Cluster B',
     severity: 'medium', slaMinutes: 120, elapsed: 14, lat: 25.1160, lng: 55.3785, source: 'AI Capture',
     status: 'open', assignedTech: null, techId: null, closureNotes: null,
+    clientId: 'CLT-002', siteId: 'gate-avenue',
     description: 'Resident submitted photo of water pooling under kitchen sink. AI matched pattern to slow pipe joint failure. No structural damage detected.',
     activityLog: [
       { time: '10:10 AM', event: 'Incident reported via Resident App with photo', type: 'incident' },
@@ -104,6 +106,7 @@ export const mockIncidents = [
     id: 'INC-SI-003', title: 'Lift Fault', location: 'Block C',
     severity: 'high', slaMinutes: 60, elapsed: 22, lat: 25.1195, lng: 55.3765, source: 'WhatsApp → Manual',
     status: 'in-progress', assignedTech: 'Faisal N.', techId: 'FN', closureNotes: null,
+    clientId: 'CLT-003', siteId: 'business-bay',
     description: 'Lift stopped between floors — reported via WhatsApp message thread. Manual review escalated to high priority. No occupants trapped.',
     activityLog: [
       { time: '09:58 AM', event: 'WhatsApp message received from building supervisor', type: 'incident' },
@@ -116,6 +119,7 @@ export const mockIncidents = [
     id: 'INC-SI-004', title: 'Power Trip', location: 'Villa 31',
     severity: 'low', slaMinutes: 240, elapsed: 31, lat: 25.1170, lng: 55.3750, source: 'Resident App',
     status: 'assigned', assignedTech: 'Sara M.', techId: 'SM', closureNotes: null,
+    clientId: 'CLT-001', siteId: 'silicon-oasis',
     description: 'Resident reported MCB tripping repeatedly. Likely caused by faulty appliance or overloaded circuit. Sara M. assigned for electrical inspection.',
     activityLog: [
       { time: '09:49 AM', event: 'Service request submitted via Resident App', type: 'incident' },
@@ -127,6 +131,7 @@ export const mockIncidents = [
     id: 'INC-SI-005', title: 'Gate Intercom Down', location: 'Main Gate',
     severity: 'medium', slaMinutes: 180, elapsed: 45, lat: 25.1175, lng: 55.3775, source: 'Resident App',
     status: 'overdue', assignedTech: 'Omar T.', techId: 'OT', closureNotes: null,
+    clientId: 'CLT-004', siteId: 'jlt-north',
     description: 'Main gate intercom system unresponsive. Multiple residents unable to grant access to visitors. Omar T. assigned but job is now overdue.',
     activityLog: [
       { time: '09:30 AM', event: 'Multiple residents reported via app', type: 'incident' },
@@ -139,6 +144,7 @@ export const mockIncidents = [
     id: 'INC-SI-006', title: 'Pool Pump Noise', location: 'Recreation Area',
     severity: 'low', slaMinutes: 360, elapsed: 12, lat: 25.1168, lng: 55.3762, source: 'Resident App',
     status: 'open', assignedTech: null, techId: null, closureNotes: null,
+    clientId: 'CLT-005', siteId: 'difc-tower',
     description: 'Unusually loud grinding noise from pool pump reported. IoT sensor confirms anomalous vibration signature. Predictive risk flagged at 41%.',
     activityLog: [
       { time: '10:12 AM', event: 'Resident reported noise via app', type: 'incident' },
@@ -149,6 +155,7 @@ export const mockIncidents = [
     id: 'INC-SI-007', title: 'Gym AC Serviced', location: 'Block C Gym',
     severity: 'medium', slaMinutes: 240, elapsed: 210, lat: 25.1190, lng: 55.3770, source: 'WhatsApp → Manual',
     status: 'closed', assignedTech: 'Karim R.', techId: 'KR',
+    clientId: 'CLT-001', siteId: 'silicon-oasis',
     description: 'Scheduled maintenance service completed on gym AHU. Filter replaced, coils cleaned, refrigerant pressure verified. Unit operating within spec.',
     activityLog: [
       { time: 'Yesterday 09:00 AM', event: 'PPM task triggered — scheduled service due', type: 'incident' },
