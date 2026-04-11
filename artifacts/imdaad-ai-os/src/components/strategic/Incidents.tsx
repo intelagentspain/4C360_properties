@@ -597,7 +597,7 @@ function CreateWorkOrderModal({ incident, onClose, onConfirm }: CreateWorkOrderM
     title: incident.title,
     location: incident.location,
     priority: incident.severity === 'critical' ? 'critical' : incident.severity === 'high' ? 'high' : incident.severity === 'medium' ? 'medium' : 'low',
-    asset: incident.aiMetadata?.identifiedAsset ?? '',
+    asset: incident.aiMetadata?.identifiedAsset ?? incident.asset ?? '',
     skill: deriveSkillFromIncident(incident),
     description: incident.description,
     siteId: incident.siteId,
