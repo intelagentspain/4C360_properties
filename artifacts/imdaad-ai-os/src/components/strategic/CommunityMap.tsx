@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, CircleMarker, Circle } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, CircleMarker, Circle, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -327,6 +327,44 @@ function FailureDetail({ data, onToast, onClose }: { data: typeof mockPredictedF
   );
 }
 
+const ALL_CLIENTS_CENTER: L.LatLngTuple = [25.1175, 55.3775];
+const ALL_CLIENTS_ZOOM = 14;
+
+interface MapViewControllerProps {
+  filterClientId: string;
+  incidents: Incident[];
+}
+
+function MapViewController({ filterClientId, incidents }: MapViewControllerProps) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!filterClientId) {
+      map.flyTo(ALL_CLIENTS_CENTER, ALL_CLIENTS_ZOOM, { animate: true, duration: 1.2 });
+      return;
+    }
+
+    const clientIncidents = incidents.filter(
+      inc => inc.clientId === filterClientId && inc.lat != null && inc.lng != null,
+    );
+
+    if (clientIncidents.length === 0) {
+      map.flyTo(ALL_CLIENTS_CENTER, ALL_CLIENTS_ZOOM, { animate: true, duration: 1.2 });
+      return;
+    }
+
+    if (clientIncidents.length === 1) {
+      map.flyTo([clientIncidents[0].lat!, clientIncidents[0].lng!], 16, { animate: true, duration: 1.2 });
+      return;
+    }
+
+    const bounds = L.latLngBounds(clientIncidents.map(inc => [inc.lat!, inc.lng!] as L.LatLngTuple));
+    map.flyToBounds(bounds, { padding: [60, 60], animate: true, duration: 1.2 });
+  }, [filterClientId, incidents, map]);
+
+  return null;
+}
+
 interface Props {
   onToast?: (msg: string, type?: 'success' | 'warning' | 'error' | 'info') => void;
   selectedClientId?: string | null;
@@ -404,6 +442,8 @@ export function CommunityMap({ onToast, selectedClientId }: Props) {
           subdomains="abcd"
           maxZoom={20}
         />
+
+        <MapViewController filterClientId={filterClientId} incidents={contextIncidents} />
 
         {activeLayers.slaZones && mockSLAZones.map(zone => (
           <Circle
