@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, Mail, MapPin, Wrench, ClipboardList, UserPlus, X,
-  MessageSquare, Building2, FileText, User, Shield, Search, Phone,
+  MessageSquare, Building2, FileText, User, Shield, Search, Phone, Camera,
 } from 'lucide-react';
 import { useMemberProfiles } from '@/context/MemberProfilesContext';
 import { useClients } from '@/context/ClientsContext';
@@ -31,6 +31,7 @@ function getInitials(name: string): string {
 type MemberPerspective = 'Strategic' | 'Operational' | 'Client';
 
 interface AddStaffForm {
+  photo: string;
   name: string;
   email: string;
   role: string;
@@ -93,6 +94,7 @@ const COMM_CHANNELS = [
 ];
 
 const EMPTY_FORM: AddStaffForm = {
+  photo: '',
   name: '',
   email: '',
   role: '',
@@ -156,6 +158,7 @@ interface AddStaffModalProps {
 function AddStaffModal({ onClose, onToast, clientNames }: AddStaffModalProps) {
   const { addProfiles } = useMemberProfiles();
   const [form, setForm] = useState<AddStaffForm>(EMPTY_FORM);
+  const photoInputRef = useRef<HTMLInputElement>(null);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [whatsappTarget, setWhatsappTarget] = useState<{ recipientName: string; recipientPhone: string; defaultMessage: string } | null>(null);
@@ -209,6 +212,18 @@ function AddStaffModal({ onClose, onToast, clientNames }: AddStaffModalProps) {
     }));
   }
 
+  function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const dataUrl = ev.target?.result as string;
+      if (dataUrl) setField('photo', dataUrl);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  }
+
   function handleRoleChange(role: string) {
     const defaults = ROLE_DEFAULT_PRIVILEGES[role] ?? [];
     setForm(prev => ({ ...prev, role, privileges: defaults }));
@@ -244,6 +259,7 @@ function AddStaffModal({ onClose, onToast, clientNames }: AddStaffModalProps) {
         availability: form.availability,
         shift: form.shift,
         commChannels: form.commChannels,
+        ...(form.photo ? { photo: form.photo } : {}),
       }]);
       onToast(`${form.name.trim()} added to the team`, 'success');
       onClose();
@@ -292,6 +308,38 @@ function AddStaffModal({ onClose, onToast, clientNames }: AddStaffModalProps) {
               {/* Identity */}
               <div>
                 <SectionHeader icon={<User size={12} className="text-[#2E7FFF]" />} title="Identity" />
+
+                {/* Photo upload */}
+                <div className="flex justify-center mb-4">
+                  <input
+                    ref={photoInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handlePhotoChange}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => photoInputRef.current?.click()}
+                    className="relative w-20 h-20 rounded-full overflow-hidden bg-[#0A1628] border-2 border-dashed border-[rgba(46,127,255,0.35)] hover:border-[#2E7FFF] transition-colors group flex items-center justify-center flex-shrink-0"
+                    title="Upload profile photo"
+                  >
+                    {form.photo ? (
+                      <>
+                        <img src={form.photo} alt="Preview" className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <Camera size={16} className="text-white" />
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex flex-col items-center gap-1 text-[#4A6080] group-hover:text-[#7A94B4] transition-colors">
+                        <Camera size={18} />
+                        <span className="text-[9px] font-medium leading-tight text-center">Add<br />Photo</span>
+                      </div>
+                    )}
+                  </button>
+                </div>
+
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <FieldLabel label="Full Name" required />

@@ -74,8 +74,11 @@ export function MemberProfilesProvider({ children }: { children: ReactNode }) {
           availability: m.availability ?? null,
           shift: m.shift ?? null,
           commChannels: m.commChannels ?? [],
+          ...(m.photo ? { photo: m.photo } : {}),
         });
-        saved.push(dbMemberToProfile(result));
+        const profile = dbMemberToProfile(result);
+        if (!profile.photo && m.photo) profile.photo = m.photo;
+        saved.push(profile);
       } catch (err: unknown) {
         errors.push({ member: m, err });
       }

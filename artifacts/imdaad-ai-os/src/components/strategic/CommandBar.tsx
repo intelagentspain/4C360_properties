@@ -243,6 +243,7 @@ export interface TeamMember {
   availability: string;
   shift: string;
   commChannels: string[];
+  photo?: string;
 }
 
 interface AddClientModalProps {
