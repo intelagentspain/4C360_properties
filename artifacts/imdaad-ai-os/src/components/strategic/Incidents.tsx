@@ -6,17 +6,27 @@ import {
   ChevronUp, ChevronDown as ChevronDownIcon, QrCode, Plus,
   MessageSquare, Smartphone, Bot, Briefcase,
   Camera, Upload, Loader2, Sparkles, Bell,
+  ThumbsUp, ThumbsDown, Hourglass,
 } from 'lucide-react';
 import { SEVERITY_BADGE, slaStatus, type ToastFn } from '@/lib/ui';
 import { AnimatedBar } from '@/components/shared/AnimatedBar';
 import { TechAvatar } from '@/components/shared/TechAvatar';
-import { useIncidents, type Incident, type CreateWorkOrderInput } from '@/context/IncidentContext';
+import { useIncidents, type Incident, type CreateWorkOrderInput, type TicketState } from '@/context/IncidentContext';
 import { WhatsAppModal } from '@/components/shared/WhatsAppModal';
 import { CURRENT_USER } from '@/lib/currentUser';
 import { mockPortfolioClients } from '../../data/mockData';
 
 const WO_ALLOWED_ROLES = new Set(['FM Engineer', 'Site Supervisor', 'FM Manager', 'Safety Officer', 'Project Manager', 'Account Manager', 'Executive']);
 const canCreateWorkOrder = WO_ALLOWED_ROLES.has(CURRENT_USER.role);
+const APPROVER_ROLES = new Set(['Site Supervisor', 'Account Manager', 'FM Manager', 'Operations Supervisor']);
+const canApprove = APPROVER_ROLES.has(CURRENT_USER.role);
+
+const TICKET_STATE_CONFIG: Record<TicketState, { label: string; dot: string; text: string; bg: string }> = {
+  pending_approval:  { label: 'Pending Approval', dot: 'bg-amber-400 animate-pulse', text: 'text-amber-400', bg: 'bg-amber-500/10 border-amber-500/30' },
+  approved:          { label: 'Approved',          dot: 'bg-emerald-400',            text: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/30' },
+  rejected:          { label: 'Rejected',          dot: 'bg-red-400',                text: 'text-red-400',     bg: 'bg-red-500/10 border-red-500/30' },
+  work_order_created:{ label: 'Work Order Created',dot: 'bg-blue-400',               text: 'text-blue-400',    bg: 'bg-blue-500/10 border-blue-500/30' },
+};
 
 const STATUS_CONFIG: Record<string, { label: string; dot: string; text: string; bg: string }> = {
   open:        { label: 'Open',        dot: 'bg-[#7A94B4]',       text: 'text-[#7A94B4]',    bg: 'bg-white/5 border-white/10' },
@@ -163,6 +173,23 @@ function OverviewTab({ incident }: { incident: Incident }) {
               ))}
             </div>
           </div>
+        </div>
+      )}
+      {incident.ticketState && (
+        <div>
+          <div className="text-[10px] text-[#7A94B4] uppercase tracking-wide mb-1.5">Ticket Status</div>
+          {(() => {
+            const cfg = TICKET_STATE_CONFIG[incident.ticketState!];
+            return (
+              <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-semibold ${cfg.bg} ${cfg.text}`}>
+                <div className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
+                {cfg.label}
+              </div>
+            );
+          })()}
+          {incident.ticketState === 'rejected' && incident.rejectionReason && (
+            <p className="text-[10px] text-[#7A94B4] mt-1.5 leading-relaxed">Reason: {incident.rejectionReason}</p>
+          )}
         </div>
       )}
       {incident.closureNotes && (
@@ -471,16 +498,111 @@ function CreateWorkOrderModal({ incident, onClose, onConfirm }: CreateWorkOrderM
   );
 }
 
+function RejectReasonModal({ incidentId, onClose, onConfirm }: { incidentId: string; onClose: () => void; onConfirm: (reason: string) => void }) {
+  const [reason, setReason] = useState('');
+  const valid = reason.trim().length > 0;
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4"
+        onClick={onClose}
+      >
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95, y: 12 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95, y: 12 }}
+          transition={{ duration: 0.18 }}
+          className="bg-[#0D1F3C] border border-red-500/30 rounded-2xl w-full max-w-sm shadow-2xl"
+          onClick={e => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between px-5 py-4 border-b border-red-500/20">
+            <div>
+              <h3 className="text-[#EEF3FA] font-bold text-sm">Reject Ticket</h3>
+              <p className="text-[10px] text-[#7A94B4] mt-0.5">Provide a reason for rejecting {incidentId}</p>
+            </div>
+            <button onClick={onClose} className="text-[#7A94B4] hover:text-white transition-colors">
+              <X size={15} />
+            </button>
+          </div>
+          <div className="px-5 py-4 space-y-3">
+            <div>
+              <label className="block text-[9px] text-[#7A94B4] uppercase tracking-wide mb-1">Rejection Reason *</label>
+              <textarea
+                value={reason}
+                onChange={e => setReason(e.target.value)}
+                placeholder="e.g. Insufficient information provided. Please resubmit with photo evidence."
+                rows={4}
+                className="w-full bg-[#112040] border border-red-500/30 rounded-lg px-3 py-2 text-[12px] text-[#EEF3FA] placeholder-[#7A94B4]/50 outline-none focus:border-red-400 transition-colors resize-none"
+                autoFocus
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-2 px-5 pb-5">
+            <button
+              onClick={onClose}
+              className="flex-1 py-2 rounded-lg border border-[rgba(46,127,255,0.2)] text-[11px] text-[#7A94B4] hover:text-[#EEF3FA] transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => valid && onConfirm(reason.trim())}
+              disabled={!valid}
+              className={`flex-1 py-2 rounded-lg text-[11px] font-semibold transition-colors flex items-center justify-center gap-1.5 ${valid ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-red-500/30 text-white/40 cursor-not-allowed'}`}
+            >
+              <ThumbsDown size={11} />
+              Confirm Rejection
+            </button>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
 function ActionsTab({ incident, onToast, onCreateWorkOrder }: { incident: Incident; onToast: ToastFn; onCreateWorkOrder: () => void }) {
   const [whatsappOpen, setWhatsappOpen] = useState(false);
+  const [rejectModalOpen, setRejectModalOpen] = useState(false);
+  const [approvingTicket, setApprovingTicket] = useState(false);
+  const { approveTicket, rejectTicket } = useIncidents();
+
   const isClosed  = incident.status === 'closed';
   const isOverdue = incident.status === 'overdue';
   const hasWorkOrder = !!incident.workOrderId;
   const techWhatsapp = incident.assignedTech ? TECH_WHATSAPP[incident.assignedTech] : null;
+  const ticketState = incident.ticketState;
+  const isPendingApproval = ticketState === 'pending_approval';
+  const isApproved = ticketState === 'approved';
+  const isRejected = ticketState === 'rejected';
+  const isWorkOrderCreated = ticketState === 'work_order_created';
 
   const defaultWhatsappMsg = incident.assignedTech
     ? `Hi ${incident.assignedTech}, this is Imdaad AI-OS.\n\nIncident ${incident.id}: ${incident.title}\nLocation: ${incident.location}\nSeverity: ${incident.severity.toUpperCase()}\n\nPlease acknowledge this message and confirm your ETA.`
     : '';
+
+  const handleApprove = async () => {
+    setApprovingTicket(true);
+    try {
+      await approveTicket(incident.id, CURRENT_USER.name);
+      onToast(`Ticket ${incident.id} approved — work order ready to create`, 'success');
+    } catch {
+      onToast('Failed to approve ticket', 'error');
+    } finally {
+      setApprovingTicket(false);
+    }
+  };
+
+  const handleReject = async (reason: string) => {
+    setRejectModalOpen(false);
+    try {
+      await rejectTicket(incident.id, reason, CURRENT_USER.name);
+      onToast(`Ticket ${incident.id} rejected — reporter notified`, 'info');
+    } catch {
+      onToast('Failed to reject ticket', 'error');
+    }
+  };
 
   return (
     <div className="space-y-3">
@@ -494,10 +616,86 @@ function ActionsTab({ incident, onToast, onCreateWorkOrder }: { incident: Incide
           onError={name => onToast(`Failed to send — check number for ${name}`, 'error')}
         />
       )}
+      {rejectModalOpen && (
+        <RejectReasonModal
+          incidentId={incident.id}
+          onClose={() => setRejectModalOpen(false)}
+          onConfirm={handleReject}
+        />
+      )}
 
       <div className="text-[11px] text-[#7A94B4]">Actions available for {incident.id}</div>
 
-      {canCreateWorkOrder && !isClosed && !hasWorkOrder && (
+      {isPendingApproval && canApprove && (
+        <div className="p-3 bg-amber-500/5 border border-amber-500/25 rounded-xl space-y-2">
+          <div className="flex items-center gap-1.5 mb-1">
+            <Hourglass size={12} className="text-amber-400" />
+            <span className="text-[11px] text-amber-400 font-semibold">Awaiting Approval</span>
+          </div>
+          <p className="text-[10px] text-[#7A94B4]">As a supervisor/account manager, your decision is required to proceed.</p>
+          <div className="flex gap-2">
+            <button
+              onClick={handleApprove}
+              disabled={approvingTicket}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-emerald-600/15 border border-emerald-500/40 text-emerald-400 text-[11px] font-bold hover:bg-emerald-600/25 transition-colors disabled:opacity-60"
+            >
+              {approvingTicket ? <><div className="w-3 h-3 border border-emerald-400 border-t-transparent rounded-full animate-spin" /> Approving…</> : <><ThumbsUp size={12} /> Approve</>}
+            </button>
+            <button
+              onClick={() => setRejectModalOpen(true)}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-[11px] font-bold hover:bg-red-500/20 transition-colors"
+            >
+              <ThumbsDown size={12} /> Reject
+            </button>
+          </div>
+        </div>
+      )}
+
+      {isPendingApproval && !canApprove && (
+        <div className="flex items-center gap-2 p-3 bg-amber-500/5 border border-amber-500/25 rounded-xl">
+          <Hourglass size={13} className="text-amber-400 flex-shrink-0" />
+          <div>
+            <div className="text-[11px] text-amber-400 font-semibold">Pending Approval</div>
+            <div className="text-[10px] text-[#7A94B4]">Awaiting supervisor or account manager decision</div>
+          </div>
+        </div>
+      )}
+
+      {isRejected && (
+        <div className="p-3 bg-red-500/5 border border-red-500/25 rounded-xl">
+          <div className="flex items-center gap-1.5 mb-1">
+            <ThumbsDown size={12} className="text-red-400" />
+            <span className="text-[11px] text-red-400 font-semibold">Ticket Rejected</span>
+          </div>
+          {incident.rejectionReason && (
+            <p className="text-[10px] text-[#7A94B4] leading-relaxed">Reason: {incident.rejectionReason}</p>
+          )}
+          {incident.rejectedBy && (
+            <p className="text-[10px] text-[#7A94B4] mt-0.5">Rejected by: {incident.rejectedBy}</p>
+          )}
+        </div>
+      )}
+
+      {isApproved && canCreateWorkOrder && !hasWorkOrder && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-1.5 px-3 py-2 bg-emerald-500/5 border border-emerald-500/20 rounded-xl">
+            <ThumbsUp size={12} className="text-emerald-400" />
+            <span className="text-[11px] text-emerald-400 font-semibold">Ticket Approved — Ready for Work Order</span>
+          </div>
+          <button
+            onClick={onCreateWorkOrder}
+            className="w-full flex items-center gap-2.5 p-3 rounded-xl bg-emerald-600/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-600/20 transition-colors"
+          >
+            <Briefcase size={14} />
+            <div className="text-left">
+              <div className="text-[12px] font-bold">Create Work Order</div>
+              <div className="text-[10px] opacity-80">Promote to formal work order · notifies stakeholders</div>
+            </div>
+          </button>
+        </div>
+      )}
+
+      {!ticketState && canCreateWorkOrder && !isClosed && !hasWorkOrder && (
         <button
           onClick={onCreateWorkOrder}
           className="w-full flex items-center gap-2.5 p-3 rounded-xl bg-emerald-600/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-600/20 transition-colors"
@@ -509,17 +707,18 @@ function ActionsTab({ incident, onToast, onCreateWorkOrder }: { incident: Incide
           </div>
         </button>
       )}
-      {hasWorkOrder && (
-        <div className="flex items-center gap-2 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl">
-          <Briefcase size={14} className="text-emerald-400" />
+
+      {(hasWorkOrder || isWorkOrderCreated) && (
+        <div className="flex items-center gap-2 p-3 bg-blue-500/10 border border-blue-500/30 rounded-xl">
+          <Briefcase size={14} className="text-blue-400" />
           <div>
-            <div className="text-[12px] text-emerald-400 font-semibold">Work Order Raised</div>
+            <div className="text-[12px] text-blue-400 font-semibold">Work Order Raised</div>
             <div className="text-[10px] text-[#7A94B4]">ID: {incident.workOrderId} · Appears in Kanban Board</div>
           </div>
         </div>
       )}
 
-      {!incident.assignedTech && !isClosed && (
+      {!incident.assignedTech && !isClosed && !isRejected && (
         <button
           onClick={() => onToast(`Smart dispatch opened for ${incident.id}`, 'info')}
           className="w-full flex items-center gap-2.5 p-3 rounded-xl bg-[#2E7FFF] text-white hover:bg-blue-500 transition-colors"
@@ -543,7 +742,7 @@ function ActionsTab({ incident, onToast, onCreateWorkOrder }: { incident: Incide
           </div>
         </button>
       )}
-      {!isClosed && (
+      {!isClosed && !isRejected && (
         <button
           onClick={() => onToast(`${incident.id} escalated to senior supervisor`, 'warning')}
           className="w-full flex items-center gap-2.5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 transition-colors"
@@ -567,7 +766,7 @@ function ActionsTab({ incident, onToast, onCreateWorkOrder }: { incident: Incide
           </div>
         </button>
       )}
-      {!isClosed && (
+      {!isClosed && !isRejected && (
         <button
           onClick={() => onToast(`${incident.id} closed — awaiting evidence submission`, 'success')}
           className="w-full flex items-center gap-2.5 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 transition-colors"
@@ -1302,9 +1501,20 @@ export function Incidents({ onToast }: Props) {
                       {inc.severity}
                     </span>
                     <SLABar incident={inc} />
-                    <div className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[9px] font-semibold w-fit ${st.bg} ${st.text}`}>
-                      <div className={`w-1 h-1 rounded-full flex-shrink-0 ${st.dot}`} />
-                      {st.label}
+                    <div className="flex items-center gap-1 flex-wrap">
+                      <div className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[9px] font-semibold w-fit ${st.bg} ${st.text}`}>
+                        <div className={`w-1 h-1 rounded-full flex-shrink-0 ${st.dot}`} />
+                        {st.label}
+                      </div>
+                      {inc.ticketState && (() => {
+                        const tcfg = TICKET_STATE_CONFIG[inc.ticketState];
+                        return (
+                          <div className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[9px] font-semibold w-fit ${tcfg.bg} ${tcfg.text}`}>
+                            <div className={`w-1 h-1 rounded-full flex-shrink-0 ${tcfg.dot}`} />
+                            {tcfg.label}
+                          </div>
+                        );
+                      })()}
                     </div>
                     <SourceBadge source={inc.source} />
                     <div className="flex items-center gap-1.5">

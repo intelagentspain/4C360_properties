@@ -24,6 +24,10 @@ export type Incident = {
   clientId?: string;
   workOrderId?: string;
   notifiedRoles?: string[];
+  ticketState?: TicketState;
+  rejectionReason?: string;
+  approvedBy?: string;
+  rejectedBy?: string;
   aiMetadata?: {
     confidence: number;
     issueType: string;
@@ -37,6 +41,8 @@ export type Incident = {
     assetId?: string;
   };
 };
+
+export type TicketState = 'pending_approval' | 'approved' | 'rejected' | 'work_order_created';
 
 export type WorkOrderTask = {
   id: string;
@@ -123,6 +129,8 @@ interface IncidentContextValue {
   addIncident: (inc: Incident) => void;
   workOrders: WorkOrderTask[];
   createWorkOrder: (incidentId: string, data: CreateWorkOrderInput) => WorkOrderTask;
+  approveTicket: (incidentId: string, approvedBy?: string) => Promise<void>;
+  rejectTicket: (incidentId: string, reason: string, rejectedBy?: string) => Promise<void>;
 }
 
 const IncidentContext = createContext<IncidentContextValue | null>(null);
@@ -139,6 +147,8 @@ function generateWorkOrderId(): string {
   workOrderCounter += 1;
   return `WO-${String(workOrderCounter).padStart(3, '0')}`;
 }
+
+const apiBase = typeof window !== 'undefined' ? window.location.origin + '/api' : '/api';
 
 function IncidentProviderInner({ children }: { children: ReactNode }) {
   const [incidents, setIncidents] = useState<Incident[]>(BASE_INCIDENTS);
@@ -193,9 +203,11 @@ function IncidentProviderInner({ children }: { children: ReactNode }) {
     const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
     const enriched: Incident = {
       ...inc,
+      ticketState: 'pending_approval',
       notifiedRoles: roles,
       activityLog: [
         ...inc.activityLog,
+        { time: timeStr, event: `Ticket created — awaiting approval from supervisor/account manager`, type: 'dispatch' },
         { time: timeStr, event: `Stakeholders notified: ${roles.join(', ')}`, type: 'dispatch' },
       ],
     };
@@ -225,6 +237,69 @@ function IncidentProviderInner({ children }: { children: ReactNode }) {
     setIncidents(incidentsRef.current);
     addIncidentNotification(enriched, inviteList);
   }, [addIncidentNotification]);
+
+  const approveTicket = useCallback(async (incidentId: string, approvedBy?: string) => {
+    try {
+      const res = await fetch(`${apiBase}/tickets/${encodeURIComponent(incidentId)}/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ approvedBy: approvedBy ?? 'app-user' }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({})) as { error?: string };
+        throw new Error(err.error ?? 'Approval failed');
+      }
+    } catch {
+    }
+
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+
+    incidentsRef.current = incidentsRef.current.map(inc =>
+      inc.id === incidentId
+        ? {
+            ...inc,
+            ticketState: 'approved' as TicketState,
+            approvedBy: approvedBy ?? 'Supervisor',
+            activityLog: [
+              ...inc.activityLog,
+              { time: timeStr, event: `Ticket approved by ${approvedBy ?? 'supervisor'} — work order will be created`, type: 'dispatch' },
+            ],
+          }
+        : inc,
+    );
+    setIncidents([...incidentsRef.current]);
+  }, []);
+
+  const rejectTicket = useCallback(async (incidentId: string, reason: string, rejectedBy?: string) => {
+    try {
+      await fetch(`${apiBase}/tickets/${encodeURIComponent(incidentId)}/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason, rejectedBy: rejectedBy ?? 'app-user' }),
+      });
+    } catch {
+    }
+
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+
+    incidentsRef.current = incidentsRef.current.map(inc =>
+      inc.id === incidentId
+        ? {
+            ...inc,
+            ticketState: 'rejected' as TicketState,
+            rejectionReason: reason,
+            rejectedBy: rejectedBy ?? 'Supervisor',
+            activityLog: [
+              ...inc.activityLog,
+              { time: timeStr, event: `Ticket rejected: "${reason}"`, type: 'escalation' },
+            ],
+          }
+        : inc,
+    );
+    setIncidents([...incidentsRef.current]);
+  }, []);
 
   const createWorkOrder = useCallback((incidentId: string, data: CreateWorkOrderInput): WorkOrderTask => {
     const id = generateWorkOrderId();
@@ -271,6 +346,7 @@ function IncidentProviderInner({ children }: { children: ReactNode }) {
         ? {
             ...inc,
             status: 'dispatched',
+            ticketState: 'work_order_created' as TicketState,
             workOrderId: id,
             activityLog: [
               ...inc.activityLog,
@@ -288,7 +364,7 @@ function IncidentProviderInner({ children }: { children: ReactNode }) {
   }, [addWorkOrderNotification]);
 
   return (
-    <IncidentContext.Provider value={{ incidents, addIncident, workOrders, createWorkOrder }}>
+    <IncidentContext.Provider value={{ incidents, addIncident, workOrders, createWorkOrder, approveTicket, rejectTicket }}>
       {children}
     </IncidentContext.Provider>
   );

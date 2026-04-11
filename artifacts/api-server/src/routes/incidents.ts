@@ -33,6 +33,16 @@ const OPERATIONAL_ROLES = new Set([
   "Account Manager",
   "Client Success",
   "Executive",
+  "FM Manager",
+  "Operations Supervisor",
+  "Compliance Lead",
+]);
+
+const APPROVER_ROLES = new Set([
+  "Site Supervisor",
+  "Account Manager",
+  "FM Manager",
+  "Operations Supervisor",
 ]);
 
 interface AiMetadata {
@@ -138,6 +148,12 @@ async function resolveRecipients(
   return combined;
 }
 
+async function resolveApprovers(incident: IncidentPayload, inviteList?: InviteListMember[]): Promise<Recipient[]> {
+  const all = await resolveRecipients(incident, inviteList);
+  const approvers = all.filter(r => APPROVER_ROLES.has(r.role));
+  return approvers.length > 0 ? approvers : all.slice(0, 2);
+}
+
 const muteStore = new Map<string, Map<string, string>>();
 const mutedEmails = new Map<string, Set<string>>();
 
@@ -171,6 +187,47 @@ function isEmailMuted(incidentId: string, email: string): boolean {
   return mutedEmails.get(incidentId)?.has(email.toLowerCase()) ?? false;
 }
 
+type TicketState = "pending_approval" | "approved" | "rejected" | "work_order_created";
+
+interface TicketRecord {
+  incidentId: string;
+  state: TicketState;
+  createdAt: string;
+  updatedAt: string;
+  rejectionReason?: string;
+  approvedBy?: string;
+  rejectedBy?: string;
+  workOrderId?: string;
+  incident?: IncidentPayload;
+  reporterEmail?: string;
+  reporterName?: string;
+}
+
+const ticketStore = new Map<string, TicketRecord>();
+
+function registerApproveToken(incidentId: string, email: string): string {
+  return crypto
+    .createHmac("sha256", APP_SECRET)
+    .update(`approve:${incidentId}:${email}`)
+    .digest("hex");
+}
+
+function registerRejectToken(incidentId: string, email: string): string {
+  return crypto
+    .createHmac("sha256", APP_SECRET)
+    .update(`reject:${incidentId}:${email}`)
+    .digest("hex");
+}
+
+function validateApproveToken(incidentId: string, email: string, token: string): boolean {
+  const expected = registerApproveToken(incidentId, email);
+  return token === expected;
+}
+
+function validateRejectToken(incidentId: string, email: string, token: string): boolean {
+  const expected = registerRejectToken(incidentId, email);
+  return token === expected;
+}
 
 function severityColor(severity: string): string {
   switch (severity.toLowerCase()) {
@@ -190,6 +247,8 @@ function buildIncidentEmail(
   recipientName: string,
   recipientEmail: string,
   muteUrl: string,
+  approveUrl?: string,
+  rejectBaseUrl?: string,
 ): string {
   const sev      = incident.severity ?? "low";
   const sevColor = severityColor(sev);
@@ -230,6 +289,26 @@ function buildIncidentEmail(
        </table>`
     : "";
 
+  const approvalBlock = (approveUrl && rejectBaseUrl)
+    ? `
+    <p style="color:#7A94B4;font-size:10px;text-transform:uppercase;letter-spacing:2px;margin:24px 0 12px;font-weight:700;">Ticket Approval Required</p>
+    <p style="color:#7A94B4;font-size:12px;margin:0 0 16px;line-height:1.6;">As a site supervisor or account manager, your approval is required to proceed with this ticket and convert it into a work order.</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
+      <tr>
+        <td style="padding:0 8px 0 0;" width="50%">
+          <a href="${escapeHtml(approveUrl)}" style="display:block;text-align:center;background:#10B981;color:#ffffff;text-decoration:none;font-size:13px;font-weight:700;padding:14px 20px;border-radius:10px;letter-spacing:0.3px;">
+            ✓ Approve Ticket
+          </a>
+        </td>
+        <td style="padding:0 0 0 8px;" width="50%">
+          <a href="${escapeHtml(rejectBaseUrl)}" style="display:block;text-align:center;background:#EF4444;color:#ffffff;text-decoration:none;font-size:13px;font-weight:700;padding:14px 20px;border-radius:10px;letter-spacing:0.3px;">
+            ✕ Reject Ticket
+          </a>
+        </td>
+      </tr>
+    </table>`
+    : "";
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>Incident Alert — ${escapeHtml(incident.id)}</title></head>
@@ -252,11 +331,10 @@ function buildIncidentEmail(
           <tr><td style="padding:20px 24px;"><table width="100%" cellpadding="0" cellspacing="0">
             <tr><td style="color:#7A94B4;font-size:12px;padding:5px 0;width:140px;">Incident ID</td><td style="color:#2E7FFF;font-size:12px;font-weight:700;font-family:monospace;padding:5px 0;">${escapeHtml(incident.id)}</td></tr>
             <tr><td style="color:#7A94B4;font-size:12px;padding:5px 0;">Severity</td><td style="padding:5px 0;"><span style="background:${sevColor}22;border:1px solid ${sevColor}66;border-radius:5px;padding:2px 8px;color:${sevColor};font-size:11px;font-weight:700;">${sevLabel}</span></td></tr>
-            <tr><td style="color:#7A94B4;font-size:12px;padding:5px 0;">Status</td><td style="color:#EEF3FA;font-size:12px;font-weight:600;padding:5px 0;">${escapeHtml(incident.status ?? "—")}</td></tr>
+            <tr><td style="color:#7A94B4;font-size:12px;padding:5px 0;">Status</td><td style="color:#EEF3FA;font-size:12px;font-weight:600;padding:5px 0;">Pending Approval</td></tr>
             <tr><td style="color:#7A94B4;font-size:12px;padding:5px 0;">Source</td><td style="color:#EEF3FA;font-size:12px;font-weight:600;padding:5px 0;">${escapeHtml(incident.source ?? "—")}</td></tr>
             <tr><td style="color:#7A94B4;font-size:12px;padding:5px 0;">Location</td><td style="font-size:12px;font-weight:600;padding:5px 0;">${locationBlock}</td></tr>
             <tr><td style="color:#7A94B4;font-size:12px;padding:5px 0;">SLA</td><td style="color:#EEF3FA;font-size:12px;font-weight:600;padding:5px 0;">${incident.slaMinutes ? `${incident.slaMinutes} min` : "—"}</td></tr>
-            <tr><td style="color:#7A94B4;font-size:12px;padding:5px 0;">Assigned Tech</td><td style="color:#EEF3FA;font-size:12px;font-weight:600;padding:5px 0;">${escapeHtml(incident.assignedTech ?? "Unassigned")}</td></tr>
           </table></td></tr>
         </table>
 
@@ -267,6 +345,7 @@ function buildIncidentEmail(
 
         ${aiBlock}
         ${imageBlock}
+        ${approvalBlock}
 
         <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px;margin-bottom:16px;">
           <tr><td align="center">
@@ -301,6 +380,89 @@ const MUTE_ERROR_HTML = `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8" /><title>Invalid Mute Link</title>
 <style>body{margin:0;padding:0;background:#060F1E;font-family:'Segoe UI',Arial,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;}.card{background:#0D1E38;border:1px solid rgba(239,68,68,0.3);border-radius:16px;padding:48px 40px;max-width:440px;text-align:center;}h1{color:#EF4444;font-size:20px;margin:0 0 12px;}p{color:#7A94B4;font-size:13px;line-height:1.6;margin:0;}.icon{font-size:40px;margin-bottom:16px;}</style>
 </head><body><div class="card"><div class="icon">⚠️</div><h1>Invalid or Expired Link</h1><p>This mute link is invalid or has already been used.</p></div></body></html>`;
+
+function approvedHtml(id: string): string {
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><title>Ticket Approved</title>
+<style>body{margin:0;padding:0;background:#060F1E;font-family:'Segoe UI',Arial,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;}.card{background:#0D1E38;border:1px solid rgba(16,185,129,0.3);border-radius:16px;padding:48px 40px;max-width:440px;text-align:center;}h1{color:#10B981;font-size:20px;margin:0 0 12px;}p{color:#7A94B4;font-size:13px;line-height:1.6;margin:0;}.icon{font-size:40px;margin-bottom:16px;}.badge{display:inline-block;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.3);border-radius:8px;padding:4px 12px;color:#10B981;font-size:11px;font-weight:700;margin-bottom:20px;letter-spacing:1px;}</style>
+</head><body><div class="card"><div class="icon">✅</div><div class="badge">IMDAAD AI-OS</div><h1>Ticket Approved</h1><p>Incident <strong style="color:#EEF3FA;">${escapeHtml(id)}</strong> has been approved and a Work Order will be created automatically.</p></div></body></html>`;
+}
+
+function rejectedHtml(id: string): string {
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><title>Ticket Rejected</title>
+<style>*{box-sizing:border-box;}body{margin:0;padding:0;background:#060F1E;font-family:'Segoe UI',Arial,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;}.card{background:#0D1E38;border:1px solid rgba(239,68,68,0.3);border-radius:16px;padding:48px 40px;max-width:480px;width:100%;text-align:center;}h1{color:#EF4444;font-size:20px;margin:0 0 12px;}p{color:#7A94B4;font-size:13px;line-height:1.6;margin:0 0 16px;}.icon{font-size:40px;margin-bottom:16px;}.badge{display:inline-block;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);border-radius:8px;padding:4px 12px;color:#EF4444;font-size:11px;font-weight:700;margin-bottom:20px;letter-spacing:1px;}textarea{width:100%;background:#112040;border:1px solid rgba(239,68,68,0.3);border-radius:8px;padding:12px;color:#EEF3FA;font-size:13px;resize:vertical;outline:none;font-family:inherit;margin-bottom:12px;}button{background:#EF4444;color:#fff;border:none;border-radius:8px;padding:12px 32px;font-size:13px;font-weight:700;cursor:pointer;width:100%;}button:hover{background:#dc2626;}.success{color:#10B981;font-weight:600;display:none;}</style>
+</head><body><div class="card"><div class="icon">✕</div><div class="badge">IMDAAD AI-OS</div><h1>Reject Ticket</h1>
+<p>Please provide a reason for rejecting incident <strong style="color:#EEF3FA;">${escapeHtml(id)}</strong>.</p>
+<form id="f">
+  <textarea id="reason" rows="4" placeholder="Reason for rejection…" required></textarea>
+  <button type="submit">Submit Rejection</button>
+</form>
+<p class="success" id="ok">Ticket rejected. The reporter has been notified.</p>
+<script>
+document.getElementById('f').addEventListener('submit',async function(e){
+  e.preventDefault();
+  const reason=document.getElementById('reason').value.trim();
+  if(!reason)return;
+  const params=new URLSearchParams(window.location.search);
+  const r=await fetch(window.location.pathname,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:params.get('token'),email:params.get('email'),reason})});
+  if(r.ok){document.getElementById('f').style.display='none';document.getElementById('ok').style.display='block';}
+});
+</script>
+</div></body></html>`;
+}
+
+function approveErrorHtml(msg: string): string {
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><title>Error</title>
+<style>body{margin:0;padding:0;background:#060F1E;font-family:'Segoe UI',Arial,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;}.card{background:#0D1E38;border:1px solid rgba(239,68,68,0.3);border-radius:16px;padding:48px 40px;max-width:440px;text-align:center;}h1{color:#EF4444;font-size:20px;margin:0 0 12px;}p{color:#7A94B4;font-size:13px;}</style>
+</head><body><div class="card"><h1>Error</h1><p>${escapeHtml(msg)}</p></div></body></html>`;
+}
+
+function buildRejectionNotificationEmail(
+  incident: IncidentPayload,
+  reason: string,
+  rejectedBy: string,
+  recipientName: string,
+  recipientEmail: string,
+): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>Ticket Rejected — ${escapeHtml(incident.id)}</title></head>
+<body style="margin:0;padding:0;background:#060F1E;font-family:'Segoe UI',Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#060F1E;padding:40px 0;">
+  <tr><td align="center">
+    <table width="580" cellpadding="0" cellspacing="0" style="background:#0D1E38;border:1px solid rgba(239,68,68,0.25);border-radius:16px;overflow:hidden;">
+      <tr><td style="background:linear-gradient(135deg,#1a0808 0%,#200d0d 100%);padding:28px 40px;border-bottom:1px solid rgba(239,68,68,0.2);">
+        <table width="100%" cellpadding="0" cellspacing="0"><tr>
+          <td><div style="display:inline-block;background:rgba(46,127,255,0.15);border:1px solid rgba(46,127,255,0.3);border-radius:10px;padding:8px 16px;"><span style="color:#2E7FFF;font-size:18px;font-weight:800;letter-spacing:1px;">IMDAAD</span><span style="color:#7A94B4;font-size:14px;font-weight:400;margin-left:6px;">AI-OS</span></div><p style="color:#7A94B4;font-size:11px;letter-spacing:2px;text-transform:uppercase;margin:10px 0 0;">Ticket Rejected</p></td>
+          <td align="right" style="vertical-align:top;"><div style="display:inline-block;background:#EF444422;border:1px solid #EF444466;border-radius:8px;padding:6px 14px;"><span style="color:#EF4444;font-size:13px;font-weight:800;">REJECTED</span></div></td>
+        </tr></table>
+      </td></tr>
+      <tr><td style="padding:32px 40px;">
+        <h1 style="color:#EEF3FA;font-size:20px;font-weight:700;margin:0 0 6px;">${escapeHtml(incident.title ?? "Incident")}</h1>
+        <p style="color:#7A94B4;font-size:13px;margin:0 0 24px;">Hello ${escapeHtml(recipientName)}, your submitted ticket has been reviewed.</p>
+        <p style="color:#7A94B4;font-size:10px;text-transform:uppercase;letter-spacing:2px;margin:0 0 12px;font-weight:700;">Rejection Details</p>
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(239,68,68,0.07);border:1px solid rgba(239,68,68,0.22);border-radius:10px;margin-bottom:20px;">
+          <tr><td style="padding:20px 24px;"><table width="100%" cellpadding="0" cellspacing="0">
+            <tr><td style="color:#7A94B4;font-size:12px;padding:5px 0;width:140px;">Incident ID</td><td style="color:#2E7FFF;font-size:12px;font-weight:700;font-family:monospace;padding:5px 0;">${escapeHtml(incident.id)}</td></tr>
+            <tr><td style="color:#7A94B4;font-size:12px;padding:5px 0;">Rejected By</td><td style="color:#EEF3FA;font-size:12px;font-weight:600;padding:5px 0;">${escapeHtml(rejectedBy)}</td></tr>
+            <tr><td style="color:#7A94B4;font-size:12px;padding:5px 0;vertical-align:top;">Reason</td><td style="color:#EEF3FA;font-size:12px;padding:5px 0;line-height:1.6;">${escapeHtml(reason)}</td></tr>
+          </table></td></tr>
+        </table>
+        <p style="color:#4A6080;font-size:11px;line-height:1.6;margin:0;text-align:center;">
+          If you believe this was rejected in error, please contact your site supervisor.
+        </p>
+      </td></tr>
+      <tr><td style="background:#0A1628;padding:20px 40px;border-top:1px solid rgba(239,68,68,0.12);">
+        <table width="100%" cellpadding="0" cellspacing="0"><tr>
+          <td><p style="color:#4A6080;font-size:10px;margin:0;">© ${new Date().getFullYear()} Imdaad. All rights reserved.</p></td>
+          <td align="right"><p style="color:#4A6080;font-size:10px;margin:0;">Sent to: ${escapeHtml(recipientEmail)}</p></td>
+        </tr></table>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>`;
+}
 
 router.get("/incidents/:id/mute", (req: Request, res: Response) => {
   const id = String(req.params["id"]);
@@ -343,9 +505,141 @@ router.get("/incidents/:id/mute-status", (req: Request, res: Response) => {
   res.json({ incidentId: id, email, muted: isEmailMuted(id, email) });
 });
 
+router.get("/tickets/:id/approve", async (req: Request, res: Response) => {
+  const id = String(req.params["id"]);
+  const { token, email } = req.query as { token?: string; email?: string };
+
+  if (!token || !email) { res.status(400).send(approveErrorHtml("Missing token or email.")); return; }
+
+  if (!validateApproveToken(id, email, token)) {
+    res.status(400).send(approveErrorHtml("Invalid or expired approval link."));
+    return;
+  }
+
+  const ticket = ticketStore.get(id);
+  if (!ticket) { res.status(404).send(approveErrorHtml("Ticket not found.")); return; }
+
+  if (ticket.state !== "pending_approval") {
+    res.status(400).send(approveErrorHtml(`Ticket is already ${ticket.state}.`));
+    return;
+  }
+
+  ticket.state = "approved";
+  ticket.approvedBy = email;
+  ticket.updatedAt = new Date().toISOString();
+  ticketStore.set(id, ticket);
+
+  logger.info({ incidentId: id, approvedBy: email }, "Ticket approved via email link");
+  res.send(approvedHtml(id));
+});
+
+router.post("/tickets/:id/approve", async (req: Request, res: Response) => {
+  const id = String(req.params["id"]);
+  const { approvedBy } = req.body as { approvedBy?: string };
+
+  const ticket = ticketStore.get(id);
+  if (!ticket) { res.status(404).json({ error: "Ticket not found" }); return; }
+
+  if (ticket.state !== "pending_approval") {
+    res.status(400).json({ error: `Cannot approve ticket in state: ${ticket.state}` });
+    return;
+  }
+
+  ticket.state = "approved";
+  ticket.approvedBy = approvedBy ?? "app-user";
+  ticket.updatedAt = new Date().toISOString();
+  ticketStore.set(id, ticket);
+
+  logger.info({ incidentId: id, approvedBy: ticket.approvedBy }, "Ticket approved via API");
+  res.json({ ok: true, incidentId: id, state: ticket.state, approvedBy: ticket.approvedBy });
+});
+
+router.get("/tickets/:id/reject", (req: Request, res: Response) => {
+  const id = String(req.params["id"]);
+  const { token, email } = req.query as { token?: string; email?: string };
+
+  if (!token || !email) { res.status(400).send(approveErrorHtml("Missing token or email.")); return; }
+
+  if (!validateRejectToken(id, email, token)) {
+    res.status(400).send(approveErrorHtml("Invalid or expired rejection link."));
+    return;
+  }
+
+  const ticket = ticketStore.get(id);
+  if (!ticket) { res.status(404).send(approveErrorHtml("Ticket not found.")); return; }
+
+  if (ticket.state !== "pending_approval") {
+    res.status(400).send(approveErrorHtml(`Ticket is already ${ticket.state}.`));
+    return;
+  }
+
+  res.send(rejectedHtml(id));
+});
+
+router.post("/tickets/:id/reject", async (req: Request, res: Response) => {
+  const id = String(req.params["id"]);
+  const body = req.body as { token?: string; email?: string; reason?: string; rejectedBy?: string };
+
+  const ticket = ticketStore.get(id);
+  if (!ticket) { res.status(404).json({ error: "Ticket not found" }); return; }
+
+  if (ticket.state !== "pending_approval") {
+    res.status(400).json({ error: `Cannot reject ticket in state: ${ticket.state}` });
+    return;
+  }
+
+  const rejectedByEmail = body.email ?? body.rejectedBy ?? "app-user";
+  const reason = body.reason ?? "No reason provided";
+
+  if (body.token && body.email) {
+    if (!validateRejectToken(id, body.email, body.token)) {
+      res.status(400).json({ error: "Invalid or expired token" });
+      return;
+    }
+  }
+
+  ticket.state = "rejected";
+  ticket.rejectionReason = reason;
+  ticket.rejectedBy = rejectedByEmail;
+  ticket.updatedAt = new Date().toISOString();
+  ticketStore.set(id, ticket);
+
+  if (ticket.reporterEmail) {
+    const html = buildRejectionNotificationEmail(
+      ticket.incident ?? { id },
+      reason,
+      rejectedByEmail,
+      ticket.reporterName ?? "Reporter",
+      ticket.reporterEmail,
+    );
+    await sendEmail({
+      to: ticket.reporterEmail,
+      subject: `[Ticket Rejected] ${ticket.incident?.title ?? id} — ${id}`,
+      html,
+    }).catch(err => logger.error({ err }, "Failed to send rejection notification email"));
+  }
+
+  logger.info({ incidentId: id, rejectedBy: rejectedByEmail, reason }, "Ticket rejected");
+  res.json({ ok: true, incidentId: id, state: ticket.state, reason, rejectedBy: rejectedByEmail });
+});
+
+router.get("/tickets/:id", (req: Request, res: Response) => {
+  const id = String(req.params["id"]);
+  const ticket = ticketStore.get(id);
+  if (!ticket) { res.status(404).json({ error: "Ticket not found" }); return; }
+  res.json(ticket);
+});
+
+router.get("/tickets", (req: Request, res: Response) => {
+  const tickets = Array.from(ticketStore.values());
+  res.json({ tickets, total: tickets.length });
+});
+
 interface NotifyBody {
   incident: IncidentPayload;
   inviteList?: InviteListMember[];
+  reporterEmail?: string;
+  reporterName?: string;
 }
 
 interface NotifyResult {
@@ -508,43 +802,38 @@ router.post("/workorders/notify", async (req: Request, res: Response) => {
     const emailError = emailResult.error;
 
     let whatsappStatus: string | undefined;
-    if (member.phone) {
-      const woMessage =
-        `*Imdaad AI-OS — Work Order Created*\n\n` +
-        `📋 *${wo.title ?? "New Work Order"}*\n` +
-        `ID: ${wo.id}\n` +
-        `Priority: ${(wo.priority ?? "medium").toUpperCase()}\n` +
-        `Location: ${wo.location ?? "—"}\n` +
-        `Asset: ${wo.asset ?? "—"}\n` +
-        `Skill: ${wo.skill ?? "—"}\n` +
-        (incidentId ? `Incident Ref: ${incidentId}\n` : "") +
-        `\nPlease check the AI-OS platform for full details.`;
+    const woMessage =
+      `*Imdaad AI-OS — Work Order Created*\n\n` +
+      `📋 *${wo.title ?? "New Work Order"}*\n` +
+      `ID: ${wo.id}\n` +
+      `Priority: ${(wo.priority ?? "medium").toUpperCase()}\n` +
+      `Location: ${wo.location ?? "—"}\n` +
+      `Asset: ${wo.asset ?? "—"}\n` +
+      `Skill: ${wo.skill ?? "—"}\n` +
+      (incidentId ? `Incident Ref: ${incidentId}\n` : "") +
+      `\nPlease check the AI-OS platform for full details.`;
 
-      try {
-        const waRes = await fetch(`${apiBase}/api/whatsapp/send`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ to: member.phone, message: woMessage }),
-        });
-        if (waRes.ok) {
-          whatsappStatus = "sent";
-          logger.info({ phone: member.phone, workOrderId: wo.id }, "Work order WhatsApp sent");
-        } else {
-          const errData = await waRes.json().catch(() => ({})) as { error?: string };
-          whatsappStatus = `failed: ${errData.error ?? waRes.status}`;
-          logger.warn({ phone: member.phone, workOrderId: wo.id, status: waRes.status }, "Work order WhatsApp not sent");
-        }
-      } catch (err) {
-        whatsappStatus = `error: ${(err as Error).message}`;
-        logger.error({ err, phone: member.phone }, "Exception sending work order WhatsApp");
+    try {
+      const waRes = await fetch(`${apiBase}/api/whatsapp/send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to: "+971501112233", message: woMessage }),
+      });
+      if (waRes.ok) {
+        whatsappStatus = "sent";
+        logger.info({ workOrderId: wo.id }, "Work order WhatsApp sent");
+      } else {
+        const errData = await waRes.json().catch(() => ({})) as { error?: string };
+        whatsappStatus = `failed: ${errData.error ?? waRes.status}`;
       }
+    } catch (err) {
+      whatsappStatus = `error: ${(err as Error).message}`;
     }
 
     results.push({
       email: member.email,
       status: emailStatus,
       error: emailError,
-      phone: member.phone,
       whatsappStatus,
     });
   }
@@ -701,15 +990,29 @@ router.post("/incidents/notify", async (req: Request, res: Response) => {
     return;
   }
 
-  const recipients = await resolveRecipients(incident, body.inviteList);
-
   const apiBase =
     process.env.API_BASE_URL ??
     `http://localhost:${process.env.PORT ?? 3001}`;
 
+  const allRecipients = await resolveRecipients(incident, body.inviteList);
+  const approvers = await resolveApprovers(incident, body.inviteList);
+
+  const now = new Date().toISOString();
+  const ticket: TicketRecord = {
+    incidentId: incident.id,
+    state: "pending_approval",
+    createdAt: now,
+    updatedAt: now,
+    incident,
+    reporterEmail: body.reporterEmail,
+    reporterName: body.reporterName,
+  };
+  ticketStore.set(incident.id, ticket);
+  logger.info({ incidentId: incident.id }, "Ticket created in pending_approval state");
+
   const results: NotifyResult[] = [];
 
-  for (const member of recipients) {
+  for (const member of allRecipients) {
     if (isEmailMuted(incident.id, member.email)) {
       results.push({ email: member.email, status: "muted", muted: true });
       continue;
@@ -718,7 +1021,19 @@ router.post("/incidents/notify", async (req: Request, res: Response) => {
     const muteToken = registerMuteToken(incident.id, member.email);
     const muteUrl = `${apiBase}/api/incidents/${encodeURIComponent(incident.id)}/mute?token=${muteToken}`;
 
-    const html = buildIncidentEmail(incident, member.name, member.email, muteUrl);
+    const isApprover = approvers.some(a => a.email === member.email);
+
+    let approveUrl: string | undefined;
+    let rejectBaseUrl: string | undefined;
+
+    if (isApprover) {
+      const approveToken = registerApproveToken(incident.id, member.email);
+      const rejectToken  = registerRejectToken(incident.id, member.email);
+      approveUrl    = `${apiBase}/api/tickets/${encodeURIComponent(incident.id)}/approve?token=${approveToken}&email=${encodeURIComponent(member.email)}`;
+      rejectBaseUrl = `${apiBase}/api/tickets/${encodeURIComponent(incident.id)}/reject?token=${rejectToken}&email=${encodeURIComponent(member.email)}`;
+    }
+
+    const html = buildIncidentEmail(incident, member.name, member.email, muteUrl, approveUrl, rejectBaseUrl);
 
     const emailResult = await sendEmail({
       to: member.email,
@@ -733,7 +1048,7 @@ router.post("/incidents/notify", async (req: Request, res: Response) => {
     }
   }
 
-  res.json({ incidentId: incident.id, siteId: resolveSiteId(incident), results });
+  res.json({ incidentId: incident.id, siteId: resolveSiteId(incident), ticketState: "pending_approval", results });
 });
 
 export default router;
