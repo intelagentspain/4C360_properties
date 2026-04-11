@@ -467,9 +467,45 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [suggestingSiteIdx, setSuggestingSiteIdx] = useState<number | null>(null);
+  const [detectingSet, setDetectingSet] = useState<Set<number>>(new Set());
+  const [geoErrors, setGeoErrors] = useState<Record<number, string>>({});
   const [whatsappTarget, setWhatsappTarget] = useState<{ name: string; phone: string; message: string } | null>(null);
 
   const { profiles } = useMemberProfiles();
+
+  const detectSiteLocation = async (siteIdx: number) => {
+    setGeoErrors(prev => { const next = { ...prev }; delete next[siteIdx]; return next; });
+    setDetectingSet(prev => new Set(prev).add(siteIdx));
+    try {
+      const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
+        navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 15000, enableHighAccuracy: true })
+      );
+      const { latitude, longitude } = pos.coords;
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&zoom=18&addressdetails=1`,
+        { headers: { 'Accept-Language': 'en' } }
+      );
+      if (!res.ok) throw new Error('Geocode failed');
+      const data = await res.json();
+      const addr = data.address ?? {};
+      const parts = [
+        addr.amenity || addr.building || addr.tourism || addr.office,
+        addr.house_number ? `${addr.house_number} ${addr.road || addr.street || ''}`.trim() : (addr.road || addr.street || addr.pedestrian || addr.path),
+        addr.suburb || addr.neighbourhood || addr.quarter || addr.residential,
+        addr.city_district || addr.district,
+        addr.city || addr.town || addr.village || addr.county,
+      ].filter(Boolean);
+      const label = parts.length ? parts.join(', ') : data.display_name ?? `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+      updateSite(siteIdx, label);
+    } catch (err: unknown) {
+      const msg = err instanceof GeolocationPositionError && err.code === 1
+        ? 'Location permission denied'
+        : 'Could not detect location';
+      setGeoErrors(prev => ({ ...prev, [siteIdx]: msg }));
+    } finally {
+      setDetectingSet(prev => { const next = new Set(prev); next.delete(siteIdx); return next; });
+    }
+  };
 
   const addSite = () => {
     setSiteNames(prev => {
@@ -482,6 +518,15 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
     setSiteNames(prev => prev.filter((_, idx) => idx !== i));
     setSiteAssets(prev => {
       const next: Record<number, AssetRow[]> = {};
+      let newIdx = 0;
+      Object.keys(prev).forEach(k => {
+        const ki = Number(k);
+        if (ki !== i) { next[newIdx] = prev[ki]; newIdx++; }
+      });
+      return next;
+    });
+    setGeoErrors(prev => {
+      const next: Record<number, string> = {};
       let newIdx = 0;
       Object.keys(prev).forEach(k => {
         const ki = Number(k);
@@ -1086,6 +1131,17 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
                           placeholder={`Site ${siteIdx + 1} name or location`}
                           className={`flex-1 ${inputCls(siteIdx === 0 && !!errors.sites)}`}
                         />
+                        <button
+                          type="button"
+                          title="Detect my location"
+                          disabled={detectingSet.has(siteIdx)}
+                          onClick={() => detectSiteLocation(siteIdx)}
+                          className="flex-shrink-0 w-7 h-7 flex items-center justify-center text-[#2E7FFF] hover:bg-[rgba(46,127,255,0.15)] rounded-lg transition-colors border border-[rgba(46,127,255,0.22)] disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {detectingSet.has(siteIdx)
+                            ? <Loader2 size={11} className="animate-spin" />
+                            : <MapPin size={11} />}
+                        </button>
                         {siteNames.length > 1 && (
                           <button
                             type="button"
@@ -1096,6 +1152,9 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
                           </button>
                         )}
                       </div>
+                      {geoErrors[siteIdx] && (
+                        <p className="text-[10px] text-red-400 px-3 pb-1">{geoErrors[siteIdx]}</p>
+                      )}
 
                       {/* Assets area */}
                       <div className="px-3 pb-3 space-y-2.5">
