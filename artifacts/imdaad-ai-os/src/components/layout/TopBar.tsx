@@ -17,9 +17,7 @@ export function TopBar({ perspective, setPerspective }: Props) {
   return (
     <header className="relative h-[52px] bg-[#0A1628] border-b border-[rgba(46,127,255,0.22)] flex items-center justify-between px-4 z-[100]">
       <div className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#2E7FFF] to-[#00C6FF] flex items-center justify-center text-white font-bold text-xs shadow-lg shadow-blue-500/30">
-          AI
-        </div>
+        <img src="/4c-logo.png" className="w-8 h-8 rounded-lg object-contain" alt="4C logo" />
         <div>
           <div className="text-[#EEF3FA] font-semibold text-sm leading-tight" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
             Imdaad AI-OS
