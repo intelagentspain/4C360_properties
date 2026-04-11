@@ -32,6 +32,7 @@ function App() {
   const { toasts, addToast, removeToast }    = useToast();
   const [activeMember,   setActiveMember]    = useState<MockMemberProfile | null>(null);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const [incidentsClientId, setIncidentsClientId] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     const memberId = getMemberIdFromUrl();
@@ -55,6 +56,16 @@ function App() {
   };
 
   const handleClientSelect = (clientId: string) => {
+    setSelectedClientId(clientId);
+    setStrategicPage('dashboard');
+  };
+
+  const handleNavigateToIncidents = (clientId: string) => {
+    setIncidentsClientId(clientId);
+    setStrategicPage('incidents');
+  };
+
+  const handleNavigateToCommand = (clientId: string) => {
     setSelectedClientId(clientId);
     setStrategicPage('dashboard');
   };
@@ -91,7 +102,7 @@ function App() {
         <Sidebar
           perspective={perspective}
           strategicPage={strategicPage}
-          onStrategicPageChange={setStrategicPage}
+          onStrategicPageChange={page => { if (page === 'incidents') setIncidentsClientId(undefined); setStrategicPage(page); }}
           onToast={msg => addToast(msg, 'info')}
         />
         <main className="flex-1 overflow-hidden relative">
@@ -104,7 +115,7 @@ function App() {
               transition={{ duration: 0.2, ease: 'easeInOut' }}
               className="absolute inset-0 flex flex-col"
             >
-              {perspective === 'strategic'  && <StrategicView onToast={addToast} page={strategicPage} onClientSelect={handleClientSelect} selectedClientId={selectedClientId} />}
+              {perspective === 'strategic'  && <StrategicView onToast={addToast} page={strategicPage} onClientSelect={handleClientSelect} selectedClientId={selectedClientId} onNavigateToIncidents={handleNavigateToIncidents} onNavigateToCommand={handleNavigateToCommand} incidentsClientId={incidentsClientId} />}
               {perspective === 'operational' && <OperationalView onToast={addToast} />}
               {perspective === 'client'      && <ClientView onToast={addToast} />}
             </motion.div>

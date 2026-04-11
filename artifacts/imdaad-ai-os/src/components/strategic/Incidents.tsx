@@ -1480,7 +1480,7 @@ function NewIncidentModal({ onClose, onSubmit }: { onClose: () => void; onSubmit
   );
 }
 
-interface Props { onToast: ToastFn }
+interface Props { onToast: ToastFn; initialClientId?: string }
 
 type SortKey = 'severity' | 'sla' | 'status' | 'none';
 type SortDir = 'asc' | 'desc';
@@ -1488,13 +1488,13 @@ type SortDir = 'asc' | 'desc';
 const SEVERITY_ORDER: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
 const STATUS_ORDER: Record<string, number>   = { overdue: 0, 'in-progress': 1, open: 2, dispatched: 3, assigned: 4, closed: 5 };
 
-export function Incidents({ onToast }: Props) {
+export function Incidents({ onToast, initialClientId }: Props) {
   const { incidents, addIncident, createWorkOrder } = useIncidents();
   const [search,      setSearch]      = useState('');
   const [severity,    setSeverity]    = useState('All');
   const [status,      setStatus]      = useState('All');
   const [source,      setSource]      = useState('All');
-  const [client,      setClient]      = useState('All');
+  const [client,      setClient]      = useState(initialClientId ?? 'All');
   const [site,        setSite]        = useState('All');
   const [selected,    setSelected]    = useState<Incident | null>(null);
   const [activeTab,   setActiveTab]   = useState('Overview');

@@ -229,10 +229,14 @@ function CardActions({
   client,
   onSelect,
   onToast,
+  onNavigateToIncidents,
+  onNavigateToCommand,
 }: {
   client: PortfolioClient;
   onSelect: (c: PortfolioClient) => void;
   onToast: ToastFn;
+  onNavigateToIncidents: (clientId: string) => void;
+  onNavigateToCommand: (clientId: string) => void;
 }) {
   return (
     <div className="grid grid-cols-4 gap-1 pt-2 border-t border-[rgba(46,127,255,0.1)]">
@@ -245,7 +249,7 @@ function CardActions({
         <span className="text-[8px] font-semibold">Detail</span>
       </button>
       <button
-        onClick={e => { e.stopPropagation(); onToast(`Opening Command Center for ${client.name}`, 'info'); }}
+        onClick={e => { e.stopPropagation(); onNavigateToCommand(client.id); }}
         className="flex flex-col items-center gap-0.5 py-1.5 rounded-lg bg-[rgba(46,127,255,0.1)] hover:bg-[rgba(46,127,255,0.2)] text-cyan-400 transition-colors"
         title="Command Center"
       >
@@ -253,7 +257,7 @@ function CardActions({
         <span className="text-[8px] font-semibold">Command</span>
       </button>
       <button
-        onClick={e => { e.stopPropagation(); onToast(`Incident view opened for ${client.name}`, 'info'); }}
+        onClick={e => { e.stopPropagation(); onNavigateToIncidents(client.id); }}
         className="flex flex-col items-center gap-0.5 py-1.5 rounded-lg bg-[rgba(46,127,255,0.1)] hover:bg-[rgba(46,127,255,0.2)] text-amber-400 transition-colors"
         title="View Incidents"
       >
@@ -277,11 +281,15 @@ function ClientPortfolioCard({
   onSelect,
   onToast,
   view,
+  onNavigateToIncidents,
+  onNavigateToCommand,
 }: {
   client: PortfolioClient;
   onSelect: (c: PortfolioClient) => void;
   onToast: ToastFn;
   view: 'grid' | 'list';
+  onNavigateToIncidents: (clientId: string) => void;
+  onNavigateToCommand: (clientId: string) => void;
 }) {
   const slaColor = client.sla >= 90 ? 'text-emerald-400' : client.sla >= 80 ? 'text-amber-400' : 'text-red-400';
   const compColor = client.compliance >= 90 ? 'text-emerald-400' : client.compliance >= 80 ? 'text-amber-400' : 'text-red-400';
@@ -323,7 +331,7 @@ function ClientPortfolioCard({
           <ChevronRight size={14} className="text-[#7A94B4] flex-shrink-0" />
         </button>
         <div className="px-4 pb-2.5">
-          <CardActions client={client} onSelect={onSelect} onToast={onToast} />
+          <CardActions client={client} onSelect={onSelect} onToast={onToast} onNavigateToIncidents={onNavigateToIncidents} onNavigateToCommand={onNavigateToCommand} />
         </div>
       </motion.div>
     );
@@ -385,7 +393,7 @@ function ClientPortfolioCard({
       </button>
 
       <div className="px-3 pb-3">
-        <CardActions client={client} onSelect={onSelect} onToast={onToast} />
+        <CardActions client={client} onSelect={onSelect} onToast={onToast} onNavigateToIncidents={onNavigateToIncidents} onNavigateToCommand={onNavigateToCommand} />
       </div>
     </motion.div>
   );
@@ -395,10 +403,12 @@ function ClientDetailDrawer({
   client,
   onClose,
   onToast,
+  onNavigateToCommand,
 }: {
   client: PortfolioClient;
   onClose: () => void;
   onToast: ToastFn;
+  onNavigateToCommand: (clientId: string) => void;
 }) {
   const slaColor = client.sla >= 90 ? '#38D98A' : client.sla >= 80 ? '#FF9B38' : '#FF4B4B';
   const compColor = client.compliance >= 90 ? '#38D98A' : client.compliance >= 80 ? '#FF9B38' : '#FF4B4B';
@@ -542,7 +552,7 @@ function ClientDetailDrawer({
 
           <div className="p-4 border-t border-[rgba(46,127,255,0.15)] space-y-2">
             <button
-              onClick={() => { onToast(`Opening Command Center for ${client.name}`, 'info'); onClose(); }}
+              onClick={() => { onNavigateToCommand(client.id); onClose(); }}
               className="w-full py-2.5 bg-[#2E7FFF] text-white text-[12px] font-semibold rounded-lg hover:bg-blue-500 transition-colors flex items-center justify-center gap-1.5"
             >
               Open Command Center <ArrowRight size={13} />
@@ -563,9 +573,11 @@ function ClientDetailDrawer({
 interface Props {
   onToast: ToastFn;
   onClientSelect: (clientId: string) => void;
+  onNavigateToIncidents: (clientId: string) => void;
+  onNavigateToCommand: (clientId: string) => void;
 }
 
-export function AllClients({ onToast, onClientSelect }: Props) {
+export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onNavigateToCommand }: Props) {
   const memberFilter  = useMemberFilter();
   const { addProfiles } = useMemberProfiles();
   const { clients: allClients, addClient } = useClients();
@@ -756,13 +768,13 @@ export function AllClients({ onToast, onClientSelect }: Props) {
         ) : view === 'grid' ? (
           <div className="grid grid-cols-3 gap-3">
             {filtered.map(c => (
-              <ClientPortfolioCard key={c.id} client={c} onSelect={client => onClientSelect(client.id)} onToast={onToast} view="grid" />
+              <ClientPortfolioCard key={c.id} client={c} onSelect={client => onClientSelect(client.id)} onToast={onToast} view="grid" onNavigateToIncidents={onNavigateToIncidents} onNavigateToCommand={onNavigateToCommand} />
             ))}
           </div>
         ) : (
           <div className="flex flex-col gap-2">
             {filtered.map(c => (
-              <ClientPortfolioCard key={c.id} client={c} onSelect={client => onClientSelect(client.id)} onToast={onToast} view="list" />
+              <ClientPortfolioCard key={c.id} client={c} onSelect={client => onClientSelect(client.id)} onToast={onToast} view="list" onNavigateToIncidents={onNavigateToIncidents} onNavigateToCommand={onNavigateToCommand} />
             ))}
           </div>
         )}
@@ -776,6 +788,7 @@ export function AllClients({ onToast, onClientSelect }: Props) {
               client={selected}
               onClose={() => setSelected(null)}
               onToast={onToast}
+              onNavigateToCommand={onNavigateToCommand}
             />
           </>
         )}

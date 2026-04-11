@@ -28,6 +28,9 @@ interface Props {
   page: StrategicPage;
   onClientSelect: (clientId: string) => void;
   selectedClientId: string | null;
+  onNavigateToIncidents: (clientId: string) => void;
+  onNavigateToCommand: (clientId: string) => void;
+  incidentsClientId?: string;
 }
 
 function Dashboard({ onToast, selectedClientId }: { onToast: ToastFn; selectedClientId: string | null }) {
@@ -57,13 +60,15 @@ function Dashboard({ onToast, selectedClientId }: { onToast: ToastFn; selectedCl
   );
 }
 
-export function StrategicView({ onToast, page, onClientSelect, selectedClientId }: Props) {
+export function StrategicView({ onToast, page, onClientSelect, selectedClientId, onNavigateToIncidents, onNavigateToCommand, incidentsClientId }: Props) {
   const [dispatchSettings, setDispatchSettings] = useState<DispatchSettings>(initialDispatchSettings);
+
+  const motionKey = page === 'incidents' && incidentsClientId ? `incidents-${incidentsClientId}` : page;
 
   return (
     <AnimatePresence mode="wait">
       <motion.div
-        key={page}
+        key={motionKey}
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -8 }}
@@ -74,7 +79,7 @@ export function StrategicView({ onToast, page, onClientSelect, selectedClientId 
         {page === 'datasources' && <DataSources   onToast={onToast} />}
         {page === 'benchmark'   && <Benchmark     onToast={onToast} />}
         {page === 'replay'      && <Replay        onToast={onToast} />}
-        {page === 'incidents'   && <Incidents     onToast={onToast} />}
+        {page === 'incidents'   && <Incidents     onToast={onToast} initialClientId={incidentsClientId} />}
         {page === 'tasks'       && <Tasks         onToast={onToast} />}
         {page === 'ppmschedule' && <PPMSchedule   onToast={onToast} />}
         {page === 'aicapture'   && <AICapture     onToast={onToast} />}
@@ -85,7 +90,7 @@ export function StrategicView({ onToast, page, onClientSelect, selectedClientId 
             setSettings={setDispatchSettings}
           />
         )}
-        {page === 'allclients'  && <AllClients    onToast={onToast} onClientSelect={onClientSelect} />}
+        {page === 'allclients'  && <AllClients    onToast={onToast} onClientSelect={onClientSelect} onNavigateToIncidents={onNavigateToIncidents} onNavigateToCommand={onNavigateToCommand} />}
         {page === 'team'        && <Team          onToast={onToast} />}
       </motion.div>
     </AnimatePresence>
