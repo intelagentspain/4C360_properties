@@ -192,40 +192,11 @@ export async function sendEmail(opts: SendEmailOptions): Promise<SendEmailResult
   const resend = await getResendClient();
 
   if (!resend) {
-    logger.warn({ to: opts.to }, "Resend not configured (demo: reporting sent)");
-    return { status: "sent" };
-  }
-
-  const from = opts.from || getFromEmail();
-
-  try {
-    const { error } = await resend.client.emails.send({
-      from,
-      to: opts.to,
-      subject: opts.subject,
-      html: opts.html,
-    });
-
-    if (error) {
-      logger.warn({ error, to: opts.to }, "Resend delivery failed (demo: reporting sent)");
-    } else {
-      logger.info({ to: opts.to, subject: opts.subject }, "Email sent via Resend");
-    }
-  } catch (err) {
-    logger.warn({ err, to: opts.to }, "Resend exception (demo: reporting sent)");
-  }
-
-  return { status: "sent" };
-}
-
-export async function sendEmailStrict(opts: SendEmailOptions): Promise<SendEmailResult> {
-  const resend = await getResendClient();
-
-  if (!resend) {
+    logger.warn("Resend not configured — email not sent");
     return { status: "failed", error: "Email provider not configured" };
   }
 
-  const from = opts.from || getFromEmail();
+  const from = opts.from || resend.fromEmail || getFromEmail();
 
   try {
     const { error } = await resend.client.emails.send({
