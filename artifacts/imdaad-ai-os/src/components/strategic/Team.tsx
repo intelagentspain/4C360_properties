@@ -49,7 +49,7 @@ interface AddStaffForm {
   commChannels: string[];
 }
 
-const ROLE_OPTIONS = ['Client', 'Account Manager', 'Site Supervisor', 'FM Engineer', 'Project Manager', 'Safety Officer', 'Client Success', 'Executive', 'Other'];
+const ROLE_OPTIONS = ['End Client', 'Account Manager', 'Site Supervisor', 'FM Engineer', 'Project Manager', 'Safety Officer', 'Business', 'Executive', 'Other'];
 
 const ZONE_OPTIONS = ['Cluster A', 'Cluster B', 'Block C', 'Recreation Area', 'Main Gate', 'Dubai Marina', 'Downtown', 'Dubai East', 'Jumeirah', 'Business Bay'];
 
@@ -71,13 +71,13 @@ const RBAC_PRIVILEGES = [
 ];
 
 const ROLE_DEFAULT_PRIVILEGES: Record<string, string[]> = {
-  'Client':          ['view_dashboard', 'view_reports', 'view_work_orders'],
+  'End Client':      ['view_dashboard', 'view_reports', 'view_work_orders'],
   'Account Manager': ['view_dashboard', 'view_work_orders', 'create_work_orders', 'view_reports', 'export_reports', 'manage_team', 'view_ai_insights'],
   'Site Supervisor': ['view_dashboard', 'view_work_orders', 'create_work_orders', 'approve_dispatch', 'manage_assets', 'manage_ppm'],
   'FM Engineer':     ['view_dashboard', 'view_work_orders', 'create_work_orders', 'manage_assets'],
   'Project Manager': ['view_dashboard', 'view_work_orders', 'create_work_orders', 'view_reports', 'export_reports', 'manage_ppm', 'manage_vendors'],
   'Safety Officer':  ['view_dashboard', 'view_work_orders', 'view_reports', 'manage_assets'],
-  'Client Success':  ['view_dashboard', 'view_work_orders', 'view_reports', 'export_reports', 'view_ai_insights'],
+  'Business':        ['view_dashboard', 'view_work_orders', 'view_reports', 'export_reports', 'view_ai_insights'],
   'Executive':       RBAC_PRIVILEGES.map(p => p.key),
   'Other':           ['view_dashboard', 'view_work_orders'],
 };
@@ -889,7 +889,7 @@ export function Team({ onToast }: Props) {
   const clientNames = useMemo(() => clients.map(c => c.name), [clients]);
 
   const teamMembers = useMemo(
-    () => profiles.filter(p => p.perspective !== 'Client' && p.role.toLowerCase() !== 'client' && p.role.toLowerCase() !== 'vendor'),
+    () => profiles.filter(p => p.perspective !== 'Client' && p.role.toLowerCase() !== 'end client' && p.role.toLowerCase() !== 'vendor'),
     [profiles],
   );
 

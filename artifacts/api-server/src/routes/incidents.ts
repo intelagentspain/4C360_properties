@@ -68,7 +68,7 @@ const OPERATIONAL_ROLES = new Set([
   "Safety Officer",
   "Project Manager",
   "Account Manager",
-  "Client Success",
+  "Business",
   "Executive",
   "FM Manager",
   "Operations Supervisor",
@@ -1636,7 +1636,7 @@ router.get("/incidents/:id/confirm-resolution", async (req: Request, res: Respon
     assignedTech: incident.assignedTech,
   };
   const allRecipients = await resolveRecipients(incidentPayload);
-  const clientRecipients = allRecipients.filter(r => r.role === "Client Success" || r.role === "Account Manager");
+  const clientRecipients = allRecipients.filter(r => r.role === "Business" || r.role === "Account Manager");
   const sendTo = clientRecipients.length > 0 ? clientRecipients : allRecipients.slice(0, 1);
 
   for (const r of sendTo) {
@@ -1732,7 +1732,7 @@ router.post("/incidents/:id/confirm-resolution", async (req: Request, res: Respo
     }).catch(err => logger.error({ err }, "Failed to send client resolution email"));
   } else {
     const allRecipients = await resolveRecipients(incidentPayload);
-    const clientRecipients = allRecipients.filter(r => r.role === "Client Success" || r.role === "Account Manager");
+    const clientRecipients = allRecipients.filter(r => r.role === "Business" || r.role === "Account Manager");
     const sendTo = clientRecipients.length > 0 ? clientRecipients : allRecipients.slice(0, 1);
 
     for (const r of sendTo) {

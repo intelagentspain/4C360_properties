@@ -69,7 +69,7 @@ const SECTOR_SUBTYPES: Record<string, string[]> = {
 };
 const SLA_TIERS      = ['Platinum', 'Gold', 'Silver', 'Bronze'];
 const ASSET_CATEGORIES = ['HVAC', 'Electrical', 'Plumbing', 'Civil', 'Landscaping', 'Cleaning', 'Security', 'Elevators', 'Other'];
-const TEAM_ROLES     = ['Client', 'Account Manager', 'Site Supervisor', 'FM Engineer', 'Project Manager', 'Safety Officer', 'Client Success', 'Executive', 'Other'];
+const TEAM_ROLES     = ['End Client', 'Account Manager', 'Site Supervisor', 'FM Engineer', 'Project Manager', 'Safety Officer', 'Business', 'Executive', 'Other'];
 
 const ASSET_CONDITION_OPTS = ['Excellent', 'Good', 'Fair', 'Poor'];
 
@@ -392,13 +392,13 @@ const RBAC_PRIVILEGES = [
 ];
 
 const ROLE_DEFAULT_PRIVILEGES: Record<string, string[]> = {
-  'Client':          ['view_dashboard', 'view_reports', 'view_work_orders'],
+  'End Client':      ['view_dashboard', 'view_reports', 'view_work_orders'],
   'Account Manager': ['view_dashboard', 'view_work_orders', 'create_work_orders', 'view_reports', 'export_reports', 'manage_team', 'view_ai_insights'],
   'Site Supervisor': ['view_dashboard', 'view_work_orders', 'create_work_orders', 'approve_dispatch', 'manage_assets', 'manage_ppm'],
   'FM Engineer':     ['view_dashboard', 'view_work_orders', 'create_work_orders', 'manage_assets'],
   'Project Manager': ['view_dashboard', 'view_work_orders', 'create_work_orders', 'view_reports', 'export_reports', 'manage_ppm', 'manage_vendors'],
   'Safety Officer':  ['view_dashboard', 'view_work_orders', 'view_reports', 'manage_assets'],
-  'Client Success':  ['view_dashboard', 'view_work_orders', 'view_reports', 'export_reports', 'view_ai_insights'],
+  'Business':        ['view_dashboard', 'view_work_orders', 'view_reports', 'export_reports', 'view_ai_insights'],
   'Executive':       RBAC_PRIVILEGES.map(p => p.key),
 };
 

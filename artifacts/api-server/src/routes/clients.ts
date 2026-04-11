@@ -55,7 +55,7 @@ const ROLE_GUIDE: Record<string, string[]> = {
     "Maintain up-to-date COSHH and MSDS registers in AI-OS for all chemicals in use.",
     "Deliver toolbox talks at least twice per month and record attendance in the platform.",
   ],
-  "Client Success": [
+  "Business": [
     "Check client satisfaction scores weekly and respond to any rating below 4/5 within 24 hours.",
     "Proactively share platform adoption tips and new feature highlights with the client each month.",
     "Coordinate with the Account Manager on renewal or upsell opportunities identified through usage data.",
