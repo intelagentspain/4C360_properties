@@ -33,6 +33,14 @@ const evidenceUpload = multer({
   },
 });
 
+const RESOLUTION_CONFIRM_SECRET =
+  process.env.RESOLUTION_CONFIRM_SECRET ??
+  (() => {
+    const s = crypto.randomBytes(32).toString("hex");
+    logger.warn("RESOLUTION_CONFIRM_SECRET not set — using ephemeral secret.");
+    return s;
+  })();
+
 const router = Router();
 
 const APP_SECRET =
@@ -1028,7 +1036,7 @@ router.patch("/incidents/:id", async (req: Request, res: Response) => {
 
   try {
     const allowed: Record<string, unknown> = {};
-    const fields = ["title","location","severity","slaMinutes","source","status","assignedTech","techId","description","lat","lng","imageUrl","siteId","clientId","aiMetadata","activityLog","closureNotes"];
+    const fields = ["title","location","severity","slaMinutes","source","status","assignedTech","techId","description","lat","lng","imageUrl","siteId","clientId","aiMetadata","activityLog","closureNotes","resolvedAt","resolvedBy","resolutionNotes","beforePhotoUrl","afterPhotoUrl","confirmedAt","confirmedBy","reportedAt"];
     for (const f of fields) {
       if (f in updates) allowed[f] = updates[f];
     }
@@ -1246,6 +1254,513 @@ router.post("/incidents/notify", async (req: Request, res: Response) => {
   }
 
   res.json({ incidentId: incident.id, siteId: resolveSiteId(incident), ticketState: "pending_approval", results });
+});
+
+function registerConfirmToken(incidentId: string, email: string): string {
+  return crypto
+    .createHmac("sha256", RESOLUTION_CONFIRM_SECRET)
+    .update(`confirm-resolution:${incidentId}:${email}`)
+    .digest("hex");
+}
+
+function validateConfirmToken(incidentId: string, email: string, token: string): boolean {
+  return token === registerConfirmToken(incidentId, email);
+}
+
+function formatDuration(ms: number): string {
+  const totalMinutes = Math.round(ms / 60000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours === 0) return `${minutes} min`;
+  if (minutes === 0) return `${hours}h`;
+  return `${hours}h ${minutes}min`;
+}
+
+function confirmedResolutionHtml(id: string): string {
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><title>Resolution Confirmed</title>
+<style>body{margin:0;padding:0;background:#060F1E;font-family:'Segoe UI',Arial,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;}.card{background:#0D1E38;border:1px solid rgba(16,185,129,0.3);border-radius:16px;padding:48px 40px;max-width:440px;text-align:center;}h1{color:#10B981;font-size:20px;margin:0 0 12px;}p{color:#7A94B4;font-size:13px;line-height:1.6;margin:0;}.icon{font-size:40px;margin-bottom:16px;}.badge{display:inline-block;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.3);border-radius:8px;padding:4px 12px;color:#10B981;font-size:11px;font-weight:700;margin-bottom:20px;letter-spacing:1px;}</style>
+</head><body><div class="card"><div class="icon">✅</div><div class="badge">IMDAAD AI-OS</div><h1>Resolution Confirmed</h1><p>Incident <strong style="color:#EEF3FA;">${escapeHtml(id)}</strong> has been confirmed as resolved. The client has been notified with a full resolution report.</p></div></body></html>`;
+}
+
+function buildResolutionNotificationEmail(
+  incident: IncidentPayload & {
+    resolvedBy?: string;
+    resolvedAt?: string;
+    resolutionNotes?: string;
+    beforePhotoUrl?: string;
+    afterPhotoUrl?: string;
+    reportedAt?: string;
+  },
+  recipientName: string,
+  recipientEmail: string,
+  confirmUrl: string,
+): string {
+  const sev      = incident.severity ?? "low";
+  const sevColor = severityColor(sev);
+  const sevLabel = severityLabel(sev);
+
+  const reportedAt = incident.reportedAt ? new Date(incident.reportedAt) : null;
+  const resolvedAt = incident.resolvedAt ? new Date(incident.resolvedAt) : new Date();
+
+  const reportedStr = reportedAt ? reportedAt.toLocaleString("en-GB", { timeZone: "Asia/Dubai", hour12: false }) : "—";
+  const resolvedStr = resolvedAt.toLocaleString("en-GB", { timeZone: "Asia/Dubai", hour12: false });
+  const duration = reportedAt ? formatDuration(resolvedAt.getTime() - reportedAt.getTime()) : "—";
+
+  const beforeBlock = incident.beforePhotoUrl
+    ? `<p style="color:#7A94B4;font-size:10px;text-transform:uppercase;letter-spacing:2px;margin:20px 0 8px;font-weight:700;">Before Photo</p>
+       <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;"><tr><td align="center">
+       <img src="${escapeHtml(incident.beforePhotoUrl)}" alt="Before" style="max-width:100%;border-radius:8px;border:1px solid rgba(239,68,68,0.3);" /></td></tr></table>`
+    : "";
+
+  const afterBlock = incident.afterPhotoUrl
+    ? `<p style="color:#7A94B4;font-size:10px;text-transform:uppercase;letter-spacing:2px;margin:20px 0 8px;font-weight:700;">After Photo</p>
+       <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;"><tr><td align="center">
+       <img src="${escapeHtml(incident.afterPhotoUrl)}" alt="After" style="max-width:100%;border-radius:8px;border:1px solid rgba(16,185,129,0.3);" /></td></tr></table>`
+    : "";
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>Resolution Pending Confirmation — ${escapeHtml(incident.id)}</title></head>
+<body style="margin:0;padding:0;background:#060F1E;font-family:'Segoe UI',Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#060F1E;padding:40px 0;">
+  <tr><td align="center">
+    <table width="580" cellpadding="0" cellspacing="0" style="background:#0D1E38;border:1px solid rgba(16,185,129,0.25);border-radius:16px;overflow:hidden;">
+      <tr><td style="background:linear-gradient(135deg,#051a10 0%,#0a2818 100%);padding:28px 40px;border-bottom:1px solid rgba(16,185,129,0.2);">
+        <table width="100%" cellpadding="0" cellspacing="0"><tr>
+          <td><div style="display:inline-block;background:rgba(46,127,255,0.15);border:1px solid rgba(46,127,255,0.3);border-radius:10px;padding:8px 16px;"><span style="color:#2E7FFF;font-size:18px;font-weight:800;letter-spacing:1px;">IMDAAD</span><span style="color:#7A94B4;font-size:14px;font-weight:400;margin-left:6px;">AI-OS</span></div><p style="color:#7A94B4;font-size:11px;letter-spacing:2px;text-transform:uppercase;margin:10px 0 0;">Resolution Confirmation Required</p></td>
+          <td align="right" style="vertical-align:top;"><div style="display:inline-block;background:#10B98122;border:1px solid #10B98166;border-radius:8px;padding:6px 14px;"><span style="color:#10B981;font-size:13px;font-weight:800;">RESOLVED</span></div></td>
+        </tr></table>
+      </td></tr>
+      <tr><td style="padding:32px 40px;">
+        <h1 style="color:#EEF3FA;font-size:20px;font-weight:700;margin:0 0 6px;">${escapeHtml(incident.title ?? "Incident")}</h1>
+        <p style="color:#7A94B4;font-size:13px;margin:0 0 24px;">Hello ${escapeHtml(recipientName)}, the FM engineer has marked this incident as resolved. Please review the details and confirm.</p>
+
+        <p style="color:#7A94B4;font-size:10px;text-transform:uppercase;letter-spacing:2px;margin:0 0 12px;font-weight:700;">Resolution Summary</p>
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(16,185,129,0.07);border:1px solid rgba(16,185,129,0.22);border-radius:10px;margin-bottom:20px;">
+          <tr><td style="padding:20px 24px;"><table width="100%" cellpadding="0" cellspacing="0">
+            <tr><td style="color:#7A94B4;font-size:12px;padding:5px 0;width:160px;">Incident ID</td><td style="color:#2E7FFF;font-size:12px;font-weight:700;font-family:monospace;padding:5px 0;">${escapeHtml(incident.id)}</td></tr>
+            <tr><td style="color:#7A94B4;font-size:12px;padding:5px 0;">Severity</td><td style="padding:5px 0;"><span style="background:${sevColor}22;border:1px solid ${sevColor}66;border-radius:5px;padding:2px 8px;color:${sevColor};font-size:11px;font-weight:700;">${sevLabel}</span></td></tr>
+            <tr><td style="color:#7A94B4;font-size:12px;padding:5px 0;">Location</td><td style="color:#EEF3FA;font-size:12px;font-weight:600;padding:5px 0;">${escapeHtml(incident.location ?? "—")}</td></tr>
+            <tr><td style="color:#7A94B4;font-size:12px;padding:5px 0;">Assigned Engineer</td><td style="color:#EEF3FA;font-size:12px;font-weight:600;padding:5px 0;">${escapeHtml(incident.resolvedBy ?? incident.assignedTech ?? "—")}</td></tr>
+            <tr><td style="color:#7A94B4;font-size:12px;padding:5px 0;">Reported At</td><td style="color:#EEF3FA;font-size:12px;font-weight:600;padding:5px 0;">${escapeHtml(reportedStr)}</td></tr>
+            <tr><td style="color:#7A94B4;font-size:12px;padding:5px 0;">Resolved At</td><td style="color:#10B981;font-size:12px;font-weight:700;padding:5px 0;">${escapeHtml(resolvedStr)}</td></tr>
+            <tr><td style="color:#7A94B4;font-size:12px;padding:5px 0;">Total Time Taken</td><td style="color:#EEF3FA;font-size:12px;font-weight:700;padding:5px 0;">${escapeHtml(duration)}</td></tr>
+          </table></td></tr>
+        </table>
+
+        ${incident.resolutionNotes ? `
+        <p style="color:#7A94B4;font-size:10px;text-transform:uppercase;letter-spacing:2px;margin:0 0 12px;font-weight:700;">Resolution Notes</p>
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.2);border-radius:10px;margin-bottom:20px;">
+          <tr><td style="padding:16px 20px;"><p style="color:#EEF3FA;font-size:12px;margin:0;line-height:1.7;">${escapeHtml(incident.resolutionNotes)}</p></td></tr>
+        </table>` : ""}
+
+        ${beforeBlock}
+        ${afterBlock}
+
+        <p style="color:#7A94B4;font-size:10px;text-transform:uppercase;letter-spacing:2px;margin:24px 0 12px;font-weight:700;">Confirm Resolution</p>
+        <p style="color:#7A94B4;font-size:12px;margin:0 0 16px;line-height:1.6;">As a site supervisor or account manager, your confirmation is required to close this ticket and notify the client.</p>
+        <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
+          <tr><td align="center">
+            <a href="${escapeHtml(confirmUrl)}" style="display:inline-block;background:#10B981;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;padding:16px 48px;border-radius:12px;letter-spacing:0.3px;">
+              ✓ Confirm Resolution &amp; Notify Client
+            </a>
+          </td></tr>
+        </table>
+
+        <p style="color:#4A6080;font-size:11px;line-height:1.6;margin:0;text-align:center;">
+          By confirming, the incident will be closed and a full resolution report will be sent to the client.
+        </p>
+      </td></tr>
+      <tr><td style="background:#0A1628;padding:20px 40px;border-top:1px solid rgba(16,185,129,0.12);">
+        <table width="100%" cellpadding="0" cellspacing="0"><tr>
+          <td><p style="color:#4A6080;font-size:10px;margin:0;">© ${new Date().getFullYear()} Imdaad. All rights reserved.</p><p style="color:#4A6080;font-size:10px;margin:4px 0 0;">AI-OS Platform · Dubai, UAE</p></td>
+          <td align="right"><p style="color:#4A6080;font-size:10px;margin:0;">Sent to: ${escapeHtml(recipientEmail)}</p><p style="color:#4A6080;font-size:10px;margin:4px 0 0;">Incident: ${escapeHtml(incident.id)}</p></td>
+        </tr></table>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>`;
+}
+
+function buildClientResolutionEmail(
+  incident: IncidentPayload & {
+    resolvedBy?: string;
+    resolvedAt?: string;
+    resolutionNotes?: string;
+    beforePhotoUrl?: string;
+    afterPhotoUrl?: string;
+    reportedAt?: string;
+    confirmedBy?: string;
+    confirmedAt?: string;
+  },
+  recipientName: string,
+  recipientEmail: string,
+): string {
+  const sev      = incident.severity ?? "low";
+  const sevColor = severityColor(sev);
+  const sevLabel = severityLabel(sev);
+
+  const reportedAt = incident.reportedAt ? new Date(incident.reportedAt) : null;
+  const resolvedAt = incident.resolvedAt ? new Date(incident.resolvedAt) : new Date();
+  const confirmedAt = incident.confirmedAt ? new Date(incident.confirmedAt) : new Date();
+
+  const reportedStr  = reportedAt ? reportedAt.toLocaleString("en-GB", { timeZone: "Asia/Dubai", hour12: false }) : "—";
+  const resolvedStr  = resolvedAt.toLocaleString("en-GB", { timeZone: "Asia/Dubai", hour12: false });
+  const confirmedStr = confirmedAt.toLocaleString("en-GB", { timeZone: "Asia/Dubai", hour12: false });
+  const duration     = reportedAt ? formatDuration(resolvedAt.getTime() - reportedAt.getTime()) : "—";
+
+  const beforeBlock = incident.beforePhotoUrl
+    ? `<tr><td style="padding:0 12px 16px;"><p style="color:#7A94B4;font-size:10px;text-transform:uppercase;letter-spacing:2px;margin:0 0 8px;font-weight:700;">Before</p>
+       <img src="${escapeHtml(incident.beforePhotoUrl)}" alt="Before" style="max-width:100%;border-radius:8px;border:1px solid rgba(239,68,68,0.3);" /></td></tr>`
+    : "";
+
+  const afterBlock = incident.afterPhotoUrl
+    ? `<tr><td style="padding:0 12px 16px;"><p style="color:#7A94B4;font-size:10px;text-transform:uppercase;letter-spacing:2px;margin:0 0 8px;font-weight:700;">After</p>
+       <img src="${escapeHtml(incident.afterPhotoUrl)}" alt="After" style="max-width:100%;border-radius:8px;border:1px solid rgba(16,185,129,0.3);" /></td></tr>`
+    : "";
+
+  const photoSection = (incident.beforePhotoUrl || incident.afterPhotoUrl)
+    ? `<p style="color:#7A94B4;font-size:10px;text-transform:uppercase;letter-spacing:2px;margin:24px 0 12px;font-weight:700;">Photo Evidence</p>
+       <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(46,127,255,0.07);border:1px solid rgba(46,127,255,0.22);border-radius:10px;margin-bottom:20px;">
+         ${beforeBlock}${afterBlock}
+       </table>`
+    : "";
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>Resolution Report — ${escapeHtml(incident.id)}</title></head>
+<body style="margin:0;padding:0;background:#060F1E;font-family:'Segoe UI',Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#060F1E;padding:40px 0;">
+  <tr><td align="center">
+    <table width="580" cellpadding="0" cellspacing="0" style="background:#0D1E38;border:1px solid rgba(16,185,129,0.25);border-radius:16px;overflow:hidden;">
+      <tr><td style="background:linear-gradient(135deg,#051a10 0%,#0a2818 100%);padding:28px 40px;border-bottom:1px solid rgba(16,185,129,0.2);">
+        <table width="100%" cellpadding="0" cellspacing="0"><tr>
+          <td><div style="display:inline-block;background:rgba(46,127,255,0.15);border:1px solid rgba(46,127,255,0.3);border-radius:10px;padding:8px 16px;"><span style="color:#2E7FFF;font-size:18px;font-weight:800;letter-spacing:1px;">IMDAAD</span><span style="color:#7A94B4;font-size:14px;font-weight:400;margin-left:6px;">AI-OS</span></div><p style="color:#7A94B4;font-size:11px;letter-spacing:2px;text-transform:uppercase;margin:10px 0 0;">Incident Resolution Report</p></td>
+          <td align="right" style="vertical-align:top;"><div style="display:inline-block;background:#10B98122;border:1px solid #10B98166;border-radius:8px;padding:6px 14px;"><span style="color:#10B981;font-size:13px;font-weight:800;">CLOSED</span></div></td>
+        </tr></table>
+      </td></tr>
+      <tr><td style="padding:32px 40px;">
+        <div style="text-align:center;margin-bottom:28px;">
+          <div style="font-size:48px;margin-bottom:12px;">✅</div>
+          <h1 style="color:#EEF3FA;font-size:22px;font-weight:700;margin:0 0 8px;">Issue Resolved</h1>
+          <p style="color:#7A94B4;font-size:13px;margin:0;">Hello ${escapeHtml(recipientName)}, we're pleased to confirm that the following issue at your site has been fully resolved.</p>
+        </div>
+
+        <p style="color:#7A94B4;font-size:10px;text-transform:uppercase;letter-spacing:2px;margin:0 0 12px;font-weight:700;">Incident Details</p>
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(46,127,255,0.07);border:1px solid rgba(46,127,255,0.22);border-radius:10px;margin-bottom:20px;">
+          <tr><td style="padding:20px 24px;"><table width="100%" cellpadding="0" cellspacing="0">
+            <tr><td style="color:#7A94B4;font-size:12px;padding:5px 0;width:160px;">Incident ID</td><td style="color:#2E7FFF;font-size:12px;font-weight:700;font-family:monospace;padding:5px 0;">${escapeHtml(incident.id)}</td></tr>
+            <tr><td style="color:#7A94B4;font-size:12px;padding:5px 0;">Title</td><td style="color:#EEF3FA;font-size:12px;font-weight:600;padding:5px 0;">${escapeHtml(incident.title ?? "—")}</td></tr>
+            <tr><td style="color:#7A94B4;font-size:12px;padding:5px 0;">Severity</td><td style="padding:5px 0;"><span style="background:${sevColor}22;border:1px solid ${sevColor}66;border-radius:5px;padding:2px 8px;color:${sevColor};font-size:11px;font-weight:700;">${sevLabel}</span></td></tr>
+            <tr><td style="color:#7A94B4;font-size:12px;padding:5px 0;">Site / Location</td><td style="color:#EEF3FA;font-size:12px;font-weight:600;padding:5px 0;">${escapeHtml(incident.location ?? "—")}</td></tr>
+            <tr><td style="color:#7A94B4;font-size:12px;padding:5px 0;">Assigned Engineer</td><td style="color:#EEF3FA;font-size:12px;font-weight:600;padding:5px 0;">${escapeHtml(incident.resolvedBy ?? incident.assignedTech ?? "—")}</td></tr>
+          </table></td></tr>
+        </table>
+
+        <p style="color:#7A94B4;font-size:10px;text-transform:uppercase;letter-spacing:2px;margin:0 0 12px;font-weight:700;">Timeline</p>
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(16,185,129,0.07);border:1px solid rgba(16,185,129,0.22);border-radius:10px;margin-bottom:20px;">
+          <tr><td style="padding:20px 24px;"><table width="100%" cellpadding="0" cellspacing="0">
+            <tr><td style="color:#7A94B4;font-size:12px;padding:5px 0;width:160px;">Reported At</td><td style="color:#EEF3FA;font-size:12px;font-weight:600;padding:5px 0;">${escapeHtml(reportedStr)}</td></tr>
+            <tr><td style="color:#7A94B4;font-size:12px;padding:5px 0;">Resolved At</td><td style="color:#10B981;font-size:12px;font-weight:700;padding:5px 0;">${escapeHtml(resolvedStr)}</td></tr>
+            <tr><td style="color:#7A94B4;font-size:12px;padding:5px 0;">Confirmed At</td><td style="color:#EEF3FA;font-size:12px;font-weight:600;padding:5px 0;">${escapeHtml(confirmedStr)}</td></tr>
+            <tr><td style="color:#7A94B4;font-size:12px;padding:5px 0;">Total Time Taken</td><td style="color:#EEF3FA;font-size:12px;font-weight:700;padding:5px 0;">${escapeHtml(duration)}</td></tr>
+            <tr><td style="color:#7A94B4;font-size:12px;padding:5px 0;">Confirmed By</td><td style="color:#EEF3FA;font-size:12px;font-weight:600;padding:5px 0;">${escapeHtml(incident.confirmedBy ?? "—")}</td></tr>
+          </table></td></tr>
+        </table>
+
+        ${incident.resolutionNotes ? `
+        <p style="color:#7A94B4;font-size:10px;text-transform:uppercase;letter-spacing:2px;margin:0 0 12px;font-weight:700;">Resolution Notes</p>
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.2);border-radius:10px;margin-bottom:20px;">
+          <tr><td style="padding:16px 20px;"><p style="color:#EEF3FA;font-size:12px;margin:0;line-height:1.7;">${escapeHtml(incident.resolutionNotes)}</p></td></tr>
+        </table>` : ""}
+
+        ${photoSection}
+
+        <div style="text-align:center;margin-top:24px;padding:20px;background:rgba(16,185,129,0.05);border:1px solid rgba(16,185,129,0.2);border-radius:12px;">
+          <p style="color:#10B981;font-size:13px;font-weight:700;margin:0 0 6px;">Ticket Closed — SLA Met</p>
+          <p style="color:#7A94B4;font-size:11px;margin:0;line-height:1.6;">This incident has been formally closed. Thank you for your continued trust in Imdaad.</p>
+        </div>
+      </td></tr>
+      <tr><td style="background:#0A1628;padding:20px 40px;border-top:1px solid rgba(16,185,129,0.12);">
+        <table width="100%" cellpadding="0" cellspacing="0"><tr>
+          <td><p style="color:#4A6080;font-size:10px;margin:0;">© ${new Date().getFullYear()} Imdaad. All rights reserved.</p><p style="color:#4A6080;font-size:10px;margin:4px 0 0;">AI-OS Platform · Dubai, UAE</p></td>
+          <td align="right"><p style="color:#4A6080;font-size:10px;margin:0;">Sent to: ${escapeHtml(recipientEmail)}</p><p style="color:#4A6080;font-size:10px;margin:4px 0 0;">Incident: ${escapeHtml(incident.id)}</p></td>
+        </tr></table>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>`;
+}
+
+interface ResolutionBody {
+  resolvedBy?: string;
+  resolutionNotes?: string;
+  beforePhotoUrl?: string;
+  afterPhotoUrl?: string;
+  inviteList?: InviteListMember[];
+  clientEmail?: string;
+  clientName?: string;
+}
+
+router.post("/incidents/:id/resolve", async (req: Request, res: Response) => {
+  const id = String(req.params["id"]);
+  const body = req.body as Partial<ResolutionBody>;
+
+  const rows = await db.select().from(incidentsTable).where(eq(incidentsTable.id, id));
+  if (rows.length === 0) { res.status(404).json({ error: "Incident not found" }); return; }
+
+  const incident = rows[0];
+  const resolvedAt = new Date();
+
+  const activityLog = Array.isArray(incident.activityLog) ? incident.activityLog : [];
+  const timeStr = resolvedAt.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+  const updatedLog = [
+    ...activityLog,
+    { time: timeStr, event: `Incident marked resolved by ${body.resolvedBy ?? incident.assignedTech ?? "FM Engineer"} with photo evidence`, type: "update" },
+    { time: timeStr, event: `Resolution pending supervisor/AM confirmation`, type: "dispatch" },
+  ];
+
+  await db.update(incidentsTable).set({
+    status: "resolved",
+    resolvedAt,
+    resolvedBy: body.resolvedBy ?? incident.assignedTech ?? undefined,
+    resolutionNotes: body.resolutionNotes ?? undefined,
+    beforePhotoUrl: body.beforePhotoUrl ?? undefined,
+    afterPhotoUrl: body.afterPhotoUrl ?? undefined,
+    reportedAt: (incident as Record<string, unknown>)["reportedAt"] as Date | undefined ?? incident.createdAt ?? undefined,
+    activityLog: updatedLog,
+    updatedAt: resolvedAt,
+  } as Record<string, unknown>).where(eq(incidentsTable.id, id));
+
+  const apiBase = process.env.API_BASE_URL ?? `http://localhost:${process.env.PORT ?? 3001}`;
+
+  const incidentPayload: IncidentPayload = {
+    id: incident.id,
+    title: incident.title,
+    location: incident.location ?? undefined,
+    severity: incident.severity ?? undefined,
+    siteId: incident.siteId ?? undefined,
+    assignedTech: incident.assignedTech,
+  };
+
+  const approvers = await resolveApprovers(incidentPayload, body.inviteList);
+  const emailResults: { email: string; status: string; error?: string }[] = [];
+
+  for (const approver of approvers) {
+    const confirmToken = registerConfirmToken(id, approver.email);
+    const confirmUrl = `${apiBase}/api/incidents/${encodeURIComponent(id)}/confirm-resolution?token=${confirmToken}&email=${encodeURIComponent(approver.email)}`;
+
+    const html = buildResolutionNotificationEmail(
+      {
+        ...incidentPayload,
+        resolvedBy: body.resolvedBy ?? incident.assignedTech ?? undefined,
+        resolvedAt: resolvedAt.toISOString(),
+        resolutionNotes: body.resolutionNotes,
+        beforePhotoUrl: body.beforePhotoUrl,
+        afterPhotoUrl: body.afterPhotoUrl,
+        reportedAt: (incident.createdAt ?? resolvedAt).toISOString(),
+      },
+      approver.name,
+      approver.email,
+      confirmUrl,
+    );
+
+    const result = await sendEmail({
+      to: approver.email,
+      subject: `[Resolution Pending] ${incident.title} — ${id} — Confirm to close`,
+      html,
+    });
+
+    emailResults.push({ email: approver.email, status: result.status, error: result.error });
+
+    if (!ticketStore.has(id)) {
+      ticketStore.set(id, {
+        incidentId: id,
+        state: "approved",
+        createdAt: incident.createdAt?.toISOString() ?? resolvedAt.toISOString(),
+        updatedAt: resolvedAt.toISOString(),
+        incident: incidentPayload,
+      });
+    }
+  }
+
+  logger.info({ incidentId: id, approvers: approvers.map(a => a.email) }, "Resolution notifications sent to approvers");
+  res.json({ ok: true, incidentId: id, status: "resolved", approversNotified: approvers.map(a => a.email), emailResults });
+});
+
+router.get("/incidents/:id/confirm-resolution", async (req: Request, res: Response) => {
+  const id = String(req.params["id"]);
+  const { token, email } = req.query as { token?: string; email?: string };
+
+  if (!token || !email) { res.status(400).send(approveErrorHtml("Missing token or email.")); return; }
+  if (!validateConfirmToken(id, email, token)) { res.status(400).send(approveErrorHtml("Invalid or expired confirmation link.")); return; }
+
+  const rows = await db.select().from(incidentsTable).where(eq(incidentsTable.id, id));
+  if (rows.length === 0) { res.status(404).send(approveErrorHtml("Incident not found.")); return; }
+
+  const incident = rows[0];
+  if (incident.status === "closed") { res.send(confirmedResolutionHtml(id)); return; }
+
+  const confirmedAt = new Date();
+  const timeStr = confirmedAt.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+
+  const activityLog = Array.isArray(incident.activityLog) ? incident.activityLog : [];
+  const updatedLog = [
+    ...activityLog,
+    { time: timeStr, event: `Resolution confirmed by ${email} — incident closed`, type: "update" },
+    { time: timeStr, event: `Client notified with full resolution report`, type: "dispatch" },
+  ];
+
+  await db.update(incidentsTable).set({
+    status: "closed",
+    confirmedAt,
+    confirmedBy: email,
+    closureNotes: (incident as Record<string, unknown>)["resolutionNotes"] as string | undefined,
+    activityLog: updatedLog,
+    updatedAt: confirmedAt,
+  } as Record<string, unknown>).where(eq(incidentsTable.id, id));
+
+  logger.info({ incidentId: id, confirmedBy: email }, "Resolution confirmed via email link");
+
+  const apiBase = process.env.API_BASE_URL ?? `http://localhost:${process.env.PORT ?? 3001}`;
+  const incidentPayload: IncidentPayload = {
+    id: incident.id,
+    title: incident.title,
+    location: incident.location ?? undefined,
+    severity: incident.severity ?? undefined,
+    siteId: incident.siteId ?? undefined,
+    assignedTech: incident.assignedTech,
+  };
+  const allRecipients = await resolveRecipients(incidentPayload);
+  const clientRecipients = allRecipients.filter(r => r.role === "Client Success" || r.role === "Account Manager");
+  const sendTo = clientRecipients.length > 0 ? clientRecipients : allRecipients.slice(0, 1);
+
+  for (const r of sendTo) {
+    const html = buildClientResolutionEmail(
+      {
+        ...incidentPayload,
+        resolvedBy: (incident as Record<string, unknown>)["resolvedBy"] as string | undefined,
+        resolvedAt: ((incident as Record<string, unknown>)["resolvedAt"] as Date | undefined)?.toISOString(),
+        resolutionNotes: (incident as Record<string, unknown>)["resolutionNotes"] as string | undefined,
+        beforePhotoUrl: (incident as Record<string, unknown>)["beforePhotoUrl"] as string | undefined,
+        afterPhotoUrl: (incident as Record<string, unknown>)["afterPhotoUrl"] as string | undefined,
+        reportedAt: incident.createdAt?.toISOString(),
+        confirmedBy: email,
+        confirmedAt: confirmedAt.toISOString(),
+      },
+      r.name,
+      r.email,
+    );
+    await sendEmail({
+      to: r.email,
+      subject: `[Resolved] ${incident.title ?? id} — Resolution Report`,
+      html,
+    }).catch(err => logger.error({ err }, "Failed to send client resolution email"));
+  }
+
+  res.send(confirmedResolutionHtml(id));
+});
+
+router.post("/incidents/:id/confirm-resolution", async (req: Request, res: Response) => {
+  const id = String(req.params["id"]);
+  const { confirmedBy, clientEmail, clientName } = req.body as { confirmedBy?: string; clientEmail?: string; clientName?: string };
+
+  const rows = await db.select().from(incidentsTable).where(eq(incidentsTable.id, id));
+  if (rows.length === 0) { res.status(404).json({ error: "Incident not found" }); return; }
+
+  const incident = rows[0];
+  if (incident.status === "closed") {
+    res.json({ ok: true, incidentId: id, status: "closed", message: "Already closed" });
+    return;
+  }
+
+  const confirmedAt = new Date();
+  const timeStr = confirmedAt.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+
+  const activityLog = Array.isArray(incident.activityLog) ? incident.activityLog : [];
+  const updatedLog = [
+    ...activityLog,
+    { time: timeStr, event: `Resolution confirmed by ${confirmedBy ?? "supervisor"} — incident closed`, type: "update" },
+    { time: timeStr, event: `Client notified with full resolution report`, type: "dispatch" },
+  ];
+
+  await db.update(incidentsTable).set({
+    status: "closed",
+    confirmedAt,
+    confirmedBy: confirmedBy ?? "supervisor",
+    closureNotes: (incident as Record<string, unknown>)["resolutionNotes"] as string | undefined,
+    activityLog: updatedLog,
+    updatedAt: confirmedAt,
+  } as Record<string, unknown>).where(eq(incidentsTable.id, id));
+
+  const incidentPayload: IncidentPayload = {
+    id: incident.id,
+    title: incident.title,
+    location: incident.location ?? undefined,
+    severity: incident.severity ?? undefined,
+    siteId: incident.siteId ?? undefined,
+    assignedTech: incident.assignedTech,
+  };
+
+  const targetEmail   = clientEmail ?? "";
+  const targetName    = clientName ?? "Client";
+
+  if (targetEmail) {
+    const html = buildClientResolutionEmail(
+      {
+        ...incidentPayload,
+        resolvedBy: (incident as Record<string, unknown>)["resolvedBy"] as string | undefined,
+        resolvedAt: ((incident as Record<string, unknown>)["resolvedAt"] as Date | undefined)?.toISOString(),
+        resolutionNotes: (incident as Record<string, unknown>)["resolutionNotes"] as string | undefined,
+        beforePhotoUrl: (incident as Record<string, unknown>)["beforePhotoUrl"] as string | undefined,
+        afterPhotoUrl: (incident as Record<string, unknown>)["afterPhotoUrl"] as string | undefined,
+        reportedAt: incident.createdAt?.toISOString(),
+        confirmedBy: confirmedBy ?? "supervisor",
+        confirmedAt: confirmedAt.toISOString(),
+      },
+      targetName,
+      targetEmail,
+    );
+    await sendEmail({
+      to: targetEmail,
+      subject: `[Resolved] ${incident.title ?? id} — Resolution Report`,
+      html,
+    }).catch(err => logger.error({ err }, "Failed to send client resolution email"));
+  } else {
+    const allRecipients = await resolveRecipients(incidentPayload);
+    const clientRecipients = allRecipients.filter(r => r.role === "Client Success" || r.role === "Account Manager");
+    const sendTo = clientRecipients.length > 0 ? clientRecipients : allRecipients.slice(0, 1);
+
+    for (const r of sendTo) {
+      const html = buildClientResolutionEmail(
+        {
+          ...incidentPayload,
+          resolvedBy: (incident as Record<string, unknown>)["resolvedBy"] as string | undefined,
+          resolvedAt: ((incident as Record<string, unknown>)["resolvedAt"] as Date | undefined)?.toISOString(),
+          resolutionNotes: (incident as Record<string, unknown>)["resolutionNotes"] as string | undefined,
+          beforePhotoUrl: (incident as Record<string, unknown>)["beforePhotoUrl"] as string | undefined,
+          afterPhotoUrl: (incident as Record<string, unknown>)["afterPhotoUrl"] as string | undefined,
+          reportedAt: incident.createdAt?.toISOString(),
+          confirmedBy: confirmedBy ?? "supervisor",
+          confirmedAt: confirmedAt.toISOString(),
+        },
+        r.name,
+        r.email,
+      );
+      await sendEmail({
+        to: r.email,
+        subject: `[Resolved] ${incident.title ?? id} — Resolution Report`,
+        html,
+      }).catch(err => logger.error({ err }, "Failed to send client resolution email"));
+    }
+  }
+
+  logger.info({ incidentId: id, confirmedBy }, "Resolution confirmed via API — incident closed");
+  res.json({ ok: true, incidentId: id, status: "closed", confirmedBy, confirmedAt: confirmedAt.toISOString() });
 });
 
 export default router;

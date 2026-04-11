@@ -22,6 +22,8 @@ export const api = {
     list: () => apiFetch<Record<string, unknown>[]>('/incidents'),
     create: (body: Record<string, unknown>) => apiFetch<Record<string, unknown>>('/incidents', { method: 'POST', body: JSON.stringify(body) }),
     update: (id: string, body: Record<string, unknown>) => apiFetch<Record<string, unknown>>(`/incidents/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+    resolve: (id: string, body: Record<string, unknown>) => apiFetch<Record<string, unknown>>(`/incidents/${id}/resolve`, { method: 'POST', body: JSON.stringify(body) }),
+    confirmResolution: (id: string, body: Record<string, unknown>) => apiFetch<Record<string, unknown>>(`/incidents/${id}/confirm-resolution`, { method: 'POST', body: JSON.stringify(body) }),
   },
   workOrders: {
     list: () => apiFetch<Record<string, unknown>[]>('/workorders'),

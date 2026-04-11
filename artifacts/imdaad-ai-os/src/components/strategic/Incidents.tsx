@@ -6,12 +6,12 @@ import {
   ChevronUp, ChevronDown as ChevronDownIcon, QrCode, Plus,
   MessageSquare, Smartphone, Bot, Briefcase,
   Camera, Upload, Loader2, Sparkles, Bell,
-  ThumbsUp, ThumbsDown, Hourglass,
+  ThumbsUp, ThumbsDown, Hourglass, FileCheck, ShieldCheck,
 } from 'lucide-react';
 import { SEVERITY_BADGE, slaStatus, type ToastFn } from '@/lib/ui';
 import { AnimatedBar } from '@/components/shared/AnimatedBar';
 import { TechAvatar } from '@/components/shared/TechAvatar';
-import { useIncidents, type Incident, type CreateWorkOrderInput, type TicketState } from '@/context/IncidentContext';
+import { useIncidents, type Incident, type CreateWorkOrderInput, type TicketState, type ResolveIncidentInput } from '@/context/IncidentContext';
 import { WhatsAppModal } from '@/components/shared/WhatsAppModal';
 import { CURRENT_USER } from '@/lib/currentUser';
 import { mockPortfolioClients } from '../../data/mockData';
@@ -20,6 +20,8 @@ const WO_ALLOWED_ROLES = new Set(['FM Engineer', 'Site Supervisor', 'FM Manager'
 const canCreateWorkOrder = WO_ALLOWED_ROLES.has(CURRENT_USER.role);
 const APPROVER_ROLES = new Set(['Site Supervisor', 'Account Manager', 'FM Manager', 'Operations Supervisor']);
 const canApprove = APPROVER_ROLES.has(CURRENT_USER.role);
+const RESOLVER_ROLES = new Set(['FM Engineer', 'Site Supervisor', 'FM Manager', 'Safety Officer']);
+const canResolve = RESOLVER_ROLES.has(CURRENT_USER.role);
 
 const TICKET_STATE_CONFIG: Record<TicketState, { label: string; dot: string; text: string; bg: string }> = {
   pending_approval:  { label: 'Pending Approval', dot: 'bg-amber-400 animate-pulse', text: 'text-amber-400', bg: 'bg-amber-500/10 border-amber-500/30' },
@@ -34,6 +36,7 @@ const STATUS_CONFIG: Record<string, { label: string; dot: string; text: string; 
   'in-progress':{ label: 'In Progress', dot: 'bg-cyan-400 animate-pulse', text: 'text-cyan-400', bg: 'bg-cyan-500/10 border-cyan-500/30' },
   assigned:    { label: 'Assigned',    dot: 'bg-blue-400',        text: 'text-blue-400',     bg: 'bg-blue-500/10 border-blue-500/30' },
   overdue:     { label: 'Overdue',     dot: 'bg-red-400',         text: 'text-red-400',      bg: 'bg-red-500/10 border-red-500/30' },
+  resolved:    { label: 'Resolved',    dot: 'bg-amber-400 animate-pulse', text: 'text-amber-400', bg: 'bg-amber-500/10 border-amber-500/30' },
   closed:      { label: 'Closed',      dot: 'bg-emerald-400',     text: 'text-emerald-400',  bg: 'bg-emerald-500/10 border-emerald-500/30' },
 };
 
@@ -72,7 +75,7 @@ const LOG_COLOR: Record<string, string> = {
 };
 
 const ALL_SEVERITIES = ['All', 'critical', 'high', 'medium', 'low'];
-const ALL_STATUSES   = ['All', 'open', 'dispatched', 'in-progress', 'overdue', 'closed'];
+const ALL_STATUSES   = ['All', 'open', 'dispatched', 'in-progress', 'overdue', 'resolved', 'closed'];
 const ALL_SOURCES    = ['All', 'AI Capture', 'QR Scan', 'WhatsApp → Manual', 'Resident App', 'Manual'];
 const NEW_INC_SOURCES = ['AI Capture', 'QR Scan', 'WhatsApp → Manual', 'Resident App', 'Manual'];
 
@@ -192,7 +195,78 @@ function OverviewTab({ incident }: { incident: Incident }) {
           )}
         </div>
       )}
-      {incident.closureNotes && (
+      {incident.status === 'resolved' && (
+        <div>
+          <div className="text-[10px] text-[#7A94B4] uppercase tracking-wide mb-1.5">Resolution (Pending Confirmation)</div>
+          <div className="p-2.5 bg-amber-500/5 border border-amber-500/20 rounded-xl space-y-2">
+            <div className="flex items-center gap-1.5">
+              <Hourglass size={11} className="text-amber-400" />
+              <span className="text-[10px] text-amber-400 font-semibold">Awaiting Supervisor/AM Confirmation</span>
+            </div>
+            {incident.resolvedBy && (
+              <p className="text-[11px] text-[#EEF3FA]">Resolved by: <span className="font-semibold">{incident.resolvedBy}</span></p>
+            )}
+            {incident.resolutionNotes && (
+              <p className="text-[11px] text-[#7A94B4] leading-relaxed">{incident.resolutionNotes}</p>
+            )}
+          </div>
+        </div>
+      )}
+      {incident.status === 'closed' && (
+        <div className="space-y-3">
+          <div>
+            <div className="text-[10px] text-[#7A94B4] uppercase tracking-wide mb-1.5">Resolution Audit Trail</div>
+            <div className="p-2.5 bg-emerald-500/5 border border-emerald-500/20 rounded-xl space-y-2">
+              <div className="flex items-center gap-1.5 mb-1">
+                <CheckCircle size={11} className="text-emerald-400" />
+                <span className="text-[10px] text-emerald-400 font-semibold">Incident Closed · Client Notified</span>
+              </div>
+              {[
+                { label: 'Resolved By', value: incident.resolvedBy ?? incident.assignedTech },
+                { label: 'Resolved At', value: incident.resolvedAt ? new Date(incident.resolvedAt).toLocaleString('en-GB', { hour12: false }) : undefined },
+                { label: 'Confirmed By', value: incident.confirmedBy },
+                { label: 'Confirmed At', value: incident.confirmedAt ? new Date(incident.confirmedAt).toLocaleString('en-GB', { hour12: false }) : undefined },
+              ].filter(r => r.value).map(r => (
+                <div key={r.label} className="flex items-center justify-between">
+                  <span className="text-[10px] text-[#7A94B4]">{r.label}</span>
+                  <span className="text-[10px] text-[#EEF3FA] font-medium">{r.value}</span>
+                </div>
+              ))}
+              {incident.resolutionNotes && (
+                <div className="pt-1.5 border-t border-emerald-500/15">
+                  <div className="text-[9px] text-[#7A94B4] uppercase tracking-wide mb-1">Resolution Notes</div>
+                  <p className="text-[11px] text-[#EEF3FA] leading-relaxed">{incident.resolutionNotes}</p>
+                </div>
+              )}
+            </div>
+          </div>
+          {(incident.beforePhotoUrl || incident.afterPhotoUrl) && (
+            <div>
+              <div className="text-[10px] text-[#7A94B4] uppercase tracking-wide mb-1.5">Photo Evidence</div>
+              <div className="grid grid-cols-2 gap-2">
+                {incident.beforePhotoUrl && (
+                  <div>
+                    <div className="text-[9px] text-[#7A94B4] mb-1">Before</div>
+                    <img src={incident.beforePhotoUrl} alt="Before" className="w-full rounded-lg object-cover max-h-28 border border-red-500/30" />
+                  </div>
+                )}
+                {incident.afterPhotoUrl && (
+                  <div>
+                    <div className="text-[9px] text-[#7A94B4] mb-1">After</div>
+                    <img src={incident.afterPhotoUrl} alt="After" className="w-full rounded-lg object-cover max-h-28 border border-emerald-500/30" />
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          {incident.closureNotes && !incident.resolutionNotes && (
+            <div className="p-2.5 bg-emerald-500/5 border border-emerald-500/20 rounded-xl">
+              <p className="text-[11px] text-[#EEF3FA] leading-relaxed">{incident.closureNotes}</p>
+            </div>
+          )}
+        </div>
+      )}
+      {!incident.closureNotes && incident.status !== 'closed' && incident.status !== 'resolved' && incident.closureNotes && (
         <div>
           <div className="text-[10px] text-[#7A94B4] uppercase tracking-wide mb-1.5">Closure Notes</div>
           <div className="p-2.5 bg-emerald-500/5 border border-emerald-500/20 rounded-xl">
@@ -562,11 +636,122 @@ function RejectReasonModal({ incidentId, onClose, onConfirm }: { incidentId: str
   );
 }
 
+function ResolveIncidentModal({ incident, onClose, onConfirm }: { incident: Incident; onClose: () => void; onConfirm: (data: ResolveIncidentInput) => void }) {
+  const [notes, setNotes] = useState('');
+  const [beforeUrl, setBeforeUrl] = useState('');
+  const [afterUrl, setAfterUrl] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const valid = notes.trim().length > 0;
+
+  const handleSubmit = async () => {
+    if (!valid) return;
+    setSubmitting(true);
+    try {
+      await onConfirm({
+        resolvedBy: CURRENT_USER.name,
+        resolutionNotes: notes.trim(),
+        beforePhotoUrl: beforeUrl.trim() || undefined,
+        afterPhotoUrl: afterUrl.trim() || undefined,
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4"
+        onClick={onClose}
+      >
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95, y: 12 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95, y: 12 }}
+          transition={{ duration: 0.18 }}
+          className="bg-[#0D1F3C] border border-emerald-500/30 rounded-2xl w-full max-w-sm shadow-2xl"
+          onClick={e => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between px-5 py-4 border-b border-emerald-500/20">
+            <div>
+              <h3 className="text-[#EEF3FA] font-bold text-sm">Submit Resolution</h3>
+              <p className="text-[10px] text-[#7A94B4] mt-0.5">Resolve {incident.id} with photo evidence</p>
+            </div>
+            <button onClick={onClose} className="text-[#7A94B4] hover:text-white transition-colors">
+              <X size={15} />
+            </button>
+          </div>
+          <div className="px-5 py-4 space-y-3">
+            <div>
+              <label className="block text-[9px] text-[#7A94B4] uppercase tracking-wide mb-1">Resolution Notes *</label>
+              <textarea
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                placeholder="Describe what was done to resolve this incident…"
+                rows={4}
+                className="w-full bg-[#112040] border border-emerald-500/30 rounded-lg px-3 py-2 text-[12px] text-[#EEF3FA] placeholder-[#7A94B4]/50 outline-none focus:border-emerald-400 transition-colors resize-none"
+                autoFocus
+              />
+            </div>
+            <div>
+              <label className="block text-[9px] text-[#7A94B4] uppercase tracking-wide mb-1">Before Photo URL (optional)</label>
+              <input
+                value={beforeUrl}
+                onChange={e => setBeforeUrl(e.target.value)}
+                placeholder="https://…"
+                className="w-full bg-[#112040] border border-[rgba(46,127,255,0.2)] rounded-lg px-3 py-2 text-[12px] text-[#EEF3FA] placeholder-[#7A94B4]/50 outline-none focus:border-[#2E7FFF] transition-colors"
+              />
+              {incident.imageUrl && !beforeUrl && (
+                <button type="button" onClick={() => setBeforeUrl(incident.imageUrl ?? '')} className="text-[9px] text-blue-400 hover:text-blue-300 mt-1">
+                  Use incident photo as before photo
+                </button>
+              )}
+            </div>
+            <div>
+              <label className="block text-[9px] text-[#7A94B4] uppercase tracking-wide mb-1">After Photo URL (optional)</label>
+              <input
+                value={afterUrl}
+                onChange={e => setAfterUrl(e.target.value)}
+                placeholder="https://…"
+                className="w-full bg-[#112040] border border-[rgba(46,127,255,0.2)] rounded-lg px-3 py-2 text-[12px] text-[#EEF3FA] placeholder-[#7A94B4]/50 outline-none focus:border-[#2E7FFF] transition-colors"
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-2 px-5 pb-5">
+            <button
+              onClick={onClose}
+              className="flex-1 py-2 rounded-lg border border-[rgba(46,127,255,0.2)] text-[11px] text-[#7A94B4] hover:text-[#EEF3FA] transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={!valid || submitting}
+              className={`flex-1 py-2 rounded-lg text-[11px] font-semibold transition-colors flex items-center justify-center gap-1.5 ${valid && !submitting ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-emerald-600/30 text-white/40 cursor-not-allowed'}`}
+            >
+              {submitting ? (
+                <><div className="w-3 h-3 border border-white/40 border-t-white rounded-full animate-spin" /> Submitting…</>
+              ) : (
+                <><FileCheck size={11} /> Submit Resolution</>
+              )}
+            </button>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
 function ActionsTab({ incident, onToast, onCreateWorkOrder }: { incident: Incident; onToast: ToastFn; onCreateWorkOrder: () => void }) {
   const [whatsappOpen, setWhatsappOpen] = useState(false);
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
+  const [resolveModalOpen, setResolveModalOpen] = useState(false);
   const [approvingTicket, setApprovingTicket] = useState(false);
-  const { approveTicket, rejectTicket } = useIncidents();
+  const [confirmingResolution, setConfirmingResolution] = useState(false);
+  const { approveTicket, rejectTicket, resolveIncident, confirmResolution } = useIncidents();
 
   const isClosed  = incident.status === 'closed';
   const isOverdue = incident.status === 'overdue';
@@ -604,6 +789,30 @@ function ActionsTab({ incident, onToast, onCreateWorkOrder }: { incident: Incide
     }
   };
 
+  const isResolved = incident.status === 'resolved';
+
+  const handleResolve = async (data: ResolveIncidentInput) => {
+    setResolveModalOpen(false);
+    try {
+      await resolveIncident(incident.id, data);
+      onToast(`${incident.id} marked resolved — supervisor/AM notified for confirmation`, 'success');
+    } catch {
+      onToast('Failed to submit resolution', 'error');
+    }
+  };
+
+  const handleConfirmResolution = async () => {
+    setConfirmingResolution(true);
+    try {
+      await confirmResolution(incident.id, CURRENT_USER.name);
+      onToast(`Resolution confirmed — incident closed, client notified`, 'success');
+    } catch {
+      onToast('Failed to confirm resolution', 'error');
+    } finally {
+      setConfirmingResolution(false);
+    }
+  };
+
   return (
     <div className="space-y-3">
       {whatsappOpen && incident.assignedTech && techWhatsapp && (
@@ -621,6 +830,13 @@ function ActionsTab({ incident, onToast, onCreateWorkOrder }: { incident: Incide
           incidentId={incident.id}
           onClose={() => setRejectModalOpen(false)}
           onConfirm={handleReject}
+        />
+      )}
+      {resolveModalOpen && (
+        <ResolveIncidentModal
+          incident={incident}
+          onClose={() => setResolveModalOpen(false)}
+          onConfirm={handleResolve}
         />
       )}
 
@@ -718,7 +934,7 @@ function ActionsTab({ incident, onToast, onCreateWorkOrder }: { incident: Incide
         </div>
       )}
 
-      {!incident.assignedTech && !isClosed && !isRejected && (
+      {!incident.assignedTech && !isClosed && !isRejected && !isResolved && (
         <button
           onClick={() => onToast(`Smart dispatch opened for ${incident.id}`, 'info')}
           className="w-full flex items-center gap-2.5 p-3 rounded-xl bg-[#2E7FFF] text-white hover:bg-blue-500 transition-colors"
@@ -730,7 +946,7 @@ function ActionsTab({ incident, onToast, onCreateWorkOrder }: { incident: Incide
           </div>
         </button>
       )}
-      {incident.assignedTech && techWhatsapp && !isClosed && (
+      {incident.assignedTech && techWhatsapp && !isClosed && !isResolved && (
         <button
           onClick={() => setWhatsappOpen(true)}
           className="w-full flex items-center gap-2.5 p-3 rounded-xl bg-emerald-600/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-600/20 transition-colors"
@@ -742,7 +958,7 @@ function ActionsTab({ incident, onToast, onCreateWorkOrder }: { incident: Incide
           </div>
         </button>
       )}
-      {!isClosed && !isRejected && (
+      {!isClosed && !isRejected && !isResolved && (
         <button
           onClick={() => onToast(`${incident.id} escalated to senior supervisor`, 'warning')}
           className="w-full flex items-center gap-2.5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 transition-colors"
@@ -754,7 +970,7 @@ function ActionsTab({ incident, onToast, onCreateWorkOrder }: { incident: Incide
           </div>
         </button>
       )}
-      {isOverdue && (
+      {isOverdue && !isResolved && (
         <button
           onClick={() => onToast(`SLA breach report generated for ${incident.id}`, 'error')}
           className="w-full flex items-center gap-2.5 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 transition-colors"
@@ -766,22 +982,64 @@ function ActionsTab({ incident, onToast, onCreateWorkOrder }: { incident: Incide
           </div>
         </button>
       )}
-      {!isClosed && !isRejected && (
+      {canResolve && !isClosed && !isRejected && !isResolved && (
         <button
-          onClick={() => onToast(`${incident.id} closed — awaiting evidence submission`, 'success')}
-          className="w-full flex items-center gap-2.5 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 transition-colors"
+          onClick={() => setResolveModalOpen(true)}
+          className="w-full flex items-center gap-2.5 p-3 rounded-xl bg-emerald-600/10 border border-emerald-500/40 text-emerald-400 hover:bg-emerald-600/20 transition-colors"
         >
-          <CheckCircle size={14} />
+          <FileCheck size={14} />
           <div className="text-left">
-            <div className="text-[12px] font-bold">Close Incident</div>
-            <div className="text-[10px] opacity-80">Mark as resolved — technician closes on-site</div>
+            <div className="text-[12px] font-bold">Submit Resolution</div>
+            <div className="text-[10px] opacity-80">Mark resolved with notes and photo evidence · notifies supervisor/AM</div>
           </div>
         </button>
+      )}
+      {isResolved && canApprove && (
+        <div className="p-3 bg-amber-500/5 border border-amber-500/30 rounded-xl space-y-2">
+          <div className="flex items-center gap-1.5 mb-1">
+            <ShieldCheck size={13} className="text-amber-400" />
+            <span className="text-[11px] text-amber-400 font-semibold">Confirm Resolution</span>
+          </div>
+          <p className="text-[10px] text-[#7A94B4] leading-relaxed">
+            The engineer has submitted a resolution. Confirm to close the incident and send the client a full resolution report.
+          </p>
+          {incident.resolvedBy && (
+            <div className="text-[10px] text-[#7A94B4]">Resolved by: <span className="text-[#EEF3FA]">{incident.resolvedBy}</span></div>
+          )}
+          {incident.resolutionNotes && (
+            <div className="text-[10px] text-[#7A94B4] leading-relaxed italic">"{incident.resolutionNotes}"</div>
+          )}
+          <button
+            onClick={handleConfirmResolution}
+            disabled={confirmingResolution}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-600/20 border border-emerald-500/40 text-emerald-400 text-[11px] font-bold hover:bg-emerald-600/30 transition-colors disabled:opacity-60"
+          >
+            {confirmingResolution ? (
+              <><div className="w-3 h-3 border border-emerald-400 border-t-transparent rounded-full animate-spin" /> Confirming…</>
+            ) : (
+              <><ShieldCheck size={13} /> Confirm Resolution &amp; Close Incident</>
+            )}
+          </button>
+        </div>
+      )}
+      {isResolved && !canApprove && (
+        <div className="flex items-center gap-2 p-3 bg-amber-500/5 border border-amber-500/25 rounded-xl">
+          <Hourglass size={13} className="text-amber-400 flex-shrink-0" />
+          <div>
+            <div className="text-[11px] text-amber-400 font-semibold">Awaiting Supervisor/AM Confirmation</div>
+            <div className="text-[10px] text-[#7A94B4]">Resolution submitted — a supervisor or account manager must confirm to close</div>
+          </div>
+        </div>
       )}
       {isClosed && (
         <div className="flex items-center gap-2 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl">
           <CheckCircle size={14} className="text-emerald-400" />
-          <span className="text-[12px] text-emerald-400 font-semibold">Incident closed · SLA met</span>
+          <div>
+            <div className="text-[12px] text-emerald-400 font-semibold">Incident Closed · Client Notified</div>
+            {incident.confirmedBy && (
+              <div className="text-[10px] text-[#7A94B4]">Confirmed by {incident.confirmedBy}</div>
+            )}
+          </div>
         </div>
       )}
     </div>

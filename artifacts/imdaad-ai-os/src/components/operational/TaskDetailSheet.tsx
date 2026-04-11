@@ -1,10 +1,12 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Clock, MapPin, Wrench, User, Camera, Upload, CheckCircle, AlertTriangle, FileImage, Play, Shield } from 'lucide-react';
+import { X, Clock, MapPin, Wrench, User, Camera, Upload, CheckCircle, AlertTriangle, FileImage, Play, Shield, FileCheck } from 'lucide-react';
 import { mockKanbanTasks } from '@/data/mockData';
 import { SEVERITY_BADGE, TASK_STATUS_COLOR, slaStatus, type ToastFn } from '@/lib/ui';
 import { AnimatedBar } from '@/components/shared/AnimatedBar';
 import { api } from '@/lib/api';
+import { useIncidents, type ResolveIncidentInput } from '@/context/IncidentContext';
+import { CURRENT_USER } from '@/lib/currentUser';
 
 type Task = typeof mockKanbanTasks[0];
 
@@ -25,7 +27,7 @@ const STATUS_TRANSITIONS: Record<string, { label: string; nextStatus: string; co
   new:               [{ label: 'Start Job', nextStatus: 'in-progress', color: 'bg-blue-500 text-white hover:bg-blue-600', icon: Play }],
   assigned:          [{ label: 'Mark In Progress', nextStatus: 'in-progress', color: 'bg-blue-500 text-white hover:bg-blue-600', icon: Play }],
   'in-progress':     [{ label: 'Ready for Evidence', nextStatus: 'awaiting-evidence', color: 'bg-amber-500 text-white hover:bg-amber-600', icon: Camera }],
-  'awaiting-evidence': [{ label: 'Mark Resolved', nextStatus: 'closed', color: 'bg-emerald-500 text-white hover:bg-emerald-600', icon: CheckCircle }],
+  'awaiting-evidence': [],
   closed:            [],
   overdue:           [{ label: 'Start Job', nextStatus: 'in-progress', color: 'bg-blue-500 text-white hover:bg-blue-600', icon: Play }],
 };
@@ -35,12 +37,20 @@ export function TaskDetailSheet({ task, onClose, onToast, onStatusChange }: Prop
   const [uploading, setUploading] = useState(false);
   const [statusLoading, setStatusLoading] = useState(false);
   const [currentStatus, setCurrentStatus] = useState<string>('');
+  const [resolveMode, setResolveMode] = useState(false);
+  const [resolutionNotes, setResolutionNotes] = useState('');
+  const [afterUrl, setAfterUrl] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const { resolveIncident, incidents } = useIncidents();
 
   useEffect(() => {
     if (!task) return;
     setCurrentStatus(task.status);
     setUploadedEvidence([]);
+    setResolveMode(false);
+    setResolutionNotes('');
+    setAfterUrl('');
 
     api.workOrders.getEvidence(task.id)
       .then(rows => {
@@ -99,6 +109,33 @@ export function TaskDetailSheet({ task, onClose, onToast, onStatusChange }: Prop
     }
   }, [task, onStatusChange, onToast]);
 
+  const handleSubmitResolution = async () => {
+    if (!resolutionNotes.trim() || !task) return;
+    setSubmitting(true);
+    try {
+      const allUrls = allEvidence.map(e => e.url).filter(Boolean);
+      const data: ResolveIncidentInput = {
+        resolvedBy: CURRENT_USER.name,
+        resolutionNotes: resolutionNotes.trim(),
+        afterPhotoUrl: afterUrl.trim() || undefined,
+        beforePhotoUrl: allUrls.length > 0 ? allUrls[0] : undefined,
+      };
+      if (linkedIncident) {
+        await resolveIncident(linkedIncident.id, data);
+        onToast(`Work order resolved — supervisor/AM notified for confirmation`, 'success');
+      } else {
+        await api.workOrders.update(task.id, { status: 'closed' });
+        onStatusChange?.(task.id, 'closed');
+        onToast(`Task ${task.id} marked complete`, 'success');
+      }
+      onClose();
+    } catch {
+      onToast('Failed to submit resolution', 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   if (!task) return null;
 
   const sla = slaStatus(task.elapsed, task.slaMinutes);
@@ -108,6 +145,12 @@ export function TaskDetailSheet({ task, onClose, onToast, onStatusChange }: Prop
     ...uploadedEvidence,
   ];
   const transitions = STATUS_TRANSITIONS[status] ?? [];
+
+  const linkedIncident = (task as unknown as Record<string, unknown>)['incidentId']
+    ? incidents.find(i => i.id === (task as unknown as Record<string, unknown>)['incidentId'])
+    : null;
+
+  const showResolveButton = (status === 'awaiting-evidence' || status === 'in-progress') && !resolveMode;
 
   return (
     <AnimatePresence>
@@ -139,6 +182,11 @@ export function TaskDetailSheet({ task, onClose, onToast, onStatusChange }: Prop
                   <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${TASK_STATUS_COLOR[status] ?? 'text-[#7A94B4] border-[rgba(46,127,255,0.2)]'}`}>
                     {status.replace(/-/g, ' ').toUpperCase()}
                   </span>
+                  {linkedIncident && (
+                    <span className="text-[9px] text-blue-400 bg-blue-500/10 border border-blue-500/25 px-1.5 py-0.5 rounded font-semibold">
+                      INC: {linkedIncident.id}
+                    </span>
+                  )}
                 </div>
                 <h3 className="text-[#EEF3FA] font-bold text-sm leading-tight">{task.title}</h3>
               </div>
@@ -234,7 +282,7 @@ export function TaskDetailSheet({ task, onClose, onToast, onStatusChange }: Prop
                   className="hidden"
                   onChange={handleFileChange}
                 />
-                {(status !== 'closed') && (
+                {status !== 'closed' && (
                   <button
                     onClick={() => fileRef.current?.click()}
                     disabled={uploading}
@@ -275,6 +323,60 @@ export function TaskDetailSheet({ task, onClose, onToast, onStatusChange }: Prop
                   })}
                 </div>
               )}
+
+              {resolveMode ? (
+                <div className="space-y-3 p-3 bg-emerald-500/5 border border-emerald-500/25 rounded-xl">
+                  <div className="text-[11px] text-emerald-400 font-semibold flex items-center gap-1.5">
+                    <FileCheck size={12} /> Submit Resolution
+                  </div>
+                  <div>
+                    <label className="block text-[9px] text-[#7A94B4] uppercase tracking-wide mb-1">Resolution Notes *</label>
+                    <textarea
+                      value={resolutionNotes}
+                      onChange={e => setResolutionNotes(e.target.value)}
+                      placeholder="Describe what was done to resolve this work order…"
+                      rows={3}
+                      className="w-full bg-[#112040] border border-emerald-500/30 rounded-lg px-3 py-2 text-[12px] text-[#EEF3FA] placeholder-[#7A94B4]/50 outline-none focus:border-emerald-400 transition-colors resize-none"
+                      autoFocus
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] text-[#7A94B4] uppercase tracking-wide mb-1">After Photo URL (optional)</label>
+                    <input
+                      value={afterUrl}
+                      onChange={e => setAfterUrl(e.target.value)}
+                      placeholder="https://…"
+                      className="w-full bg-[#112040] border border-[rgba(46,127,255,0.2)] rounded-lg px-3 py-2 text-[12px] text-[#EEF3FA] placeholder-[#7A94B4]/50 outline-none focus:border-[#2E7FFF] transition-colors"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setResolveMode(false)}
+                      className="flex-1 py-2 rounded-lg border border-[rgba(46,127,255,0.2)] text-[11px] text-[#7A94B4] hover:text-[#EEF3FA] transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleSubmitResolution}
+                      disabled={!resolutionNotes.trim() || submitting}
+                      className="flex-1 py-2 rounded-lg bg-emerald-600 text-white text-[11px] font-semibold hover:bg-emerald-700 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {submitting ? (
+                        <><div className="w-3 h-3 border border-white/40 border-t-white rounded-full animate-spin" /> Submitting…</>
+                      ) : (
+                        <><FileCheck size={12} /> Submit</>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              ) : showResolveButton ? (
+                <button
+                  onClick={() => setResolveMode(true)}
+                  className="w-full py-2.5 bg-emerald-500 text-white text-[11px] font-bold rounded-xl hover:bg-emerald-600 transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <FileCheck size={13} /> {linkedIncident ? 'Submit Resolution' : 'Mark Resolved'}
+                </button>
+              ) : null}
 
               {status === 'closed' && (
                 <div className="flex items-center gap-2 p-3 bg-emerald-500/10 border border-emerald-500/25 rounded-xl">

@@ -28,6 +28,14 @@ export type Incident = {
   rejectionReason?: string;
   approvedBy?: string;
   rejectedBy?: string;
+  resolvedAt?: string;
+  resolvedBy?: string;
+  resolutionNotes?: string;
+  beforePhotoUrl?: string;
+  afterPhotoUrl?: string;
+  confirmedAt?: string;
+  confirmedBy?: string;
+  reportedAt?: string;
   aiMetadata?: {
     confidence: number;
     issueType: string;
@@ -111,6 +119,14 @@ function dbIncidentToLocal(d: Record<string, unknown>): Incident {
     siteId: d['siteId'] != null ? String(d['siteId']) : undefined,
     clientId: d['clientId'] != null ? String(d['clientId']) : undefined,
     aiMetadata: d['aiMetadata'] as Incident['aiMetadata'],
+    resolvedAt: d['resolvedAt'] != null ? String(d['resolvedAt']) : undefined,
+    resolvedBy: d['resolvedBy'] != null ? String(d['resolvedBy']) : undefined,
+    resolutionNotes: d['resolutionNotes'] != null ? String(d['resolutionNotes']) : undefined,
+    beforePhotoUrl: d['beforePhotoUrl'] != null ? String(d['beforePhotoUrl']) : undefined,
+    afterPhotoUrl: d['afterPhotoUrl'] != null ? String(d['afterPhotoUrl']) : undefined,
+    confirmedAt: d['confirmedAt'] != null ? String(d['confirmedAt']) : undefined,
+    confirmedBy: d['confirmedBy'] != null ? String(d['confirmedBy']) : undefined,
+    reportedAt: d['reportedAt'] != null ? String(d['reportedAt']) : (d['createdAt'] != null ? String(d['createdAt']) : undefined),
   };
 }
 
@@ -131,6 +147,15 @@ interface IncidentContextValue {
   createWorkOrder: (incidentId: string, data: CreateWorkOrderInput) => WorkOrderTask;
   approveTicket: (incidentId: string, approvedBy?: string) => Promise<void>;
   rejectTicket: (incidentId: string, reason: string, rejectedBy?: string) => Promise<void>;
+  resolveIncident: (incidentId: string, data: ResolveIncidentInput) => Promise<void>;
+  confirmResolution: (incidentId: string, confirmedBy?: string, clientEmail?: string, clientName?: string) => Promise<void>;
+}
+
+export interface ResolveIncidentInput {
+  resolvedBy?: string;
+  resolutionNotes: string;
+  beforePhotoUrl?: string;
+  afterPhotoUrl?: string;
 }
 
 const IncidentContext = createContext<IncidentContextValue | null>(null);
@@ -301,6 +326,75 @@ function IncidentProviderInner({ children }: { children: ReactNode }) {
     setIncidents([...incidentsRef.current]);
   }, []);
 
+  const resolveIncident = useCallback(async (incidentId: string, data: ResolveIncidentInput) => {
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+
+    try {
+      await api.incidents.resolve(incidentId, {
+        resolvedBy: data.resolvedBy,
+        resolutionNotes: data.resolutionNotes,
+        beforePhotoUrl: data.beforePhotoUrl,
+        afterPhotoUrl: data.afterPhotoUrl,
+      });
+    } catch (err) {
+      console.warn('[IncidentContext] Failed to call resolve API:', err);
+    }
+
+    incidentsRef.current = incidentsRef.current.map(inc =>
+      inc.id === incidentId
+        ? {
+            ...inc,
+            status: 'resolved',
+            resolvedAt: now.toISOString(),
+            resolvedBy: data.resolvedBy ?? inc.assignedTech ?? undefined,
+            resolutionNotes: data.resolutionNotes,
+            beforePhotoUrl: data.beforePhotoUrl,
+            afterPhotoUrl: data.afterPhotoUrl,
+            activityLog: [
+              ...inc.activityLog,
+              { time: timeStr, event: `Incident marked resolved by ${data.resolvedBy ?? inc.assignedTech ?? 'FM Engineer'} with photo evidence`, type: 'update' },
+              { time: timeStr, event: `Resolution pending supervisor/AM confirmation`, type: 'dispatch' },
+            ],
+          }
+        : inc,
+    );
+    setIncidents([...incidentsRef.current]);
+  }, []);
+
+  const confirmResolution = useCallback(async (incidentId: string, confirmedBy?: string, clientEmail?: string, clientName?: string) => {
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+
+    try {
+      await api.incidents.confirmResolution(incidentId, {
+        confirmedBy: confirmedBy ?? 'supervisor',
+        clientEmail,
+        clientName,
+      });
+    } catch (err) {
+      console.warn('[IncidentContext] Failed to call confirmResolution API:', err);
+    }
+
+    incidentsRef.current = incidentsRef.current.map(inc =>
+      inc.id === incidentId
+        ? {
+            ...inc,
+            status: 'closed',
+            confirmedAt: now.toISOString(),
+            confirmedBy: confirmedBy ?? 'Supervisor',
+            closureNotes: inc.resolutionNotes ?? null,
+            activityLog: [
+              ...inc.activityLog,
+              { time: timeStr, event: `Resolution confirmed by ${confirmedBy ?? 'supervisor'} — incident closed`, type: 'update' },
+              { time: timeStr, event: `Client notified with full resolution report`, type: 'dispatch' },
+            ],
+          }
+        : inc,
+    );
+    setIncidents([...incidentsRef.current]);
+  }, []);
+
   const createWorkOrder = useCallback((incidentId: string, data: CreateWorkOrderInput): WorkOrderTask => {
     const id = generateWorkOrderId();
     const now = new Date();
@@ -364,7 +458,7 @@ function IncidentProviderInner({ children }: { children: ReactNode }) {
   }, [addWorkOrderNotification]);
 
   return (
-    <IncidentContext.Provider value={{ incidents, addIncident, workOrders, createWorkOrder, approveTicket, rejectTicket }}>
+    <IncidentContext.Provider value={{ incidents, addIncident, workOrders, createWorkOrder, approveTicket, rejectTicket, resolveIncident, confirmResolution }}>
       {children}
     </IncidentContext.Provider>
   );
