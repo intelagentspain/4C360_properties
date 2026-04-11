@@ -19,6 +19,8 @@ args = ["sh", "-c", "pnpm --filter @workspace/imdaad-ai-os run build && pnpm --f
 
 [services.production.build.env]
 NODE_ENV = "production"
+PORT = "8080"
+BASE_PATH = "/"
 
 [services.production.run]
 args = ["node", "--enable-source-maps", "artifacts/api-server/dist/index.mjs"]
