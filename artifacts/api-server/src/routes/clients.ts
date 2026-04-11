@@ -586,6 +586,13 @@ router.post("/team-members", async (req, res) => {
     zones?: string[];
     skills?: string;
     responsibilities?: string;
+    privileges?: string[];
+    mobile?: string;
+    whatsapp?: string;
+    location?: string;
+    availability?: string;
+    shift?: string;
+    commChannels?: string[];
     siteIds?: string[];
     phone?: string;
     id?: string;
@@ -608,6 +615,13 @@ router.post("/team-members", async (req, res) => {
       zones: body.zones ?? [],
       skills: body.skills ?? null,
       responsibilities: body.responsibilities ?? null,
+      privileges: body.privileges ?? [],
+      mobile: body.mobile ?? null,
+      whatsapp: body.whatsapp ?? null,
+      location: body.location ?? null,
+      availability: body.availability ?? null,
+      shift: body.shift ?? null,
+      commChannels: body.commChannels ?? [],
       siteIds: body.siteIds ?? [],
       phone: body.phone ?? null,
     }).onConflictDoNothing().returning();

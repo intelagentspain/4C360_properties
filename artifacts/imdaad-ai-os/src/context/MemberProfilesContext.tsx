@@ -59,6 +59,13 @@ export function MemberProfilesProvider({ children }: { children: ReactNode }) {
           zones: m.zones ?? [],
           skills: m.skills ?? null,
           responsibilities: m.responsibilities ?? null,
+          privileges: m.privileges ?? [],
+          mobile: m.mobile ?? null,
+          whatsapp: m.whatsapp ?? null,
+          location: m.location ?? null,
+          availability: m.availability ?? null,
+          shift: m.shift ?? null,
+          commChannels: m.commChannels ?? [],
         });
         saved.push(dbMemberToProfile(result));
       } catch (err: unknown) {
