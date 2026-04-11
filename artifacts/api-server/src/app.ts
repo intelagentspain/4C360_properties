@@ -43,14 +43,4 @@ app.use("/api/uploads", express.static(uploadsDir));
 
 app.use("/api", router);
 
-if (process.env.NODE_ENV === "production") {
-  const frontendDist = path.resolve(process.cwd(), "artifacts/imdaad-ai-os/dist/public");
-  if (fs.existsSync(frontendDist)) {
-    app.use(express.static(frontendDist));
-    app.get("/{*path}", (_req, res) => {
-      res.sendFile(path.join(frontendDist, "index.html"));
-    });
-  }
-}
-
 export default app;

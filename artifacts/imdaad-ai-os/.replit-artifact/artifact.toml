@@ -20,3 +20,14 @@ run = "pnpm --filter @workspace/imdaad-ai-os run dev"
 [services.env]
 PORT = "26184"
 BASE_PATH = "/"
+
+[services.production]
+serve = "static"
+
+[services.production.build]
+args = ["sh", "-c", "pnpm install --frozen-lockfile && pnpm --filter @workspace/imdaad-ai-os run build"]
+
+[services.production.build.env]
+NODE_ENV = "production"
+PORT = "26184"
+BASE_PATH = "/"
