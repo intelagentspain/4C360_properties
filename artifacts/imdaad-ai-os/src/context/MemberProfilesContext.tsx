@@ -23,6 +23,13 @@ function dbMemberToProfile(m: Record<string, unknown>): MockMemberProfile {
     zones: (m['zones'] as string[] | null) ?? [],
     skills: String(m['skills'] ?? ''),
     responsibilities: String(m['responsibilities'] ?? ''),
+    privileges: (m['privileges'] as string[] | null) ?? [],
+    mobile: m['mobile'] ? String(m['mobile']) : undefined,
+    whatsapp: m['whatsapp'] ? String(m['whatsapp']) : undefined,
+    location: m['location'] ? String(m['location']) : undefined,
+    availability: m['availability'] ? String(m['availability']) : undefined,
+    shift: m['shift'] ? String(m['shift']) : undefined,
+    commChannels: (m['commChannels'] as string[] | null) ?? [],
   };
 }
 

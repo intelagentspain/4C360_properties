@@ -10,6 +10,13 @@ export interface MockMemberProfile {
   zones: string[];
   skills: string;
   responsibilities: string;
+  privileges?: string[];
+  mobile?: string;
+  whatsapp?: string;
+  location?: string;
+  availability?: string;
+  shift?: string;
+  commChannels?: string[];
 }
 
 export const mockMemberProfiles: MockMemberProfile[] = [
