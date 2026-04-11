@@ -227,27 +227,17 @@ function MetricPill({ label, value, color }: { label: string; value: string | nu
 
 function CardActions({
   client,
-  onSelect,
   onToast,
   onNavigateToIncidents,
   onNavigateToCommand,
 }: {
   client: PortfolioClient;
-  onSelect: (c: PortfolioClient) => void;
   onToast: ToastFn;
   onNavigateToIncidents: (clientId: string) => void;
   onNavigateToCommand: (clientId: string) => void;
 }) {
   return (
-    <div className="grid grid-cols-4 gap-1 pt-2 border-t border-[rgba(46,127,255,0.1)]">
-      <button
-        onClick={e => { e.stopPropagation(); onSelect(client); }}
-        className="flex flex-col items-center gap-0.5 py-1.5 rounded-lg bg-[rgba(46,127,255,0.1)] hover:bg-[rgba(46,127,255,0.2)] text-blue-400 transition-colors"
-        title="Open Detail"
-      >
-        <BarChart2 size={11} />
-        <span className="text-[8px] font-semibold">Detail</span>
-      </button>
+    <div className="grid grid-cols-3 gap-1 pt-2 border-t border-[rgba(46,127,255,0.1)]">
       <button
         onClick={e => { e.stopPropagation(); onNavigateToCommand(client.id); }}
         className="flex flex-col items-center gap-0.5 py-1.5 rounded-lg bg-[rgba(46,127,255,0.1)] hover:bg-[rgba(46,127,255,0.2)] text-cyan-400 transition-colors"
@@ -331,7 +321,7 @@ function ClientPortfolioCard({
           <ChevronRight size={14} className="text-[#7A94B4] flex-shrink-0" />
         </button>
         <div className="px-4 pb-2.5">
-          <CardActions client={client} onSelect={onSelect} onToast={onToast} onNavigateToIncidents={onNavigateToIncidents} onNavigateToCommand={onNavigateToCommand} />
+          <CardActions client={client} onToast={onToast} onNavigateToIncidents={onNavigateToIncidents} onNavigateToCommand={onNavigateToCommand} />
         </div>
       </motion.div>
     );
@@ -393,7 +383,7 @@ function ClientPortfolioCard({
       </button>
 
       <div className="px-3 pb-3">
-        <CardActions client={client} onSelect={onSelect} onToast={onToast} onNavigateToIncidents={onNavigateToIncidents} onNavigateToCommand={onNavigateToCommand} />
+        <CardActions client={client} onToast={onToast} onNavigateToIncidents={onNavigateToIncidents} onNavigateToCommand={onNavigateToCommand} />
       </div>
     </motion.div>
   );
