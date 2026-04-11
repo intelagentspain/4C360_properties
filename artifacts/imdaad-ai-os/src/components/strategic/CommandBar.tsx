@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Search, Bell, ChevronDown, Zap, Bot, Hand, Plus, X, Building2, MapPin, FileText, User, Users, Sparkles, Loader2, MessageSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMemberProfiles } from '@/context/MemberProfilesContext';
@@ -233,8 +233,8 @@ export interface TeamMember {
   perspective: MemberPerspective;
   assignedClients: string[];
   zones: string[];
-  skills: string;
-  responsibilities: string;
+  skills: string[];
+  responsibilities: string[];
   privileges: string[];
   mobile: string;
   whatsapp: string;
@@ -285,6 +285,84 @@ const inputCls = (hasErr?: boolean) =>
   }`;
 
 const selectCls = `w-full px-2.5 py-1.5 bg-[#0A1628] border border-[rgba(46,127,255,0.22)] rounded-lg text-[11px] text-[#EEF3FA] focus:outline-none focus:border-[#2E7FFF] transition-colors appearance-none cursor-pointer`;
+
+function MultiSelectPill({
+  options,
+  value,
+  onChange,
+  placeholder,
+}: {
+  options: string[];
+  value: string[];
+  onChange: (val: string[]) => void;
+  placeholder?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const remaining = options.filter(o => !value.includes(o));
+
+  const remove = (item: string) => onChange(value.filter(v => v !== item));
+  const add = (item: string) => {
+    onChange([...value, item]);
+  };
+
+  return (
+    <div ref={ref} className="relative">
+      <div
+        className="min-h-[32px] w-full px-2 py-1 bg-[#0A1628] border border-[rgba(46,127,255,0.22)] rounded-lg flex flex-wrap gap-1 items-center cursor-pointer focus-within:border-[#2E7FFF] transition-colors"
+        onClick={() => setOpen(o => !o)}
+      >
+        {value.length === 0 && (
+          <span className="text-[11px] text-[#4A6080] select-none">{placeholder ?? 'Select…'}</span>
+        )}
+        {value.map(item => (
+          <span
+            key={item}
+            className="flex items-center gap-1 bg-[#2E7FFF]/15 border border-[#2E7FFF]/30 text-[#7BB4FF] text-[10px] px-1.5 py-0.5 rounded-md"
+          >
+            {item}
+            <button
+              type="button"
+              aria-label={`Remove ${item}`}
+              className="text-[#4A6080] hover:text-[#EEF3FA] transition-colors leading-none p-0.5 -mr-0.5 rounded"
+              onClick={e => { e.stopPropagation(); remove(item); }}
+            >
+              <X size={9} />
+            </button>
+          </span>
+        ))}
+      </div>
+      {open && remaining.length > 0 && (
+        <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-[#0D1E35] border border-[rgba(46,127,255,0.22)] rounded-lg shadow-xl overflow-hidden max-h-44 overflow-y-auto">
+          {remaining.map(option => (
+            <button
+              key={option}
+              type="button"
+              className="w-full text-left px-2.5 py-1.5 text-[11px] text-[#EEF3FA] hover:bg-[#2E7FFF]/10 transition-colors"
+              onClick={e => { e.stopPropagation(); add(option); if (remaining.length === 1) setOpen(false); }}
+            >
+              {option}
+            </button>
+          ))}
+        </div>
+      )}
+      {open && remaining.length === 0 && (
+        <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-[#0D1E35] border border-[rgba(46,127,255,0.22)] rounded-lg shadow-xl px-2.5 py-2">
+          <span className="text-[11px] text-[#4A6080] italic">All options selected</span>
+        </div>
+      )}
+    </div>
+  );
+}
 
 type Tab = 'business' | 'sites' | 'team';
 
@@ -337,10 +415,27 @@ const PERSPECTIVE_OPTS: MemberPerspective[] = ['Strategic', 'Operational', 'Clie
 
 const ZONE_MULTI_OPTIONS = ['Cluster A', 'Cluster B', 'Block C', 'Recreation Area', 'Main Gate', 'Dubai Marina', 'Downtown', 'Dubai East', 'Jumeirah', 'Business Bay'];
 
+const SKILL_OPTIONS = [
+  'HVAC', 'Electrical', 'Plumbing', 'Civil Works', 'PPM Management',
+  'Fire & Safety', 'Landscaping', 'Cleaning', 'Pest Control', 'MEP',
+  'IT/AV', 'Sustainability',
+];
+
+const RESPONSIBILITY_OPTIONS = [
+  'Manage assets',
+  'Respond to critical incidents',
+  'Conduct PPM inspections',
+  'Approve work orders',
+  'Oversee subcontractors',
+  'Generate reports',
+  'Coordinate client communication',
+  'Perform site audits',
+];
+
 const EMPTY_MEMBER = (): TeamMember => ({
   id: Math.random().toString(36).slice(2, 10),
   name: '', email: '', role: '', perspective: 'Operational',
-  assignedClients: [], zones: [], skills: '', responsibilities: '',
+  assignedClients: [], zones: [], skills: [], responsibilities: [],
   privileges: [],
   mobile: '', whatsapp: '', location: '',
   availability: '', shift: '',
@@ -494,7 +589,7 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
 
   const addMember = () => setTeamMembers(prev => [...prev, EMPTY_MEMBER()]);
   const removeMember = (i: number) => setTeamMembers(prev => prev.filter((_, idx) => idx !== i));
-  const updateMember = (i: number, field: Exclude<keyof TeamMember, 'privileges' | 'commChannels' | 'assignedClients' | 'zones'>, val: string) => {
+  const updateMember = (i: number, field: Exclude<keyof TeamMember, 'privileges' | 'commChannels' | 'assignedClients' | 'zones' | 'skills' | 'responsibilities'>, val: string) => {
     setTeamMembers(prev => {
       const updated = prev.map((m, idx) => {
         if (idx !== i) return m;
@@ -513,6 +608,9 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
       });
       return updated;
     });
+  };
+  const updateMemberArray = (i: number, field: 'skills' | 'responsibilities', val: string[]) => {
+    setTeamMembers(prev => prev.map((m, idx) => idx !== i ? m : { ...m, [field]: val }));
   };
   const toggleMemberClient = (i: number, client: string) => {
     setTeamMembers(prev => prev.map((m, idx) => {
@@ -627,7 +725,11 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
           contractEndDate: clientData.contractEndDate,
           contractValue: clientData.contractValue,
           siteNames: clientData.siteNames,
-          teamMembers: filledMembers,
+          teamMembers: filledMembers.map(m => ({
+            ...m,
+            skills: m.skills.join(', '),
+            responsibilities: m.responsibilities.join(', '),
+          })),
         }),
       });
       if (res.ok) {
@@ -1281,22 +1383,21 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
 
                       <div className="col-span-2">
                         <FieldLabel label="Skills / Specialisation" />
-                        <input
+                        <MultiSelectPill
+                          options={SKILL_OPTIONS}
                           value={member.skills}
-                          onChange={e => updateMember(i, 'skills', e.target.value)}
-                          placeholder="e.g. HVAC, Electrical, PPM Management"
-                          className={inputCls()}
+                          onChange={val => updateMemberArray(i, 'skills', val)}
+                          placeholder="Select skills…"
                         />
                       </div>
 
                       <div className="col-span-2">
                         <FieldLabel label="Responsibilities" />
-                        <textarea
+                        <MultiSelectPill
+                          options={RESPONSIBILITY_OPTIONS}
                           value={member.responsibilities}
-                          onChange={e => updateMember(i, 'responsibilities', e.target.value)}
-                          placeholder="e.g. Manage all HVAC assets in Cluster A. Respond to critical incidents within 45 min."
-                          rows={2}
-                          className={`${inputCls()} resize-none`}
+                          onChange={val => updateMemberArray(i, 'responsibilities', val)}
+                          placeholder="Select responsibilities…"
                         />
                         <p className="mt-0.5 text-[9px] text-[#4A6080]">These will appear in the welcome email and on their personalized dashboard</p>
                       </div>
