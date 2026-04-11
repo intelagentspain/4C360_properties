@@ -47,10 +47,7 @@ interface AddStaffForm {
   commChannels: string[];
 }
 
-const ROLE_OPTIONS = [
-  { group: 'Strategic', roles: ['FM Manager', 'Account Manager', 'Project Manager', 'Executive'] },
-  { group: 'Operational', roles: ['FM Engineer', 'Site Supervisor', 'Safety Officer', 'HVAC Specialist', 'Plumber', 'Electrician'] },
-];
+const ROLE_OPTIONS = ['Client', 'Account Manager', 'Site Supervisor', 'FM Engineer', 'Project Manager', 'Safety Officer', 'Client Success', 'Executive', 'Other'];
 
 const ZONE_OPTIONS = ['Cluster A', 'Cluster B', 'Block C', 'Recreation Area', 'Main Gate', 'Dubai Marina', 'Downtown', 'Dubai East', 'Jumeirah', 'Business Bay'];
 
@@ -72,16 +69,15 @@ const RBAC_PRIVILEGES = [
 ];
 
 const ROLE_DEFAULT_PRIVILEGES: Record<string, string[]> = {
-  'FM Manager':      ['view_dashboard', 'view_work_orders', 'create_work_orders', 'approve_dispatch', 'view_reports', 'export_reports', 'manage_team', 'manage_assets', 'manage_ppm', 'view_ai_insights', 'configure_ai_rules'],
+  'Client':          ['view_dashboard', 'view_reports', 'view_work_orders'],
   'Account Manager': ['view_dashboard', 'view_work_orders', 'create_work_orders', 'view_reports', 'export_reports', 'manage_team', 'view_ai_insights'],
-  'Project Manager': ['view_dashboard', 'view_work_orders', 'create_work_orders', 'view_reports', 'export_reports', 'manage_ppm', 'manage_vendors'],
-  'Executive':       RBAC_PRIVILEGES.map(p => p.key),
-  'FM Engineer':     ['view_dashboard', 'view_work_orders', 'create_work_orders', 'manage_assets'],
   'Site Supervisor': ['view_dashboard', 'view_work_orders', 'create_work_orders', 'approve_dispatch', 'manage_assets', 'manage_ppm'],
+  'FM Engineer':     ['view_dashboard', 'view_work_orders', 'create_work_orders', 'manage_assets'],
+  'Project Manager': ['view_dashboard', 'view_work_orders', 'create_work_orders', 'view_reports', 'export_reports', 'manage_ppm', 'manage_vendors'],
   'Safety Officer':  ['view_dashboard', 'view_work_orders', 'view_reports', 'manage_assets'],
-  'HVAC Specialist': ['view_dashboard', 'view_work_orders', 'create_work_orders', 'manage_assets'],
-  'Plumber':         ['view_dashboard', 'view_work_orders', 'create_work_orders'],
-  'Electrician':     ['view_dashboard', 'view_work_orders', 'create_work_orders'],
+  'Client Success':  ['view_dashboard', 'view_work_orders', 'view_reports', 'export_reports', 'view_ai_insights'],
+  'Executive':       RBAC_PRIVILEGES.map(p => p.key),
+  'Other':           ['view_dashboard', 'view_work_orders'],
 };
 
 const AVAILABILITY_OPTS = ['Full-time', 'Part-time', 'On-call', 'Contractor', 'Freelance'];
@@ -98,13 +94,13 @@ const COMM_CHANNELS = [
 const EMPTY_FORM: AddStaffForm = {
   name: '',
   email: '',
-  role: 'FM Engineer',
+  role: '',
   perspective: 'Operational',
   assignedClients: [],
   zones: [],
   skills: '',
   responsibilities: '',
-  privileges: ROLE_DEFAULT_PRIVILEGES['FM Engineer'] ?? [],
+  privileges: [],
   mobile: '',
   whatsapp: '',
   location: '',
@@ -325,12 +321,9 @@ function AddStaffModal({ onClose, onToast, clientNames }: AddStaffModalProps) {
                       value={form.role}
                       onChange={e => handleRoleChange(e.target.value)}
                     >
-                      {ROLE_OPTIONS.map(({ group, roles }) => (
-                        <optgroup key={group} label={group}>
-                          {roles.map(r => (
-                            <option key={r} value={r} className="bg-[#0A1628]">{r}</option>
-                          ))}
-                        </optgroup>
+                      <option value="" className="bg-[#0A1628]">Select role…</option>
+                      {ROLE_OPTIONS.map(r => (
+                        <option key={r} value={r} className="bg-[#0A1628]">{r}</option>
                       ))}
                     </select>
                     {errors.role && <p className="mt-0.5 text-[10px] text-red-400">{errors.role}</p>}
