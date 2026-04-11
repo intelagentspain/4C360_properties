@@ -2,15 +2,17 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   CheckSquare, X, Search, ChevronRight, FileImage,
-  Wrench, Clock, CheckCircle, AlertTriangle,
+  Wrench, Clock, CheckCircle, AlertTriangle, Plus,
 } from 'lucide-react';
 import { mockKanbanTasks } from '@/data/mockData';
 import { SEVERITY_BADGE, PRIORITY_DOT, TASK_STATUS_COLOR, slaStatus, type ToastFn } from '@/lib/ui';
 import { AnimatedBar } from '@/components/shared/AnimatedBar';
 import { TechAvatar } from '@/components/shared/TechAvatar';
 import type { PPMRiskPayload } from './PPMRiskPanel';
+import { CreateWorkOrderModal } from './CreateWorkOrderModal';
 
 type KTask = typeof mockKanbanTasks[0];
+type KTaskArr = KTask[];
 
 const STATUS_LABEL: Record<string, string> = {
   new:               'New',
@@ -125,6 +127,8 @@ export function Tasks({ onToast, prefilledTask, onPrefilledTaskConsumed }: Props
   const [selected,  setSelected]  = useState<KTask | null>(null);
   const [syntheticTasks, setSyntheticTasks] = useState<(KTask & { _dueLabel?: string })[]>([]);
   const lastPrefilledId = useRef<string | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [extraTasks, setExtraTasks] = useState<KTaskArr>([]);
 
   useEffect(() => {
     if (!prefilledTask) return;
@@ -152,7 +156,7 @@ export function Tasks({ onToast, prefilledTask, onPrefilledTaskConsumed }: Props
     onPrefilledTaskConsumed?.();
   }, [prefilledTask]);
 
-  const allTasks = [...syntheticTasks, ...mockKanbanTasks];
+  const allTasks = [...syntheticTasks, ...mockKanbanTasks, ...extraTasks];
 
   const filtered = allTasks.filter(t => {
     if (status   !== 'All' && t.status   !== status)   return false;
@@ -188,6 +192,14 @@ export function Tasks({ onToast, prefilledTask, onPrefilledTaskConsumed }: Props
               <div className="text-[8px] text-[#7A94B4] uppercase tracking-wide">{k.label}</div>
             </div>
           ))}
+          <button
+            onClick={() => setShowCreate(true)}
+            className="flex items-center gap-1.5 px-3 py-2 text-[11px] font-semibold text-white rounded-lg transition-all hover:opacity-90 flex-shrink-0"
+            style={{ background: 'linear-gradient(135deg, #2E7FFF 0%, #1a5fd4 100%)' }}
+          >
+            <Plus size={12} />
+            Create Work Order
+          </button>
         </div>
       </div>
 
@@ -454,6 +466,13 @@ export function Tasks({ onToast, prefilledTask, onPrefilledTaskConsumed }: Props
           )}
         </AnimatePresence>
       </div>
+
+      <CreateWorkOrderModal
+        open={showCreate}
+        onClose={() => setShowCreate(false)}
+        onCreated={task => setExtraTasks(prev => [task, ...prev])}
+        onToast={onToast}
+      />
     </div>
   );
 }
