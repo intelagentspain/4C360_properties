@@ -196,6 +196,7 @@ export function MemberDashboardView({ member, onToast, onDismiss }: Props) {
                   onToast={onToast}
                   guestName={member.name}
                   propertyName={member.propertyName ?? member.assignedClients[0]}
+                  memberToken={member.id}
                 />
               </motion.div>
             )}

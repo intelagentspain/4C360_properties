@@ -100,6 +100,7 @@ function App() {
   };
 
   if (activeMember && activeMember.perspective === 'Client') {
+    const memberToken = getMemberIdFromUrl() ?? activeMember.id;
     return (
       <div className="flex flex-col h-screen overflow-hidden">
         <div className="flex-1 overflow-hidden">
@@ -107,6 +108,7 @@ function App() {
             onToast={addToast}
             guestName={activeMember.name}
             propertyName={activeMember.propertyName ?? activeMember.assignedClients[0]}
+            memberToken={memberToken}
           />
         </div>
         <ToastContainer toasts={toasts} removeToast={removeToast} />

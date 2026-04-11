@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Camera, Upload, Mic, MessageCircle, ArrowLeft, Home } from 'lucide-react';
+import { Camera, Upload, Mic, MessageCircle, ArrowLeft, Home, ExternalLink, Link2, Check } from 'lucide-react';
 import type { ToastFn } from '@/lib/ui';
 import { CameraMode } from './CameraMode';
 import { UploadMode } from './UploadMode';
@@ -8,12 +8,15 @@ import { VoiceMode } from './VoiceMode';
 import { AIChatMode } from './AIChatMode';
 import { SuccessScreen } from './SuccessScreen';
 
+const BASE = import.meta.env.BASE_URL?.replace(/\/$/, '') ?? '';
+
 export type ReportingMode = 'camera' | 'upload' | 'voice' | 'ai-chat';
 
 interface Props {
   onToast: ToastFn;
   guestName?: string;
   propertyName?: string;
+  memberToken?: string;
 }
 
 const MODES = [
@@ -55,9 +58,21 @@ const MODES = [
   },
 ];
 
-export function HospitalityClientView({ onToast, guestName = 'Resident', propertyName = 'Dubai Silicon Oasis' }: Props) {
+export function HospitalityClientView({ onToast, guestName = 'Resident', propertyName = 'Dubai Silicon Oasis', memberToken }: Props) {
   const [activeMode, setActiveMode] = useState<ReportingMode | null>(null);
   const [incidentRef, setIncidentRef] = useState<string | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
+
+  const reportUrl = `${window.location.origin}${BASE}/report${memberToken ? `?member=${encodeURIComponent(memberToken)}` : ''}`;
+
+  function handleCopyLink() {
+    navigator.clipboard.writeText(reportUrl).then(() => {
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2500);
+    }).catch(() => {
+      onToast('Could not copy link', 'error');
+    });
+  }
 
   const handleSuccess = (ref: string) => {
     setIncidentRef(ref);
@@ -212,6 +227,43 @@ export function HospitalityClientView({ onToast, guestName = 'Resident', propert
           <p className="text-[11px] leading-relaxed" style={{ color: '#8B7355' }}>
             All requests are responded to within 30 minutes. For urgent emergencies, contact the concierge desk directly.
           </p>
+        </div>
+
+        <div className="mt-4 space-y-2">
+          <a
+            href={reportUrl}
+            className="flex items-center justify-center gap-2 w-full py-3.5 rounded-2xl font-semibold text-sm transition-all duration-200 active:scale-[0.97]"
+            style={{
+              background: 'linear-gradient(135deg, #1A2942 0%, #2D4A6E 100%)',
+              color: '#ffffff',
+              boxShadow: '0 4px 12px rgba(26,41,66,0.25)',
+            }}
+          >
+            Report an Incident
+            <ExternalLink size={14} />
+          </a>
+
+          <button
+            onClick={handleCopyLink}
+            className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl text-sm font-medium transition-all duration-200 active:scale-[0.97]"
+            style={{
+              background: '#FFFFFF',
+              border: '1px solid #EDE5D4',
+              color: linkCopied ? '#3A8A6E' : '#7A6A55',
+            }}
+          >
+            {linkCopied ? (
+              <>
+                <Check size={14} style={{ color: '#3A8A6E' }} />
+                Link copied!
+              </>
+            ) : (
+              <>
+                <Link2 size={14} />
+                Copy direct link
+              </>
+            )}
+          </button>
         </div>
       </div>
     </div>

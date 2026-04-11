@@ -1,6 +1,7 @@
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import { ScanPage } from "./pages/ScanPage";
+import { ReportPage } from "./pages/ReportPage";
 import { IncidentProvider, useIncidents } from "./context/IncidentContext";
 import { NotificationProvider } from "./context/NotificationContext";
 import { MemberProfilesProvider } from "./context/MemberProfilesContext";
@@ -37,6 +38,7 @@ function Root() {
   const base = import.meta.env.BASE_URL ?? '/';
   const path = window.location.pathname.replace(base.replace(/\/$/, ''), '');
   const isScan = path.startsWith('/scan/');
+  const isReport = path === '/report' || path === '/report/';
 
   if (isScan) {
     return (
@@ -46,6 +48,12 @@ function Root() {
         </IncidentProvider>
       </NotificationProvider>
     );
+  }
+
+  if (isReport) {
+    const params = new URLSearchParams(window.location.search);
+    const memberToken = params.get('member') ?? undefined;
+    return <ReportPage memberToken={memberToken} />;
   }
 
   return (
