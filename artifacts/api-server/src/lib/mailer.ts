@@ -1,7 +1,7 @@
 import { Resend } from "resend";
 import { logger } from "./logger";
 
-const DEFAULT_FROM_EMAIL = "noreply@imdaad.ae";
+const DEFAULT_FROM_EMAIL = "noreply@4cgrc.com";
 
 function getFromEmail(): string {
   return process.env.SMTP_FROM || DEFAULT_FROM_EMAIL;
