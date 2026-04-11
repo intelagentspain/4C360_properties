@@ -30,7 +30,7 @@ interface Props {
   onClientSelect: (clientId: string) => void;
   selectedClientId: string | null;
   onNavigateToIncidents: (clientId: string) => void;
-  onNavigateToCommand: (clientId: string) => void;
+  onNavigateToCommand: (clientId: string, clientName?: string) => void;
   incidentsClientId?: string;
   onNavigateToIncident?: (incidentId: string) => void;
   initialIncidentId?: string;

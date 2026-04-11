@@ -236,13 +236,13 @@ function CardActions({
   client: PortfolioClient;
   onToast: ToastFn;
   onNavigateToIncidents: (clientId: string) => void;
-  onNavigateToCommand: (clientId: string) => void;
+  onNavigateToCommand: (clientId: string, clientName?: string) => void;
   onReport: (c: PortfolioClient) => void;
 }) {
   return (
     <div className="grid grid-cols-3 gap-1 pt-2 border-t border-[rgba(46,127,255,0.1)]">
       <button
-        onClick={e => { e.stopPropagation(); onNavigateToCommand(client.id); }}
+        onClick={e => { e.stopPropagation(); onNavigateToCommand(client.id, client.name); }}
         className="flex flex-col items-center gap-0.5 py-1.5 rounded-lg bg-[rgba(46,127,255,0.1)] hover:bg-[rgba(46,127,255,0.2)] text-cyan-400 transition-colors"
         title="Command Center"
       >
@@ -284,7 +284,7 @@ function ClientPortfolioCard({
   onReport: (c: PortfolioClient) => void;
   view: 'grid' | 'list';
   onNavigateToIncidents: (clientId: string) => void;
-  onNavigateToCommand: (clientId: string) => void;
+  onNavigateToCommand: (clientId: string, clientName?: string) => void;
 }) {
   const slaColor = client.sla >= 90 ? 'text-emerald-400' : client.sla >= 80 ? 'text-amber-400' : 'text-red-400';
   const compColor = client.compliance >= 90 ? 'text-emerald-400' : client.compliance >= 80 ? 'text-amber-400' : 'text-red-400';
@@ -984,7 +984,7 @@ function ClientDetailDrawer({
   client: PortfolioClient;
   onClose: () => void;
   onToast: ToastFn;
-  onNavigateToCommand: (clientId: string) => void;
+  onNavigateToCommand: (clientId: string, clientName?: string) => void;
   onReport: (c: PortfolioClient) => void;
 }) {
   const slaColor = client.sla >= 90 ? '#38D98A' : client.sla >= 80 ? '#FF9B38' : '#FF4B4B';
@@ -1129,7 +1129,7 @@ function ClientDetailDrawer({
 
           <div className="p-4 border-t border-[rgba(46,127,255,0.15)] space-y-2">
             <button
-              onClick={() => { onNavigateToCommand(client.id); onClose(); }}
+              onClick={() => { onNavigateToCommand(client.id, client.name); onClose(); }}
               className="w-full py-2.5 bg-[#2E7FFF] text-white text-[12px] font-semibold rounded-lg hover:bg-blue-500 transition-colors flex items-center justify-center gap-1.5"
             >
               Open Command Center <ArrowRight size={13} />
@@ -1151,7 +1151,7 @@ interface Props {
   onToast: ToastFn;
   onClientSelect: (clientId: string) => void;
   onNavigateToIncidents: (clientId: string) => void;
-  onNavigateToCommand: (clientId: string) => void;
+  onNavigateToCommand: (clientId: string, clientName?: string) => void;
 }
 
 export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onNavigateToCommand }: Props) {

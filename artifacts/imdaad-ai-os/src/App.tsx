@@ -39,6 +39,8 @@ function App() {
   const [initialIncidentId, setInitialIncidentId] = useState<string | undefined>(undefined);
   const [prefilledTask, setPrefilledTask] = useState<PPMRiskPayload | null>(null);
   const [ppmCreatedTasks, setPpmCreatedTasks] = useState<Record<string, PPMRiskPayload>>({});
+  const [commandClientId, setCommandClientId] = useState<string | null>(null);
+  const [commandClientName, setCommandClientName] = useState<string | null>(null);
 
   useEffect(() => {
     const memberId = getMemberIdFromUrl();
@@ -52,7 +54,6 @@ function App() {
       const url = new URL(window.location.href);
       url.searchParams.delete('member');
       window.history.replaceState({}, '', url.toString());
-      setTimeout(() => addToast('Member profile not found — showing default dashboard', 'warning'), 400);
     }
   }, []);
 
@@ -78,9 +79,9 @@ function App() {
     setStrategicPage('incidents');
   };
 
-  const handleNavigateToCommand = (clientId: string) => {
-    setSelectedClientId(clientId);
-    setStrategicPage('dashboard');
+  const handleNavigateToCommand = (clientId: string, clientName?: string) => {
+    setCommandClientId(clientId);
+    setCommandClientName(clientName ?? null);
   };
 
   const handleNavigateToTasks = (risk: PPMRiskPayload) => {
@@ -98,6 +99,34 @@ function App() {
     url.searchParams.delete('member');
     window.history.replaceState({}, '', url.toString());
   };
+
+  const handleDismissCommandView = () => {
+    setCommandClientId(null);
+    setCommandClientName(null);
+  };
+
+  if (commandClientId) {
+    return (
+      <div className="flex flex-col h-screen overflow-hidden">
+        <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0" style={{ background: '#0A1628', borderBottom: '1px solid rgba(46,127,255,0.15)' }}>
+          <button
+            onClick={handleDismissCommandView}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+            style={{ background: 'rgba(46,127,255,0.1)', color: '#7EB8F7' }}
+          >
+            ← Back to All Clients
+          </button>
+        </div>
+        <div className="flex-1 overflow-hidden">
+          <HospitalityClientView
+            onToast={addToast}
+            propertyName={commandClientName ?? undefined}
+          />
+        </div>
+        <ToastContainer toasts={toasts} removeToast={removeToast} />
+      </div>
+    );
+  }
 
   if (activeMember && activeMember.perspective === 'Client') {
     const memberToken = getMemberIdFromUrl() ?? activeMember.id;
