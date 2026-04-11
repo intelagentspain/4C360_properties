@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { logger } from "../lib/logger";
-import { sendEmail } from "../lib/mailer";
+import { sendEmail, ensureResendConfigured } from "../lib/mailer";
 
 const router = Router();
 
@@ -448,6 +448,8 @@ router.post("/clients/invite", async (req, res) => {
     contractValue,
     siteNames: Array.isArray(siteNames) ? siteNames : [],
   };
+
+  await ensureResendConfigured();
 
   const results: { email: string; status: "sent" | "failed"; error?: string }[] = [];
 

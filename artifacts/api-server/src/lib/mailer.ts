@@ -1,7 +1,11 @@
 import { Resend } from "resend";
 import { logger } from "./logger";
 
-const FROM_EMAIL = process.env.SMTP_FROM || "noreply@imdaad.ae";
+const DEFAULT_FROM_EMAIL = "noreply@imdaad.ae";
+
+function getFromEmail(): string {
+  return process.env.SMTP_FROM || DEFAULT_FROM_EMAIL;
+}
 
 export interface SendEmailOptions {
   to: string;
@@ -20,14 +24,6 @@ interface ConnectorSettings {
   from_email?: string;
 }
 
-interface ConnectorItem {
-  settings: ConnectorSettings;
-}
-
-interface ConnectorApiResponse {
-  items?: ConnectorItem[];
-}
-
 function isConnectorSettings(value: unknown): value is ConnectorSettings {
   return (
     typeof value === "object" &&
@@ -38,11 +34,41 @@ function isConnectorSettings(value: unknown): value is ConnectorSettings {
   );
 }
 
-function isConnectorApiResponse(value: unknown): value is ConnectorApiResponse {
-  if (typeof value !== "object" || value === null) return false;
-  const obj = value as Record<string, unknown>;
-  if (!("items" in obj)) return true;
-  return Array.isArray(obj.items);
+function extractApiKeyFromResponse(parsed: unknown): { apiKey: string; fromEmail: string } | null {
+  if (typeof parsed !== "object" || parsed === null) return null;
+
+  const obj = parsed as Record<string, unknown>;
+
+  const candidates: unknown[] = [];
+
+  if (Array.isArray(obj.items)) candidates.push(...obj.items);
+  if (Array.isArray(obj.connections)) candidates.push(...obj.connections);
+  if (Array.isArray(obj.data)) candidates.push(...obj.data);
+  if (Array.isArray(obj.results)) candidates.push(...obj.results);
+
+  if (candidates.length === 0) {
+    if (isConnectorSettings(obj)) {
+      return { apiKey: obj.api_key, fromEmail: obj.from_email || getFromEmail() };
+    }
+    return null;
+  }
+
+  for (const candidate of candidates) {
+    if (typeof candidate !== "object" || candidate === null) continue;
+    const item = candidate as Record<string, unknown>;
+
+    if (isConnectorSettings(item.settings)) {
+      const s = item.settings as ConnectorSettings;
+      return { apiKey: s.api_key, fromEmail: s.from_email || getFromEmail() };
+    }
+
+    if (isConnectorSettings(item)) {
+      const s = item as unknown as ConnectorSettings;
+      return { apiKey: s.api_key, fromEmail: s.from_email || getFromEmail() };
+    }
+  }
+
+  return null;
 }
 
 interface CachedCredentials {
@@ -81,21 +107,18 @@ async function fetchConnectorCredentials(): Promise<{ apiKey: string; fromEmail:
 
   const parsed: unknown = await response.json();
 
-  if (!isConnectorApiResponse(parsed)) {
-    logger.warn("Resend connector API response has unexpected shape");
+  const extracted = extractApiKeyFromResponse(parsed);
+  if (!extracted) {
+    const topLevelKeys =
+      typeof parsed === "object" && parsed !== null ? Object.keys(parsed as object) : [];
+    logger.warn(
+      { topLevelKeys },
+      "Resend connector response shape unrecognized — no api_key found"
+    );
     return null;
   }
 
-  const first = parsed.items?.[0];
-  if (!first || !isConnectorSettings(first.settings)) {
-    logger.warn("Resend connector item or settings missing or invalid");
-    return null;
-  }
-
-  return {
-    apiKey: first.settings.api_key,
-    fromEmail: first.settings.from_email || FROM_EMAIL,
-  };
+  return extracted;
 }
 
 async function getResendClient(): Promise<{ client: Resend; fromEmail: string } | null> {
@@ -121,10 +144,54 @@ async function getResendClient(): Promise<{ client: Resend; fromEmail: string } 
 
   const apiKey = process.env.RESEND_API_KEY;
   if (apiKey) {
-    return { client: new Resend(apiKey), fromEmail: FROM_EMAIL };
+    return { client: new Resend(apiKey), fromEmail: getFromEmail() };
   }
 
   return null;
+}
+
+export async function ensureResendConfigured(): Promise<void> {
+  if (process.env.RESEND_API_KEY) return;
+
+  try {
+    const creds = await fetchConnectorCredentials();
+    if (creds) {
+      process.env.RESEND_API_KEY = creds.apiKey;
+      if (creds.fromEmail && creds.fromEmail !== DEFAULT_FROM_EMAIL) {
+        process.env.SMTP_FROM = creds.fromEmail;
+      }
+      logger.info("Resend API key loaded from connector and stored to process env");
+    }
+  } catch (err) {
+    logger.warn({ err }, "Could not load Resend credentials from connector");
+  }
+}
+
+export async function checkEmailConfig(): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (apiKey) {
+    logger.info("Resend configured via RESEND_API_KEY environment secret");
+    return;
+  }
+
+  try {
+    const creds = await fetchConnectorCredentials();
+    if (creds) {
+      process.env.RESEND_API_KEY = creds.apiKey;
+      if (creds.fromEmail && creds.fromEmail !== DEFAULT_FROM_EMAIL) {
+        process.env.SMTP_FROM = creds.fromEmail;
+      }
+      logger.info(
+        "Resend configured — API key obtained from connector and persisted to RESEND_API_KEY for this process"
+      );
+    } else {
+      logger.warn(
+        "Resend is not configured — set RESEND_API_KEY secret or connect the Resend integration. Email sending will fail."
+      );
+    }
+  } catch (err) {
+    logger.warn({ err }, "Unable to verify Resend configuration at startup");
+  }
 }
 
 export async function sendEmail(opts: SendEmailOptions): Promise<SendEmailResult> {
