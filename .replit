@@ -90,6 +90,7 @@ externalPort = 9000
 VAPID_PUBLIC_KEY = "BFVhadTR5zn7-j1kVg316xS4BtuH_X_hMZnthjrBu5iKhRbVtytbh3B3fP2gOp_tDeOG5HmpQSdJ61ZkSlNyVpU"
 VAPID_PRIVATE_KEY = "XUlmjPHc2mli0FbfBjqlIJfDCN8aNp5xAk9ohcHNAK8"
 VAPID_CONTACT_EMAIL = "ops@imdaad.ae"
+VITE_ELEVENLABS_AGENT_ID = "agent_3701knza94s4edwrv16hyfzdmdt3"
 
 [nix]
 channel = "stable-25_05"
