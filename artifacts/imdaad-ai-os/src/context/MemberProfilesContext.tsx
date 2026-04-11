@@ -42,47 +42,42 @@ export function MemberProfilesProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addProfiles = useCallback(async (members: TeamMember[]) => {
-    const newProfiles: MockMemberProfile[] = members
-      .filter(m => m.id && m.name.trim() && m.email.trim())
-      .map(m => ({
-        id: m.id,
-        name: m.name.trim(),
-        email: m.email.trim(),
-        role: m.role,
-        perspective: (m.perspective ?? 'Operational') as MemberPerspective,
-        assignedClients: m.assignedClients ?? [],
-        zones: m.zones ?? [],
-        skills: m.skills ?? '',
-        responsibilities: m.responsibilities ?? '',
-      }));
+    const candidates = members.filter(m => m.name.trim() && m.email.trim());
 
-    for (const profile of newProfiles) {
+    const saved: MockMemberProfile[] = [];
+    const errors: Array<{ member: TeamMember; err: unknown }> = [];
+
+    for (const m of candidates) {
       try {
-        await api.teamMembers.create({
-          id: profile.id,
-          name: profile.name,
-          email: profile.email,
-          role: profile.role,
-          perspective: profile.perspective,
-          assignedClients: profile.assignedClients,
-          zones: profile.zones,
-          skills: profile.skills,
-          responsibilities: profile.responsibilities,
+        const result = await api.teamMembers.create({
+          ...(m.id ? { id: m.id } : {}),
+          name: m.name.trim(),
+          email: m.email.trim(),
+          role: m.role,
+          perspective: m.perspective ?? 'Operational',
+          assignedClients: m.assignedClients ?? [],
+          zones: m.zones ?? [],
+          skills: m.skills ?? null,
+          responsibilities: m.responsibilities ?? null,
         });
+        saved.push(dbMemberToProfile(result));
       } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : String(err);
-        if (!message.includes('[409]')) {
-          console.warn('[MemberProfilesContext] Failed to persist member to API:', err);
-        }
+        errors.push({ member: m, err });
       }
     }
 
-    if (newProfiles.length > 0) {
+    if (saved.length > 0) {
       setProfiles(prev => {
         const existingIds = new Set(prev.map(p => p.id));
-        const toAdd = newProfiles.filter(p => !existingIds.has(p.id));
+        const toAdd = saved.filter(p => !existingIds.has(p.id));
         return toAdd.length > 0 ? [...prev, ...toAdd] : prev;
       });
+    }
+
+    if (errors.length > 0) {
+      const firstErr = errors[0].err;
+      const message = firstErr instanceof Error ? firstErr.message : String(firstErr);
+      throw new Error(message);
     }
   }, []);
 
