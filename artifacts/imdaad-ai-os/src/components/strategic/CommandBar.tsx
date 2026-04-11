@@ -287,13 +287,12 @@ const inputCls = (hasErr?: boolean) =>
 
 const selectCls = `w-full px-2.5 py-1.5 bg-[#0A1628] border border-[rgba(46,127,255,0.22)] rounded-lg text-[11px] text-[#EEF3FA] focus:outline-none focus:border-[#2E7FFF] transition-colors appearance-none cursor-pointer`;
 
-type Tab = 'business' | 'sites' | 'assets' | 'contract' | 'contact' | 'team';
+type Tab = 'business' | 'sites' | 'assets' | 'contact' | 'team';
 
 const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
   { key: 'business', label: 'Business',  icon: <Building2 size={11} /> },
   { key: 'sites',    label: 'Sites',     icon: <MapPin size={11} /> },
   { key: 'assets',   label: 'Assets',    icon: <Layers size={11} /> },
-  { key: 'contract', label: 'Contract',  icon: <FileText size={11} /> },
   { key: 'contact',  label: 'Contact',   icon: <User size={11} /> },
   { key: 'team',     label: 'Team',      icon: <Users size={11} /> },
 ];
@@ -520,9 +519,6 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
     if (!name.trim())          errs.name = 'Client name is required';
     if (!sector)               errs.sector = 'Sector is required';
     if (siteNames.filter(s => s.trim()).length === 0) errs.sites = 'At least one site is required';
-    if (!contractType)         errs.contractType = 'Contract type is required';
-    if (!contractStart)        errs.contractStart = 'Start date is required';
-    if (!slaTier)              errs.slaTier = 'SLA tier is required';
     if (!contactName.trim())   errs.contactName = 'Contact name is required';
 
     assetRows.forEach(a => {
@@ -558,7 +554,6 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
       const assetErrKeys = Object.keys(errs).filter(k => k.startsWith('asset_'));
       if (teamErrKeys.length > 0 || errs.team_required) setActiveTab('team');
       else if (errs.contactName) setActiveTab('contact');
-      else if (errs.contractType || errs.contractStart || errs.slaTier) setActiveTab('contract');
       else if (assetErrKeys.length > 0) setActiveTab('assets');
       else if (errs.sites) setActiveTab('sites');
       else if (errs.name || errs.sector) setActiveTab('business');
@@ -631,7 +626,6 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
     if (tab === 'business') return !!(errors.name || errors.sector);
     if (tab === 'sites') return !!errors.sites;
     if (tab === 'assets') return Object.keys(errors).some(k => k.startsWith('asset_'));
-    if (tab === 'contract') return !!(errors.contractType || errors.contractStart || errors.slaTier);
     if (tab === 'contact') return !!errors.contactName;
     if (tab === 'team') return !!(errors.team_required) || Object.keys(errors).some(k => k.startsWith('team_') && k !== 'team_required');
     return false;
@@ -781,6 +775,71 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
                       </div>
                       <span className="text-[10px] text-[#7A94B4]">Preview</span>
                     </div>
+                  </div>
+                </div>
+              </div>
+
+              <SectionHeader icon={SECTION_ICONS.contract} title="Contract Details" />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <FieldLabel label="Contract Type" />
+                  <select
+                    value={contractType}
+                    onChange={e => setContractType(e.target.value)}
+                    className={selectCls}
+                  >
+                    <option value="" className="bg-[#0A1628]">Select type…</option>
+                    {CONTRACT_TYPES.map(ct => (
+                      <option key={ct} value={ct} className="bg-[#0A1628]">{ct}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <FieldLabel label="SLA Tier" />
+                  <select
+                    value={slaTier}
+                    onChange={e => setSlaTier(e.target.value)}
+                    className={selectCls}
+                  >
+                    <option value="" className="bg-[#0A1628]">Select tier…</option>
+                    {SLA_TIERS.map(t => (
+                      <option key={t} value={t} className="bg-[#0A1628]">{t}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <FieldLabel label="Contract Start Date" />
+                  <input
+                    type="date"
+                    value={contractStart}
+                    onChange={e => setContractStart(e.target.value)}
+                    className={`${inputCls()} [color-scheme:dark]`}
+                  />
+                </div>
+
+                <div>
+                  <FieldLabel label="Contract End Date" />
+                  <input
+                    type="date"
+                    value={contractEnd}
+                    onChange={e => setContractEnd(e.target.value)}
+                    className={`${inputCls()} [color-scheme:dark]`}
+                  />
+                </div>
+
+                <div className="col-span-2">
+                  <FieldLabel label="Contract Value (AED)" />
+                  <div className="relative">
+                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] text-[#7A94B4] font-medium">AED</span>
+                    <input
+                      type="text"
+                      value={contractValue}
+                      onChange={e => setContractValue(e.target.value)}
+                      placeholder="e.g. 1,200,000"
+                      className={`${inputCls()} pl-9`}
+                    />
                   </div>
                 </div>
               </div>
@@ -1077,78 +1136,6 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
                 <p className="text-[10px] text-[#7A94B4] leading-relaxed">
                   <span className="text-[#2E7FFF] font-semibold">Optional:</span> Asset registration is not required to save the client. Partially entered rows must have a name, category, and type filled.
                 </p>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'contract' && (
-            <div className="space-y-4">
-              <SectionHeader icon={SECTION_ICONS.contract} title="Contract Details" />
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <FieldLabel label="Contract Type" required />
-                  <select
-                    value={contractType}
-                    onChange={e => { setContractType(e.target.value); clearErr('contractType'); }}
-                    className={`${selectCls} ${errors.contractType ? 'border-red-500/60' : ''}`}
-                  >
-                    <option value="" className="bg-[#0A1628]">Select type…</option>
-                    {CONTRACT_TYPES.map(ct => (
-                      <option key={ct} value={ct} className="bg-[#0A1628]">{ct}</option>
-                    ))}
-                  </select>
-                  {errors.contractType && <p className="mt-0.5 text-[10px] text-red-400">{errors.contractType}</p>}
-                </div>
-
-                <div>
-                  <FieldLabel label="SLA Tier" required />
-                  <select
-                    value={slaTier}
-                    onChange={e => { setSlaTier(e.target.value); clearErr('slaTier'); }}
-                    className={`${selectCls} ${errors.slaTier ? 'border-red-500/60' : ''}`}
-                  >
-                    <option value="" className="bg-[#0A1628]">Select tier…</option>
-                    {SLA_TIERS.map(t => (
-                      <option key={t} value={t} className="bg-[#0A1628]">{t}</option>
-                    ))}
-                  </select>
-                  {errors.slaTier && <p className="mt-0.5 text-[10px] text-red-400">{errors.slaTier}</p>}
-                </div>
-
-                <div>
-                  <FieldLabel label="Contract Start Date" required />
-                  <input
-                    type="date"
-                    value={contractStart}
-                    onChange={e => { setContractStart(e.target.value); clearErr('contractStart'); }}
-                    className={`${inputCls(!!errors.contractStart)} [color-scheme:dark]`}
-                  />
-                  {errors.contractStart && <p className="mt-0.5 text-[10px] text-red-400">{errors.contractStart}</p>}
-                </div>
-
-                <div>
-                  <FieldLabel label="Contract End Date" />
-                  <input
-                    type="date"
-                    value={contractEnd}
-                    onChange={e => setContractEnd(e.target.value)}
-                    className={`${inputCls()} [color-scheme:dark]`}
-                  />
-                </div>
-
-                <div className="col-span-2">
-                  <FieldLabel label="Contract Value (AED)" />
-                  <div className="relative">
-                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] text-[#7A94B4] font-medium">AED</span>
-                    <input
-                      type="text"
-                      value={contractValue}
-                      onChange={e => setContractValue(e.target.value)}
-                      placeholder="e.g. 1,200,000"
-                      className={`${inputCls()} pl-9`}
-                    />
-                  </div>
-                </div>
               </div>
             </div>
           )}
