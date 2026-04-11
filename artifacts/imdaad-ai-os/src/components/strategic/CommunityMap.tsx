@@ -1,14 +1,16 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, CircleMarker, Circle } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  mockTechnicians, mockIncidents, mockAssets,
+  mockTechnicians, mockAssets,
   mockTasks, mockSLAZones, mockPredictedFailures,
 } from '@/data/mockData';
 import { useClients } from '@/context/ClientsContext';
 import { useMemberFilter, isFilterActive } from '@/context/MemberFilterContext';
+import { useIncidents } from '@/context/IncidentContext';
+import type { Incident } from '@/context/IncidentContext';
 import {
   X, Users, AlertTriangle, Layers, ClipboardList,
   ShieldAlert, Cpu, MapPin, Clock, Star, Wrench,
@@ -36,9 +38,10 @@ const taskStatusColor: Record<string, string> = {
 };
 
 type LayerKey = 'technicians' | 'incidents' | 'assets' | 'tasks' | 'slaZones' | 'predictedFailures';
+
 type DrawerItem =
   | { kind: 'tech'; data: typeof mockTechnicians[0] }
-  | { kind: 'incident'; data: typeof mockIncidents[0] }
+  | { kind: 'incident'; data: Incident }
   | { kind: 'asset'; data: typeof mockAssets[0] }
   | { kind: 'task'; data: typeof mockTasks[0] }
   | { kind: 'failure'; data: typeof mockPredictedFailures[0] };
@@ -179,7 +182,7 @@ function TechDetail({ data, onToast, onClose }: { data: typeof mockTechnicians[0
   );
 }
 
-function IncidentDetail({ data, onToast, onClose }: { data: typeof mockIncidents[0]; onToast: (m: string, t?: any) => void; onClose: () => void }) {
+function IncidentDetail({ data, onToast, onClose }: { data: Incident; onToast: (m: string, t?: any) => void; onClose: () => void }) {
   const color = severityColors[data.severity];
   const slaLeft = data.slaMinutes - data.elapsed;
   return (
@@ -339,21 +342,34 @@ export function CommunityMap({ onToast, selectedClientId }: Props) {
   const memberFilter = useMemberFilter();
   const isMemberMode = isFilterActive(memberFilter);
   const { clients } = useClients();
+  const { incidents: contextIncidents } = useIncidents();
+
+  const [filterClientId, setFilterClientId] = useState<string>(selectedClientId ?? '');
+
+  useEffect(() => {
+    setFilterClientId(selectedClientId ?? '');
+  }, [selectedClientId]);
 
   const focusedClient = useMemo(
-    () => (selectedClientId ? clients.find(c => c.id === selectedClientId) ?? null : null),
-    [selectedClientId, clients],
+    () => (filterClientId ? clients.find(c => c.id === filterClientId) ?? null : null),
+    [filterClientId, clients],
   );
 
-  const focusedIncidents = useMemo(() => {
-    if (!focusedClient) return null;
-    return mockIncidents.filter(inc => inc.clientId === focusedClient.id);
-  }, [focusedClient]);
-
   const visibleIncidents = useMemo(() => {
-    if (!isMemberMode || memberFilter.zones.length === 0) return mockIncidents;
-    return mockIncidents.filter(inc => matchesZone(inc.location, memberFilter.zones));
-  }, [isMemberMode, memberFilter.zones]);
+    let base = contextIncidents;
+    if (isMemberMode && memberFilter.zones.length > 0) {
+      base = base.filter(inc => matchesZone(inc.location, memberFilter.zones));
+    }
+    if (filterClientId) {
+      base = base.filter(inc => inc.clientId === filterClientId);
+    }
+    return base;
+  }, [contextIncidents, isMemberMode, memberFilter.zones, filterClientId]);
+
+  const focusedClientIncidentCount = useMemo(() => {
+    if (!filterClientId) return 0;
+    return contextIncidents.filter(inc => inc.clientId === filterClientId).length;
+  }, [contextIncidents, filterClientId]);
 
   const visibleTasks = useMemo(() => {
     if (!isMemberMode || memberFilter.zones.length === 0) return mockTasks;
@@ -413,23 +429,20 @@ export function CommunityMap({ onToast, selectedClientId }: Props) {
           />
         ))}
 
-        {activeLayers.incidents && visibleIncidents.map(inc => {
-          const isHighlighted = focusedClient ? inc.clientId === focusedClient.id : false;
-          return (
-            <CircleMarker
-              key={inc.id}
-              center={[inc.lat, inc.lng]}
-              radius={isHighlighted ? 14 : 10}
-              pathOptions={{
-                color: isHighlighted ? '#FFFFFF' : severityColors[inc.severity],
-                fillColor: severityColors[inc.severity],
-                fillOpacity: isHighlighted ? 1 : 0.85,
-                weight: isHighlighted ? 3 : 2,
-              }}
-              eventHandlers={{ click: () => open({ kind: 'incident', data: inc }) }}
-            />
-          );
-        })}
+        {activeLayers.incidents && visibleIncidents.filter(inc => inc.lat != null && inc.lng != null).map(inc => (
+          <CircleMarker
+            key={inc.id}
+            center={[inc.lat!, inc.lng!]}
+            radius={10}
+            pathOptions={{
+              color: severityColors[inc.severity],
+              fillColor: severityColors[inc.severity],
+              fillOpacity: 0.85,
+              weight: 2,
+            }}
+            eventHandlers={{ click: () => open({ kind: 'incident', data: inc }) }}
+          />
+        ))}
 
         {activeLayers.assets && mockAssets.map(asset => (
           <Marker
@@ -464,6 +477,16 @@ export function CommunityMap({ onToast, selectedClientId }: Props) {
           <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
           <span className="text-[11px] text-[#EEF3FA] font-semibold tracking-wide">SILICON OASIS — LIVE</span>
         </div>
+        <select
+          value={filterClientId}
+          onChange={e => setFilterClientId(e.target.value)}
+          className="bg-[rgba(10,22,40,0.85)] border border-[rgba(46,127,255,0.3)] rounded-full px-3 py-1 text-[11px] text-[#EEF3FA] backdrop-blur-md cursor-pointer outline-none appearance-none"
+        >
+          <option value="">All Clients</option>
+          {clients.map(c => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </select>
         <AnimatePresence>
           {focusedClient && (
             <motion.div
@@ -477,9 +500,9 @@ export function CommunityMap({ onToast, selectedClientId }: Props) {
               <span className="text-[11px] text-blue-200 font-semibold tracking-wide">
                 {focusedClient.name}
               </span>
-              {focusedIncidents && focusedIncidents.length > 0 && (
+              {focusedClientIncidentCount > 0 && (
                 <span className="text-[9px] text-blue-300 opacity-80">
-                  · {focusedIncidents.length} incident{focusedIncidents.length !== 1 ? 's' : ''}
+                  · {focusedClientIncidentCount} incident{focusedClientIncidentCount !== 1 ? 's' : ''}
                 </span>
               )}
             </motion.div>
