@@ -7,6 +7,7 @@ import {
   mockTechnicians, mockIncidents, mockAssets,
   mockTasks, mockSLAZones, mockPredictedFailures,
 } from '@/data/mockData';
+import { useClients } from '@/context/ClientsContext';
 import { useMemberFilter, isFilterActive } from '@/context/MemberFilterContext';
 import {
   X, Users, AlertTriangle, Layers, ClipboardList,
@@ -325,6 +326,7 @@ function FailureDetail({ data, onToast, onClose }: { data: typeof mockPredictedF
 
 interface Props {
   onToast?: (msg: string, type?: 'success' | 'warning' | 'error' | 'info') => void;
+  selectedClientId?: string | null;
 }
 
 function matchesZone(location: string, zones: string[]): boolean {
@@ -333,9 +335,20 @@ function matchesZone(location: string, zones: string[]): boolean {
   return zones.some(z => loc.includes(z.toLowerCase()) || z.toLowerCase().includes(loc));
 }
 
-export function CommunityMap({ onToast }: Props) {
+export function CommunityMap({ onToast, selectedClientId }: Props) {
   const memberFilter = useMemberFilter();
   const isMemberMode = isFilterActive(memberFilter);
+  const { clients } = useClients();
+
+  const focusedClient = useMemo(
+    () => (selectedClientId ? clients.find(c => c.id === selectedClientId) ?? null : null),
+    [selectedClientId, clients],
+  );
+
+  const focusedIncidents = useMemo(() => {
+    if (!focusedClient) return null;
+    return mockIncidents.filter(inc => inc.clientId === focusedClient.id);
+  }, [focusedClient]);
 
   const visibleIncidents = useMemo(() => {
     if (!isMemberMode || memberFilter.zones.length === 0) return mockIncidents;
@@ -400,15 +413,23 @@ export function CommunityMap({ onToast }: Props) {
           />
         ))}
 
-        {activeLayers.incidents && visibleIncidents.map(inc => (
-          <CircleMarker
-            key={inc.id}
-            center={[inc.lat, inc.lng]}
-            radius={10}
-            pathOptions={{ color: severityColors[inc.severity], fillColor: severityColors[inc.severity], fillOpacity: 0.85, weight: 2 }}
-            eventHandlers={{ click: () => open({ kind: 'incident', data: inc }) }}
-          />
-        ))}
+        {activeLayers.incidents && visibleIncidents.map(inc => {
+          const isHighlighted = focusedClient ? inc.clientId === focusedClient.id : false;
+          return (
+            <CircleMarker
+              key={inc.id}
+              center={[inc.lat, inc.lng]}
+              radius={isHighlighted ? 14 : 10}
+              pathOptions={{
+                color: isHighlighted ? '#FFFFFF' : severityColors[inc.severity],
+                fillColor: severityColors[inc.severity],
+                fillOpacity: isHighlighted ? 1 : 0.85,
+                weight: isHighlighted ? 3 : 2,
+              }}
+              eventHandlers={{ click: () => open({ kind: 'incident', data: inc }) }}
+            />
+          );
+        })}
 
         {activeLayers.assets && mockAssets.map(asset => (
           <Marker
@@ -438,9 +459,32 @@ export function CommunityMap({ onToast }: Props) {
         ))}
       </MapContainer>
 
-      <div className="absolute top-3 left-3 z-[400] flex items-center gap-2 bg-[rgba(10,22,40,0.85)] border border-[rgba(46,127,255,0.3)] rounded-full px-3 py-1 backdrop-blur-md">
-        <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-        <span className="text-[11px] text-[#EEF3FA] font-semibold tracking-wide">SILICON OASIS — LIVE</span>
+      <div className="absolute top-3 left-3 z-[400] flex flex-col gap-2">
+        <div className="flex items-center gap-2 bg-[rgba(10,22,40,0.85)] border border-[rgba(46,127,255,0.3)] rounded-full px-3 py-1 backdrop-blur-md">
+          <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          <span className="text-[11px] text-[#EEF3FA] font-semibold tracking-wide">SILICON OASIS — LIVE</span>
+        </div>
+        <AnimatePresence>
+          {focusedClient && (
+            <motion.div
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.2 }}
+              className="flex items-center gap-2 bg-[rgba(46,127,255,0.18)] border border-[rgba(46,127,255,0.55)] rounded-full px-3 py-1 backdrop-blur-md"
+            >
+              <MapPin size={11} className="text-blue-300 flex-shrink-0" />
+              <span className="text-[11px] text-blue-200 font-semibold tracking-wide">
+                {focusedClient.name}
+              </span>
+              {focusedIncidents && focusedIncidents.length > 0 && (
+                <span className="text-[9px] text-blue-300 opacity-80">
+                  · {focusedIncidents.length} incident{focusedIncidents.length !== 1 ? 's' : ''}
+                </span>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       <div className="absolute top-3 right-3 z-[400] flex flex-col gap-1.5">

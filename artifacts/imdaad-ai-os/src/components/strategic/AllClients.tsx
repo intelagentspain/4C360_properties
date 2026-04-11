@@ -560,9 +560,12 @@ function ClientDetailDrawer({
   );
 }
 
-interface Props { onToast: ToastFn }
+interface Props {
+  onToast: ToastFn;
+  onClientSelect: (clientId: string) => void;
+}
 
-export function AllClients({ onToast }: Props) {
+export function AllClients({ onToast, onClientSelect }: Props) {
   const memberFilter  = useMemberFilter();
   const { addProfiles } = useMemberProfiles();
   const { clients: allClients, addClient } = useClients();
@@ -753,13 +756,13 @@ export function AllClients({ onToast }: Props) {
         ) : view === 'grid' ? (
           <div className="grid grid-cols-3 gap-3">
             {filtered.map(c => (
-              <ClientPortfolioCard key={c.id} client={c} onSelect={setSelected} onToast={onToast} view="grid" />
+              <ClientPortfolioCard key={c.id} client={c} onSelect={client => onClientSelect(client.id)} onToast={onToast} view="grid" />
             ))}
           </div>
         ) : (
           <div className="flex flex-col gap-2">
             {filtered.map(c => (
-              <ClientPortfolioCard key={c.id} client={c} onSelect={setSelected} onToast={onToast} view="list" />
+              <ClientPortfolioCard key={c.id} client={c} onSelect={client => onClientSelect(client.id)} onToast={onToast} view="list" />
             ))}
           </div>
         )}

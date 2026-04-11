@@ -12,7 +12,7 @@ import { useMemberProfiles } from '@/context/MemberProfilesContext';
 import type { MockMemberProfile } from '@/data/mockData';
 
 export type Perspective = 'strategic' | 'operational' | 'client';
-export type StrategicPage = 'dashboard' | 'datasources' | 'benchmark' | 'replay' | 'incidents' | 'tasks' | 'ppmschedule' | 'aicapture' | 'settings' | 'allclients';
+export type StrategicPage = 'dashboard' | 'datasources' | 'benchmark' | 'replay' | 'incidents' | 'tasks' | 'ppmschedule' | 'aicapture' | 'settings' | 'allclients' | 'team';
 
 function getMemberIdFromUrl(): string | null {
   const params = new URLSearchParams(window.location.search);
@@ -28,9 +28,10 @@ const PERSP_MAP: Record<string, Perspective> = {
 function App() {
   const { getById }                          = useMemberProfiles();
   const [perspective,    setPerspective]     = useState<Perspective>('strategic');
-  const [strategicPage,  setStrategicPage]   = useState<StrategicPage>('dashboard');
+  const [strategicPage,  setStrategicPage]   = useState<StrategicPage>('allclients');
   const { toasts, addToast, removeToast }    = useToast();
   const [activeMember,   setActiveMember]    = useState<MockMemberProfile | null>(null);
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
 
   useEffect(() => {
     const memberId = getMemberIdFromUrl();
@@ -50,7 +51,12 @@ function App() {
 
   const handleSetPerspective = (p: Perspective) => {
     setPerspective(p);
-    if (p === 'strategic') setStrategicPage('dashboard');
+    if (p === 'strategic') setStrategicPage('allclients');
+  };
+
+  const handleClientSelect = (clientId: string) => {
+    setSelectedClientId(clientId);
+    setStrategicPage('dashboard');
   };
 
   const handleDismissMemberView = () => {
@@ -98,7 +104,7 @@ function App() {
               transition={{ duration: 0.2, ease: 'easeInOut' }}
               className="absolute inset-0 flex flex-col"
             >
-              {perspective === 'strategic'  && <StrategicView onToast={addToast} page={strategicPage} />}
+              {perspective === 'strategic'  && <StrategicView onToast={addToast} page={strategicPage} onClientSelect={handleClientSelect} selectedClientId={selectedClientId} />}
               {perspective === 'operational' && <OperationalView onToast={addToast} />}
               {perspective === 'client'      && <ClientView onToast={addToast} />}
             </motion.div>

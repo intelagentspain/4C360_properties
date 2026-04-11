@@ -19,15 +19,18 @@ import { AICapture } from './AICapture';
 import { DispatchAIRules } from './DispatchAIRules';
 import { initialDispatchSettings, type DispatchSettings } from '@/data/dispatchSettings';
 import { AllClients } from './AllClients';
+import { Team } from './Team';
 import type { StrategicPage } from '@/App';
 import type { ToastFn } from '@/lib/ui';
 
 interface Props {
   onToast: ToastFn;
   page: StrategicPage;
+  onClientSelect: (clientId: string) => void;
+  selectedClientId: string | null;
 }
 
-function Dashboard({ onToast }: { onToast: ToastFn }) {
+function Dashboard({ onToast, selectedClientId }: { onToast: ToastFn; selectedClientId: string | null }) {
   const [mode, setMode] = useState<AutomationMode>('hybrid');
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -36,7 +39,7 @@ function Dashboard({ onToast }: { onToast: ToastFn }) {
       <div className="flex flex-1 overflow-hidden">
         <div className="flex-[62] flex flex-col p-3 pr-1.5 overflow-hidden gap-2">
           <div className="flex-[65] overflow-hidden">
-            <CommunityMap onToast={onToast} />
+            <CommunityMap onToast={onToast} selectedClientId={selectedClientId} />
           </div>
           <div className="flex-[35] bg-[rgba(17,32,64,0.85)] border border-[rgba(46,127,255,0.22)] rounded-xl overflow-hidden">
             <LivePulseFeed onToast={onToast} />
@@ -54,7 +57,7 @@ function Dashboard({ onToast }: { onToast: ToastFn }) {
   );
 }
 
-export function StrategicView({ onToast, page }: Props) {
+export function StrategicView({ onToast, page, onClientSelect, selectedClientId }: Props) {
   const [dispatchSettings, setDispatchSettings] = useState<DispatchSettings>(initialDispatchSettings);
 
   return (
@@ -67,7 +70,7 @@ export function StrategicView({ onToast, page }: Props) {
         transition={{ duration: 0.18 }}
         className="absolute inset-0 flex flex-col"
       >
-        {page === 'dashboard'   && <Dashboard     onToast={onToast} />}
+        {page === 'dashboard'   && <Dashboard     onToast={onToast} selectedClientId={selectedClientId} />}
         {page === 'datasources' && <DataSources   onToast={onToast} />}
         {page === 'benchmark'   && <Benchmark     onToast={onToast} />}
         {page === 'replay'      && <Replay        onToast={onToast} />}
@@ -82,7 +85,8 @@ export function StrategicView({ onToast, page }: Props) {
             setSettings={setDispatchSettings}
           />
         )}
-        {page === 'allclients'  && <AllClients    onToast={onToast} />}
+        {page === 'allclients'  && <AllClients    onToast={onToast} onClientSelect={onClientSelect} />}
+        {page === 'team'        && <Team          onToast={onToast} />}
       </motion.div>
     </AnimatePresence>
   );
