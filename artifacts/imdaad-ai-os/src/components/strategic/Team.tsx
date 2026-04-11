@@ -2,12 +2,13 @@ import { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, Mail, MapPin, Wrench, ClipboardList, UserPlus, X,
-  MessageSquare, Building2, FileText, User, Shield, Search,
+  MessageSquare, Building2, FileText, User, Shield, Search, Phone,
 } from 'lucide-react';
 import { useMemberProfiles } from '@/context/MemberProfilesContext';
 import { useClients } from '@/context/ClientsContext';
 import { WhatsAppModal } from '@/components/shared/WhatsAppModal';
 import type { ToastFn } from '@/lib/ui';
+import type { MockMemberProfile } from '@/data/mockData';
 
 const PERSPECTIVE_BADGE: Record<string, string> = {
   Strategic:   'bg-blue-500/15 text-blue-300 border-blue-500/30',
@@ -566,6 +567,247 @@ function AddStaffModal({ onClose, onToast, clientNames }: AddStaffModalProps) {
   );
 }
 
+function DrawerSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div className="text-[9px] font-bold text-[#4A6080] uppercase tracking-widest mb-2">{title}</div>
+      {children}
+    </div>
+  );
+}
+
+interface ProfileDrawerProps {
+  member: MockMemberProfile;
+  onClose: () => void;
+}
+
+function ProfileDrawer({ member, onClose }: ProfileDrawerProps) {
+  const [whatsappOpen, setWhatsappOpen] = useState(false);
+  const avatarGradient = AVATAR_COLORS[member.id.charCodeAt(0) % AVATAR_COLORS.length];
+  const badgeCls = PERSPECTIVE_BADGE[member.perspective] ?? 'bg-[#112040] text-[#7A94B4] border-[rgba(46,127,255,0.2)]';
+
+  const grantedPrivileges = new Set(member.privileges ?? []);
+  const grantedCount = RBAC_PRIVILEGES.filter(p => grantedPrivileges.has(p.key)).length;
+
+  const skills = member.skills
+    ? member.skills.split(',').map(s => s.trim()).filter(Boolean)
+    : [];
+
+  const pillCls = 'text-[10px] px-2 py-0.5 rounded-lg bg-[rgba(46,127,255,0.12)] border border-[rgba(46,127,255,0.25)] text-[#93B8FF]';
+
+  const hasContact = !!(member.email || member.mobile || member.whatsapp || member.location);
+  const hasSkills = skills.length > 0 || !!member.responsibilities;
+  const hasAvailability = !!(member.availability || member.shift || (member.commChannels && member.commChannels.length > 0));
+
+  return (
+    <>
+      <motion.div
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
+        onClick={onClose}
+      />
+      <motion.div
+        initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
+        transition={{ type: 'spring', stiffness: 320, damping: 32 }}
+        className="fixed right-0 top-0 h-full w-[400px] bg-[#0D1E3D] border-l border-[rgba(46,127,255,0.2)] z-50 flex flex-col overflow-hidden"
+      >
+        <div className="flex-shrink-0 flex items-center justify-between px-5 py-4 border-b border-[rgba(46,127,255,0.15)]">
+          <button
+            onClick={onClose}
+            className="w-7 h-7 rounded-lg flex items-center justify-center text-[#7A94B4] hover:text-[#EEF3FA] hover:bg-white/5 transition-colors"
+          >
+            <X size={16} />
+          </button>
+          <span className="text-[11px] font-semibold text-[#7A94B4]">Staff Profile</span>
+          {(member.whatsapp || member.mobile) ? (
+            <button
+              onClick={() => setWhatsappOpen(true)}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25 transition-colors text-[10px] font-semibold"
+            >
+              <MessageSquare size={12} />
+              WhatsApp
+            </button>
+          ) : <div className="w-[82px]" />}
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+          <div className="flex items-start gap-4">
+            <div
+              className={`w-16 h-16 rounded-full flex items-center justify-center text-white text-xl font-bold flex-shrink-0 bg-gradient-to-br ${avatarGradient}`}
+            >
+              {getInitials(member.name)}
+            </div>
+            <div className="min-w-0 flex-1 pt-1">
+              <div className="text-base font-bold text-[#EEF3FA] leading-tight">{member.name}</div>
+              <div className="text-[12px] text-[#7A94B4] mt-0.5">{member.role}</div>
+              <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                <div className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[9px] font-semibold ${badgeCls}`}>
+                  {member.perspective}
+                </div>
+                <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9px] font-semibold bg-emerald-500/10 border-emerald-500/25 text-emerald-400">
+                  <span className="w-1 h-1 rounded-full bg-emerald-400 inline-block" />
+                  Active
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {hasContact && (
+            <DrawerSection title="Contact">
+              <div className="space-y-2">
+                {member.email && (
+                  <div className="flex items-center gap-2 text-[11px] text-[#7A94B4]">
+                    <Mail size={13} className="flex-shrink-0 text-[#4A6490]" />
+                    <span className="break-all">{member.email}</span>
+                  </div>
+                )}
+                {member.mobile && (
+                  <div className="flex items-center gap-2 text-[11px] text-[#7A94B4]">
+                    <Phone size={13} className="flex-shrink-0 text-[#4A6490]" />
+                    <span>{member.mobile}</span>
+                  </div>
+                )}
+                {member.whatsapp && (
+                  <div className="flex items-center gap-2 text-[11px] text-[#7A94B4]">
+                    <MessageSquare size={13} className="flex-shrink-0 text-[#4A6490]" />
+                    <span>{member.whatsapp}</span>
+                    <span className="text-[9px] text-emerald-400 font-semibold">(WhatsApp)</span>
+                  </div>
+                )}
+                {member.location && (
+                  <div className="flex items-center gap-2 text-[11px] text-[#7A94B4]">
+                    <MapPin size={13} className="flex-shrink-0 text-[#4A6490]" />
+                    <span>{member.location}</span>
+                  </div>
+                )}
+              </div>
+            </DrawerSection>
+          )}
+
+          <DrawerSection title="Assignment">
+            <div className="space-y-2">
+              <div>
+                <span className="text-[10px] text-[#4A6080] mr-2">Clients:</span>
+                {member.assignedClients.length > 0 ? (
+                  <div className="inline-flex flex-wrap gap-1">
+                    {member.assignedClients.map(c => (
+                      <span key={c} className={pillCls}>{c}</span>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-[10px] text-[#4A6080] italic">All clients</span>
+                )}
+              </div>
+              <div>
+                <span className="text-[10px] text-[#4A6080] mr-2">Zones:</span>
+                {member.zones.length > 0 ? (
+                  <div className="inline-flex flex-wrap gap-1">
+                    {member.zones.map(z => (
+                      <span key={z} className={pillCls}>{z}</span>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-[10px] text-[#4A6080] italic">No zone restriction</span>
+                )}
+              </div>
+            </div>
+          </DrawerSection>
+
+          {hasSkills && (
+            <DrawerSection title="Skills & Responsibilities">
+              <div className="space-y-2">
+                {skills.length > 0 && (
+                  <div>
+                    <span className="text-[10px] text-[#4A6080] block mb-1">Skills:</span>
+                    <div className="flex flex-wrap gap-1">
+                      {skills.map(s => (
+                        <span key={s} className={pillCls}>{s}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {member.responsibilities && (
+                  <div>
+                    <span className="text-[10px] text-[#4A6080] block mb-1">Responsibilities:</span>
+                    <p className="text-[11px] text-[#7A94B4] leading-relaxed">{member.responsibilities}</p>
+                  </div>
+                )}
+              </div>
+            </DrawerSection>
+          )}
+
+          {hasAvailability && (
+            <DrawerSection title="Availability">
+              <div className="space-y-2">
+                {member.availability && (
+                  <div className="text-[11px] text-[#7A94B4]">
+                    <span className="text-[10px] text-[#4A6080]">Availability: </span>
+                    {member.availability}
+                  </div>
+                )}
+                {member.shift && (
+                  <div className="text-[11px] text-[#7A94B4]">
+                    <span className="text-[10px] text-[#4A6080]">Shift: </span>
+                    {member.shift}
+                  </div>
+                )}
+                {member.commChannels && member.commChannels.length > 0 && (
+                  <div>
+                    <span className="text-[10px] text-[#4A6080] block mb-1">Channels:</span>
+                    <div className="flex flex-wrap gap-1">
+                      {member.commChannels.map(ch => {
+                        const channelObj = COMM_CHANNELS.find(c => c.key === ch);
+                        return (
+                          <span key={ch} className={pillCls}>
+                            {channelObj ? `${channelObj.icon} ${channelObj.label}` : ch}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </DrawerSection>
+          )}
+
+          <DrawerSection title={`Access Privileges  (${grantedCount} granted)`}>
+            <div className="flex flex-wrap gap-1.5">
+              {RBAC_PRIVILEGES.map(p => {
+                const granted = grantedPrivileges.has(p.key);
+                return (
+                  <span
+                    key={p.key}
+                    className={`text-[10px] px-2 py-0.5 rounded-lg border ${
+                      granted
+                        ? 'bg-[rgba(46,127,255,0.15)] border-[rgba(46,127,255,0.4)] text-[#93B8FF]'
+                        : 'border-[rgba(46,127,255,0.1)] text-[#3A5070]'
+                    }`}
+                  >
+                    {p.label}
+                  </span>
+                );
+              })}
+            </div>
+          </DrawerSection>
+        </div>
+      </motion.div>
+
+      <AnimatePresence>
+        {whatsappOpen && (
+          <WhatsAppModal
+            recipientName={member.name}
+            recipientPhone={member.whatsapp || member.mobile || ''}
+            defaultMessage={`Hi ${member.name}, `}
+            onClose={() => setWhatsappOpen(false)}
+            onSent={() => setWhatsappOpen(false)}
+            onError={() => setWhatsappOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+    </>
+  );
+}
+
 interface Props {
   onToast: ToastFn;
 }
@@ -576,6 +818,7 @@ export function Team({ onToast }: Props) {
   const { profiles } = useMemberProfiles();
   const { clients } = useClients();
   const [showModal, setShowModal] = useState(false);
+  const [selectedMember, setSelectedMember] = useState<MockMemberProfile | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPerspective, setFilterPerspective] = useState('All');
@@ -805,8 +1048,8 @@ export function Team({ onToast }: Props) {
 
                     <div className="px-4 pb-4">
                       <button
-                        onClick={() => onToast(`${member.name} — profile view coming soon`, 'info')}
-                        className="w-full py-1.5 text-[10px] font-semibold rounded-lg border border-[rgba(46,127,255,0.25)] text-[#7A94B4] hover:text-[#EEF3FA] hover:bg-white/5 transition-colors"
+                        onClick={() => setSelectedMember(member)}
+                        className="w-full py-1.5 text-[10px] font-semibold rounded-lg border border-[rgba(46,127,255,0.35)] text-[#2E7FFF] hover:bg-[rgba(46,127,255,0.12)] transition-colors"
                       >
                         View Profile
                       </button>
@@ -825,6 +1068,15 @@ export function Team({ onToast }: Props) {
             onClose={() => setShowModal(false)}
             onToast={onToast}
             clientNames={clientNames}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {selectedMember && (
+          <ProfileDrawer
+            member={selectedMember}
+            onClose={() => setSelectedMember(null)}
           />
         )}
       </AnimatePresence>
