@@ -18,6 +18,8 @@ export interface MockMemberProfile {
   shift?: string;
   commChannels?: string[];
   photo?: string;
+  clientSector?: string;
+  propertyName?: string;
 }
 
 export const mockMemberProfiles: MockMemberProfile[] = [
@@ -80,6 +82,20 @@ export const mockMemberProfiles: MockMemberProfile[] = [
     skills: 'Facility Management Oversight, Compliance Review',
     responsibilities: 'Review service request status and SLA compliance\nSubmit and track maintenance requests for JLT North\nAccess performance reports and satisfaction data\nEscalate unresolved issues to Imdaad account management',
     photo: '/team/lina-barakat.png',
+  },
+  {
+    id: 'mbr-006',
+    name: 'Sara Al-Rashidi',
+    email: 'sara.rashidi@palacehotel.ae',
+    role: 'Hotel Guest',
+    perspective: 'Client',
+    assignedClients: ['Palace Residences Hotel'],
+    zones: ['Dubai Creek Harbour'],
+    skills: 'Hospitality Guest',
+    responsibilities: 'Report maintenance issues in your room or hotel area\nTrack the status of your service request\nProvide feedback on completed maintenance',
+    photo: '/team/sara-rashidi.png',
+    clientSector: 'Hospitality',
+    propertyName: 'Palace Residences Hotel',
   },
 ];
 

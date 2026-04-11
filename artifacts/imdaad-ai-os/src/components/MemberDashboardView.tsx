@@ -5,6 +5,7 @@ import type { MockMemberProfile } from '@/data/mockData';
 import { StrategicView } from '@/components/strategic/StrategicView';
 import { OperationalView } from '@/components/operational/OperationalView';
 import { ClientView } from '@/components/client/ClientView';
+import { HospitalityClientView } from '@/components/client/hospitality/HospitalityClientView';
 import { MemberFilterProvider } from '@/context/MemberFilterContext';
 import type { StrategicPage } from '@/App';
 import type { ToastFn } from '@/lib/ui';
@@ -184,7 +185,21 @@ export function MemberDashboardView({ member, onToast, onDismiss }: Props) {
                 <OperationalView onToast={onToast} />
               </motion.div>
             )}
-            {member.perspective === 'Client' && (
+            {member.perspective === 'Client' && member.clientSector === 'Hospitality' && (
+              <motion.div
+                key="hospitality"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="absolute inset-0 flex flex-col"
+              >
+                <HospitalityClientView
+                  onToast={onToast}
+                  guestName={member.name}
+                  propertyName={member.propertyName ?? member.assignedClients[0]}
+                />
+              </motion.div>
+            )}
+            {member.perspective === 'Client' && member.clientSector !== 'Hospitality' && (
               <motion.div
                 key="client"
                 initial={{ opacity: 0 }}

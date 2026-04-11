@@ -6,6 +6,7 @@ import { StrategicView } from '@/components/strategic/StrategicView';
 import { OperationalView } from '@/components/operational/OperationalView';
 import { ClientView } from '@/components/client/ClientView';
 import { MemberDashboardView } from '@/components/MemberDashboardView';
+import { HospitalityClientView } from '@/components/client/hospitality/HospitalityClientView';
 import { ToastContainer } from '@/components/shared/ToastContainer';
 import { CopilotAvatar } from '@/components/CopilotAvatar';
 import { useToast } from '@/hooks/useToast';
@@ -97,6 +98,21 @@ function App() {
     url.searchParams.delete('member');
     window.history.replaceState({}, '', url.toString());
   };
+
+  if (activeMember && activeMember.perspective === 'Client' && activeMember.clientSector === 'Hospitality') {
+    return (
+      <div className="flex flex-col h-screen overflow-hidden">
+        <div className="flex-1 overflow-hidden">
+          <HospitalityClientView
+            onToast={addToast}
+            guestName={activeMember.name}
+            propertyName={activeMember.propertyName ?? activeMember.assignedClients[0]}
+          />
+        </div>
+        <ToastContainer toasts={toasts} removeToast={removeToast} />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-screen bg-[#0A1628] overflow-hidden">
