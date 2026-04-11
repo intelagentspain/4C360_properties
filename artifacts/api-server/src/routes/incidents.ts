@@ -82,6 +82,19 @@ const APPROVER_ROLES = new Set([
   "Operations Supervisor",
 ]);
 
+const END_CLIENT_SOURCES = new Set([
+  "resident app",
+  "client portal",
+  "end client",
+  "qr scan",
+  "client qr",
+]);
+
+function isEndClientSource(source?: string): boolean {
+  if (!source) return false;
+  return END_CLIENT_SOURCES.has(source.toLowerCase().trim());
+}
+
 interface AiMetadata {
   confidence?: number;
   issueType?: string;
@@ -238,6 +251,7 @@ interface TicketRecord {
   incident?: IncidentPayload;
   reporterEmail?: string;
   reporterName?: string;
+  amApproverEmails?: Set<string>;
 }
 
 const ticketStore = new Map<string, TicketRecord>();
@@ -279,14 +293,9 @@ function severityLabel(severity: string): string {
   return severity ? severity.charAt(0).toUpperCase() + severity.slice(1) : "Unknown";
 }
 
-function buildIncidentEmail(
+function buildIncidentEmailBody(
   incident: IncidentPayload,
-  recipientName: string,
-  recipientEmail: string,
-  muteUrl: string,
-  approveUrl?: string,
-  rejectBaseUrl?: string,
-): string {
+): { aiBlock: string; imageBlock: string; locationBlock: string; sevColor: string; sevLabel: string } {
   const sev      = incident.severity ?? "low";
   const sevColor = severityColor(sev);
   const sevLabel = severityLabel(sev);
@@ -325,6 +334,20 @@ function buildIncidentEmail(
          <tr><td align="center"><img src="${escapeHtml(incident.imageUrl)}" alt="Incident" style="max-width:100%;border-radius:8px;border:1px solid rgba(46,127,255,0.2);" /></td></tr>
        </table>`
     : "";
+
+  return { aiBlock, imageBlock, locationBlock, sevColor, sevLabel };
+}
+
+function buildIncidentEmail(
+  incident: IncidentPayload,
+  recipientName: string,
+  recipientEmail: string,
+  muteUrl: string,
+  approveUrl?: string,
+  rejectBaseUrl?: string,
+): string {
+  const { aiBlock, imageBlock, locationBlock, sevColor, sevLabel } = buildIncidentEmailBody(incident);
+  const sev = incident.severity ?? "low";
 
   const approvalBlock = (approveUrl && rejectBaseUrl)
     ? `
@@ -393,6 +416,167 @@ function buildIncidentEmail(
         </table>
         <p style="color:#4A6080;font-size:11px;line-height:1.6;margin:0;text-align:center;">
           You are receiving this because you are assigned to this site/client as an operational team member.
+        </p>
+      </td></tr>
+      <tr><td style="background:#0A1628;padding:20px 40px;border-top:1px solid rgba(46,127,255,0.12);">
+        <table width="100%" cellpadding="0" cellspacing="0"><tr>
+          <td><p style="color:#4A6080;font-size:10px;margin:0;">© ${new Date().getFullYear()} Imdaad. All rights reserved.</p><p style="color:#4A6080;font-size:10px;margin:4px 0 0;">AI-OS Platform · Dubai, UAE</p></td>
+          <td align="right"><p style="color:#4A6080;font-size:10px;margin:0;">Sent to: ${escapeHtml(recipientEmail)}</p><p style="color:#4A6080;font-size:10px;margin:4px 0 0;">Incident: ${escapeHtml(incident.id)}</p></td>
+        </tr></table>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>`;
+}
+
+function buildEndClientIncidentEmailForAM(
+  incident: IncidentPayload,
+  recipientName: string,
+  recipientEmail: string,
+  confirmIssueUrl: string,
+  rejectBaseUrl: string,
+  muteUrl: string,
+): string {
+  const { aiBlock, imageBlock, locationBlock, sevColor, sevLabel } = buildIncidentEmailBody(incident);
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>Client Issue Reported — ${escapeHtml(incident.id)}</title></head>
+<body style="margin:0;padding:0;background:#060F1E;font-family:'Segoe UI',Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#060F1E;padding:40px 0;">
+  <tr><td align="center">
+    <table width="580" cellpadding="0" cellspacing="0" style="background:#0D1E38;border:1px solid rgba(46,127,255,0.25);border-radius:16px;overflow:hidden;">
+      <tr><td style="background:linear-gradient(135deg,#0A1628 0%,#112040 100%);padding:28px 40px;border-bottom:1px solid rgba(46,127,255,0.2);">
+        <table width="100%" cellpadding="0" cellspacing="0"><tr>
+          <td><div style="display:inline-block;background:rgba(46,127,255,0.15);border:1px solid rgba(46,127,255,0.3);border-radius:10px;padding:8px 16px;"><span style="color:#2E7FFF;font-size:18px;font-weight:800;letter-spacing:1px;">IMDAAD</span><span style="color:#7A94B4;font-size:14px;font-weight:400;margin-left:6px;">AI-OS</span></div><p style="color:#7A94B4;font-size:11px;letter-spacing:2px;text-transform:uppercase;margin:10px 0 0;">Client Issue — Account Manager Action Required</p></td>
+          <td align="right" style="vertical-align:top;"><div style="display:inline-block;background:${sevColor}22;border:1px solid ${sevColor}66;border-radius:8px;padding:6px 14px;"><span style="color:${sevColor};font-size:13px;font-weight:800;letter-spacing:0.5px;">${sevLabel}</span></div></td>
+        </tr></table>
+      </td></tr>
+      <tr><td style="padding:32px 40px;">
+        <h1 style="color:#EEF3FA;font-size:20px;font-weight:700;margin:0 0 6px;">${escapeHtml(incident.title ?? "New Client Issue")}</h1>
+        <p style="color:#7A94B4;font-size:13px;margin:0 0 24px;">Hello ${escapeHtml(recipientName)}, a client has reported an issue via the resident portal. Please review and confirm to dispatch an FM Engineer immediately.</p>
+
+        <p style="color:#7A94B4;font-size:10px;text-transform:uppercase;letter-spacing:2px;margin:0 0 12px;font-weight:700;">Incident Details</p>
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(46,127,255,0.07);border:1px solid rgba(46,127,255,0.22);border-radius:10px;margin-bottom:20px;">
+          <tr><td style="padding:20px 24px;"><table width="100%" cellpadding="0" cellspacing="0">
+            <tr><td style="color:#7A94B4;font-size:12px;padding:5px 0;width:140px;">Incident ID</td><td style="color:#2E7FFF;font-size:12px;font-weight:700;font-family:monospace;padding:5px 0;">${escapeHtml(incident.id)}</td></tr>
+            <tr><td style="color:#7A94B4;font-size:12px;padding:5px 0;">Severity</td><td style="padding:5px 0;"><span style="background:${sevColor}22;border:1px solid ${sevColor}66;border-radius:5px;padding:2px 8px;color:${sevColor};font-size:11px;font-weight:700;">${sevLabel}</span></td></tr>
+            <tr><td style="color:#7A94B4;font-size:12px;padding:5px 0;">Source</td><td style="color:#EEF3FA;font-size:12px;font-weight:600;padding:5px 0;">${escapeHtml(incident.source ?? "Client Portal")}</td></tr>
+            <tr><td style="color:#7A94B4;font-size:12px;padding:5px 0;">Location</td><td style="font-size:12px;font-weight:600;padding:5px 0;">${locationBlock}</td></tr>
+            <tr><td style="color:#7A94B4;font-size:12px;padding:5px 0;">SLA</td><td style="color:#EEF3FA;font-size:12px;font-weight:600;padding:5px 0;">${incident.slaMinutes ? `${incident.slaMinutes} min` : "—"}</td></tr>
+          </table></td></tr>
+        </table>
+
+        <p style="color:#7A94B4;font-size:10px;text-transform:uppercase;letter-spacing:2px;margin:0 0 12px;font-weight:700;">Description</p>
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.2);border-radius:10px;margin-bottom:20px;">
+          <tr><td style="padding:16px 20px;"><p style="color:#EEF3FA;font-size:12px;margin:0;line-height:1.7;">${escapeHtml(incident.description ?? "—")}</p></td></tr>
+        </table>
+
+        ${aiBlock}
+        ${imageBlock}
+
+        <p style="color:#7A94B4;font-size:10px;text-transform:uppercase;letter-spacing:2px;margin:24px 0 12px;font-weight:700;">Action Required</p>
+        <p style="color:#7A94B4;font-size:12px;margin:0 0 16px;line-height:1.6;">As the Account Manager, confirming this issue will automatically create a Work Order and dispatch the FM Engineer — no further steps needed.</p>
+        <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
+          <tr>
+            <td style="padding:0 8px 0 0;" width="60%">
+              <a href="${escapeHtml(confirmIssueUrl)}" style="display:block;text-align:center;background:linear-gradient(135deg,#10B981,#059669);color:#ffffff;text-decoration:none;font-size:14px;font-weight:800;padding:16px 20px;border-radius:10px;letter-spacing:0.5px;">
+                ✓ Confirm Issue &amp; Dispatch Engineer
+              </a>
+            </td>
+            <td style="padding:0 0 0 8px;" width="40%">
+              <a href="${escapeHtml(rejectBaseUrl)}" style="display:block;text-align:center;background:#EF4444;color:#ffffff;text-decoration:none;font-size:13px;font-weight:700;padding:16px 20px;border-radius:10px;letter-spacing:0.3px;">
+                ✕ Reject
+              </a>
+            </td>
+          </tr>
+        </table>
+
+        <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px;margin-bottom:16px;">
+          <tr><td align="center">
+            <a href="${escapeHtml(muteUrl)}" style="display:inline-block;background:#1A3260;color:#7A94B4;text-decoration:none;font-size:12px;font-weight:600;padding:10px 28px;border-radius:8px;border:1px solid rgba(46,127,255,0.3);letter-spacing:0.3px;">
+              🔕 Mute Notifications for this Incident
+            </a>
+          </td></tr>
+        </table>
+        <p style="color:#4A6080;font-size:11px;line-height:1.6;margin:0;text-align:center;">
+          You are receiving this as the Account Manager responsible for this client account.
+        </p>
+      </td></tr>
+      <tr><td style="background:#0A1628;padding:20px 40px;border-top:1px solid rgba(46,127,255,0.12);">
+        <table width="100%" cellpadding="0" cellspacing="0"><tr>
+          <td><p style="color:#4A6080;font-size:10px;margin:0;">© ${new Date().getFullYear()} Imdaad. All rights reserved.</p><p style="color:#4A6080;font-size:10px;margin:4px 0 0;">AI-OS Platform · Dubai, UAE</p></td>
+          <td align="right"><p style="color:#4A6080;font-size:10px;margin:0;">Sent to: ${escapeHtml(recipientEmail)}</p><p style="color:#4A6080;font-size:10px;margin:4px 0 0;">Incident: ${escapeHtml(incident.id)}</p></td>
+        </tr></table>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>`;
+}
+
+function buildEndClientIncidentEmailForSupervisor(
+  incident: IncidentPayload,
+  recipientName: string,
+  recipientEmail: string,
+  muteUrl: string,
+): string {
+  const { aiBlock, imageBlock, locationBlock, sevColor, sevLabel } = buildIncidentEmailBody(incident);
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>Client Issue Reported — ${escapeHtml(incident.id)}</title></head>
+<body style="margin:0;padding:0;background:#060F1E;font-family:'Segoe UI',Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#060F1E;padding:40px 0;">
+  <tr><td align="center">
+    <table width="580" cellpadding="0" cellspacing="0" style="background:#0D1E38;border:1px solid rgba(46,127,255,0.25);border-radius:16px;overflow:hidden;">
+      <tr><td style="background:linear-gradient(135deg,#0A1628 0%,#112040 100%);padding:28px 40px;border-bottom:1px solid rgba(46,127,255,0.2);">
+        <table width="100%" cellpadding="0" cellspacing="0"><tr>
+          <td><div style="display:inline-block;background:rgba(46,127,255,0.15);border:1px solid rgba(46,127,255,0.3);border-radius:10px;padding:8px 16px;"><span style="color:#2E7FFF;font-size:18px;font-weight:800;letter-spacing:1px;">IMDAAD</span><span style="color:#7A94B4;font-size:14px;font-weight:400;margin-left:6px;">AI-OS</span></div><p style="color:#7A94B4;font-size:11px;letter-spacing:2px;text-transform:uppercase;margin:10px 0 0;">Client Issue — Site Supervisor Notification</p></td>
+          <td align="right" style="vertical-align:top;"><div style="display:inline-block;background:${sevColor}22;border:1px solid ${sevColor}66;border-radius:8px;padding:6px 14px;"><span style="color:${sevColor};font-size:13px;font-weight:800;letter-spacing:0.5px;">${sevLabel}</span></div></td>
+        </tr></table>
+      </td></tr>
+      <tr><td style="padding:32px 40px;">
+        <h1 style="color:#EEF3FA;font-size:20px;font-weight:700;margin:0 0 6px;">${escapeHtml(incident.title ?? "New Client Issue")}</h1>
+        <p style="color:#7A94B4;font-size:13px;margin:0 0 24px;">Hello ${escapeHtml(recipientName)}, a client has reported an issue via the resident portal. This is for your awareness — the Account Manager will confirm and dispatch an engineer.</p>
+
+        <p style="color:#7A94B4;font-size:10px;text-transform:uppercase;letter-spacing:2px;margin:0 0 12px;font-weight:700;">Incident Details</p>
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(46,127,255,0.07);border:1px solid rgba(46,127,255,0.22);border-radius:10px;margin-bottom:20px;">
+          <tr><td style="padding:20px 24px;"><table width="100%" cellpadding="0" cellspacing="0">
+            <tr><td style="color:#7A94B4;font-size:12px;padding:5px 0;width:140px;">Incident ID</td><td style="color:#2E7FFF;font-size:12px;font-weight:700;font-family:monospace;padding:5px 0;">${escapeHtml(incident.id)}</td></tr>
+            <tr><td style="color:#7A94B4;font-size:12px;padding:5px 0;">Severity</td><td style="padding:5px 0;"><span style="background:${sevColor}22;border:1px solid ${sevColor}66;border-radius:5px;padding:2px 8px;color:${sevColor};font-size:11px;font-weight:700;">${sevLabel}</span></td></tr>
+            <tr><td style="color:#7A94B4;font-size:12px;padding:5px 0;">Source</td><td style="color:#EEF3FA;font-size:12px;font-weight:600;padding:5px 0;">${escapeHtml(incident.source ?? "Client Portal")}</td></tr>
+            <tr><td style="color:#7A94B4;font-size:12px;padding:5px 0;">Location</td><td style="font-size:12px;font-weight:600;padding:5px 0;">${locationBlock}</td></tr>
+            <tr><td style="color:#7A94B4;font-size:12px;padding:5px 0;">SLA</td><td style="color:#EEF3FA;font-size:12px;font-weight:600;padding:5px 0;">${incident.slaMinutes ? `${incident.slaMinutes} min` : "—"}</td></tr>
+            <tr><td style="color:#7A94B4;font-size:12px;padding:5px 0;">Status</td><td style="color:#F59E0B;font-size:12px;font-weight:700;padding:5px 0;">Pending AM Confirmation</td></tr>
+          </table></td></tr>
+        </table>
+
+        <p style="color:#7A94B4;font-size:10px;text-transform:uppercase;letter-spacing:2px;margin:0 0 12px;font-weight:700;">Description</p>
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.2);border-radius:10px;margin-bottom:20px;">
+          <tr><td style="padding:16px 20px;"><p style="color:#EEF3FA;font-size:12px;margin:0;line-height:1.7;">${escapeHtml(incident.description ?? "—")}</p></td></tr>
+        </table>
+
+        ${aiBlock}
+        ${imageBlock}
+
+        <div style="background:rgba(245,158,11,0.07);border:1px solid rgba(245,158,11,0.25);border-radius:10px;padding:16px 20px;margin-bottom:20px;">
+          <p style="color:#F59E0B;font-size:12px;font-weight:700;margin:0 0 6px;">Information Only</p>
+          <p style="color:#7A94B4;font-size:12px;margin:0;line-height:1.6;">No action is required from you at this time. The Account Manager has been separately notified and will confirm the issue and trigger a Work Order automatically. You will receive a further update once the engineer is dispatched.</p>
+        </div>
+
+        <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px;margin-bottom:16px;">
+          <tr><td align="center">
+            <a href="${escapeHtml(muteUrl)}" style="display:inline-block;background:#1A3260;color:#7A94B4;text-decoration:none;font-size:12px;font-weight:600;padding:10px 28px;border-radius:8px;border:1px solid rgba(46,127,255,0.3);letter-spacing:0.3px;">
+              🔕 Mute Notifications for this Incident
+            </a>
+          </td></tr>
+        </table>
+        <p style="color:#4A6080;font-size:11px;line-height:1.6;margin:0;text-align:center;">
+          You are receiving this as the Site Supervisor responsible for this location.
         </p>
       </td></tr>
       <tr><td style="background:#0A1628;padding:20px 40px;border-top:1px solid rgba(46,127,255,0.12);">
@@ -567,6 +751,94 @@ router.get("/tickets/:id/approve", async (req: Request, res: Response) => {
   ticketStore.set(id, ticket);
 
   logger.info({ incidentId: id, approvedBy: email }, "Ticket approved via email link");
+
+  const incident = ticket.incident;
+  const isEndClientTicket = incident ? isEndClientSource(incident.source) : false;
+
+  if (isEndClientTicket && incident) {
+    const isAM = ticket.amApproverEmails
+      ? ticket.amApproverEmails.has(email.toLowerCase())
+      : await db
+          .select()
+          .from(teamMembersTable)
+          .where(eq(teamMembersTable.email, email))
+          .then(rows => rows[0]?.role === "Account Manager")
+          .catch(() => false);
+
+    if (isAM) {
+      logger.info({ incidentId: id, approverEmail: email }, "AM confirmed end-client incident — auto-dispatching Work Order");
+
+      const appUrl = process.env.APP_URL ?? process.env.API_BASE_URL?.replace("/api", "") ?? "";
+      const workOrderId = `WO-${Date.now().toString(36).toUpperCase()}`;
+      const ai = incident.aiMetadata;
+
+      const wo: WorkOrderPayload = {
+        id: workOrderId,
+        title: incident.title ?? "Work Order",
+        location: incident.location,
+        priority: incident.severity ?? "medium",
+        asset: ai?.identifiedAsset ?? "General Asset",
+        skill: ai?.issueType ?? "General Maintenance",
+        siteId: incident.siteId ?? resolveSiteId(incident),
+        incidentId: incident.id,
+        description: [
+          incident.description,
+          ai?.recommendedAction ? `Recommended Action: ${ai.recommendedAction}` : null,
+        ].filter(Boolean).join("\n\n") || undefined,
+      };
+
+      try {
+        await db.insert(workOrdersTable).values({
+          id: wo.id,
+          incidentId: wo.incidentId ?? null,
+          title: wo.title,
+          location: wo.location ?? null,
+          priority: wo.priority ?? "medium",
+          asset: wo.asset ?? null,
+          skill: wo.skill ?? null,
+          siteId: wo.siteId ?? null,
+          description: wo.description ?? null,
+          status: "open",
+        }).onConflictDoNothing();
+      } catch (err) {
+        logger.warn({ err, workOrderId }, "Failed to persist auto-dispatched work order to DB");
+      }
+
+      ticket.state = "work_order_created";
+      ticket.workOrderId = workOrderId;
+      ticket.updatedAt = new Date().toISOString();
+      ticketStore.set(id, ticket);
+
+      try {
+        await db.update(incidentsTable)
+          .set({ status: "dispatched" })
+          .where(eq(incidentsTable.id, id));
+      } catch (err) {
+        logger.warn({ err, incidentId: id }, "Failed to update incident status after AM confirmation");
+      }
+
+      const fmEngineer = await autoAssignFmEngineer(wo);
+
+      if (fmEngineer) {
+        await db.update(workOrdersTable)
+          .set({ assignedTo: fmEngineer.name, assignedToId: fmEngineer.id, status: "assigned" })
+          .where(eq(workOrdersTable.id, wo.id))
+          .catch(err => logger.warn({ err }, "Failed to update work order assignment in DB"));
+
+        const fmHtml = buildWorkOrderEmail(wo, id, fmEngineer.name, fmEngineer.email, true, appUrl || undefined, incident);
+        await sendEmail({
+          to: fmEngineer.email,
+          subject: `[JOB ASSIGNED] ${wo.title} — ${wo.id} · Report to Site`,
+          html: fmHtml,
+        }).catch(err => logger.error({ err }, "Failed to send FM work order email (AM auto-dispatch)"));
+
+        logger.info({ workOrderId, fmEngineer: fmEngineer.email }, "FM engineer notified of auto-dispatched work order");
+      } else {
+        logger.warn({ workOrderId, siteId: wo.siteId }, "No FM engineer found for auto-dispatch");
+      }
+    }
+  }
+
   res.send(approvedHtml(id));
 });
 
@@ -753,23 +1025,68 @@ function buildWorkOrderEmail(
   recipientEmail: string,
   isFmEngineer: boolean = false,
   appUrl?: string,
+  incidentDetails?: IncidentPayload,
 ): string {
   const pri      = wo.priority ?? "medium";
   const priColor = priorityColor(pri);
   const priLabel = pri.charAt(0).toUpperCase() + pri.slice(1);
 
-  const jobLinkBlock = isFmEngineer && appUrl ? `
-        <table width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0 16px;">
-          <tr><td align="center">
-            <a href="${escapeHtml(appUrl)}" style="display:inline-block;background:linear-gradient(135deg,#2E7FFF,#00C6FF);color:#fff;text-decoration:none;font-size:14px;font-weight:700;padding:14px 36px;border-radius:10px;letter-spacing:0.5px;">
-              View Work Order &amp; Start Job →
-            </a>
-          </td></tr>
+  const baseUrl = appUrl ?? "";
+  const workOrderDetailUrl = baseUrl ? `${baseUrl}/work-orders/${encodeURIComponent(wo.id)}` : "#";
+  const mapUrl = incidentDetails?.lat != null && incidentDetails?.lng != null
+    ? `https://www.google.com/maps?q=${incidentDetails.lat},${incidentDetails.lng}`
+    : (wo.location ? `https://www.google.com/maps/search/${encodeURIComponent(wo.location)}` : "#");
+  const messagingUrl = baseUrl ? `${baseUrl}/messages?incident=${encodeURIComponent(incidentId ?? wo.id)}` : "#";
+  const knowledgeUrl = baseUrl ? `${baseUrl}/assets?id=${encodeURIComponent(wo.asset ?? "")}` : "#";
+
+  const fmActionButtons = isFmEngineer ? `
+        <p style="color:#7A94B4;font-size:10px;text-transform:uppercase;letter-spacing:2px;margin:24px 0 12px;font-weight:700;">Actions</p>
+        <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
+          <tr>
+            <td style="padding:0 6px 0 0;" width="50%">
+              <a href="${escapeHtml(mapUrl)}" style="display:block;text-align:center;background:rgba(46,127,255,0.15);border:1px solid rgba(46,127,255,0.4);color:#2E7FFF;text-decoration:none;font-size:12px;font-weight:700;padding:14px 8px;border-radius:10px;letter-spacing:0.3px;">
+                📍 Locate Issue
+              </a>
+            </td>
+            <td style="padding:0 0 0 6px;" width="50%">
+              <a href="${escapeHtml(workOrderDetailUrl)}" style="display:block;text-align:center;background:linear-gradient(135deg,#10B981,#059669);color:#ffffff;text-decoration:none;font-size:12px;font-weight:700;padding:14px 8px;border-radius:10px;letter-spacing:0.3px;">
+                🔧 Start Resolution
+              </a>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:8px 6px 0 0;" width="50%">
+              <a href="${escapeHtml(messagingUrl)}" style="display:block;text-align:center;background:rgba(139,92,246,0.15);border:1px solid rgba(139,92,246,0.4);color:#A78BFA;text-decoration:none;font-size:12px;font-weight:700;padding:14px 8px;border-radius:10px;letter-spacing:0.3px;">
+                💬 Ask Questions
+              </a>
+            </td>
+            <td style="padding:8px 0 0 6px;" width="50%">
+              <a href="${escapeHtml(knowledgeUrl)}" style="display:block;text-align:center;background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.4);color:#F59E0B;text-decoration:none;font-size:12px;font-weight:700;padding:14px 8px;border-radius:10px;letter-spacing:0.3px;">
+                📚 Research
+              </a>
+            </td>
+          </tr>
         </table>
         <div style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.2);border-radius:10px;padding:16px 20px;margin-bottom:16px;">
           <p style="color:#38D98A;font-size:12px;font-weight:700;margin:0 0 6px;">You have been assigned this work order.</p>
           <p style="color:#7A94B4;font-size:12px;margin:0;">Please report to the site location, mark the job as In Progress, then upload photo evidence when complete.</p>
         </div>` : "";
+
+  const incidentBlock = incidentDetails ? `
+        <p style="color:#7A94B4;font-size:10px;text-transform:uppercase;letter-spacing:2px;margin:20px 0 12px;font-weight:700;">Originating Incident</p>
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(139,92,246,0.06);border:1px solid rgba(139,92,246,0.2);border-radius:10px;margin-bottom:20px;">
+          <tr><td style="padding:16px 20px;">
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <tr><td style="color:#7A94B4;font-size:12px;padding:4px 0;width:140px;">Incident ID</td><td style="color:#2E7FFF;font-size:12px;font-weight:700;font-family:monospace;padding:4px 0;">${escapeHtml(incidentDetails.id)}</td></tr>
+              ${incidentDetails.severity ? `<tr><td style="color:#7A94B4;font-size:12px;padding:4px 0;">Severity</td><td style="padding:4px 0;"><span style="background:${priorityColor(incidentDetails.severity)}22;border:1px solid ${priorityColor(incidentDetails.severity)}66;border-radius:5px;padding:2px 8px;color:${priorityColor(incidentDetails.severity)};font-size:11px;font-weight:700;">${incidentDetails.severity.charAt(0).toUpperCase() + incidentDetails.severity.slice(1)}</span></td></tr>` : ""}
+              ${incidentDetails.description ? `<tr><td style="color:#7A94B4;font-size:12px;padding:4px 0;vertical-align:top;">Description</td><td style="color:#EEF3FA;font-size:12px;padding:4px 0;line-height:1.6;">${escapeHtml(incidentDetails.description)}</td></tr>` : ""}
+              ${incidentDetails.aiMetadata?.recommendedAction ? `<tr><td style="color:#7A94B4;font-size:12px;padding:4px 0;">Recommended Action</td><td style="color:#EEF3FA;font-size:12px;font-weight:600;padding:4px 0;">${escapeHtml(incidentDetails.aiMetadata.recommendedAction)}</td></tr>` : ""}
+            </table>
+          </td></tr>
+        </table>
+        ${incidentDetails.imageUrl ? `<p style="color:#7A94B4;font-size:10px;text-transform:uppercase;letter-spacing:2px;margin:0 0 12px;font-weight:700;">Incident Photo</p>
+        <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;"><tr><td align="center"><img src="${escapeHtml(incidentDetails.imageUrl)}" alt="Incident" style="max-width:100%;border-radius:8px;border:1px solid rgba(46,127,255,0.2);" /></td></tr></table>` : ""}
+      ` : "";
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -788,8 +1105,6 @@ function buildWorkOrderEmail(
         <h1 style="color:#EEF3FA;font-size:20px;font-weight:700;margin:0 0 6px;">${escapeHtml(wo.title ?? "New Work Order")}</h1>
         <p style="color:#7A94B4;font-size:13px;margin:0 0 24px;">Hello ${escapeHtml(recipientName)}, ${isFmEngineer ? "you have been assigned a new job on the Imdaad AI-OS platform. Please report to site immediately." : "a new work order has been raised on the Imdaad AI-OS platform."}</p>
 
-        ${jobLinkBlock}
-
         <p style="color:#7A94B4;font-size:10px;text-transform:uppercase;letter-spacing:2px;margin:0 0 12px;font-weight:700;">Work Order Details</p>
         <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(46,127,255,0.07);border:1px solid rgba(46,127,255,0.22);border-radius:10px;margin-bottom:20px;">
           <tr><td style="padding:20px 24px;"><table width="100%" cellpadding="0" cellspacing="0">
@@ -802,11 +1117,15 @@ function buildWorkOrderEmail(
           </table></td></tr>
         </table>
 
+        ${incidentBlock}
+
         ${wo.description ? `
         <p style="color:#7A94B4;font-size:10px;text-transform:uppercase;letter-spacing:2px;margin:0 0 12px;font-weight:700;">Description / AI Analysis</p>
         <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.2);border-radius:10px;margin-bottom:20px;">
           <tr><td style="padding:16px 20px;"><p style="color:#EEF3FA;font-size:12px;margin:0;line-height:1.7;">${escapeHtml(wo.description)}</p></td></tr>
         </table>` : ""}
+
+        ${fmActionButtons}
 
         <p style="color:#4A6080;font-size:11px;line-height:1.6;margin:24px 0 0;text-align:center;">
           ${isFmEngineer ? "You are receiving this because you have been assigned as the FM Engineer for this job." : "You are receiving this because you are assigned to this site/client as an operational team member."}
@@ -874,6 +1193,33 @@ router.post("/workorders/notify", async (req: Request, res: Response) => {
     process.env.API_BASE_URL ??
     `http://localhost:${process.env.PORT ?? 3001}`;
 
+  let incidentDetails: IncidentPayload | undefined;
+  if (incidentId) {
+    const ticketRecord = ticketStore.get(incidentId);
+    if (ticketRecord?.incident) {
+      incidentDetails = ticketRecord.incident;
+    } else {
+      try {
+        const rows = await db.select().from(incidentsTable).where(eq(incidentsTable.id, incidentId));
+        if (rows[0]) {
+          incidentDetails = {
+            id: rows[0].id,
+            title: rows[0].title,
+            location: rows[0].location ?? undefined,
+            severity: rows[0].severity ?? undefined,
+            description: rows[0].description ?? undefined,
+            imageUrl: rows[0].imageUrl ?? undefined,
+            lat: rows[0].lat != null ? Number(rows[0].lat) : undefined,
+            lng: rows[0].lng != null ? Number(rows[0].lng) : undefined,
+            siteId: rows[0].siteId ?? undefined,
+            aiMetadata: rows[0].aiMetadata as AiMetadata | undefined,
+          };
+        }
+      } catch {
+      }
+    }
+  }
+
   const fmEngineer = await autoAssignFmEngineer(wo);
 
   if (fmEngineer) {
@@ -884,7 +1230,7 @@ router.post("/workorders/notify", async (req: Request, res: Response) => {
       .where(eq(workOrdersTable.id, wo.id))
       .catch(err => logger.warn({ err }, "Failed to update work order assignment in DB"));
 
-    const fmHtml = buildWorkOrderEmail(wo, incidentId, fmEngineer.name, fmEngineer.email, true, appUrl || undefined);
+    const fmHtml = buildWorkOrderEmail(wo, incidentId, fmEngineer.name, fmEngineer.email, true, appUrl || undefined, incidentDetails);
     const fmEmailResult = await sendEmail({
       to: fmEngineer.email,
       subject: `[JOB ASSIGNED] ${wo.title ?? "New Work Order"} — ${wo.id} · Report to Site`,
@@ -967,7 +1313,21 @@ router.post("/workorders/notify", async (req: Request, res: Response) => {
 router.get("/incidents", async (_req: Request, res: Response) => {
   try {
     const rows = await db.select().from(incidentsTable).orderBy(desc(incidentsTable.createdAt));
-    res.json(rows);
+    const enriched = rows.map(row => {
+      const ticket = ticketStore.get(row.id);
+      if (ticket) {
+        return {
+          ...row,
+          ticketState: ticket.state,
+          approvedBy: ticket.approvedBy ?? null,
+          rejectedBy: ticket.rejectedBy ?? null,
+          rejectionReason: ticket.rejectionReason ?? null,
+          workOrderId: ticket.workOrderId ?? null,
+        };
+      }
+      return row;
+    });
+    res.json(enriched);
   } catch (err) {
     logger.error({ err }, "Failed to fetch incidents from DB");
     res.status(500).json({ error: "Failed to fetch incidents" });
@@ -1199,8 +1559,7 @@ router.post("/incidents/notify", async (req: Request, res: Response) => {
     process.env.API_BASE_URL ??
     `http://localhost:${process.env.PORT ?? 3001}`;
 
-  const allRecipients = await resolveRecipients(incident, body.inviteList);
-  const approvers = await resolveApprovers(incident, body.inviteList);
+  const fromEndClient = isEndClientSource(incident.source);
 
   const now = new Date().toISOString();
   const ticket: TicketRecord = {
@@ -1213,47 +1572,104 @@ router.post("/incidents/notify", async (req: Request, res: Response) => {
     reporterName: body.reporterName,
   };
   ticketStore.set(incident.id, ticket);
-  logger.info({ incidentId: incident.id }, "Ticket created in pending_approval state");
+  logger.info({ incidentId: incident.id, fromEndClient }, "Ticket created in pending_approval state");
 
   const results: NotifyResult[] = [];
 
-  for (const member of allRecipients) {
-    if (isEmailMuted(incident.id, member.email)) {
-      results.push({ email: member.email, status: "muted", muted: true });
-      continue;
+  if (fromEndClient) {
+    const allRecipients = await resolveRecipients(incident, body.inviteList);
+    const accountManagers = allRecipients.filter(r => r.role === "Account Manager");
+    const siteSupervisors = allRecipients.filter(r => r.role === "Site Supervisor");
+    const amRecipients = accountManagers;
+    const ssRecipients = siteSupervisors;
+
+    if (amRecipients.length === 0) {
+      logger.warn({ incidentId: incident.id }, "No Account Manager found for end-client incident — no AM email will be sent");
     }
 
-    const muteToken = registerMuteToken(incident.id, member.email);
-    const muteUrl = `${apiBase}/api/incidents/${encodeURIComponent(incident.id)}/mute?token=${muteToken}`;
+    ticket.amApproverEmails = new Set(amRecipients.map(am => am.email.toLowerCase()));
+    ticketStore.set(incident.id, ticket);
 
-    const isApprover = approvers.some(a => a.email === member.email);
+    for (const am of amRecipients) {
+      if (isEmailMuted(incident.id, am.email)) {
+        results.push({ email: am.email, status: "muted", muted: true });
+        continue;
+      }
+      const muteToken = registerMuteToken(incident.id, am.email);
+      const muteUrl = `${apiBase}/api/incidents/${encodeURIComponent(incident.id)}/mute?token=${muteToken}`;
+      const approveToken = registerApproveToken(incident.id, am.email);
+      const rejectToken  = registerRejectToken(incident.id, am.email);
+      const confirmIssueUrl = `${apiBase}/api/tickets/${encodeURIComponent(incident.id)}/approve?token=${approveToken}&email=${encodeURIComponent(am.email)}`;
+      const rejectBaseUrl   = `${apiBase}/api/tickets/${encodeURIComponent(incident.id)}/reject?token=${rejectToken}&email=${encodeURIComponent(am.email)}`;
 
-    let approveUrl: string | undefined;
-    let rejectBaseUrl: string | undefined;
-
-    if (isApprover) {
-      const approveToken = registerApproveToken(incident.id, member.email);
-      const rejectToken  = registerRejectToken(incident.id, member.email);
-      approveUrl    = `${apiBase}/api/tickets/${encodeURIComponent(incident.id)}/approve?token=${approveToken}&email=${encodeURIComponent(member.email)}`;
-      rejectBaseUrl = `${apiBase}/api/tickets/${encodeURIComponent(incident.id)}/reject?token=${rejectToken}&email=${encodeURIComponent(member.email)}`;
+      const html = buildEndClientIncidentEmailForAM(incident, am.name, am.email, confirmIssueUrl, rejectBaseUrl, muteUrl);
+      const emailResult = await sendEmail({
+        to: am.email,
+        subject: `[CLIENT ISSUE — ACTION REQUIRED] ${incident.title ?? "New Issue"} — ${incident.id}`,
+        html,
+      });
+      results.push({ email: am.email, status: emailResult.status, muteToken, error: emailResult.error });
     }
 
-    const html = buildIncidentEmail(incident, member.name, member.email, muteUrl, approveUrl, rejectBaseUrl);
+    for (const ss of ssRecipients) {
+      if (isEmailMuted(incident.id, ss.email)) {
+        results.push({ email: ss.email, status: "muted", muted: true });
+        continue;
+      }
+      const muteToken = registerMuteToken(incident.id, ss.email);
+      const muteUrl = `${apiBase}/api/incidents/${encodeURIComponent(incident.id)}/mute?token=${muteToken}`;
+      const html = buildEndClientIncidentEmailForSupervisor(incident, ss.name, ss.email, muteUrl);
+      const emailResult = await sendEmail({
+        to: ss.email,
+        subject: `[CLIENT ISSUE — FYI] ${incident.title ?? "New Issue"} — ${incident.id}`,
+        html,
+      });
+      results.push({ email: ss.email, status: emailResult.status, muteToken, error: emailResult.error });
+    }
 
-    const emailResult = await sendEmail({
-      to: member.email,
-      subject: `[${(incident.severity ?? "").toUpperCase()}] Incident Alert: ${incident.title ?? "New Incident"} — ${incident.id}`,
-      html,
-    });
+    logger.info({ incidentId: incident.id, amCount: amRecipients.length, ssCount: ssRecipients.length }, "End-client incident emails dispatched");
+  } else {
+    const allRecipients = await resolveRecipients(incident, body.inviteList);
+    const approvers = await resolveApprovers(incident, body.inviteList);
 
-    if (emailResult.status === "sent") {
-      results.push({ email: member.email, status: "sent", muteToken });
-    } else {
-      results.push({ email: member.email, status: "failed", error: emailResult.error });
+    for (const member of allRecipients) {
+      if (isEmailMuted(incident.id, member.email)) {
+        results.push({ email: member.email, status: "muted", muted: true });
+        continue;
+      }
+
+      const muteToken = registerMuteToken(incident.id, member.email);
+      const muteUrl = `${apiBase}/api/incidents/${encodeURIComponent(incident.id)}/mute?token=${muteToken}`;
+
+      const isApprover = approvers.some(a => a.email === member.email);
+
+      let approveUrl: string | undefined;
+      let rejectBaseUrl: string | undefined;
+
+      if (isApprover) {
+        const approveToken = registerApproveToken(incident.id, member.email);
+        const rejectToken  = registerRejectToken(incident.id, member.email);
+        approveUrl    = `${apiBase}/api/tickets/${encodeURIComponent(incident.id)}/approve?token=${approveToken}&email=${encodeURIComponent(member.email)}`;
+        rejectBaseUrl = `${apiBase}/api/tickets/${encodeURIComponent(incident.id)}/reject?token=${rejectToken}&email=${encodeURIComponent(member.email)}`;
+      }
+
+      const html = buildIncidentEmail(incident, member.name, member.email, muteUrl, approveUrl, rejectBaseUrl);
+
+      const emailResult = await sendEmail({
+        to: member.email,
+        subject: `[${(incident.severity ?? "").toUpperCase()}] Incident Alert: ${incident.title ?? "New Incident"} — ${incident.id}`,
+        html,
+      });
+
+      if (emailResult.status === "sent") {
+        results.push({ email: member.email, status: "sent", muteToken });
+      } else {
+        results.push({ email: member.email, status: "failed", error: emailResult.error });
+      }
     }
   }
 
-  res.json({ incidentId: incident.id, siteId: resolveSiteId(incident), ticketState: "pending_approval", results });
+  res.json({ incidentId: incident.id, siteId: resolveSiteId(incident), ticketState: "pending_approval", fromEndClient, results });
 });
 
 function registerConfirmToken(incidentId: string, email: string): string {

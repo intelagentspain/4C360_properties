@@ -127,6 +127,11 @@ function dbIncidentToLocal(d: Record<string, unknown>): Incident {
     confirmedAt: d['confirmedAt'] != null ? String(d['confirmedAt']) : undefined,
     confirmedBy: d['confirmedBy'] != null ? String(d['confirmedBy']) : undefined,
     reportedAt: d['reportedAt'] != null ? String(d['reportedAt']) : (d['createdAt'] != null ? String(d['createdAt']) : undefined),
+    ticketState: d['ticketState'] != null ? (d['ticketState'] as TicketState) : undefined,
+    approvedBy: d['approvedBy'] != null ? String(d['approvedBy']) : undefined,
+    rejectedBy: d['rejectedBy'] != null ? String(d['rejectedBy']) : undefined,
+    rejectionReason: d['rejectionReason'] != null ? String(d['rejectionReason']) : undefined,
+    workOrderId: d['workOrderId'] != null ? String(d['workOrderId']) : undefined,
   };
 }
 
@@ -181,8 +186,8 @@ function IncidentProviderInner({ children }: { children: ReactNode }) {
   const incidentsRef = useRef<Incident[]>(BASE_INCIDENTS);
   const { addIncidentNotification, addWorkOrderNotification } = useNotifications();
 
-  useEffect(() => {
-    api.incidents.list()
+  const loadIncidents = useCallback(() => {
+    return api.incidents.list()
       .then(data => {
         if (data.length > 0) {
           const loaded = data.map(dbIncidentToLocal);
@@ -193,8 +198,10 @@ function IncidentProviderInner({ children }: { children: ReactNode }) {
       .catch(err => {
         console.warn('[IncidentContext] Failed to load incidents from API, using mock data:', err);
       });
+  }, []);
 
-    api.workOrders.list()
+  const loadWorkOrders = useCallback(() => {
+    return api.workOrders.list()
       .then(data => {
         if (data.length > 0) {
           const loaded = data.map(d => ({
@@ -220,6 +227,18 @@ function IncidentProviderInner({ children }: { children: ReactNode }) {
         console.warn('[IncidentContext] Failed to load work orders from API:', err);
       });
   }, []);
+
+  useEffect(() => {
+    loadIncidents();
+    loadWorkOrders();
+
+    const pollInterval = setInterval(() => {
+      loadIncidents();
+      loadWorkOrders();
+    }, 30000);
+
+    return () => clearInterval(pollInterval);
+  }, [loadIncidents, loadWorkOrders]);
 
   const addIncident = useCallback((inc: Incident) => {
     const inviteList = deriveInviteList(inc.clientId);
