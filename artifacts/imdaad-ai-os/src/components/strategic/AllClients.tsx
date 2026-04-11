@@ -4,7 +4,7 @@ import {
   Search, X, Grid, List, AlertTriangle, CheckCircle, Clock,
   Zap, ChevronRight, Activity, Database, Users, BarChart2,
   TrendingUp, MapPin, ArrowRight, Shield, Bot, Plus,
-  FileText, Truck, Package, Wrench, Calendar,
+  FileText, Truck, Package, Wrench, Calendar, Share2, Link2, Mail, Send, Check,
 } from 'lucide-react';
 import { type PortfolioClient } from '@/data/mockData';
 import { type ToastFn } from '@/lib/ui';
@@ -487,6 +487,69 @@ function ClientReportPanel({
   onClose: () => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareMode, setShareMode] = useState<'menu' | 'email'>('menu');
+  const [emailTo, setEmailTo] = useState('');
+  const [emailSending, setEmailSending] = useState(false);
+  const [emailResult, setEmailResult] = useState<'idle' | 'sent' | 'error'>('idle');
+  const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
+
+  function closeShare() {
+    setShareOpen(false);
+    setShareMode('menu');
+    setEmailTo('');
+    setEmailResult('idle');
+    setCopyFailed(false);
+  }
+
+  function handleCopyLink() {
+    const url = `${window.location.origin}${window.location.pathname}?report=${client.id}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setCopyFailed(false);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {
+      setCopyFailed(true);
+      setTimeout(() => setCopyFailed(false), 3000);
+    });
+  }
+
+  async function handleSendEmail(e: React.FormEvent) {
+    e.preventDefault();
+    if (!emailTo) return;
+    setEmailSending(true);
+    setEmailResult('idle');
+    try {
+      const apiBase = (import.meta.env.VITE_API_URL ?? '/api') as string;
+      const res = await fetch(`${apiBase}/share-report`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: emailTo,
+          client: {
+            id: client.id,
+            name: client.name,
+            riskLevel: client.riskLevel,
+            sla: client.sla,
+            compliance: client.compliance,
+            incidents: client.incidents,
+            resources: client.resources,
+          },
+        }),
+      });
+      if (res.ok) {
+        setEmailResult('sent');
+        setTimeout(() => closeShare(), 2000);
+      } else {
+        setEmailResult('error');
+      }
+    } catch {
+      setEmailResult('error');
+    } finally {
+      setEmailSending(false);
+    }
+  }
 
   const slaColor = client.sla >= 90 ? '#38D98A' : client.sla >= 80 ? '#FF9B38' : '#FF4B4B';
   const compColor = client.compliance >= 90 ? '#38D98A' : client.compliance >= 80 ? '#FF9B38' : '#FF4B4B';
@@ -526,9 +589,92 @@ function ClientReportPanel({
             <div className="text-[10px] text-[#7A94B4]">Snapshot · {client.lastUpdated}</div>
           </div>
         </div>
-        <button onClick={onClose} className="text-[#7A94B4] hover:text-white transition-colors p-1">
-          <X size={16} />
-        </button>
+        <div className="flex items-center gap-1 relative">
+          {/* Share button */}
+          <button
+            onClick={() => { setShareOpen(v => !v); setShareMode('menu'); setEmailResult('idle'); }}
+            className="text-[#7A94B4] hover:text-white transition-colors p-1 rounded"
+            title="Share report"
+          >
+            <Share2 size={15} />
+          </button>
+          <button onClick={onClose} className="text-[#7A94B4] hover:text-white transition-colors p-1">
+            <X size={16} />
+          </button>
+
+          {/* Share popover */}
+          <AnimatePresence>
+            {shareOpen && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.92, y: -6 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.92, y: -6 }}
+                transition={{ duration: 0.15 }}
+                className="absolute right-0 top-8 z-[400] w-64 bg-[#0F1E35] border border-[rgba(46,127,255,0.3)] rounded-xl shadow-2xl overflow-hidden"
+                onClick={e => e.stopPropagation()}
+              >
+                {shareMode === 'menu' && (
+                  <div className="p-2">
+                    <div className="text-[10px] text-[#4A7FBF] font-semibold uppercase tracking-wider px-3 py-1.5">Share Report</div>
+                    <button
+                      onClick={handleCopyLink}
+                      className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg hover:bg-[rgba(46,127,255,0.1)] transition-colors text-left"
+                    >
+                      {copied ? <Check size={14} className="text-green-400 flex-shrink-0" /> : <Link2 size={14} className={`flex-shrink-0 ${copyFailed ? 'text-red-400' : 'text-[#7A94B4]'}`} />}
+                      <span className={`text-sm ${copied ? 'text-green-400' : copyFailed ? 'text-red-400' : 'text-[#EEF3FA]'}`}>{copied ? 'Copied!' : copyFailed ? 'Copy failed' : 'Copy Link'}</span>
+                    </button>
+                    <button
+                      onClick={() => setShareMode('email')}
+                      className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg hover:bg-[rgba(46,127,255,0.1)] transition-colors text-left"
+                    >
+                      <Mail size={14} className="text-[#7A94B4] flex-shrink-0" />
+                      <span className="text-sm text-[#EEF3FA]">Email Report</span>
+                    </button>
+                  </div>
+                )}
+
+                {shareMode === 'email' && (
+                  <div className="p-3">
+                    <button
+                      onClick={() => setShareMode('menu')}
+                      className="text-[10px] text-[#4A7FBF] hover:text-blue-400 font-semibold uppercase tracking-wider flex items-center gap-1 mb-3 transition-colors"
+                    >
+                      ← Back
+                    </button>
+                    <form onSubmit={handleSendEmail} className="flex flex-col gap-2">
+                      <input
+                        type="email"
+                        placeholder="recipient@example.com"
+                        value={emailTo}
+                        onChange={e => setEmailTo(e.target.value)}
+                        required
+                        disabled={emailSending || emailResult === 'sent'}
+                        className="w-full bg-[#0A1628] border border-[rgba(46,127,255,0.3)] rounded-lg px-3 py-2 text-sm text-[#EEF3FA] placeholder-[#4A7FBF] focus:outline-none focus:border-blue-500 disabled:opacity-50"
+                      />
+                      {emailResult === 'error' && (
+                        <p className="text-xs text-red-400">Failed to send. Please try again.</p>
+                      )}
+                      {emailResult === 'sent' && (
+                        <p className="text-xs text-green-400 flex items-center gap-1"><Check size={11} /> Sent successfully!</p>
+                      )}
+                      <button
+                        type="submit"
+                        disabled={emailSending || emailResult === 'sent' || !emailTo}
+                        className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold py-2 px-3 rounded-lg transition-colors"
+                      >
+                        {emailSending ? (
+                          <span className="animate-pulse">Sending…</span>
+                        ) : (
+                          <><Send size={13} /> Send</>
+                        )}
+                      </button>
+                    </form>
+                  </div>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-6">
