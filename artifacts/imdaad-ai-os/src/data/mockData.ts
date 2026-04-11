@@ -98,6 +98,8 @@ export const mockIncidents = [
     status: 'dispatched', assignedTech: 'Karim R.', techId: 'KR', closureNotes: null,
     clientId: 'CLT-001', siteId: 'silicon-oasis',
     description: 'AI detected frost pattern on evaporator coil. Consistent with R-410A refrigerant depletion. Resident confirmed unit not cooling.',
+    imageUrl: 'https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=800&q=80',
+    capturedAt: '10:08 AM · 11 Apr 2026',
     activityLog: [
       { time: '10:08 AM', event: 'AI Capture detected via resident photo', type: 'incident' },
       { time: '10:10 AM', event: 'Auto-classified: HVAC · Critical · 45 min SLA', type: 'ai' },
@@ -110,6 +112,8 @@ export const mockIncidents = [
     status: 'open', assignedTech: null, techId: null, closureNotes: null,
     clientId: 'CLT-002', siteId: 'gate-avenue',
     description: 'Resident submitted photo of water pooling under kitchen sink. AI matched pattern to slow pipe joint failure. No structural damage detected.',
+    imageUrl: 'https://images.unsplash.com/photo-1504328345606-18bbc8c9d7d1?w=800&q=80',
+    capturedAt: '10:10 AM · 11 Apr 2026',
     activityLog: [
       { time: '10:10 AM', event: 'Incident reported via Resident App with photo', type: 'incident' },
       { time: '10:11 AM', event: 'Auto-classified: Plumbing · Medium · 120 min SLA', type: 'ai' },
@@ -121,6 +125,8 @@ export const mockIncidents = [
     status: 'in-progress', assignedTech: 'Faisal N.', techId: 'FN', closureNotes: null,
     clientId: 'CLT-003', siteId: 'business-bay',
     description: 'Lift stopped between floors — reported via WhatsApp message thread. Manual review escalated to high priority. No occupants trapped.',
+    imageUrl: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&q=80',
+    capturedAt: '09:58 AM · 11 Apr 2026',
     activityLog: [
       { time: '09:58 AM', event: 'WhatsApp message received from building supervisor', type: 'incident' },
       { time: '10:00 AM', event: 'Manual review — escalated to High · 60 min SLA', type: 'escalation' },
@@ -134,6 +140,8 @@ export const mockIncidents = [
     status: 'assigned', assignedTech: 'Sara M.', techId: 'SM', closureNotes: null,
     clientId: 'CLT-001', siteId: 'silicon-oasis',
     description: 'Resident reported MCB tripping repeatedly. Likely caused by faulty appliance or overloaded circuit. Sara M. assigned for electrical inspection.',
+    imageUrl: 'https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?w=800&q=80',
+    capturedAt: '09:49 AM · 11 Apr 2026',
     activityLog: [
       { time: '09:49 AM', event: 'Service request submitted via Resident App', type: 'incident' },
       { time: '09:51 AM', event: 'Auto-classified: Electrical · Low · 240 min SLA', type: 'ai' },
@@ -146,6 +154,8 @@ export const mockIncidents = [
     status: 'overdue', assignedTech: 'Omar T.', techId: 'OT', closureNotes: null,
     clientId: 'CLT-004', siteId: 'jlt-north',
     description: 'Main gate intercom system unresponsive. Multiple residents unable to grant access to visitors. Omar T. assigned but job is now overdue.',
+    imageUrl: 'https://images.unsplash.com/photo-1558002038-1055907df827?w=800&q=80',
+    capturedAt: '09:30 AM · 11 Apr 2026',
     activityLog: [
       { time: '09:30 AM', event: 'Multiple residents reported via app', type: 'incident' },
       { time: '09:35 AM', event: 'Classified: Electrical · Medium · 180 min SLA', type: 'ai' },
@@ -159,6 +169,8 @@ export const mockIncidents = [
     status: 'open', assignedTech: null, techId: null, closureNotes: null,
     clientId: 'CLT-005', siteId: 'difc-tower',
     description: 'Unusually loud grinding noise from pool pump reported. IoT sensor confirms anomalous vibration signature. Predictive risk flagged at 41%.',
+    imageUrl: 'https://images.unsplash.com/photo-1575429198097-0414ec08e8cd?w=800&q=80',
+    capturedAt: '10:12 AM · 11 Apr 2026',
     activityLog: [
       { time: '10:12 AM', event: 'Resident reported noise via app', type: 'incident' },
       { time: '10:13 AM', event: 'IoT corroboration: vibration anomaly on PP-02', type: 'ai' },
@@ -170,6 +182,10 @@ export const mockIncidents = [
     status: 'closed', assignedTech: 'Karim R.', techId: 'KR',
     clientId: 'CLT-001', siteId: 'silicon-oasis',
     description: 'Scheduled maintenance service completed on gym AHU. Filter replaced, coils cleaned, refrigerant pressure verified. Unit operating within spec.',
+    imageUrl: 'https://images.unsplash.com/photo-1581094271901-8022df4466f9?w=800&q=80',
+    capturedAt: 'Yesterday 09:00 AM',
+    beforePhotoUrl: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&q=80',
+    afterPhotoUrl: 'https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=800&q=80',
     activityLog: [
       { time: 'Yesterday 09:00 AM', event: 'PPM task triggered — scheduled service due', type: 'incident' },
       { time: 'Yesterday 09:15 AM', event: 'Karim R. assigned for HVAC service', type: 'dispatch' },

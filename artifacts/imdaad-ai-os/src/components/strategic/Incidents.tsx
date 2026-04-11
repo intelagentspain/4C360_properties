@@ -79,7 +79,7 @@ const ALL_STATUSES   = ['All', 'open', 'dispatched', 'in-progress', 'overdue', '
 const ALL_SOURCES    = ['All', 'AI Capture', 'QR Scan', 'WhatsApp → Manual', 'Resident App', 'Manual'];
 const NEW_INC_SOURCES = ['AI Capture', 'QR Scan', 'WhatsApp → Manual', 'Resident App', 'Manual'];
 
-const DETAIL_TABS = ['Overview', 'Timeline', 'AI Analysis', 'Actions'];
+const DETAIL_TABS = ['Overview', 'Photos', 'Timeline', 'AI Analysis', 'Actions'];
 
 const AI_SIGNALS: Record<string, { label: string; value: string; match: number }[]> = {
   'INC-SI-001': [
@@ -275,6 +275,150 @@ function OverviewTab({ incident }: { incident: Incident }) {
               <span className="text-[10px] text-emerald-400 font-semibold">Incident Closed · SLA Met</span>
             </div>
             <p className="text-[11px] text-[#EEF3FA] leading-relaxed">{incident.closureNotes}</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PhotosTab({ incident }: { incident: Incident }) {
+  const capturedAt = (incident as any).capturedAt as string | undefined;
+  const hasCapture   = !!incident.imageUrl;
+  const hasBefore    = !!incident.beforePhotoUrl;
+  const hasAfter     = !!incident.afterPhotoUrl;
+  const isClosed     = incident.status === 'closed' || incident.status === 'resolved';
+  const isAI         = incident.source.includes('AI Capture') || incident.source.includes('IoT') || incident.source === 'QR Scan';
+
+  const SEVERITY_PHOTO_RING: Record<string, string> = {
+    critical: 'ring-red-500/60',
+    high: 'ring-orange-400/60',
+    medium: 'ring-amber-400/60',
+    low: 'ring-emerald-500/60',
+  };
+
+  return (
+    <div className="space-y-5">
+      {hasCapture ? (
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-[10px] text-[#7A94B4] uppercase tracking-wide font-semibold">Incident Capture</div>
+            {isAI && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-cyan-500/10 border border-cyan-500/30 text-cyan-400">
+                <span className="w-1 h-1 rounded-full bg-cyan-400 inline-block" />
+                AI Captured
+              </span>
+            )}
+          </div>
+          <div className={`relative rounded-xl overflow-hidden ring-1 ${SEVERITY_PHOTO_RING[incident.severity] || 'ring-white/10'}`}>
+            <img
+              src={incident.imageUrl}
+              alt="Incident capture"
+              className="w-full object-cover"
+              style={{ maxHeight: 220 }}
+              onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#0A1628]/90 via-transparent to-transparent pointer-events-none" />
+            <div className="absolute bottom-0 left-0 right-0 p-3">
+              <div className="flex items-end justify-between">
+                <div>
+                  <div className="text-[11px] text-white font-semibold">{incident.location}</div>
+                  {capturedAt && <div className="text-[9px] text-[#7A94B4] mt-0.5">{capturedAt}</div>}
+                </div>
+                <div className="flex flex-col items-end gap-1">
+                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-black/50 text-[#EEF3FA] border border-white/10 font-mono">{incident.id}</span>
+                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#2E7FFF]/20 border border-[#2E7FFF]/40 text-[#2E7FFF] font-semibold">{incident.source}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-col items-center justify-center py-8 gap-2 rounded-xl border border-[rgba(46,127,255,0.12)] bg-[#112040]/30">
+          <Camera size={28} className="text-[#7A94B4] opacity-30" />
+          <div className="text-[11px] text-[#7A94B4] opacity-60">No incident photo captured yet</div>
+          <div className="text-[10px] text-[#7A94B4] opacity-40">AI Capture or resident upload will appear here</div>
+        </div>
+      )}
+
+      <div>
+        <div className="text-[10px] text-[#7A94B4] uppercase tracking-wide font-semibold mb-2">Resolution Evidence</div>
+        {hasBefore || hasAfter ? (
+          <div className="grid grid-cols-2 gap-3">
+            {hasBefore ? (
+              <div>
+                <div className="flex items-center gap-1 mb-1.5">
+                  <div className="w-2 h-2 rounded-full bg-red-500/80" />
+                  <span className="text-[9px] text-[#7A94B4] font-semibold uppercase tracking-wide">Before</span>
+                </div>
+                <div className="rounded-xl overflow-hidden ring-1 ring-red-500/30">
+                  <img
+                    src={incident.beforePhotoUrl}
+                    alt="Before"
+                    className="w-full object-cover"
+                    style={{ maxHeight: 160 }}
+                    onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-6 rounded-xl border border-red-500/15 bg-red-500/5 gap-1.5">
+                <Camera size={18} className="text-red-400 opacity-30" />
+                <span className="text-[9px] text-red-400 opacity-50">Before photo pending</span>
+              </div>
+            )}
+            {hasAfter ? (
+              <div>
+                <div className="flex items-center gap-1 mb-1.5">
+                  <div className="w-2 h-2 rounded-full bg-emerald-400/80" />
+                  <span className="text-[9px] text-[#7A94B4] font-semibold uppercase tracking-wide">After</span>
+                </div>
+                <div className="rounded-xl overflow-hidden ring-1 ring-emerald-500/30">
+                  <img
+                    src={incident.afterPhotoUrl}
+                    alt="After"
+                    className="w-full object-cover"
+                    style={{ maxHeight: 160 }}
+                    onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-6 rounded-xl border border-emerald-500/15 bg-emerald-500/5 gap-1.5">
+                <Camera size={18} className="text-emerald-400 opacity-30" />
+                <span className="text-[9px] text-emerald-400 opacity-50">{isClosed ? 'After photo missing' : 'Awaiting resolution'}</span>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col items-center justify-center py-6 rounded-xl border border-red-500/15 bg-red-500/5 gap-1.5">
+              <Camera size={18} className="text-red-400 opacity-30" />
+              <span className="text-[9px] text-red-400 opacity-50">Before photo pending</span>
+            </div>
+            <div className="flex flex-col items-center justify-center py-6 rounded-xl border border-emerald-500/15 bg-emerald-500/5 gap-1.5">
+              <Camera size={18} className="text-emerald-400 opacity-30" />
+              <span className="text-[9px] text-emerald-400 opacity-50">{isClosed ? 'No after photo' : 'Awaiting resolution'}</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {hasCapture && (
+        <div className="p-3 rounded-xl bg-[#112040]/60 border border-[rgba(46,127,255,0.12)] space-y-2">
+          <div className="text-[9px] text-[#7A94B4] uppercase tracking-wide font-semibold">Photo Metadata</div>
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              { label: 'Source', value: incident.source },
+              { label: 'Incident ID', value: incident.id },
+              { label: 'Location', value: incident.location },
+              { label: 'Captured', value: capturedAt || 'Unknown' },
+            ].map(r => (
+              <div key={r.label}>
+                <div className="text-[9px] text-[#7A94B4] mb-0.5">{r.label}</div>
+                <div className="text-[10px] text-[#EEF3FA] font-medium">{r.value}</div>
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -1834,18 +1978,51 @@ export function Incidents({ onToast, initialClientId, initialIncidentId, onIniti
               transition={{ duration: 0.22 }}
               className="flex-[45] border-l border-[rgba(46,127,255,0.2)] flex flex-col overflow-hidden bg-[#0A1628]"
             >
-              <div className="flex items-start justify-between px-5 py-4 border-b border-[rgba(46,127,255,0.15)] flex-shrink-0">
-                <div>
-                  <div className={`inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded border mb-1.5 capitalize ${SEVERITY_BADGE[displayedIncident.severity]}`}>
-                    {displayedIncident.severity}
+              {displayedIncident.imageUrl && (
+                <div className="relative flex-shrink-0 overflow-hidden" style={{ height: 130 }}>
+                  <img
+                    src={displayedIncident.imageUrl}
+                    alt="Incident"
+                    className="w-full h-full object-cover"
+                    onError={e => { (e.currentTarget as HTMLImageElement).parentElement!.style.display = 'none'; }}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#0A1628] via-[#0A1628]/40 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-r from-[#0A1628]/20 to-transparent" />
+                  <button
+                    onClick={() => setSelected(null)}
+                    className="absolute top-3 right-3 w-6 h-6 flex items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors border border-white/10"
+                  >
+                    <X size={12} />
+                  </button>
+                  <div className="absolute bottom-3 left-5">
+                    <div className={`inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded border mb-1 capitalize ${SEVERITY_BADGE[displayedIncident.severity]}`}>
+                      {displayedIncident.severity}
+                    </div>
+                    <div className="text-white font-bold text-sm drop-shadow">{displayedIncident.title}</div>
+                    <div className="text-[10px] text-[#7A94B4]">{displayedIncident.location}</div>
                   </div>
-                  <div className="text-[#EEF3FA] font-bold text-sm">{displayedIncident.title}</div>
-                  <div className="text-[10px] text-[#7A94B4]">{displayedIncident.location}</div>
+                  <div className="absolute bottom-3 right-5 flex flex-col items-end gap-1">
+                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-black/60 text-[#EEF3FA] border border-white/10 font-mono">{displayedIncident.id}</span>
+                    {displayedIncident.source.includes('AI') && (
+                      <span className="text-[8px] px-1.5 py-0.5 rounded bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 font-semibold">AI Captured</span>
+                    )}
+                  </div>
                 </div>
-                <button onClick={() => setSelected(null)} className="text-[#7A94B4] hover:text-white transition-colors">
-                  <X size={15} />
-                </button>
-              </div>
+              )}
+              {!displayedIncident.imageUrl && (
+                <div className="flex items-start justify-between px-5 py-4 border-b border-[rgba(46,127,255,0.15)] flex-shrink-0">
+                  <div>
+                    <div className={`inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded border mb-1.5 capitalize ${SEVERITY_BADGE[displayedIncident.severity]}`}>
+                      {displayedIncident.severity}
+                    </div>
+                    <div className="text-[#EEF3FA] font-bold text-sm">{displayedIncident.title}</div>
+                    <div className="text-[10px] text-[#7A94B4]">{displayedIncident.location}</div>
+                  </div>
+                  <button onClick={() => setSelected(null)} className="text-[#7A94B4] hover:text-white transition-colors">
+                    <X size={15} />
+                  </button>
+                </div>
+              )}
 
               <div className="flex gap-0 px-4 pt-3 border-b border-[rgba(46,127,255,0.1)] flex-shrink-0 overflow-x-auto no-scrollbar">
                 {DETAIL_TABS.map(tab => (
@@ -1855,6 +2032,9 @@ export function Incidents({ onToast, initialClientId, initialIncidentId, onIniti
                     {tab === 'AI Analysis' && (displayedIncident.source.includes('AI') || displayedIncident.source.includes('IoT')) && (
                       <span className="ml-1 w-1.5 h-1.5 inline-block rounded-full bg-cyan-400" />
                     )}
+                    {tab === 'Photos' && displayedIncident.imageUrl && (
+                      <span className="ml-1 w-1.5 h-1.5 inline-block rounded-full bg-blue-400" />
+                    )}
                   </button>
                 ))}
               </div>
@@ -1863,6 +2043,7 @@ export function Incidents({ onToast, initialClientId, initialIncidentId, onIniti
                 <AnimatePresence mode="wait">
                   <motion.div key={`${displayedIncident.id}-${activeTab}`} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.15 }}>
                     {activeTab === 'Overview'     && <OverviewTab     incident={displayedIncident} />}
+                    {activeTab === 'Photos'       && <PhotosTab       incident={displayedIncident} />}
                     {activeTab === 'Timeline'     && <TimelineTab     incident={displayedIncident} />}
                     {activeTab === 'AI Analysis'  && <AIAnalysisTab   incident={displayedIncident} />}
                     {activeTab === 'Actions'      && <ActionsTab      incident={displayedIncident} onToast={onToast} onCreateWorkOrder={() => setWoModalFor(displayedIncident)} />}
