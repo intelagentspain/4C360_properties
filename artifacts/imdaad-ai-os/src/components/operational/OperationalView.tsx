@@ -6,8 +6,9 @@ import { ChecklistView } from './ChecklistView';
 import { PartsAndPO } from './PartsAndPO';
 import { KanbanBoard } from './KanbanBoard';
 import { TechPerformance } from './TechPerformance';
-import { ClipboardList, ListChecks, Package, LayoutGrid, BarChart2, ScanLine } from 'lucide-react';
+import { ClipboardList, ListChecks, Package, LayoutGrid, ScanLine, Bell, BellOff, BellRing } from 'lucide-react';
 import { mockLoggedInTech } from '@/data/mockData';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
 
 interface Props {
   onToast: (msg: string, type?: 'success' | 'warning' | 'error' | 'info') => void;
@@ -19,6 +20,8 @@ export function OperationalView({ onToast }: Props) {
   const [loggedIn, setLoggedIn] = useState(false);
   const [tab, setTab] = useState<Tab>('task');
 
+  const { state: pushState, subscribe, unsubscribe } = usePushNotifications(mockLoggedInTech.email);
+
   const handleLogin = () => {
     setLoggedIn(true);
     setTimeout(() => onToast('Welcome back, Karim R. · 1 active task assigned', 'success'), 300);
@@ -28,6 +31,22 @@ export function OperationalView({ onToast }: Props) {
     window.location.href = import.meta.env.BASE_URL + 'scan/silicon-oasis/general';
   };
 
+  const handlePushToggle = async () => {
+    if (pushState === 'subscribed') {
+      const ok = await unsubscribe();
+      if (ok) onToast('Push notifications disabled', 'info');
+      else onToast('Could not disable notifications', 'error');
+    } else if (pushState === 'default' || pushState === 'unsupported') {
+      if (pushState === 'unsupported') {
+        onToast('Push notifications not supported in this browser', 'warning');
+        return;
+      }
+      const ok = await subscribe();
+      if (ok) onToast('Push notifications enabled — you will be alerted on new job assignments', 'success');
+      else onToast('Notification permission denied', 'warning');
+    }
+  };
+
   const tabs: { id: Tab; label: string; icon: React.ComponentType<{ size?: number }>; scanNav?: boolean }[] = [
     { id: 'task',      label: 'My Task',   icon: ClipboardList },
     { id: 'checklist', label: 'Checklist', icon: ListChecks },
@@ -35,6 +54,9 @@ export function OperationalView({ onToast }: Props) {
     { id: 'parts',     label: 'Parts',     icon: Package },
     { id: 'board',     label: 'Board',     icon: LayoutGrid },
   ];
+
+  const PushIcon = pushState === 'subscribed' ? BellRing : pushState === 'denied' ? BellOff : Bell;
+  const pushColor = pushState === 'subscribed' ? 'text-emerald-400' : pushState === 'denied' ? 'text-red-400' : 'text-[#7A94B4]';
 
   return (
     <div className="flex items-center justify-center h-full bg-[#0A1628] py-4">
@@ -68,9 +90,20 @@ export function OperationalView({ onToast }: Props) {
                     <div className="text-[10px] text-[#7A94B4]">{mockLoggedInTech.role}</div>
                   </div>
                 </div>
-                <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold border border-emerald-500/30">
-                  On Duty
-                </span>
+                <div className="flex items-center gap-2">
+                  {pushState !== 'loading' && pushState !== 'denied' && (
+                    <button
+                      onClick={handlePushToggle}
+                      title={pushState === 'subscribed' ? 'Disable push notifications' : 'Enable push notifications'}
+                      className={`w-7 h-7 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors ${pushColor}`}
+                    >
+                      <PushIcon size={14} />
+                    </button>
+                  )}
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold border border-emerald-500/30">
+                    On Duty
+                  </span>
+                </div>
               </div>
 
               <div className="flex-1 overflow-hidden relative">

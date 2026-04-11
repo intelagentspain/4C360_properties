@@ -196,6 +196,9 @@ export function KanbanBoard({ onToast }: Props) {
           task={selectedTask}
           onClose={() => setSelectedTask(null)}
           onToast={onToast}
+          onStatusChange={(taskId, newStatus) => {
+            setSelectedTask(prev => prev && prev.id === taskId ? { ...prev, status: newStatus as typeof prev.status } : prev);
+          }}
         />
       </div>
     </div>

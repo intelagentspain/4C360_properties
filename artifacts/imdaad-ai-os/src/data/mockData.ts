@@ -268,7 +268,7 @@ export const mockParts = [
 ];
 
 export const mockLoggedInTech = {
-  id: 'KR', name: 'Karim R.', role: 'HVAC Specialist', pin: '1234', avatar: 'KR', rating: 4.8, jobsCompleted: 142,
+  id: 'KR', name: 'Karim R.', role: 'HVAC Specialist', pin: '1234', avatar: 'KR', rating: 4.8, jobsCompleted: 142, email: 'karim.r@imdaad.ae',
 };
 
 export const mockNotifications = [

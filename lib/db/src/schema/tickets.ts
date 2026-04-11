@@ -38,6 +38,8 @@ export const workOrdersTable = pgTable("work_orders", {
   siteId: text("site_id"),
   description: text("description"),
   status: text("status").default("open"),
+  assignedTo: text("assigned_to"),
+  assignedToId: text("assigned_to_id"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -57,3 +59,16 @@ export const photoEvidenceTable = pgTable("photo_evidence", {
 
 export type PhotoEvidence = typeof photoEvidenceTable.$inferSelect;
 export type InsertPhotoEvidence = typeof photoEvidenceTable.$inferInsert;
+
+export const pushSubscriptionsTable = pgTable("push_subscriptions", {
+  id: text("id").primaryKey(),
+  teamMemberId: text("team_member_id"),
+  email: text("email").notNull(),
+  endpoint: text("endpoint").notNull().unique(),
+  p256dh: text("p256dh").notNull(),
+  auth: text("auth").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type PushSubscription = typeof pushSubscriptionsTable.$inferSelect;
+export type InsertPushSubscription = typeof pushSubscriptionsTable.$inferInsert;

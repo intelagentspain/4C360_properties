@@ -1,8 +1,37 @@
 import { Router, type Request, type Response } from "express";
 import crypto from "node:crypto";
+import multer from "multer";
+import path from "node:path";
+import fs from "node:fs";
+import { fileURLToPath } from "node:url";
 import { logger } from "../lib/logger";
 import { sendEmail } from "../lib/mailer";
-import { db, incidentsTable, teamMembersTable, workOrdersTable, eq, desc, sql } from "../lib/db";
+import { db, incidentsTable, teamMembersTable, workOrdersTable, photoEvidenceTable, eq, desc, sql, and } from "../lib/db";
+import { sendPushToEmail } from "./push";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const evidenceUploadsDir = path.resolve(__dirname, "../uploads/evidence");
+if (!fs.existsSync(evidenceUploadsDir)) {
+  fs.mkdirSync(evidenceUploadsDir, { recursive: true });
+}
+
+const evidenceStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, evidenceUploadsDir),
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `evidence-${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`);
+  },
+});
+
+const EVIDENCE_ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
+const evidenceUpload = multer({
+  storage: evidenceStorage,
+  limits: { fileSize: 20 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (EVIDENCE_ALLOWED_TYPES.includes(file.mimetype)) cb(null, true);
+    else cb(new Error("Invalid file type. Only images are allowed."));
+  },
+});
 
 const router = Router();
 
@@ -714,27 +743,44 @@ function buildWorkOrderEmail(
   incidentId: string | undefined,
   recipientName: string,
   recipientEmail: string,
+  isFmEngineer: boolean = false,
+  appUrl?: string,
 ): string {
   const pri      = wo.priority ?? "medium";
   const priColor = priorityColor(pri);
   const priLabel = pri.charAt(0).toUpperCase() + pri.slice(1);
 
+  const jobLinkBlock = isFmEngineer && appUrl ? `
+        <table width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0 16px;">
+          <tr><td align="center">
+            <a href="${escapeHtml(appUrl)}" style="display:inline-block;background:linear-gradient(135deg,#2E7FFF,#00C6FF);color:#fff;text-decoration:none;font-size:14px;font-weight:700;padding:14px 36px;border-radius:10px;letter-spacing:0.5px;">
+              View Work Order &amp; Start Job →
+            </a>
+          </td></tr>
+        </table>
+        <div style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.2);border-radius:10px;padding:16px 20px;margin-bottom:16px;">
+          <p style="color:#38D98A;font-size:12px;font-weight:700;margin:0 0 6px;">You have been assigned this work order.</p>
+          <p style="color:#7A94B4;font-size:12px;margin:0;">Please report to the site location, mark the job as In Progress, then upload photo evidence when complete.</p>
+        </div>` : "";
+
   return `<!DOCTYPE html>
 <html lang="en">
-<head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>Work Order Created — ${escapeHtml(wo.id)}</title></head>
+<head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>${isFmEngineer ? "Job Assignment" : "Work Order Created"} — ${escapeHtml(wo.id)}</title></head>
 <body style="margin:0;padding:0;background:#060F1E;font-family:'Segoe UI',Arial,sans-serif;">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#060F1E;padding:40px 0;">
   <tr><td align="center">
     <table width="580" cellpadding="0" cellspacing="0" style="background:#0D1E38;border:1px solid rgba(46,127,255,0.25);border-radius:16px;overflow:hidden;">
       <tr><td style="background:linear-gradient(135deg,#0A1628 0%,#112040 100%);padding:28px 40px;border-bottom:1px solid rgba(46,127,255,0.2);">
         <table width="100%" cellpadding="0" cellspacing="0"><tr>
-          <td><div style="display:inline-block;background:rgba(46,127,255,0.15);border:1px solid rgba(46,127,255,0.3);border-radius:10px;padding:8px 16px;"><span style="color:#2E7FFF;font-size:18px;font-weight:800;letter-spacing:1px;">IMDAAD</span><span style="color:#7A94B4;font-size:14px;font-weight:400;margin-left:6px;">AI-OS</span></div><p style="color:#7A94B4;font-size:11px;letter-spacing:2px;text-transform:uppercase;margin:10px 0 0;">Work Order Created</p></td>
+          <td><div style="display:inline-block;background:rgba(46,127,255,0.15);border:1px solid rgba(46,127,255,0.3);border-radius:10px;padding:8px 16px;"><span style="color:#2E7FFF;font-size:18px;font-weight:800;letter-spacing:1px;">IMDAAD</span><span style="color:#7A94B4;font-size:14px;font-weight:400;margin-left:6px;">AI-OS</span></div><p style="color:#7A94B4;font-size:11px;letter-spacing:2px;text-transform:uppercase;margin:10px 0 0;">${isFmEngineer ? "Job Assignment — Action Required" : "Work Order Created"}</p></td>
           <td align="right" style="vertical-align:top;"><div style="display:inline-block;background:${priColor}22;border:1px solid ${priColor}66;border-radius:8px;padding:6px 14px;"><span style="color:${priColor};font-size:13px;font-weight:800;letter-spacing:0.5px;">${priLabel}</span></div></td>
         </tr></table>
       </td></tr>
       <tr><td style="padding:32px 40px;">
         <h1 style="color:#EEF3FA;font-size:20px;font-weight:700;margin:0 0 6px;">${escapeHtml(wo.title ?? "New Work Order")}</h1>
-        <p style="color:#7A94B4;font-size:13px;margin:0 0 24px;">Hello ${escapeHtml(recipientName)}, a new work order has been raised on the Imdaad AI-OS platform.</p>
+        <p style="color:#7A94B4;font-size:13px;margin:0 0 24px;">Hello ${escapeHtml(recipientName)}, ${isFmEngineer ? "you have been assigned a new job on the Imdaad AI-OS platform. Please report to site immediately." : "a new work order has been raised on the Imdaad AI-OS platform."}</p>
+
+        ${jobLinkBlock}
 
         <p style="color:#7A94B4;font-size:10px;text-transform:uppercase;letter-spacing:2px;margin:0 0 12px;font-weight:700;">Work Order Details</p>
         <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(46,127,255,0.07);border:1px solid rgba(46,127,255,0.22);border-radius:10px;margin-bottom:20px;">
@@ -749,13 +795,13 @@ function buildWorkOrderEmail(
         </table>
 
         ${wo.description ? `
-        <p style="color:#7A94B4;font-size:10px;text-transform:uppercase;letter-spacing:2px;margin:0 0 12px;font-weight:700;">Description</p>
+        <p style="color:#7A94B4;font-size:10px;text-transform:uppercase;letter-spacing:2px;margin:0 0 12px;font-weight:700;">Description / AI Analysis</p>
         <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.2);border-radius:10px;margin-bottom:20px;">
           <tr><td style="padding:16px 20px;"><p style="color:#EEF3FA;font-size:12px;margin:0;line-height:1.7;">${escapeHtml(wo.description)}</p></td></tr>
         </table>` : ""}
 
         <p style="color:#4A6080;font-size:11px;line-height:1.6;margin:24px 0 0;text-align:center;">
-          You are receiving this because you are assigned to this site/client as an operational team member.
+          ${isFmEngineer ? "You are receiving this because you have been assigned as the FM Engineer for this job." : "You are receiving this because you are assigned to this site/client as an operational team member."}
         </p>
       </td></tr>
       <tr><td style="background:#0A1628;padding:20px 40px;border-top:1px solid rgba(46,127,255,0.12);">
@@ -769,6 +815,36 @@ function buildWorkOrderEmail(
 </table>
 </body>
 </html>`;
+}
+
+async function autoAssignFmEngineer(
+  wo: WorkOrderPayload,
+): Promise<{ name: string; id: string; email: string } | null> {
+  const siteId = wo.siteId ?? resolveSiteId({ id: wo.incidentId ?? wo.id, location: wo.location, siteId: wo.siteId });
+  const skill  = (wo.skill ?? "").toLowerCase().trim();
+
+  const dbMembers = await db
+    .select()
+    .from(teamMembersTable)
+    .where(sql`${siteId} = ANY(${teamMembersTable.siteIds})`);
+
+  const fmEngineers = dbMembers.filter(m => m.role === "FM Engineer");
+
+  if (fmEngineers.length === 0) {
+    logger.debug({ siteId, skill }, "No FM engineers found for site");
+    return null;
+  }
+
+  let match = fmEngineers.find(m => {
+    const memberSkills = (m.skills ?? "").toLowerCase();
+    return skill && memberSkills.includes(skill);
+  });
+
+  if (!match) {
+    match = fmEngineers[0];
+  }
+
+  return match ? { name: match.name, id: match.id, email: match.email } : null;
 }
 
 router.post("/workorders/notify", async (req: Request, res: Response) => {
@@ -785,12 +861,48 @@ router.post("/workorders/notify", async (req: Request, res: Response) => {
 
   const results: (NotifyResult & { phone?: string; whatsappStatus?: string })[] = [];
 
+  const appUrl = process.env.APP_URL ?? process.env.API_BASE_URL?.replace("/api", "") ?? "";
   const apiBase =
     process.env.API_BASE_URL ??
     `http://localhost:${process.env.PORT ?? 3001}`;
 
+  const fmEngineer = await autoAssignFmEngineer(wo);
+
+  if (fmEngineer) {
+    logger.info({ workOrderId: wo.id, fmEngineer: fmEngineer.name, email: fmEngineer.email }, "Auto-assigning FM engineer to work order");
+
+    await db.update(workOrdersTable)
+      .set({ assignedTo: fmEngineer.name, assignedToId: fmEngineer.id, status: "assigned" })
+      .where(eq(workOrdersTable.id, wo.id))
+      .catch(err => logger.warn({ err }, "Failed to update work order assignment in DB"));
+
+    const fmHtml = buildWorkOrderEmail(wo, incidentId, fmEngineer.name, fmEngineer.email, true, appUrl || undefined);
+    const fmEmailResult = await sendEmail({
+      to: fmEngineer.email,
+      subject: `[JOB ASSIGNED] ${wo.title ?? "New Work Order"} — ${wo.id} · Report to Site`,
+      html: fmHtml,
+    });
+
+    const pushResult = await sendPushToEmail(fmEngineer.email, {
+      title: `Job Assigned — ${wo.title ?? "New Work Order"}`,
+      body: `${wo.priority?.toUpperCase() ?? "MEDIUM"} priority · ${wo.location ?? "Site"}. Report immediately.`,
+      tag: `wo-${wo.id}`,
+      data: { workOrderId: wo.id, incidentId },
+    });
+
+    results.push({
+      email: fmEngineer.email,
+      status: fmEmailResult.status,
+      error: fmEmailResult.error,
+    });
+
+    logger.info({ workOrderId: wo.id, fmEngineer: fmEngineer.email, pushSent: pushResult.sent }, "FM engineer notified of job assignment");
+  }
+
   for (const member of recipients) {
-    const html = buildWorkOrderEmail(wo, incidentId, member.name, member.email);
+    if (fmEngineer && member.email === fmEngineer.email) continue;
+
+    const html = buildWorkOrderEmail(wo, incidentId, member.name, member.email, false, undefined);
 
     const emailResult = await sendEmail({
       to: member.email,
@@ -802,32 +914,35 @@ router.post("/workorders/notify", async (req: Request, res: Response) => {
     const emailError = emailResult.error;
 
     let whatsappStatus: string | undefined;
-    const woMessage =
-      `*Imdaad AI-OS — Work Order Created*\n\n` +
-      `📋 *${wo.title ?? "New Work Order"}*\n` +
-      `ID: ${wo.id}\n` +
-      `Priority: ${(wo.priority ?? "medium").toUpperCase()}\n` +
-      `Location: ${wo.location ?? "—"}\n` +
-      `Asset: ${wo.asset ?? "—"}\n` +
-      `Skill: ${wo.skill ?? "—"}\n` +
-      (incidentId ? `Incident Ref: ${incidentId}\n` : "") +
-      `\nPlease check the AI-OS platform for full details.`;
+    if (member.phone) {
+      const woMessage =
+        `*Imdaad AI-OS — Work Order Created*\n\n` +
+        `📋 *${wo.title ?? "New Work Order"}*\n` +
+        `ID: ${wo.id}\n` +
+        `Priority: ${(wo.priority ?? "medium").toUpperCase()}\n` +
+        `Location: ${wo.location ?? "—"}\n` +
+        `Asset: ${wo.asset ?? "—"}\n` +
+        `Skill: ${wo.skill ?? "—"}\n` +
+        (incidentId ? `Incident Ref: ${incidentId}\n` : "") +
+        (fmEngineer ? `Assigned FM Engineer: ${fmEngineer.name}\n` : "") +
+        `\nPlease check the AI-OS platform for full details.`;
 
-    try {
-      const waRes = await fetch(`${apiBase}/api/whatsapp/send`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to: "+971501112233", message: woMessage }),
-      });
-      if (waRes.ok) {
-        whatsappStatus = "sent";
-        logger.info({ workOrderId: wo.id }, "Work order WhatsApp sent");
-      } else {
-        const errData = await waRes.json().catch(() => ({})) as { error?: string };
-        whatsappStatus = `failed: ${errData.error ?? waRes.status}`;
+      try {
+        const waRes = await fetch(`${apiBase}/api/whatsapp/send`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ to: "+971501112233", message: woMessage }),
+        });
+        if (waRes.ok) {
+          whatsappStatus = "sent";
+          logger.info({ workOrderId: wo.id }, "Work order WhatsApp sent");
+        } else {
+          const errData = await waRes.json().catch(() => ({})) as { error?: string };
+          whatsappStatus = `failed: ${errData.error ?? waRes.status}`;
+        }
+      } catch (err) {
+        whatsappStatus = `error: ${(err as Error).message}`;
       }
-    } catch (err) {
-      whatsappStatus = `error: ${(err as Error).message}`;
     }
 
     results.push({
@@ -838,7 +953,7 @@ router.post("/workorders/notify", async (req: Request, res: Response) => {
     });
   }
 
-  res.json({ workOrderId: wo.id, incidentId, results });
+  res.json({ workOrderId: wo.id, incidentId, assignedFmEngineer: fmEngineer, results });
 });
 
 router.get("/incidents", async (_req: Request, res: Response) => {
@@ -980,6 +1095,88 @@ router.post("/workorders", async (req: Request, res: Response) => {
     res.status(500).json({ error: "Failed to save work order" });
   }
 });
+
+router.get("/workorders/:id", async (req: Request, res: Response) => {
+  const id = String(req.params["id"]);
+  try {
+    const rows = await db.select().from(workOrdersTable).where(eq(workOrdersTable.id, id));
+    if (rows.length === 0) { res.status(404).json({ error: "Work order not found" }); return; }
+    res.json(rows[0]);
+  } catch (err) {
+    logger.error({ err, id }, "Failed to fetch work order from DB");
+    res.status(500).json({ error: "Failed to fetch work order" });
+  }
+});
+
+router.patch("/workorders/:id", async (req: Request, res: Response) => {
+  const id = String(req.params["id"]);
+  const updates = req.body as Record<string, unknown>;
+
+  try {
+    const allowed: Record<string, unknown> = {};
+    const fields = ["title","location","priority","asset","skill","siteId","description","status","assignedTo","assignedToId"];
+    for (const f of fields) {
+      if (f in updates) allowed[f] = updates[f];
+    }
+    if (Object.keys(allowed).length === 0) {
+      res.status(400).json({ error: "No valid fields to update" });
+      return;
+    }
+    const [updated] = await db.update(workOrdersTable).set(allowed).where(eq(workOrdersTable.id, id)).returning();
+    if (!updated) { res.status(404).json({ error: "Work order not found" }); return; }
+    logger.info({ id, status: allowed["status"] }, "Work order updated");
+    res.json(updated);
+  } catch (err) {
+    logger.error({ err, id }, "Failed to update work order in DB");
+    res.status(500).json({ error: "Failed to update work order" });
+  }
+});
+
+router.get("/workorders/:id/evidence", async (req: Request, res: Response) => {
+  const id = String(req.params["id"]);
+  try {
+    const rows = await db.select().from(photoEvidenceTable).where(eq(photoEvidenceTable.ticketId, id));
+    res.json(rows);
+  } catch (err) {
+    logger.error({ err, id }, "Failed to fetch photo evidence");
+    res.status(500).json({ error: "Failed to fetch evidence" });
+  }
+});
+
+router.post(
+  "/workorders/:id/evidence",
+  evidenceUpload.single("photo"),
+  async (req: Request, res: Response) => {
+    const workOrderId = String(req.params["id"]);
+    const file = req.file;
+
+    if (!file) {
+      res.status(400).json({ error: "No photo file provided" });
+      return;
+    }
+
+    const uploadedBy = (req.body as Record<string, string>)["uploadedBy"] ?? null;
+    const relativeUrl = `/api/uploads/evidence/${file.filename}`;
+    const evidenceId = crypto.randomUUID();
+
+    try {
+      const [row] = await db.insert(photoEvidenceTable).values({
+        id: evidenceId,
+        ticketId: workOrderId,
+        incidentId: null,
+        url: relativeUrl,
+        filename: file.filename,
+        uploadedBy: uploadedBy ?? null,
+      }).returning();
+
+      logger.info({ workOrderId, evidenceId, filename: file.filename }, "Photo evidence uploaded");
+      res.status(201).json({ id: evidenceId, url: relativeUrl, filename: file.filename, workOrderId });
+    } catch (err) {
+      logger.error({ err, workOrderId }, "Failed to save photo evidence to DB");
+      res.status(500).json({ error: "Failed to save photo evidence" });
+    }
+  },
+);
 
 router.post("/incidents/notify", async (req: Request, res: Response) => {
   const body = req.body as Partial<NotifyBody>;
