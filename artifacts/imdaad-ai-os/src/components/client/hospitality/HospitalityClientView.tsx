@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Camera, Upload, Mic, MessageCircle, ArrowLeft, Hotel } from 'lucide-react';
+import { Camera, Upload, Mic, MessageCircle, ArrowLeft, Home } from 'lucide-react';
 import type { ToastFn } from '@/lib/ui';
 import { CameraMode } from './CameraMode';
 import { UploadMode } from './UploadMode';
@@ -22,44 +22,40 @@ const MODES = [
     icon: Camera,
     title: 'Take a Photo',
     desc: 'Capture the issue with your camera',
-    color: '#0D9488',
-    bg: 'rgba(13,148,136,0.1)',
-    border: 'rgba(13,148,136,0.3)',
-    emoji: '📷',
+    color: '#4A7FA5',
+    bg: 'rgba(74,127,165,0.08)',
+    border: 'rgba(74,127,165,0.2)',
   },
   {
     id: 'upload' as ReportingMode,
     icon: Upload,
     title: 'Upload a Photo',
     desc: 'Choose an image from your device',
-    color: '#7C3AED',
-    bg: 'rgba(124,58,237,0.1)',
-    border: 'rgba(124,58,237,0.3)',
-    emoji: '🖼️',
+    color: '#7A6A55',
+    bg: 'rgba(122,106,85,0.08)',
+    border: 'rgba(122,106,85,0.2)',
   },
   {
     id: 'voice' as ReportingMode,
     icon: Mic,
     title: 'Leave a Voice Note',
     desc: 'Record a quick voice message',
-    color: '#B45309',
-    bg: 'rgba(180,83,9,0.1)',
-    border: 'rgba(180,83,9,0.3)',
-    emoji: '🎙️',
+    color: '#2D4A6E',
+    bg: 'rgba(45,74,110,0.08)',
+    border: 'rgba(45,74,110,0.2)',
   },
   {
     id: 'ai-chat' as ReportingMode,
     icon: MessageCircle,
-    title: 'Talk to AI',
-    desc: 'Chat with Layla, your service assistant',
-    color: '#1D4ED8',
-    bg: 'rgba(29,78,216,0.1)',
-    border: 'rgba(29,78,216,0.3)',
-    emoji: '💬',
+    title: 'Talk to Layla',
+    desc: 'Chat with your AI service assistant',
+    color: '#B8913A',
+    bg: 'rgba(184,145,58,0.08)',
+    border: 'rgba(184,145,58,0.2)',
   },
 ];
 
-export function HospitalityClientView({ onToast, guestName = 'Guest', propertyName = 'Palace Residences' }: Props) {
+export function HospitalityClientView({ onToast, guestName = 'Resident', propertyName = 'Dubai Silicon Oasis' }: Props) {
   const [activeMode, setActiveMode] = useState<ReportingMode | null>(null);
   const [incidentRef, setIncidentRef] = useState<string | null>(null);
 
@@ -83,15 +79,19 @@ export function HospitalityClientView({ onToast, guestName = 'Guest', propertyNa
 
   if (activeMode) {
     return (
-      <div className="flex flex-col h-full bg-[#FDFAF5]">
-        <div className="flex items-center gap-3 px-4 py-3 bg-white border-b border-[#E8DEC8] flex-shrink-0">
+      <div className="flex flex-col h-full" style={{ background: '#FDFAF6' }}>
+        <div
+          className="flex items-center gap-3 px-4 py-3 flex-shrink-0"
+          style={{ background: '#fff', borderBottom: '1px solid #EDE5D4' }}
+        >
           <button
             onClick={handleBack}
-            className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-[#F5EFE0] transition-colors"
+            className="w-8 h-8 rounded-full flex items-center justify-center transition-colors"
+            style={{ background: 'rgba(45,74,110,0.07)' }}
           >
-            <ArrowLeft size={18} className="text-[#5C4A2A]" />
+            <ArrowLeft size={17} style={{ color: '#2D4A6E' }} />
           </button>
-          <span className="text-[#5C4A2A] font-semibold text-sm">
+          <span className="font-semibold text-sm" style={{ color: '#1A2942' }}>
             {MODES.find(m => m.id === activeMode)?.title}
           </span>
         </div>
@@ -99,46 +99,22 @@ export function HospitalityClientView({ onToast, guestName = 'Guest', propertyNa
         <div className="flex-1 overflow-hidden">
           <AnimatePresence mode="wait">
             {activeMode === 'camera' && (
-              <motion.div
-                key="camera"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                className="h-full"
-              >
+              <motion.div key="camera" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="h-full">
                 <CameraMode onSuccess={handleSuccess} onToast={onToast} />
               </motion.div>
             )}
             {activeMode === 'upload' && (
-              <motion.div
-                key="upload"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                className="h-full"
-              >
+              <motion.div key="upload" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="h-full">
                 <UploadMode onSuccess={handleSuccess} onToast={onToast} />
               </motion.div>
             )}
             {activeMode === 'voice' && (
-              <motion.div
-                key="voice"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                className="h-full"
-              >
+              <motion.div key="voice" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="h-full">
                 <VoiceMode onSuccess={handleSuccess} onToast={onToast} />
               </motion.div>
             )}
             {activeMode === 'ai-chat' && (
-              <motion.div
-                key="ai-chat"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                className="h-full"
-              >
+              <motion.div key="ai-chat" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="h-full">
                 <AIChatMode onSuccess={handleSuccess} onToast={onToast} guestName={guestName} />
               </motion.div>
             )}
@@ -149,33 +125,49 @@ export function HospitalityClientView({ onToast, guestName = 'Guest', propertyNa
   }
 
   return (
-    <div className="flex flex-col h-full bg-[#FDFAF5] overflow-y-auto">
+    <div className="flex flex-col h-full overflow-y-auto" style={{ background: '#FDFAF6' }}>
       <div
-        className="flex-shrink-0 px-6 pt-8 pb-6"
+        className="flex-shrink-0 px-6 pt-10 pb-8"
         style={{
-          background: 'linear-gradient(135deg, #1C3A35 0%, #2D5A50 100%)',
+          background: 'linear-gradient(150deg, #1A2942 0%, #243555 60%, #2D4A6E 100%)',
         }}
       >
-        <div className="flex items-center gap-2 mb-4">
-          <div className="w-8 h-8 rounded-full bg-[rgba(255,255,255,0.15)] flex items-center justify-center">
-            <Hotel size={16} className="text-[#D4C5A0]" />
+        <div className="flex items-center gap-2.5 mb-5">
+          <div
+            className="w-8 h-8 rounded-full flex items-center justify-center"
+            style={{ background: 'rgba(201,169,110,0.2)', border: '1px solid rgba(201,169,110,0.35)' }}
+          >
+            <Home size={15} style={{ color: '#C9A96E' }} />
           </div>
           <div>
-            <div className="text-[#D4C5A0] text-[10px] font-medium uppercase tracking-widest">{propertyName}</div>
-            <div className="text-white text-[10px] opacity-60">Powered by Imdaad AI-OS</div>
+            <div
+              className="text-[10px] font-semibold uppercase tracking-widest"
+              style={{ color: '#C9A96E', letterSpacing: '0.12em' }}
+            >
+              {propertyName}
+            </div>
+            <div className="text-[10px] opacity-45" style={{ color: '#fff' }}>Resident Services · Powered by Imdaad</div>
           </div>
         </div>
 
-        <h1 className="text-white text-2xl font-bold mb-1" style={{ fontFamily: 'Georgia, serif' }}>
-          How can we help you?
+        <h1
+          className="text-white text-2xl font-bold mb-2 leading-tight"
+          style={{ fontFamily: 'Georgia, "Times New Roman", serif', letterSpacing: '-0.01em' }}
+        >
+          Hello, {guestName}.
         </h1>
-        <p className="text-[#A8C4B8] text-sm">
-          Hello, {guestName}. Report any issue and our team will be with you shortly.
+        <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.6)' }}>
+          How can we help with your home today? Our team responds within 30 minutes.
         </p>
       </div>
 
       <div className="flex-1 px-4 py-6">
-        <p className="text-[#8B7355] text-xs font-medium uppercase tracking-widest mb-4">Choose how to report</p>
+        <p
+          className="text-[10px] font-semibold uppercase tracking-widest mb-4"
+          style={{ color: '#A0957A', letterSpacing: '0.12em' }}
+        >
+          How would you like to report?
+        </p>
 
         <div className="grid grid-cols-2 gap-3">
           {MODES.map((mode, i) => {
@@ -183,36 +175,42 @@ export function HospitalityClientView({ onToast, guestName = 'Guest', propertyNa
             return (
               <motion.button
                 key={mode.id}
-                initial={{ opacity: 0, y: 16 }}
+                initial={{ opacity: 0, y: 14 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.08, duration: 0.3 }}
+                transition={{ delay: i * 0.07, duration: 0.28, ease: 'easeOut' }}
                 onClick={() => setActiveMode(mode.id)}
-                className="flex flex-col items-start p-4 rounded-2xl border text-left transition-all duration-200 active:scale-95 hover:shadow-md"
+                className="flex flex-col items-start p-4 rounded-2xl text-left transition-all duration-200 active:scale-95"
                 style={{
-                  backgroundColor: 'white',
-                  borderColor: mode.border,
+                  background: '#FFFFFF',
+                  border: `1px solid ${mode.border}`,
+                  boxShadow: '0 1px 4px rgba(26,41,66,0.06)',
                 }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 16px rgba(26,41,66,0.12)'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 1px 4px rgba(26,41,66,0.06)'; }}
               >
                 <div
                   className="w-10 h-10 rounded-xl flex items-center justify-center mb-3"
                   style={{ background: mode.bg }}
                 >
-                  <Icon size={20} style={{ color: mode.color }} />
+                  <Icon size={19} style={{ color: mode.color }} />
                 </div>
-                <div className="font-semibold text-[13px] text-[#2C1810] mb-0.5">{mode.title}</div>
-                <div className="text-[11px] text-[#8B7355] leading-relaxed">{mode.desc}</div>
+                <div className="font-semibold text-[13px] mb-0.5" style={{ color: '#1A2942' }}>{mode.title}</div>
+                <div className="text-[11px] leading-relaxed" style={{ color: '#8B7D68' }}>{mode.desc}</div>
               </motion.button>
             );
           })}
         </div>
 
-        <div className="mt-6 p-4 rounded-2xl bg-[#F5EFE0] border border-[#E8DEC8]">
+        <div
+          className="mt-5 p-4 rounded-2xl"
+          style={{ background: '#F5EFE0', border: '1px solid #EDE5D4' }}
+        >
           <div className="flex items-center gap-2 mb-1">
-            <div className="w-2 h-2 rounded-full bg-[#0D9488]" />
-            <span className="text-[11px] font-semibold text-[#5C4A2A]">24/7 Service Response</span>
+            <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#C9A96E' }} />
+            <span className="text-[11px] font-semibold" style={{ color: '#5C4A2A' }}>24/7 Facility Management</span>
           </div>
-          <p className="text-[11px] text-[#8B7355]">
-            Our team responds to all reported incidents within 30 minutes. For emergencies, please call the front desk.
+          <p className="text-[11px] leading-relaxed" style={{ color: '#8B7355' }}>
+            All requests are responded to within 30 minutes. For urgent emergencies, contact the concierge desk directly.
           </p>
         </div>
       </div>

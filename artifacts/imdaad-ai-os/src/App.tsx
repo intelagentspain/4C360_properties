@@ -99,7 +99,7 @@ function App() {
     window.history.replaceState({}, '', url.toString());
   };
 
-  if (activeMember && activeMember.perspective === 'Client' && activeMember.clientSector === 'Hospitality') {
+  if (activeMember && activeMember.perspective === 'Client') {
     return (
       <div className="flex flex-col h-screen overflow-hidden">
         <div className="flex-1 overflow-hidden">
