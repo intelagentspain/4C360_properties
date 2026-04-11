@@ -36,10 +36,15 @@ interface AddStaffForm {
   skills: string;
 }
 
+const ROLE_OPTIONS = [
+  { group: 'Strategic', roles: ['FM Manager', 'Account Manager'] },
+  { group: 'Operational', roles: ['FM Engineer', 'Site Supervisor', 'Safety Officer', 'HVAC Specialist', 'Plumber', 'Electrician'] },
+];
+
 const EMPTY_FORM: AddStaffForm = {
   name: '',
   email: '',
-  role: '',
+  role: 'FM Engineer',
   perspective: 'Operational',
   zones: '',
   skills: '',
@@ -61,8 +66,8 @@ function AddStaffModal({ onClose, onToast }: AddStaffModalProps) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.name.trim() || !form.email.trim() || !form.role.trim()) {
-      onToast('Name, email, and role are required', 'error');
+    if (!form.name.trim() || !form.email.trim()) {
+      onToast('Name and email are required', 'error');
       return;
     }
     setSubmitting(true);
@@ -151,13 +156,20 @@ function AddStaffModal({ onClose, onToast }: AddStaffModalProps) {
           </div>
 
           <div>
-            <label className={labelCls}>Role *</label>
-            <input
+            <label className={labelCls}>Role</label>
+            <select
               className={inputCls}
-              placeholder="e.g. FM Engineer, Site Supervisor"
               value={form.role}
               onChange={e => set('role', e.target.value)}
-            />
+            >
+              {ROLE_OPTIONS.map(({ group, roles }) => (
+                <optgroup key={group} label={group}>
+                  {roles.map(r => (
+                    <option key={r} value={r}>{r}</option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
           </div>
 
           <div>
