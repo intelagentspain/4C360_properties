@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, Mail, MapPin, Wrench, ClipboardList, UserPlus, X,
-  MessageSquare, Building2, FileText, User, Shield,
+  MessageSquare, Building2, FileText, User, Shield, Search,
 } from 'lucide-react';
 import { useMemberProfiles } from '@/context/MemberProfilesContext';
 import { useClients } from '@/context/ClientsContext';
@@ -570,10 +570,18 @@ interface Props {
   onToast: ToastFn;
 }
 
+const PERSPECTIVE_FILTER_OPTS = ['All', 'Strategic', 'Operational'] as const;
+
 export function Team({ onToast }: Props) {
   const { profiles } = useMemberProfiles();
   const { clients } = useClients();
   const [showModal, setShowModal] = useState(false);
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterPerspective, setFilterPerspective] = useState('All');
+  const [filterRole, setFilterRole] = useState('');
+  const [filterZone, setFilterZone] = useState('');
+  const [filterAvailability, setFilterAvailability] = useState('');
 
   const clientNames = useMemo(() => clients.map(c => c.name), [clients]);
 
@@ -587,6 +595,30 @@ export function Team({ onToast }: Props) {
     const operational = teamMembers.filter(m => m.perspective === 'Operational');
     return { strategic, operational };
   }, [teamMembers]);
+
+  const filteredMembers = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return teamMembers.filter(m => {
+      if (q && !m.name.toLowerCase().includes(q) && !m.email.toLowerCase().includes(q)) return false;
+      if (filterPerspective !== 'All' && m.perspective !== filterPerspective) return false;
+      if (filterRole && m.role !== filterRole) return false;
+      if (filterZone && !m.zones.includes(filterZone)) return false;
+      if (filterAvailability && m.availability !== filterAvailability) return false;
+      return true;
+    });
+  }, [teamMembers, searchQuery, filterPerspective, filterRole, filterZone, filterAvailability]);
+
+  const isFiltered = searchQuery.trim() !== '' || filterPerspective !== 'All' || filterRole !== '' || filterZone !== '' || filterAvailability !== '';
+
+  function clearAllFilters() {
+    setSearchQuery('');
+    setFilterPerspective('All');
+    setFilterRole('');
+    setFilterZone('');
+    setFilterAvailability('');
+  }
+
+  const selectCls = `px-2.5 py-1.5 bg-[#0A1628] border border-[rgba(46,127,255,0.22)] rounded-lg text-[11px] text-[#EEF3FA] focus:outline-none focus:border-[#2E7FFF] transition-colors appearance-none cursor-pointer`;
 
   return (
     <>
@@ -619,15 +651,87 @@ export function Team({ onToast }: Props) {
           </div>
         </div>
 
+        {/* Filter Bar */}
+        <div className="flex items-center gap-2 px-5 py-2.5 border-b border-[rgba(46,127,255,0.1)] flex-shrink-0 flex-wrap">
+          <div className="relative flex-1 min-w-[160px]">
+            <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#4A6080]" />
+            <input
+              type="text"
+              placeholder="Search by name or email…"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="w-full pl-7 pr-2.5 py-1.5 bg-[#0A1628] border border-[rgba(46,127,255,0.22)] rounded-lg text-[11px] text-[#EEF3FA] placeholder-[#4A6080] focus:outline-none focus:border-[#2E7FFF] transition-colors"
+            />
+          </div>
+          <select
+            value={filterPerspective}
+            onChange={e => setFilterPerspective(e.target.value)}
+            className={selectCls}
+          >
+            {PERSPECTIVE_FILTER_OPTS.map(p => (
+              <option key={p} value={p} className="bg-[#0A1628]">{p === 'All' ? 'All Perspectives' : p}</option>
+            ))}
+          </select>
+          <select
+            value={filterRole}
+            onChange={e => setFilterRole(e.target.value)}
+            className={selectCls}
+          >
+            <option value="" className="bg-[#0A1628]">All Roles</option>
+            {ROLE_OPTIONS.map(r => (
+              <option key={r} value={r} className="bg-[#0A1628]">{r}</option>
+            ))}
+          </select>
+          <select
+            value={filterZone}
+            onChange={e => setFilterZone(e.target.value)}
+            className={selectCls}
+          >
+            <option value="" className="bg-[#0A1628]">All Zones</option>
+            {ZONE_OPTIONS.map(z => (
+              <option key={z} value={z} className="bg-[#0A1628]">{z}</option>
+            ))}
+          </select>
+          <select
+            value={filterAvailability}
+            onChange={e => setFilterAvailability(e.target.value)}
+            className={selectCls}
+          >
+            <option value="" className="bg-[#0A1628]">All Availability</option>
+            {AVAILABILITY_OPTS.map(a => (
+              <option key={a} value={a} className="bg-[#0A1628]">{a}</option>
+            ))}
+          </select>
+          {isFiltered && (
+            <button
+              onClick={clearAllFilters}
+              className="flex items-center gap-1 text-[10px] font-semibold text-[#7A94B4] hover:text-[#EEF3FA] px-2.5 py-1.5 rounded-lg border border-[rgba(46,127,255,0.15)] hover:border-[rgba(46,127,255,0.35)] transition-colors flex-shrink-0"
+            >
+              <X size={10} />
+              Clear all
+            </button>
+          )}
+        </div>
+
         <div className="flex-1 overflow-y-auto custom-scrollbar px-5 py-4">
-          {teamMembers.length === 0 ? (
+          {filteredMembers.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 gap-3">
               <Users size={32} className="text-[#7A94B4] opacity-30" />
-              <span className="text-[13px] text-[#7A94B4] opacity-60">No team members found</span>
+              <span className="text-[13px] text-[#7A94B4] opacity-60">
+                {isFiltered ? 'No members match the active filters' : 'No team members found'}
+              </span>
+              {isFiltered && (
+                <button
+                  onClick={clearAllFilters}
+                  className="text-[11px] text-[#2E7FFF] hover:text-blue-300 transition-colors"
+                >
+                  Clear filters
+                </button>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-3 gap-3">
-              {teamMembers.map((member, idx) => {
+              {filteredMembers.map((member, idx) => {
                 const avatarGradient = AVATAR_COLORS[idx % AVATAR_COLORS.length];
                 const badgeCls = PERSPECTIVE_BADGE[member.perspective] ?? 'bg-[#112040] text-[#7A94B4] border-[rgba(46,127,255,0.2)]';
                 return (
