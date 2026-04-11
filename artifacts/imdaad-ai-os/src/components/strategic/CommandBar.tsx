@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Bell, ChevronDown, Zap, Bot, Hand, Plus, X, Building2, MapPin, FileText, User, Users, Layers, Sparkles, Loader2, MessageSquare } from 'lucide-react';
+import { Search, Bell, ChevronDown, Zap, Bot, Hand, Plus, X, Building2, MapPin, FileText, User, Users, Sparkles, Loader2, MessageSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMemberProfiles } from '@/context/MemberProfilesContext';
 import { useMemberFilter, isFilterActive } from '@/context/MemberFilterContext';
@@ -252,7 +252,6 @@ interface AddClientModalProps {
 const SECTION_ICONS = {
   business: <Building2 size={13} className="text-[#2E7FFF]" />,
   sites:    <MapPin size={13} className="text-[#2E7FFF]" />,
-  assets:   <Layers size={13} className="text-[#2E7FFF]" />,
   contract: <FileText size={13} className="text-[#2E7FFF]" />,
   contact:  <User size={13} className="text-[#2E7FFF]" />,
   team:     <Users size={13} className="text-[#2E7FFF]" />,
@@ -287,12 +286,11 @@ const inputCls = (hasErr?: boolean) =>
 
 const selectCls = `w-full px-2.5 py-1.5 bg-[#0A1628] border border-[rgba(46,127,255,0.22)] rounded-lg text-[11px] text-[#EEF3FA] focus:outline-none focus:border-[#2E7FFF] transition-colors appearance-none cursor-pointer`;
 
-type Tab = 'business' | 'sites' | 'assets' | 'team';
+type Tab = 'business' | 'sites' | 'team';
 
 const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
   { key: 'business', label: 'Business',  icon: <Building2 size={11} /> },
   { key: 'sites',    label: 'Sites',     icon: <MapPin size={11} /> },
-  { key: 'assets',   label: 'Assets',    icon: <Layers size={11} /> },
   { key: 'team',     label: 'Team',      icon: <Users size={11} /> },
 ];
 
@@ -361,47 +359,75 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
   const [slaTier, setSlaTier]                 = useState('');
   const [contractValue, setContractValue]     = useState('');
   const [siteNames, setSiteNames]             = useState<string[]>(['']);
-  const [totalAssets, setTotalAssets]         = useState('');
-  const [assetCategories, setAssetCategories] = useState<string[]>([]);
   const [contactName, setContactName]         = useState('');
   const [contactEmail, setContactEmail]       = useState('');
   const [contactPhone, setContactPhone]       = useState('');
   const [accountManager, setAccountManager]   = useState('');
 
   const [teamMembers, setTeamMembers]         = useState<TeamMember[]>([EMPTY_MEMBER()]);
-  const [assetRows, setAssetRows]             = useState<AssetRow[]>([]);
+  const [siteAssets, setSiteAssets]           = useState<Record<number, AssetRow[]>>({ 0: [] });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
-  const [isSuggestingAssets, setIsSuggestingAssets] = useState(false);
+  const [suggestingSiteIdx, setSuggestingSiteIdx] = useState<number | null>(null);
   const [whatsappTarget, setWhatsappTarget] = useState<{ name: string; phone: string; message: string } | null>(null);
 
-  const toggleAsset = (cat: string) => {
-    setAssetCategories(prev =>
-      prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
-    );
+  const addSite = () => {
+    setSiteNames(prev => {
+      const newIdx = prev.length;
+      setSiteAssets(sa => ({ ...sa, [newIdx]: [] }));
+      return [...prev, ''];
+    });
   };
-
-  const addSite = () => setSiteNames(prev => [...prev, '']);
-  const removeSite = (i: number) => setSiteNames(prev => prev.filter((_, idx) => idx !== i));
+  const removeSite = (i: number) => {
+    setSiteNames(prev => prev.filter((_, idx) => idx !== i));
+    setSiteAssets(prev => {
+      const next: Record<number, AssetRow[]> = {};
+      let newIdx = 0;
+      Object.keys(prev).forEach(k => {
+        const ki = Number(k);
+        if (ki !== i) { next[newIdx] = prev[ki]; newIdx++; }
+      });
+      return next;
+    });
+  };
   const updateSite = (i: number, val: string) => {
     setSiteNames(prev => prev.map((s, idx) => (idx === i ? val : s)));
+    setSiteAssets(prev => ({
+      ...prev,
+      [i]: (prev[i] ?? []).map(a => ({ ...a, assignedSite: val })),
+    }));
   };
 
-  const addAssetRow = () => setAssetRows(prev => [...prev, EMPTY_ASSET()]);
-  const removeAssetRow = (id: string) => setAssetRows(prev => prev.filter(a => a.id !== id));
-  const updateAssetRow = (id: string, field: keyof AssetRow, val: string) => {
-    setAssetRows(prev => prev.map(a => {
-      if (a.id !== id) return a;
-      const updated = { ...a, [field]: val };
-      if (field === 'category') updated.type = '';
-      return updated;
+  const addAssetRowToSite = (siteIdx: number) => {
+    const siteName = siteNames[siteIdx] ?? '';
+    setSiteAssets(prev => ({
+      ...prev,
+      [siteIdx]: [...(prev[siteIdx] ?? []), { ...EMPTY_ASSET(), assignedSite: siteName }],
+    }));
+  };
+  const removeAssetRowFromSite = (siteIdx: number, id: string) => {
+    setSiteAssets(prev => ({
+      ...prev,
+      [siteIdx]: (prev[siteIdx] ?? []).filter(a => a.id !== id),
+    }));
+  };
+  const updateAssetRowInSite = (siteIdx: number, id: string, field: keyof AssetRow, val: string) => {
+    setSiteAssets(prev => ({
+      ...prev,
+      [siteIdx]: (prev[siteIdx] ?? []).map(a => {
+        if (a.id !== id) return a;
+        const updated = { ...a, [field]: val };
+        if (field === 'category') updated.type = '';
+        return updated;
+      }),
     }));
     setErrors(e => { const n = { ...e }; delete n[`asset_${field}_${id}`]; return n; });
   };
 
-  const aiSuggestAssets = async () => {
-    setIsSuggestingAssets(true);
+  const aiSuggestAssetsForSite = async (siteIdx: number) => {
+    setSuggestingSiteIdx(siteIdx);
+    const siteName = siteNames[siteIdx] ?? '';
     try {
       const base = import.meta.env.BASE_URL?.replace(/\/$/, '') ?? '';
       const res = await fetch(`${base}/api/suggest-assets`, {
@@ -410,13 +436,16 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
         body: JSON.stringify({
           sector,
           industrySubtype,
-          siteNames: siteNames.filter(s => s.trim()),
+          siteNames: [siteName].filter(Boolean),
         }),
       });
       if (!res.ok) throw new Error('API error');
       const data = await res.json() as { success: boolean; assets?: AssetRow[] };
       if (!data.success || !Array.isArray(data.assets) || data.assets.length === 0) throw new Error('Empty response');
-      setAssetRows(data.assets);
+      setSiteAssets(prev => ({
+        ...prev,
+        [siteIdx]: data.assets!.map(a => ({ ...a, assignedSite: siteName })),
+      }));
     } catch {
       const defs = SECTOR_ASSET_MAP[sector] ?? SECTOR_ASSET_MAP['Other'];
       const subtypeHint = industrySubtype ? INDUSTRY_SUBTYPE_ASSET_HINTS[industrySubtype] : undefined;
@@ -431,36 +460,37 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
           assetName: primaryType,
           category: def.category,
           type: primaryType,
-          assignedSite: siteNames.filter(s => s.trim())[0] ?? '',
+          assignedSite: siteName,
           quantity: '1',
           installYear: String(new Date().getFullYear() - 2),
           condition,
           notes: `${ppmNote} | ${complianceNote}`,
         };
       });
-      setAssetRows(suggested);
+      setSiteAssets(prev => ({ ...prev, [siteIdx]: suggested }));
     } finally {
-      setIsSuggestingAssets(false);
+      setSuggestingSiteIdx(null);
     }
   };
 
-  const aiSuggestRow = (id: string) => {
-    setAssetRows(prev => prev.map(a => {
-      if (a.id !== id) return a;
-      const defs = SECTOR_ASSET_MAP[sector] ?? SECTOR_ASSET_MAP['Other'];
-      const def = defs.find(d => d.category === a.category) ?? defs[0];
-      const typeLvl = TYPE_LEVEL_NOTES[a.type] ?? TYPE_LEVEL_NOTES[a.assetName];
-      const subtypeHint = industrySubtype ? INDUSTRY_SUBTYPE_ASSET_HINTS[industrySubtype] : undefined;
-      const condition = subtypeHint?.defaultCondition ?? typeLvl?.condition ?? (a.condition || def.defaultCondition);
-      const ppmNote = subtypeHint?.ppmNote ?? typeLvl?.ppmNote ?? def.ppmNote;
-      const complianceNote = typeLvl?.complianceNote ?? def.complianceNote;
-      return {
-        ...a,
-        condition,
-        notes: `${ppmNote} | ${complianceNote}`,
-      };
+  const aiSuggestRowInSite = (siteIdx: number, id: string) => {
+    setSiteAssets(prev => ({
+      ...prev,
+      [siteIdx]: (prev[siteIdx] ?? []).map(a => {
+        if (a.id !== id) return a;
+        const defs = SECTOR_ASSET_MAP[sector] ?? SECTOR_ASSET_MAP['Other'];
+        const def = defs.find(d => d.category === a.category) ?? defs[0];
+        const typeLvl = TYPE_LEVEL_NOTES[a.type] ?? TYPE_LEVEL_NOTES[a.assetName];
+        const subtypeHint = industrySubtype ? INDUSTRY_SUBTYPE_ASSET_HINTS[industrySubtype] : undefined;
+        const condition = subtypeHint?.defaultCondition ?? typeLvl?.condition ?? (a.condition || def.defaultCondition);
+        const ppmNote = subtypeHint?.ppmNote ?? typeLvl?.ppmNote ?? def.ppmNote;
+        const complianceNote = typeLvl?.complianceNote ?? def.complianceNote;
+        return { ...a, condition, notes: `${ppmNote} | ${complianceNote}` };
+      }),
     }));
   };
+
+  const allAssetRows = Object.values(siteAssets).flat();
 
   const addMember = () => setTeamMembers(prev => [...prev, EMPTY_MEMBER()]);
   const removeMember = (i: number) => setTeamMembers(prev => prev.filter((_, idx) => idx !== i));
@@ -520,7 +550,7 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
     if (siteNames.filter(s => s.trim()).length === 0) errs.sites = 'At least one site is required';
     if (!contactName.trim())   errs.contactName = 'Contact name is required';
 
-    assetRows.forEach(a => {
+    allAssetRows.forEach(a => {
       const isPartial = a.assetName.trim() || a.category || a.type;
       if (isPartial) {
         if (!a.assetName.trim()) errs[`asset_assetName_${a.id}`] = 'Asset name required';
@@ -552,13 +582,13 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
       const teamErrKeys = Object.keys(errs).filter(k => k.startsWith('team_'));
       const assetErrKeys = Object.keys(errs).filter(k => k.startsWith('asset_'));
       if (teamErrKeys.length > 0 || errs.team_required) setActiveTab('team');
-      else if (assetErrKeys.length > 0) setActiveTab('assets');
-      else if (errs.sites) setActiveTab('sites');
+      else if (assetErrKeys.length > 0 || errs.sites) setActiveTab('sites');
       else if (errs.name || errs.sector || errs.contactName || errs.contractType || errs.contractStart || errs.slaTier) setActiveTab('business');
       return;
     }
 
     const filledMembers = teamMembers.filter(m => m.name.trim() && m.email.trim() && m.role);
+    const compiledAssets = allAssetRows;
     const clientData: ClientData = {
       name: name.trim(),
       sector,
@@ -571,9 +601,9 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
       contractValue,
       numSites: String(siteNames.filter(s => s.trim()).length),
       siteNames: siteNames.filter(s => s.trim()),
-      totalAssets,
-      assetCategories,
-      assets: assetRows,
+      totalAssets: String(compiledAssets.length),
+      assetCategories: [...new Set(compiledAssets.map(a => a.category).filter(Boolean))],
+      assets: compiledAssets,
       contactName: contactName.trim(),
       contactEmail,
       contactPhone,
@@ -622,8 +652,7 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
 
   const tabHasError = (tab: Tab): boolean => {
     if (tab === 'business') return !!(errors.name || errors.sector || errors.contactName || errors.contractType || errors.contractStart || errors.slaTier);
-    if (tab === 'sites') return !!errors.sites;
-    if (tab === 'assets') return Object.keys(errors).some(k => k.startsWith('asset_'));
+    if (tab === 'sites') return !!(errors.sites) || Object.keys(errors).some(k => k.startsWith('asset_'));
     if (tab === 'team') return !!(errors.team_required) || Object.keys(errors).some(k => k.startsWith('team_') && k !== 'team_required');
     return false;
   };
@@ -893,276 +922,208 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
           )}
 
           {activeTab === 'sites' && (
-            <div className="space-y-4">
+            <div className="space-y-3">
               <SectionHeader icon={SECTION_ICONS.sites} title="Sites & Assets" />
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <FieldLabel label="Number of Sites" />
-                  <div className={`${inputCls()} flex items-center text-[#7A94B4] cursor-default select-none`}>
-                    {siteNames.length}
-                    <span className="ml-1.5 text-[10px] text-[#4A6080]">(from site list below)</span>
-                  </div>
-                </div>
 
-                <div>
-                  <FieldLabel label="Total Asset Count" />
-                  <input
-                    type="number"
-                    min="0"
-                    value={totalAssets}
-                    onChange={e => setTotalAssets(e.target.value)}
-                    placeholder="e.g. 250"
-                    className={inputCls()}
-                  />
-                </div>
+              <div className="flex items-center gap-3 text-[11px] text-[#7A94B4]">
+                <span><span className="font-semibold text-[#EEF3FA]">{siteNames.length}</span> site{siteNames.length !== 1 ? 's' : ''}</span>
+                <span className="text-[#2E3A52]">·</span>
+                <span><span className="font-semibold text-[#EEF3FA]">{allAssetRows.length}</span> total asset{allAssetRows.length !== 1 ? 's' : ''}</span>
+              </div>
 
-                <div className="col-span-2">
-                  <FieldLabel label="Site Names / Locations" required />
-                  <div className="space-y-1.5">
-                    {siteNames.map((site, i) => (
-                      <div key={i} className="flex gap-1.5">
+              {errors.sites && <p className="text-[10px] text-red-400">{errors.sites}</p>}
+
+              <div className="space-y-3">
+                {siteNames.map((site, siteIdx) => {
+                  const siteRows = siteAssets[siteIdx] ?? [];
+                  const isSuggesting = suggestingSiteIdx === siteIdx;
+                  const sectorDefs = SECTOR_ASSET_MAP[sector] ?? SECTOR_ASSET_MAP['Other'];
+                  const siteCategories = sectorDefs.map(d => d.category);
+
+                  return (
+                    <div key={siteIdx} className="bg-[#0A1628] border border-[rgba(46,127,255,0.22)] rounded-xl overflow-hidden">
+                      {/* Site header */}
+                      <div className="flex items-center gap-2 px-3 pt-3 pb-2">
+                        <MapPin size={11} className="text-[#2E7FFF] flex-shrink-0" />
                         <input
                           value={site}
-                          onChange={e => { updateSite(i, e.target.value); clearErr('sites'); }}
-                          placeholder={`Site ${i + 1} name or location`}
-                          className={`flex-1 ${inputCls(i === 0 && !!errors.sites)}`}
+                          onChange={e => { updateSite(siteIdx, e.target.value); clearErr('sites'); }}
+                          placeholder={`Site ${siteIdx + 1} name or location`}
+                          className={`flex-1 ${inputCls(siteIdx === 0 && !!errors.sites)}`}
                         />
                         {siteNames.length > 1 && (
                           <button
                             type="button"
-                            onClick={() => removeSite(i)}
+                            onClick={() => removeSite(siteIdx)}
                             className="flex-shrink-0 w-7 h-7 flex items-center justify-center text-[#7A94B4] hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors border border-[rgba(46,127,255,0.15)]"
                           >
                             <X size={11} />
                           </button>
                         )}
                       </div>
-                    ))}
-                    {errors.sites && <p className="text-[10px] text-red-400">{errors.sites}</p>}
-                    <button
-                      type="button"
-                      onClick={addSite}
-                      className="flex items-center gap-1.5 text-[11px] text-[#2E7FFF] hover:text-blue-300 transition-colors font-medium mt-0.5"
-                    >
-                      <Plus size={11} />
-                      Add another site
-                    </button>
-                  </div>
-                </div>
 
-                <div className="col-span-2">
-                  <FieldLabel label="Asset Categories" />
-                  <div className="grid grid-cols-3 gap-1.5">
-                    {ASSET_CATEGORIES.map(cat => (
-                      <label
-                        key={cat}
-                        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px] cursor-pointer transition-all ${
-                          assetCategories.includes(cat)
-                            ? 'border-[#2E7FFF] bg-[#2E7FFF]/15 text-[#EEF3FA]'
-                            : 'border-[rgba(46,127,255,0.18)] text-[#7A94B4] hover:border-[rgba(46,127,255,0.35)] hover:text-[#EEF3FA]'
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={assetCategories.includes(cat)}
-                          onChange={() => toggleAsset(cat)}
-                          className="hidden"
-                        />
-                        <span className={`w-3 h-3 rounded border flex-shrink-0 flex items-center justify-center ${
-                          assetCategories.includes(cat) ? 'bg-[#2E7FFF] border-[#2E7FFF]' : 'border-[rgba(46,127,255,0.3)]'
-                        }`}>
-                          {assetCategories.includes(cat) && (
-                            <svg viewBox="0 0 8 8" className="w-2 h-2 fill-white">
-                              <path d="M1 4l2 2 4-4" stroke="white" strokeWidth="1.5" fill="none" />
-                            </svg>
-                          )}
-                        </span>
-                        {cat}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'assets' && (
-            <div className="space-y-4">
-              <SectionHeader icon={SECTION_ICONS.assets} title="Asset Register" />
-
-              {/* AI Suggest strip */}
-              <div className="flex items-center justify-between bg-[rgba(46,127,255,0.06)] border border-[rgba(46,127,255,0.18)] rounded-xl px-3 py-2.5">
-                <div>
-                  <p className="text-[11px] text-[#EEF3FA] font-semibold">AI Asset Suggestion</p>
-                  <p className="text-[10px] text-[#7A94B4] mt-0.5">
-                    Suggest assets based on entered details
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={aiSuggestAssets}
-                  disabled={isSuggestingAssets}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-[#2E7FFF]/20 border border-[#2E7FFF]/40 text-[#2E7FFF] hover:bg-[#2E7FFF]/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
-                >
-                  {isSuggestingAssets ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
-                  AI Suggest Assets
-                </button>
-              </div>
-
-              {/* Asset rows */}
-              {assetRows.length === 0 && (
-                <div className="text-center py-6 text-[11px] text-[#4A6080]">
-                  No assets added yet. Use "AI Suggest Assets" or add manually below.
-                </div>
-              )}
-
-              <div className="space-y-3">
-                {assetRows.map((asset) => {
-                  const sectorDefs = SECTOR_ASSET_MAP[sector] ?? SECTOR_ASSET_MAP['Other'];
-                  const categories = sectorDefs.map(d => d.category);
-                  const selectedDef = sectorDefs.find(d => d.category === asset.category);
-                  const types = selectedDef ? selectedDef.types : [];
-                  const filledSites = siteNames.filter(s => s.trim());
-
-                  return (
-                    <div
-                      key={asset.id}
-                      className="bg-[#0A1628] border border-[rgba(46,127,255,0.18)] rounded-xl p-3 space-y-2.5 relative"
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-[10px] font-bold text-[#4A6080] uppercase tracking-widest">Asset</span>
-                        <div className="flex items-center gap-2">
+                      {/* Assets area */}
+                      <div className="px-3 pb-3 space-y-2.5">
+                        {/* AI Suggest strip */}
+                        <div className="flex items-center justify-between bg-[rgba(46,127,255,0.05)] border border-[rgba(46,127,255,0.14)] rounded-lg px-2.5 py-2">
+                          <p className="text-[10px] text-[#7A94B4]">
+                            {siteRows.length > 0
+                              ? <span><span className="text-[#EEF3FA] font-semibold">{siteRows.length}</span> asset{siteRows.length !== 1 ? 's' : ''} registered</span>
+                              : 'No assets yet'}
+                          </p>
                           <button
                             type="button"
-                            onClick={() => aiSuggestRow(asset.id)}
-                            disabled={!sector}
-                            title="AI fill condition & notes"
-                            className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg border border-[rgba(46,127,255,0.25)] text-[#2E7FFF] hover:bg-[#2E7FFF]/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                            onClick={() => aiSuggestAssetsForSite(siteIdx)}
+                            disabled={isSuggesting || !sector}
+                            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold bg-[#2E7FFF]/15 border border-[#2E7FFF]/35 text-[#2E7FFF] hover:bg-[#2E7FFF]/25 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
                           >
-                            <Sparkles size={9} />
-                            AI Fill
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => removeAssetRow(asset.id)}
-                            className="flex items-center gap-1 text-[10px] text-[#7A94B4] hover:text-red-400 transition-colors"
-                          >
-                            <X size={10} />
-                            Remove
+                            {isSuggesting ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
+                            AI Suggest Assets
                           </button>
                         </div>
-                      </div>
 
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <FieldLabel label="Asset Name" required />
-                          <input
-                            value={asset.assetName}
-                            onChange={e => updateAssetRow(asset.id, 'assetName', e.target.value)}
-                            placeholder="e.g. Rooftop AHU-01"
-                            className={inputCls(!!errors[`asset_assetName_${asset.id}`])}
-                          />
-                          {errors[`asset_assetName_${asset.id}`] && (
-                            <p className="mt-0.5 text-[10px] text-red-400">{errors[`asset_assetName_${asset.id}`]}</p>
-                          )}
-                        </div>
+                        {/* Asset rows */}
+                        {siteRows.map((asset) => {
+                          const selectedDef = sectorDefs.find(d => d.category === asset.category);
+                          const types = selectedDef ? selectedDef.types : [];
+                          return (
+                            <div
+                              key={asset.id}
+                              className="bg-[#0D1E38] border border-[rgba(46,127,255,0.15)] rounded-xl p-2.5 space-y-2"
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="text-[9px] font-bold text-[#4A6080] uppercase tracking-widest">Asset</span>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => aiSuggestRowInSite(siteIdx, asset.id)}
+                                    disabled={!sector}
+                                    title="AI fill condition & notes"
+                                    className="flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded-lg border border-[rgba(46,127,255,0.25)] text-[#2E7FFF] hover:bg-[#2E7FFF]/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                                  >
+                                    <Sparkles size={8} />
+                                    AI Fill
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => removeAssetRowFromSite(siteIdx, asset.id)}
+                                    className="flex items-center gap-1 text-[9px] text-[#7A94B4] hover:text-red-400 transition-colors"
+                                  >
+                                    <X size={9} />
+                                    Remove
+                                  </button>
+                                </div>
+                              </div>
 
-                        <div>
-                          <FieldLabel label="Category" required />
-                          <select
-                            value={asset.category}
-                            onChange={e => updateAssetRow(asset.id, 'category', e.target.value)}
-                            className={`${selectCls} ${errors[`asset_category_${asset.id}`] ? 'border-red-500/60' : ''}`}
-                          >
-                            <option value="" className="bg-[#0A1628]">Select category…</option>
-                            {categories.map(c => (
-                              <option key={c} value={c} className="bg-[#0A1628]">{c}</option>
-                            ))}
-                          </select>
-                          {errors[`asset_category_${asset.id}`] && (
-                            <p className="mt-0.5 text-[10px] text-red-400">{errors[`asset_category_${asset.id}`]}</p>
-                          )}
-                        </div>
+                              <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                  <FieldLabel label="Asset Name" required />
+                                  <input
+                                    value={asset.assetName}
+                                    onChange={e => updateAssetRowInSite(siteIdx, asset.id, 'assetName', e.target.value)}
+                                    placeholder="e.g. Rooftop AHU-01"
+                                    className={inputCls(!!errors[`asset_assetName_${asset.id}`])}
+                                  />
+                                  {errors[`asset_assetName_${asset.id}`] && (
+                                    <p className="mt-0.5 text-[10px] text-red-400">{errors[`asset_assetName_${asset.id}`]}</p>
+                                  )}
+                                </div>
 
-                        <div>
-                          <FieldLabel label="Type" required />
-                          <select
-                            value={asset.type}
-                            onChange={e => updateAssetRow(asset.id, 'type', e.target.value)}
-                            className={`${selectCls} ${errors[`asset_type_${asset.id}`] ? 'border-red-500/60' : ''}`}
-                          >
-                            <option value="" className="bg-[#0A1628]">Select type…</option>
-                            {types.map(t => (
-                              <option key={t} value={t} className="bg-[#0A1628]">{t}</option>
-                            ))}
-                          </select>
-                          {errors[`asset_type_${asset.id}`] && (
-                            <p className="mt-0.5 text-[10px] text-red-400">{errors[`asset_type_${asset.id}`]}</p>
-                          )}
-                        </div>
+                                <div>
+                                  <FieldLabel label="Category" required />
+                                  <select
+                                    value={asset.category}
+                                    onChange={e => updateAssetRowInSite(siteIdx, asset.id, 'category', e.target.value)}
+                                    className={`${selectCls} ${errors[`asset_category_${asset.id}`] ? 'border-red-500/60' : ''}`}
+                                  >
+                                    <option value="" className="bg-[#0A1628]">Select category…</option>
+                                    {siteCategories.map(c => (
+                                      <option key={c} value={c} className="bg-[#0A1628]">{c}</option>
+                                    ))}
+                                  </select>
+                                  {errors[`asset_category_${asset.id}`] && (
+                                    <p className="mt-0.5 text-[10px] text-red-400">{errors[`asset_category_${asset.id}`]}</p>
+                                  )}
+                                </div>
 
-                        <div>
-                          <FieldLabel label="Assigned Site" />
-                          <select
-                            value={asset.assignedSite}
-                            onChange={e => updateAssetRow(asset.id, 'assignedSite', e.target.value)}
-                            className={selectCls}
-                          >
-                            <option value="" className="bg-[#0A1628]">Select site…</option>
-                            {filledSites.map(s => (
-                              <option key={s} value={s} className="bg-[#0A1628]">{s}</option>
-                            ))}
-                          </select>
-                        </div>
+                                <div>
+                                  <FieldLabel label="Type" required />
+                                  <select
+                                    value={asset.type}
+                                    onChange={e => updateAssetRowInSite(siteIdx, asset.id, 'type', e.target.value)}
+                                    className={`${selectCls} ${errors[`asset_type_${asset.id}`] ? 'border-red-500/60' : ''}`}
+                                  >
+                                    <option value="" className="bg-[#0A1628]">Select type…</option>
+                                    {types.map(t => (
+                                      <option key={t} value={t} className="bg-[#0A1628]">{t}</option>
+                                    ))}
+                                  </select>
+                                  {errors[`asset_type_${asset.id}`] && (
+                                    <p className="mt-0.5 text-[10px] text-red-400">{errors[`asset_type_${asset.id}`]}</p>
+                                  )}
+                                </div>
 
-                        <div>
-                          <FieldLabel label="Quantity" />
-                          <input
-                            type="number"
-                            min="1"
-                            value={asset.quantity}
-                            onChange={e => updateAssetRow(asset.id, 'quantity', e.target.value)}
-                            placeholder="1"
-                            className={inputCls()}
-                          />
-                        </div>
+                                <div>
+                                  <FieldLabel label="Quantity" />
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    value={asset.quantity}
+                                    onChange={e => updateAssetRowInSite(siteIdx, asset.id, 'quantity', e.target.value)}
+                                    placeholder="1"
+                                    className={inputCls()}
+                                  />
+                                </div>
 
-                        <div>
-                          <FieldLabel label="Installation Year" />
-                          <input
-                            type="number"
-                            min="1990"
-                            max={new Date().getFullYear()}
-                            value={asset.installYear}
-                            onChange={e => updateAssetRow(asset.id, 'installYear', e.target.value)}
-                            placeholder={String(new Date().getFullYear())}
-                            className={inputCls()}
-                          />
-                        </div>
+                                <div>
+                                  <FieldLabel label="Installation Year" />
+                                  <input
+                                    type="number"
+                                    min="1990"
+                                    max={new Date().getFullYear()}
+                                    value={asset.installYear}
+                                    onChange={e => updateAssetRowInSite(siteIdx, asset.id, 'installYear', e.target.value)}
+                                    placeholder={String(new Date().getFullYear())}
+                                    className={inputCls()}
+                                  />
+                                </div>
 
-                        <div>
-                          <FieldLabel label="Condition" />
-                          <select
-                            value={asset.condition}
-                            onChange={e => updateAssetRow(asset.id, 'condition', e.target.value)}
-                            className={selectCls}
-                          >
-                            <option value="" className="bg-[#0A1628]">Select…</option>
-                            {ASSET_CONDITION_OPTS.map(c => (
-                              <option key={c} value={c} className="bg-[#0A1628]">{c}</option>
-                            ))}
-                          </select>
-                        </div>
+                                <div>
+                                  <FieldLabel label="Condition" />
+                                  <select
+                                    value={asset.condition}
+                                    onChange={e => updateAssetRowInSite(siteIdx, asset.id, 'condition', e.target.value)}
+                                    className={selectCls}
+                                  >
+                                    <option value="" className="bg-[#0A1628]">Select…</option>
+                                    {ASSET_CONDITION_OPTS.map(c => (
+                                      <option key={c} value={c} className="bg-[#0A1628]">{c}</option>
+                                    ))}
+                                  </select>
+                                </div>
 
-                        <div className="col-span-2">
-                          <FieldLabel label="Notes / PPM Interval" />
-                          <input
-                            value={asset.notes}
-                            onChange={e => updateAssetRow(asset.id, 'notes', e.target.value)}
-                            placeholder="e.g. Quarterly service; Annual refrigerant check"
-                            className={inputCls()}
-                          />
-                        </div>
+                                <div className="col-span-2">
+                                  <FieldLabel label="Notes / PPM Interval" />
+                                  <input
+                                    value={asset.notes}
+                                    onChange={e => updateAssetRowInSite(siteIdx, asset.id, 'notes', e.target.value)}
+                                    placeholder="e.g. Quarterly service; Annual refrigerant check"
+                                    className={inputCls()}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+
+                        <button
+                          type="button"
+                          onClick={() => addAssetRowToSite(siteIdx)}
+                          className="flex items-center gap-1.5 text-[10px] text-[#2E7FFF] hover:text-blue-300 transition-colors font-medium"
+                        >
+                          <Plus size={10} />
+                          Add asset to this site
+                        </button>
                       </div>
                     </div>
                   );
@@ -1171,16 +1132,16 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
 
               <button
                 type="button"
-                onClick={addAssetRow}
+                onClick={addSite}
                 className="flex items-center gap-1.5 text-[11px] text-[#2E7FFF] hover:text-blue-300 transition-colors font-medium"
               >
                 <Plus size={11} />
-                Add asset manually
+                Add another site
               </button>
 
-              <div className="mt-1 p-3 bg-[rgba(46,127,255,0.06)] border border-[rgba(46,127,255,0.15)] rounded-xl">
+              <div className="p-3 bg-[rgba(46,127,255,0.06)] border border-[rgba(46,127,255,0.15)] rounded-xl">
                 <p className="text-[10px] text-[#7A94B4] leading-relaxed">
-                  <span className="text-[#2E7FFF] font-semibold">Optional:</span> Asset registration is not required to save the client. Partially entered rows must have a name, category, and type filled.
+                  <span className="text-[#2E7FFF] font-semibold">Tip:</span> Enter each site name then add its assets inline. Asset registration is optional — partially entered rows must have a name, category, and type filled.
                 </p>
               </div>
             </div>
