@@ -682,6 +682,9 @@ export interface PortfolioClient {
   };
   resources: PortfolioClientResources;
   contract: PortfolioClientContract;
+  lat?: number;
+  lng?: number;
+  marketLabel?: string;
 }
 
 export const mockPortfolioClients: PortfolioClient[] = [
@@ -765,6 +768,9 @@ export const mockPortfolioClients: PortfolioClient[] = [
       vendorManager: 'Zaid Al-Hamdan — Imdaad HQ',
       notes: 'Renewal auto-triggers at 85% contract term. Resident satisfaction score included in KPI review.',
     },
+    lat: 25.1185,
+    lng: 55.3800,
+    marketLabel: 'Silicon Oasis',
   },
   {
     id: 'CLT-002',
@@ -842,6 +848,9 @@ export const mockPortfolioClients: PortfolioClient[] = [
       vendorManager: 'Zaid Al-Hamdan — Imdaad HQ',
       notes: 'DIFC compliance audit scheduled Q3. Retail trading hours limit maintenance windows to 10 PM–6 AM.',
     },
+    lat: 25.2048,
+    lng: 55.2708,
+    marketLabel: 'DIFC',
   },
   {
     id: 'CLT-003',
@@ -922,6 +931,9 @@ export const mockPortfolioClients: PortfolioClient[] = [
       vendorManager: 'Mariam Nasser — Imdaad HQ',
       notes: 'Penalty review scheduled end of month. Upgrade to Platinum tier being discussed pending SLA recovery.',
     },
+    lat: 25.1858,
+    lng: 55.2650,
+    marketLabel: 'Business Bay',
   },
   {
     id: 'CLT-004',
@@ -1000,6 +1012,9 @@ export const mockPortfolioClients: PortfolioClient[] = [
       vendorManager: 'Mariam Nasser — Imdaad HQ',
       notes: 'Formal improvement plan in progress. Client has requested senior management review. Contract at risk of non-renewal.',
     },
+    lat: 25.0779,
+    lng: 55.1397,
+    marketLabel: 'JLT',
   },
   {
     id: 'CLT-005',
@@ -1080,6 +1095,9 @@ export const mockPortfolioClients: PortfolioClient[] = [
       vendorManager: 'Zaid Al-Hamdan — Imdaad HQ',
       notes: 'Community management board review every 6 months. Landscape KPIs tracked separately to FM KPIs.',
     },
+    lat: 25.0550,
+    lng: 55.2100,
+    marketLabel: 'JVC',
   },
   {
     id: 'CLT-006',
@@ -1160,5 +1178,8 @@ export const mockPortfolioClients: PortfolioClient[] = [
       vendorManager: 'Leila Mahmoud — Imdaad HQ',
       notes: 'White-glove service standard. All staff must hold valid DTCM certification. Branded uniforms mandatory on-site.',
     },
+    lat: 25.1972,
+    lng: 55.2744,
+    marketLabel: 'Downtown',
   },
 ];

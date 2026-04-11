@@ -83,6 +83,24 @@ function createFailureIcon(prob: number) {
   return L.divIcon({ html: svg, className: '', iconSize: [30, 30], iconAnchor: [15, 15] });
 }
 
+function escapeSvgText(str: string): string {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function createClientMarkerIcon(name: string, riskLevel: string, marketLabel?: string) {
+  const color = riskLevel === 'critical' ? '#FF4B4B' : riskLevel === 'high' ? '#FF7A38' : riskLevel === 'medium' ? '#FF9B38' : '#38D98A';
+  const initials = name.split(' ').map(w => w[0]).join('').substring(0, 3).toUpperCase();
+  const displayLabel = escapeSvgText(marketLabel ?? initials);
+  const width = Math.max(52, (marketLabel ?? initials).length * 7 + 24);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="44" viewBox="0 0 ${width} 44">
+    <rect x="1" y="1" width="${width - 2}" height="30" rx="8" fill="#0A1628" stroke="${color}" stroke-width="1.5"/>
+    <rect x="1" y="1" width="${width - 2}" height="30" rx="8" fill="${color}" fill-opacity="0.18"/>
+    <text x="${width / 2}" y="21" text-anchor="middle" fill="${color}" font-size="10" font-weight="700" font-family="sans-serif" letter-spacing="0.5">${displayLabel}</text>
+    <polygon points="${width / 2 - 5},31 ${width / 2 + 5},31 ${width / 2},42" fill="${color}"/>
+  </svg>`;
+  return L.divIcon({ html: svg, className: '', iconSize: [width, 44], iconAnchor: [width / 2, 42] });
+}
+
 const layers: { key: LayerKey; label: string; icon: React.ReactNode; color: string }[] = [
   { key: 'technicians', label: 'Technicians', icon: <Users size={11} />, color: '#38D98A' },
   { key: 'incidents', label: 'Incidents', icon: <AlertTriangle size={11} />, color: '#FF4B4B' },
@@ -327,40 +345,38 @@ function FailureDetail({ data, onToast, onClose }: { data: typeof mockPredictedF
   );
 }
 
-const ALL_CLIENTS_CENTER: L.LatLngTuple = [25.1175, 55.3775];
-const ALL_CLIENTS_ZOOM = 14;
-
 interface MapViewControllerProps {
   filterClientId: string;
-  incidents: Incident[];
+  clients: import('@/data/mockData').PortfolioClient[];
 }
 
-function MapViewController({ filterClientId, incidents }: MapViewControllerProps) {
+function MapViewController({ filterClientId, clients }: MapViewControllerProps) {
   const map = useMap();
 
   useEffect(() => {
     if (!filterClientId) {
-      map.flyTo(ALL_CLIENTS_CENTER, ALL_CLIENTS_ZOOM, { animate: true, duration: 1.2 });
+      const validClients = clients.filter(c => c.lat != null && c.lng != null);
+      if (validClients.length === 0) return;
+      if (validClients.length === 1) {
+        map.flyTo([validClients[0].lat, validClients[0].lng], 14, { animate: true, duration: 1.2 });
+        return;
+      }
+      const bounds = L.latLngBounds(validClients.map(c => [c.lat, c.lng] as L.LatLngTuple));
+      map.flyToBounds(bounds, { padding: [80, 80], animate: true, duration: 1.2 });
       return;
     }
 
-    const clientIncidents = incidents.filter(
-      inc => inc.clientId === filterClientId && inc.lat != null && inc.lng != null,
-    );
-
-    if (clientIncidents.length === 0) {
-      map.flyTo(ALL_CLIENTS_CENTER, ALL_CLIENTS_ZOOM, { animate: true, duration: 1.2 });
-      return;
+    const client = clients.find(c => c.id === filterClientId);
+    if (client && client.lat != null && client.lng != null) {
+      map.flyTo([client.lat, client.lng], 14, { animate: true, duration: 1.2 });
+    } else {
+      const validClients = clients.filter(c => c.lat != null && c.lng != null);
+      if (validClients.length > 0) {
+        const bounds = L.latLngBounds(validClients.map(c => [c.lat!, c.lng!] as L.LatLngTuple));
+        map.flyToBounds(bounds, { padding: [80, 80], animate: true, duration: 1.2 });
+      }
     }
-
-    if (clientIncidents.length === 1) {
-      map.flyTo([clientIncidents[0].lat!, clientIncidents[0].lng!], 16, { animate: true, duration: 1.2 });
-      return;
-    }
-
-    const bounds = L.latLngBounds(clientIncidents.map(inc => [inc.lat!, inc.lng!] as L.LatLngTuple));
-    map.flyToBounds(bounds, { padding: [60, 60], animate: true, duration: 1.2 });
-  }, [filterClientId, incidents, map]);
+  }, [filterClientId, clients, map]);
 
   return null;
 }
@@ -443,7 +459,17 @@ export function CommunityMap({ onToast, selectedClientId }: Props) {
           maxZoom={20}
         />
 
-        <MapViewController filterClientId={filterClientId} incidents={contextIncidents} />
+        <MapViewController filterClientId={filterClientId} clients={clients} />
+
+        {clients
+          .filter(c => c.lat != null && c.lng != null && (!filterClientId || c.id === filterClientId))
+          .map(c => (
+            <Marker
+              key={`client-${c.id}`}
+              position={[c.lat, c.lng]}
+              icon={createClientMarkerIcon(c.name, c.riskLevel, c.marketLabel)}
+            />
+          ))}
 
         {activeLayers.slaZones && mockSLAZones.map(zone => (
           <Circle
@@ -515,7 +541,9 @@ export function CommunityMap({ onToast, selectedClientId }: Props) {
       <div className="absolute top-3 left-3 z-[400] flex flex-col gap-2">
         <div className="flex items-center gap-2 bg-[rgba(10,22,40,0.85)] border border-[rgba(46,127,255,0.3)] rounded-full px-3 py-1 backdrop-blur-md">
           <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span className="text-[11px] text-[#EEF3FA] font-semibold tracking-wide">SILICON OASIS — LIVE</span>
+          <span className="text-[11px] text-[#EEF3FA] font-semibold tracking-wide">
+            {focusedClient ? (focusedClient.marketLabel ?? focusedClient.name).toUpperCase() + ' — LIVE' : 'ALL CLIENTS — LIVE'}
+          </span>
         </div>
         <select
           value={filterClientId}
@@ -584,10 +612,13 @@ export function CommunityMap({ onToast, selectedClientId }: Props) {
 
       <div className="absolute bottom-3 right-3 z-[400] bg-[rgba(10,22,40,0.9)] border border-[rgba(46,127,255,0.2)] rounded-lg px-3 py-2 backdrop-blur-md">
         <div className="text-[10px] text-[#7A94B4] space-y-1">
-          <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" /> Available</div>
-          <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-400 inline-block" /> On Job</div>
-          <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-blue-400 inline-block" /> En Route</div>
-          <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-400 inline-block" /> Overdue</div>
+          <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded bg-blue-400 inline-block" /> Client Market</div>
+          <div className="mt-1 pt-1 border-t border-[rgba(46,127,255,0.15)]">
+            <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" /> Available</div>
+            <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-400 inline-block" /> On Job</div>
+            <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-blue-400 inline-block" /> En Route</div>
+            <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-400 inline-block" /> Overdue</div>
+          </div>
           <div className="mt-1 pt-1 border-t border-[rgba(46,127,255,0.15)]">
             <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" /> Critical</div>
             <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-500 inline-block" /> Medium</div>

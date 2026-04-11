@@ -63,6 +63,9 @@ function mergeApiDataWithMock(apiClients: Record<string, unknown>[]): PortfolioC
         equipment: [],
       },
       contract: mergedContract,
+      lat: (() => { const v = Number(apiClient['lat']); return isFinite(v) && v !== 0 ? v : undefined; })() ?? mockMatch?.lat,
+      lng: (() => { const v = Number(apiClient['lng']); return isFinite(v) && v !== 0 ? v : undefined; })() ?? mockMatch?.lng,
+      marketLabel: (apiClient['marketLabel'] as string | undefined) ?? mockMatch?.marketLabel,
     };
   });
 }
