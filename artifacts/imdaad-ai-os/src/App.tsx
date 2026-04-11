@@ -33,6 +33,7 @@ function App() {
   const [activeMember,   setActiveMember]    = useState<MockMemberProfile | null>(null);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [incidentsClientId, setIncidentsClientId] = useState<string | undefined>(undefined);
+  const [initialIncidentId, setInitialIncidentId] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     const memberId = getMemberIdFromUrl();
@@ -61,7 +62,14 @@ function App() {
   };
 
   const handleNavigateToIncidents = (clientId: string) => {
+    setInitialIncidentId(undefined);
     setIncidentsClientId(clientId);
+    setStrategicPage('incidents');
+  };
+
+  const handleNavigateToIncident = (incidentId: string) => {
+    setInitialIncidentId(incidentId);
+    setIncidentsClientId(undefined);
     setStrategicPage('incidents');
   };
 
@@ -102,7 +110,7 @@ function App() {
         <Sidebar
           perspective={perspective}
           strategicPage={strategicPage}
-          onStrategicPageChange={page => { if (page === 'incidents') setIncidentsClientId(undefined); setStrategicPage(page); }}
+          onStrategicPageChange={page => { if (page === 'incidents') { setIncidentsClientId(undefined); setInitialIncidentId(undefined); } setStrategicPage(page); }}
           onToast={msg => addToast(msg, 'info')}
         />
         <main className="flex-1 overflow-hidden relative">
@@ -115,7 +123,7 @@ function App() {
               transition={{ duration: 0.2, ease: 'easeInOut' }}
               className="absolute inset-0 flex flex-col"
             >
-              {perspective === 'strategic'  && <StrategicView onToast={addToast} page={strategicPage} onClientSelect={handleClientSelect} selectedClientId={selectedClientId} onNavigateToIncidents={handleNavigateToIncidents} onNavigateToCommand={handleNavigateToCommand} incidentsClientId={incidentsClientId} />}
+              {perspective === 'strategic'  && <StrategicView onToast={addToast} page={strategicPage} onClientSelect={handleClientSelect} selectedClientId={selectedClientId} onNavigateToIncidents={handleNavigateToIncidents} onNavigateToCommand={handleNavigateToCommand} incidentsClientId={incidentsClientId} onNavigateToIncident={handleNavigateToIncident} initialIncidentId={initialIncidentId} onInitialIncidentHandled={() => setInitialIncidentId(undefined)} />}
               {perspective === 'operational' && <OperationalView onToast={addToast} />}
               {perspective === 'client'      && <ClientView onToast={addToast} />}
             </motion.div>

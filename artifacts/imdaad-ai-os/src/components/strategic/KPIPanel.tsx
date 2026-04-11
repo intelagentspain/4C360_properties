@@ -17,9 +17,10 @@ interface KPI {
 
 interface Props {
   onToast?: ToastFn;
+  onNavigateToIncident?: (incidentId: string) => void;
 }
 
-export function KPIPanel({ onToast }: Props) {
+export function KPIPanel({ onToast, onNavigateToIncident }: Props) {
   const { incidents } = useIncidents();
   const [activeKpi, setActiveKpi] = useState<string | null>(null);
   const [hoveredKpi, setHoveredKpi] = useState<string | null>(null);
@@ -137,7 +138,25 @@ export function KPIPanel({ onToast }: Props) {
                 >
                   <div className="bg-[#0A1628] border border-[rgba(46,127,255,0.2)] rounded-lg px-3 py-2">
                     <p className="text-[10px] text-[#7A94B4]">{kpi.tooltip}</p>
-                    <p className="text-[11px] text-[#EEF3FA] font-medium mt-1">{kpi.detail}</p>
+                    {kpi.label === 'Critical Incidents' && onNavigateToIncident ? (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {kpi.detail === 'None' ? (
+                          <span className="text-[11px] text-[#EEF3FA] font-medium">None</span>
+                        ) : (
+                          kpi.detail.split(', ').map(id => id.trim()).filter(Boolean).map(id => (
+                            <button
+                              key={id}
+                              onClick={e => { e.stopPropagation(); onNavigateToIncident(id); }}
+                              className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-500/15 border border-blue-500/30 text-blue-300 hover:bg-blue-500/30 hover:text-blue-100 hover:border-blue-400/60 transition-all duration-100 underline-offset-2 hover:underline cursor-pointer"
+                            >
+                              {id}
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-[#EEF3FA] font-medium mt-1">{kpi.detail}</p>
+                    )}
                   </div>
                 </motion.div>
               )}

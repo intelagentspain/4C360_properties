@@ -31,9 +31,12 @@ interface Props {
   onNavigateToIncidents: (clientId: string) => void;
   onNavigateToCommand: (clientId: string) => void;
   incidentsClientId?: string;
+  onNavigateToIncident?: (incidentId: string) => void;
+  initialIncidentId?: string;
+  onInitialIncidentHandled?: () => void;
 }
 
-function Dashboard({ onToast, selectedClientId }: { onToast: ToastFn; selectedClientId: string | null }) {
+function Dashboard({ onToast, selectedClientId, onNavigateToIncident }: { onToast: ToastFn; selectedClientId: string | null; onNavigateToIncident?: (incidentId: string) => void }) {
   const [mode, setMode] = useState<AutomationMode>('hybrid');
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -49,7 +52,7 @@ function Dashboard({ onToast, selectedClientId }: { onToast: ToastFn; selectedCl
           </div>
         </div>
         <div className="flex-[38] p-3 pl-1.5 overflow-y-auto custom-scrollbar">
-          <KPIPanel onToast={onToast} />
+          <KPIPanel onToast={onToast} onNavigateToIncident={onNavigateToIncident} />
           <SmartDispatchPanel onToast={onToast} />
           <AIInsightsPanel onToast={onToast} />
           <PPMRiskPanel onToast={onToast} />
@@ -60,7 +63,7 @@ function Dashboard({ onToast, selectedClientId }: { onToast: ToastFn; selectedCl
   );
 }
 
-export function StrategicView({ onToast, page, onClientSelect, selectedClientId, onNavigateToIncidents, onNavigateToCommand, incidentsClientId }: Props) {
+export function StrategicView({ onToast, page, onClientSelect, selectedClientId, onNavigateToIncidents, onNavigateToCommand, incidentsClientId, onNavigateToIncident, initialIncidentId, onInitialIncidentHandled }: Props) {
   const [dispatchSettings, setDispatchSettings] = useState<DispatchSettings>(initialDispatchSettings);
 
   const motionKey = page === 'incidents' && incidentsClientId ? `incidents-${incidentsClientId}` : page;
@@ -75,11 +78,11 @@ export function StrategicView({ onToast, page, onClientSelect, selectedClientId,
         transition={{ duration: 0.18 }}
         className="absolute inset-0 flex flex-col"
       >
-        {page === 'dashboard'   && <Dashboard     onToast={onToast} selectedClientId={selectedClientId} />}
+        {page === 'dashboard'   && <Dashboard     onToast={onToast} selectedClientId={selectedClientId} onNavigateToIncident={onNavigateToIncident} />}
         {page === 'datasources' && <DataSources   onToast={onToast} />}
         {page === 'benchmark'   && <Benchmark     onToast={onToast} />}
         {page === 'replay'      && <Replay        onToast={onToast} />}
-        {page === 'incidents'   && <Incidents     onToast={onToast} initialClientId={incidentsClientId} />}
+        {page === 'incidents'   && <Incidents     onToast={onToast} initialClientId={incidentsClientId} initialIncidentId={initialIncidentId} onInitialIncidentHandled={onInitialIncidentHandled} />}
         {page === 'tasks'       && <Tasks         onToast={onToast} />}
         {page === 'ppmschedule' && <PPMSchedule   onToast={onToast} />}
         {page === 'aicapture'   && <AICapture     onToast={onToast} />}

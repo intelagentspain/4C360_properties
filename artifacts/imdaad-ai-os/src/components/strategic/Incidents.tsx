@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   AlertTriangle, X, Search, User, Clock, CheckCircle,
@@ -1480,7 +1480,7 @@ function NewIncidentModal({ onClose, onSubmit }: { onClose: () => void; onSubmit
   );
 }
 
-interface Props { onToast: ToastFn; initialClientId?: string }
+interface Props { onToast: ToastFn; initialClientId?: string; initialIncidentId?: string; onInitialIncidentHandled?: () => void }
 
 type SortKey = 'severity' | 'sla' | 'status' | 'none';
 type SortDir = 'asc' | 'desc';
@@ -1488,7 +1488,7 @@ type SortDir = 'asc' | 'desc';
 const SEVERITY_ORDER: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
 const STATUS_ORDER: Record<string, number>   = { overdue: 0, 'in-progress': 1, open: 2, dispatched: 3, assigned: 4, closed: 5 };
 
-export function Incidents({ onToast, initialClientId }: Props) {
+export function Incidents({ onToast, initialClientId, initialIncidentId, onInitialIncidentHandled }: Props) {
   const { incidents, addIncident, createWorkOrder } = useIncidents();
   const [search,      setSearch]      = useState('');
   const [severity,    setSeverity]    = useState('All');
@@ -1502,6 +1502,20 @@ export function Incidents({ onToast, initialClientId }: Props) {
   const [sortDir,     setSortDir]     = useState<SortDir>('asc');
   const [showModal,   setShowModal]   = useState(false);
   const [woModalFor,  setWoModalFor]  = useState<Incident | null>(null);
+  const handledRef = useRef(false);
+
+  useEffect(() => {
+    if (!initialIncidentId || handledRef.current) return;
+    const inc = incidents.find(i => i.id === initialIncidentId);
+    if (inc) {
+      openIncident(inc);
+      handledRef.current = true;
+      onInitialIncidentHandled?.();
+    } else if (incidents.length > 0) {
+      handledRef.current = true;
+      onInitialIncidentHandled?.();
+    }
+  }, [initialIncidentId, incidents]);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
