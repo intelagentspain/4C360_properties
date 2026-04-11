@@ -109,16 +109,32 @@ async function fetchConnectorCredentials(): Promise<{ apiKey: string; fromEmail:
 
   const extracted = extractApiKeyFromResponse(parsed);
   if (!extracted) {
-    const topLevelKeys =
-      typeof parsed === "object" && parsed !== null ? Object.keys(parsed as object) : [];
-    logger.warn(
-      { topLevelKeys },
-      "Resend connector response shape unrecognized — no api_key found"
-    );
+    const obj = parsed as Record<string, unknown>;
+    const total = typeof obj.total === "number" ? obj.total : -1;
+    if (total === 0) {
+      logger.debug("Resend connector has no active connection — falling back to RESEND_API_KEY env var");
+    } else {
+      const topLevelKeys =
+        typeof parsed === "object" && parsed !== null ? Object.keys(parsed as object) : [];
+      logger.warn(
+        { topLevelKeys },
+        "Resend connector response shape unrecognized — no api_key found"
+      );
+    }
     return null;
   }
 
   return extracted;
+}
+
+async function validateApiKey(apiKey: string): Promise<boolean> {
+  try {
+    const client = new Resend(apiKey);
+    const { error } = await client.apiKeys.list();
+    return !error;
+  } catch {
+    return false;
+  }
 }
 
 async function getResendClient(): Promise<{ client: Resend; fromEmail: string } | null> {
@@ -151,40 +167,56 @@ async function getResendClient(): Promise<{ client: Resend; fromEmail: string } 
 }
 
 export async function ensureResendConfigured(): Promise<void> {
-  if (process.env.RESEND_API_KEY) return;
-
   try {
     const creds = await fetchConnectorCredentials();
     if (creds) {
       process.env.RESEND_API_KEY = creds.apiKey;
-      logger.info("Resend API key loaded from connector and stored to process env");
+      logger.info("Resend API key loaded from connector — overrides env var");
+      return;
     }
   } catch (err) {
     logger.warn({ err }, "Could not load Resend credentials from connector");
   }
+
+  if (!process.env.RESEND_API_KEY) {
+    logger.warn(
+      "Resend is not configured — set RESEND_API_KEY secret or connect the Resend integration. Email sending will fail."
+    );
+  }
 }
 
 export async function checkEmailConfig(): Promise<void> {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (apiKey) {
-    logger.info("Resend configured via RESEND_API_KEY environment secret");
-    return;
-  }
+  let apiKey: string | undefined;
 
   try {
     const creds = await fetchConnectorCredentials();
     if (creds) {
-      process.env.RESEND_API_KEY = creds.apiKey;
-      logger.info(
-        "Resend configured — API key obtained from connector and persisted to RESEND_API_KEY for this process"
-      );
-    } else {
-      logger.warn(
-        "Resend is not configured — set RESEND_API_KEY secret or connect the Resend integration. Email sending will fail."
-      );
+      apiKey = creds.apiKey;
+      process.env.RESEND_API_KEY = apiKey;
+      logger.info("Resend API key obtained from connector");
     }
   } catch (err) {
-    logger.warn({ err }, "Unable to verify Resend configuration at startup");
+    logger.warn({ err }, "Unable to fetch Resend credentials from connector at startup");
+  }
+
+  if (!apiKey) {
+    apiKey = process.env.RESEND_API_KEY;
+  }
+
+  if (!apiKey) {
+    logger.warn(
+      "Resend is not configured — set RESEND_API_KEY secret or connect the Resend integration. Email sending will fail."
+    );
+    return;
+  }
+
+  const valid = await validateApiKey(apiKey);
+  if (valid) {
+    logger.info("Resend API key verified — email delivery is operational");
+  } else {
+    logger.error(
+      "Resend API key is invalid — email sending will fail. Update the RESEND_API_KEY secret with a valid key from https://resend.com/api-keys"
+    );
   }
 }
 
