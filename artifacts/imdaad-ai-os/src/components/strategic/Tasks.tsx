@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   CheckSquare, X, Search, ChevronRight, FileImage,
@@ -8,6 +8,7 @@ import { mockKanbanTasks } from '@/data/mockData';
 import { SEVERITY_BADGE, PRIORITY_DOT, TASK_STATUS_COLOR, slaStatus, type ToastFn } from '@/lib/ui';
 import { AnimatedBar } from '@/components/shared/AnimatedBar';
 import { TechAvatar } from '@/components/shared/TechAvatar';
+import type { PPMRiskPayload } from './PPMRiskPanel';
 
 type KTask = typeof mockKanbanTasks[0];
 
@@ -59,6 +60,46 @@ const DRAWER_ACTIONS: Record<string, { label: string; color: string; bg: string 
   closed:            [],
 };
 
+const RISK_TO_PRIORITY: Record<string, string> = {
+  overdue: 'critical',
+  critical: 'critical',
+  high: 'high',
+  medium: 'medium',
+  low: 'low',
+};
+
+const RISK_TO_SKILL: Record<string, string> = {
+  HVAC: 'HVAC',
+  Plumbing: 'Plumbing',
+  Electrical: 'Electrical',
+  Safety: 'Safety',
+  Lift: 'General',
+};
+
+function buildSyntheticTask(risk: PPMRiskPayload): KTask {
+  const priority = RISK_TO_PRIORITY[risk.riskLevel] ?? 'medium';
+  const typeWords = risk.type.split(' ');
+  const skill = RISK_TO_SKILL[typeWords[typeWords.length - 1]] ?? RISK_TO_SKILL[typeWords[0]] ?? 'General';
+  const dueLabel = risk.daysUntilDue <= 0
+    ? `Overdue by ${Math.abs(risk.daysUntilDue)}d`
+    : `Due in ${risk.daysUntilDue}d`;
+  return {
+    id: `PPM-${risk.id}`,
+    title: risk.type,
+    asset: risk.asset,
+    location: risk.asset,
+    skill: skill as KTask['skill'],
+    priority: priority as KTask['priority'],
+    status: 'new' as KTask['status'],
+    tech: null,
+    slaMinutes: risk.daysUntilDue > 0 ? risk.daysUntilDue * 24 * 60 : 60,
+    elapsed: 0,
+    reportedBy: 'PPM Risk Engine',
+    evidence: [],
+    _dueLabel: dueLabel,
+  } as KTask & { _dueLabel: string };
+}
+
 function SLAChip({ task }: { task: KTask }) {
   const sla = slaStatus(task.elapsed, task.slaMinutes);
   if (task.status === 'closed') return <span className="text-[9px] text-emerald-400 font-semibold">SLA Met</span>;
@@ -69,17 +110,51 @@ function SLAChip({ task }: { task: KTask }) {
   );
 }
 
-interface Props { onToast: ToastFn }
+interface Props {
+  onToast: ToastFn;
+  prefilledTask?: PPMRiskPayload | null;
+  onPrefilledTaskConsumed?: () => void;
+}
 
-export function Tasks({ onToast }: Props) {
+export function Tasks({ onToast, prefilledTask, onPrefilledTaskConsumed }: Props) {
   const [search,    setSearch]    = useState('');
   const [status,    setStatus]    = useState('All');
   const [priority,  setPriority]  = useState('All');
   const [skill,     setSkill]     = useState('All');
   const [tech,      setTech]      = useState('All');
   const [selected,  setSelected]  = useState<KTask | null>(null);
+  const [syntheticTasks, setSyntheticTasks] = useState<(KTask & { _dueLabel?: string })[]>([]);
+  const lastPrefilledId = useRef<string | null>(null);
 
-  const filtered = mockKanbanTasks.filter(t => {
+  useEffect(() => {
+    if (!prefilledTask) return;
+    const taskId = `PPM-${prefilledTask.id}`;
+    if (lastPrefilledId.current === taskId) {
+      const existing = syntheticTasks.find(t => t.id === taskId);
+      if (existing) {
+        setSelected(existing);
+      }
+      onPrefilledTaskConsumed?.();
+      return;
+    }
+    lastPrefilledId.current = taskId;
+    const synthetic = buildSyntheticTask(prefilledTask);
+    setSyntheticTasks(prev => {
+      const without = prev.filter(t => t.id !== synthetic.id);
+      return [synthetic, ...without];
+    });
+    setSearch('');
+    setStatus('All');
+    setPriority('All');
+    setSkill('All');
+    setTech('All');
+    setSelected(synthetic);
+    onPrefilledTaskConsumed?.();
+  }, [prefilledTask]);
+
+  const allTasks = [...syntheticTasks, ...mockKanbanTasks];
+
+  const filtered = allTasks.filter(t => {
     if (status   !== 'All' && t.status   !== status)   return false;
     if (priority !== 'All' && t.priority !== priority) return false;
     if (skill    !== 'All' && t.skill    !== skill)    return false;
@@ -92,11 +167,11 @@ export function Tasks({ onToast }: Props) {
   });
 
   const kpiData = [
-    { label: 'Total',    value: mockKanbanTasks.length,                                           color: 'text-[#EEF3FA]' },
-    { label: 'New',      value: mockKanbanTasks.filter(t => t.status === 'new').length,           color: 'text-[#7A94B4]' },
-    { label: 'Active',   value: mockKanbanTasks.filter(t => ['assigned','in-progress'].includes(t.status)).length, color: 'text-blue-400' },
-    { label: 'Overdue',  value: mockKanbanTasks.filter(t => t.status === 'overdue').length,       color: 'text-red-400' },
-    { label: 'Closed',   value: mockKanbanTasks.filter(t => t.status === 'closed').length,        color: 'text-emerald-400' },
+    { label: 'Total',    value: allTasks.length,                                                color: 'text-[#EEF3FA]' },
+    { label: 'New',      value: allTasks.filter(t => t.status === 'new').length,                color: 'text-[#7A94B4]' },
+    { label: 'Active',   value: allTasks.filter(t => ['assigned','in-progress'].includes(t.status)).length, color: 'text-blue-400' },
+    { label: 'Overdue',  value: allTasks.filter(t => t.status === 'overdue').length,            color: 'text-red-400' },
+    { label: 'Closed',   value: allTasks.filter(t => t.status === 'closed').length,             color: 'text-emerald-400' },
   ];
 
   return (
@@ -104,7 +179,7 @@ export function Tasks({ onToast }: Props) {
       <div className="flex items-center justify-between px-5 py-3 border-b border-[rgba(46,127,255,0.15)] flex-shrink-0">
         <div>
           <h2 className="text-[#EEF3FA] font-bold text-base" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Work Orders</h2>
-          <p className="text-[11px] text-[#7A94B4]">All field tasks · Silicon Oasis · {mockKanbanTasks.length} work orders</p>
+          <p className="text-[11px] text-[#7A94B4]">All field tasks · Silicon Oasis · {allTasks.length} work orders</p>
         </div>
         <div className="flex items-center gap-2">
           {kpiData.map(k => (
@@ -168,18 +243,20 @@ export function Tasks({ onToast }: Props) {
             {filtered.map(task => {
               const isSelected = selected?.id === task.id;
               const sla = slaStatus(task.elapsed, task.slaMinutes);
+              const isPPM = task.id.startsWith('PPM-');
               return (
                 <motion.button
                   key={task.id}
                   onClick={() => setSelected(isSelected ? null : task)}
                   whileTap={{ scale: 0.995 }}
-                  className={`w-full text-left px-5 py-3 border-b border-[rgba(46,127,255,0.08)] hover:bg-white/[0.02] transition-all ${isSelected ? 'bg-[rgba(46,127,255,0.08)]' : ''}`}
+                  className={`w-full text-left px-5 py-3 border-b border-[rgba(46,127,255,0.08)] hover:bg-white/[0.02] transition-all ${isSelected ? 'bg-[rgba(46,127,255,0.08)]' : ''} ${isPPM ? 'border-l-2 border-l-amber-500/50' : ''}`}
                 >
                   <div className="grid grid-cols-[2.5fr_1.5fr_1fr_1.5fr_1.2fr_1fr] items-center gap-2">
                     <div>
                       <div className="flex items-center gap-1.5 mb-0.5">
                         <div className={`w-2 h-2 rounded-full flex-shrink-0 ${PRIORITY_DOT[task.priority]}`} />
                         <span className="text-[12px] text-[#EEF3FA] font-semibold">{task.title}</span>
+                        {isPPM && <span className="text-[9px] text-amber-400 font-bold border border-amber-500/40 bg-amber-500/10 px-1 rounded">PPM</span>}
                       </div>
                       <div className="text-[9px] text-[#7A94B4] flex items-center gap-1.5 pl-3.5">
                         <span className={`text-[9px] font-bold px-1 py-0.5 rounded border ${SKILL_COLOR[task.skill]}`}>{task.skill}</span>
@@ -250,6 +327,9 @@ export function Tasks({ onToast }: Props) {
                     <div className={`w-2 h-2 rounded-full ${PRIORITY_DOT[selected.priority]}`} />
                     <span className={`text-[9px] font-bold capitalize px-1.5 py-0.5 rounded border ${SEVERITY_BADGE[selected.priority]}`}>{selected.priority}</span>
                     <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${SKILL_COLOR[selected.skill]}`}>{selected.skill}</span>
+                    {selected.id.startsWith('PPM-') && (
+                      <span className="text-[9px] text-amber-400 font-bold border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 rounded">PPM DRAFT</span>
+                    )}
                   </div>
                   <div className="text-[#EEF3FA] font-bold text-sm">{selected.title}</div>
                   <div className="text-[10px] text-[#7A94B4]">{selected.location}</div>
@@ -260,13 +340,31 @@ export function Tasks({ onToast }: Props) {
               </div>
 
               <div className="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-4">
+                {selected.id.startsWith('PPM-') && (
+                  <div className="flex items-start gap-2 p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl">
+                    <Clock size={14} className="text-amber-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <div className="text-[11px] text-amber-400 font-semibold mb-0.5">PPM Draft — Review before finalising</div>
+                      <div className="text-[10px] text-[#7A94B4]">Pre-filled from Predictive AI Risk Engine. Assign a technician and confirm to create this work order.</div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-2">
                   {[
                     { label: 'Task ID',     value: selected.id },
                     { label: 'Asset',       value: selected.asset },
                     { label: 'Reported By', value: selected.reportedBy },
-                    { label: 'SLA Window',  value: `${selected.slaMinutes} min` },
-                    { label: 'Elapsed',     value: `${selected.elapsed} min` },
+                    ...(selected.id.startsWith('PPM-') && (selected as KTask & { _dueLabel?: string })._dueLabel
+                      ? [
+                          { label: 'Due Date',    value: (selected as KTask & { _dueLabel?: string })._dueLabel! },
+                          { label: 'Risk Level',  value: selected.priority.toUpperCase() },
+                        ]
+                      : [
+                          { label: 'SLA Window',  value: `${selected.slaMinutes} min` },
+                          { label: 'Elapsed',     value: `${selected.elapsed} min` },
+                        ]
+                    ),
                     { label: 'Evidence',    value: selected.evidence.length > 0 ? `${selected.evidence.length} file(s)` : 'None submitted' },
                   ].map(r => (
                     <div key={r.label} className="bg-[#112040] rounded-lg p-2.5">

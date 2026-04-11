@@ -4,6 +4,7 @@ import { CommunityMap } from './CommunityMap';
 import { IntegrationBanner } from './IntegrationBanner';
 import { KPIPanel } from './KPIPanel';
 import { PPMRiskPanel } from './PPMRiskPanel';
+import type { PPMRiskPayload } from './PPMRiskPanel';
 import { DispatchQueue } from './DispatchQueue';
 import { CommandBar, AutomationMode } from './CommandBar';
 import { LivePulseFeed } from './LivePulseFeed';
@@ -34,9 +35,21 @@ interface Props {
   onNavigateToIncident?: (incidentId: string) => void;
   initialIncidentId?: string;
   onInitialIncidentHandled?: () => void;
+  onNavigateToTasks: (risk: PPMRiskPayload) => void;
+  onMarkPPMCreated: (risk: PPMRiskPayload) => void;
+  ppmCreatedTasks: Record<string, PPMRiskPayload>;
+  prefilledTask?: PPMRiskPayload | null;
+  onPrefilledTaskConsumed?: () => void;
 }
 
-function Dashboard({ onToast, selectedClientId, onNavigateToIncident }: { onToast: ToastFn; selectedClientId: string | null; onNavigateToIncident?: (incidentId: string) => void }) {
+function Dashboard({ onToast, selectedClientId, onNavigateToIncident, onNavigateToTasks, onMarkPPMCreated, ppmCreatedTasks }: {
+  onToast: ToastFn;
+  selectedClientId: string | null;
+  onNavigateToIncident?: (incidentId: string) => void;
+  onNavigateToTasks: (risk: PPMRiskPayload) => void;
+  onMarkPPMCreated: (risk: PPMRiskPayload) => void;
+  ppmCreatedTasks: Record<string, PPMRiskPayload>;
+}) {
   const [mode, setMode] = useState<AutomationMode>('hybrid');
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -55,7 +68,11 @@ function Dashboard({ onToast, selectedClientId, onNavigateToIncident }: { onToas
           <KPIPanel onToast={onToast} onNavigateToIncident={onNavigateToIncident} />
           <SmartDispatchPanel onToast={onToast} />
           <AIInsightsPanel onToast={onToast} />
-          <PPMRiskPanel onToast={onToast} />
+          <PPMRiskPanel
+            onNavigateToWorkOrders={onNavigateToTasks}
+            createdTasks={ppmCreatedTasks}
+            onMarkCreated={onMarkPPMCreated}
+          />
           <DispatchQueue onToast={onToast} />
         </div>
       </div>
@@ -63,7 +80,7 @@ function Dashboard({ onToast, selectedClientId, onNavigateToIncident }: { onToas
   );
 }
 
-export function StrategicView({ onToast, page, onClientSelect, selectedClientId, onNavigateToIncidents, onNavigateToCommand, incidentsClientId, onNavigateToIncident, initialIncidentId, onInitialIncidentHandled }: Props) {
+export function StrategicView({ onToast, page, onClientSelect, selectedClientId, onNavigateToIncidents, onNavigateToCommand, incidentsClientId, onNavigateToIncident, initialIncidentId, onInitialIncidentHandled, onNavigateToTasks, onMarkPPMCreated, ppmCreatedTasks, prefilledTask, onPrefilledTaskConsumed }: Props) {
   const [dispatchSettings, setDispatchSettings] = useState<DispatchSettings>(initialDispatchSettings);
 
   const motionKey = page === 'incidents' && incidentsClientId ? `incidents-${incidentsClientId}` : page;
@@ -78,12 +95,12 @@ export function StrategicView({ onToast, page, onClientSelect, selectedClientId,
         transition={{ duration: 0.18 }}
         className="absolute inset-0 flex flex-col"
       >
-        {page === 'dashboard'   && <Dashboard     onToast={onToast} selectedClientId={selectedClientId} onNavigateToIncident={onNavigateToIncident} />}
+        {page === 'dashboard'   && <Dashboard     onToast={onToast} selectedClientId={selectedClientId} onNavigateToIncident={onNavigateToIncident} onNavigateToTasks={onNavigateToTasks} onMarkPPMCreated={onMarkPPMCreated} ppmCreatedTasks={ppmCreatedTasks} />}
         {page === 'datasources' && <DataSources   onToast={onToast} />}
         {page === 'benchmark'   && <Benchmark     onToast={onToast} />}
         {page === 'replay'      && <Replay        onToast={onToast} />}
         {page === 'incidents'   && <Incidents     onToast={onToast} initialClientId={incidentsClientId} initialIncidentId={initialIncidentId} onInitialIncidentHandled={onInitialIncidentHandled} />}
-        {page === 'tasks'       && <Tasks         onToast={onToast} />}
+        {page === 'tasks'       && <Tasks         onToast={onToast} prefilledTask={prefilledTask} onPrefilledTaskConsumed={onPrefilledTaskConsumed} />}
         {page === 'ppmschedule' && <PPMSchedule   onToast={onToast} />}
         {page === 'aicapture'   && <AICapture     onToast={onToast} />}
         {page === 'settings'    && (

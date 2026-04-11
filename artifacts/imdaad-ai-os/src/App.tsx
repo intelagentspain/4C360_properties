@@ -10,6 +10,7 @@ import { ToastContainer } from '@/components/shared/ToastContainer';
 import { useToast } from '@/hooks/useToast';
 import { useMemberProfiles } from '@/context/MemberProfilesContext';
 import type { MockMemberProfile } from '@/data/mockData';
+import type { PPMRiskPayload } from '@/components/strategic/PPMRiskPanel';
 
 export type Perspective = 'strategic' | 'operational' | 'client';
 export type StrategicPage = 'dashboard' | 'datasources' | 'benchmark' | 'replay' | 'incidents' | 'tasks' | 'ppmschedule' | 'aicapture' | 'settings' | 'allclients' | 'team';
@@ -34,6 +35,8 @@ function App() {
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [incidentsClientId, setIncidentsClientId] = useState<string | undefined>(undefined);
   const [initialIncidentId, setInitialIncidentId] = useState<string | undefined>(undefined);
+  const [prefilledTask, setPrefilledTask] = useState<PPMRiskPayload | null>(null);
+  const [ppmCreatedTasks, setPpmCreatedTasks] = useState<Record<string, PPMRiskPayload>>({});
 
   useEffect(() => {
     const memberId = getMemberIdFromUrl();
@@ -76,6 +79,15 @@ function App() {
   const handleNavigateToCommand = (clientId: string) => {
     setSelectedClientId(clientId);
     setStrategicPage('dashboard');
+  };
+
+  const handleNavigateToTasks = (risk: PPMRiskPayload) => {
+    setPrefilledTask(risk);
+    setStrategicPage('tasks');
+  };
+
+  const handleMarkPPMCreated = (risk: PPMRiskPayload) => {
+    setPpmCreatedTasks(prev => ({ ...prev, [risk.id]: risk }));
   };
 
   const handleDismissMemberView = () => {
@@ -123,7 +135,7 @@ function App() {
               transition={{ duration: 0.2, ease: 'easeInOut' }}
               className="absolute inset-0 flex flex-col"
             >
-              {perspective === 'strategic'  && <StrategicView onToast={addToast} page={strategicPage} onClientSelect={handleClientSelect} selectedClientId={selectedClientId} onNavigateToIncidents={handleNavigateToIncidents} onNavigateToCommand={handleNavigateToCommand} incidentsClientId={incidentsClientId} onNavigateToIncident={handleNavigateToIncident} initialIncidentId={initialIncidentId} onInitialIncidentHandled={() => setInitialIncidentId(undefined)} />}
+              {perspective === 'strategic'  && <StrategicView onToast={addToast} page={strategicPage} onClientSelect={handleClientSelect} selectedClientId={selectedClientId} onNavigateToIncidents={handleNavigateToIncidents} onNavigateToCommand={handleNavigateToCommand} incidentsClientId={incidentsClientId} onNavigateToIncident={handleNavigateToIncident} initialIncidentId={initialIncidentId} onInitialIncidentHandled={() => setInitialIncidentId(undefined)} onNavigateToTasks={handleNavigateToTasks} onMarkPPMCreated={handleMarkPPMCreated} ppmCreatedTasks={ppmCreatedTasks} prefilledTask={prefilledTask} onPrefilledTaskConsumed={() => setPrefilledTask(null)} />}
               {perspective === 'operational' && <OperationalView onToast={addToast} />}
               {perspective === 'client'      && <ClientView onToast={addToast} />}
             </motion.div>

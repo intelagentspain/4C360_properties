@@ -171,7 +171,7 @@ export function MemberDashboardView({ member, onToast, onDismiss }: Props) {
                 animate={{ opacity: 1 }}
                 className="absolute inset-0 flex flex-col"
               >
-                <StrategicView onToast={onToast} page={strategicPage} />
+                <StrategicView onToast={onToast} page={strategicPage} onClientSelect={() => {}} selectedClientId={null} onNavigateToIncidents={() => {}} onNavigateToCommand={() => {}} onNavigateToTasks={() => {}} onMarkPPMCreated={() => {}} ppmCreatedTasks={{}} />
               </motion.div>
             )}
             {member.perspective === 'Operational' && (
