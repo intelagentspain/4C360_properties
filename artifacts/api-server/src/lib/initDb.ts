@@ -153,12 +153,27 @@ async function ensureTablesExist(): Promise<void> {
       zones TEXT[] DEFAULT '{}',
       skills TEXT,
       responsibilities TEXT,
+      privileges TEXT[] DEFAULT '{}',
+      mobile TEXT,
+      whatsapp TEXT,
+      location TEXT,
+      availability TEXT,
+      shift TEXT,
+      comm_channels TEXT[] DEFAULT '{}',
       site_ids TEXT[] DEFAULT '{}',
       phone TEXT,
       created_at TIMESTAMP DEFAULT NOW(),
       updated_at TIMESTAMP DEFAULT NOW()
     )
   `);
+
+  await db.execute(sql`ALTER TABLE team_members ADD COLUMN IF NOT EXISTS privileges TEXT[] DEFAULT '{}'`);
+  await db.execute(sql`ALTER TABLE team_members ADD COLUMN IF NOT EXISTS mobile TEXT`);
+  await db.execute(sql`ALTER TABLE team_members ADD COLUMN IF NOT EXISTS whatsapp TEXT`);
+  await db.execute(sql`ALTER TABLE team_members ADD COLUMN IF NOT EXISTS location TEXT`);
+  await db.execute(sql`ALTER TABLE team_members ADD COLUMN IF NOT EXISTS availability TEXT`);
+  await db.execute(sql`ALTER TABLE team_members ADD COLUMN IF NOT EXISTS shift TEXT`);
+  await db.execute(sql`ALTER TABLE team_members ADD COLUMN IF NOT EXISTS comm_channels TEXT[] DEFAULT '{}'`);
 
   await db.execute(sql`
     CREATE TABLE IF NOT EXISTS incidents (
