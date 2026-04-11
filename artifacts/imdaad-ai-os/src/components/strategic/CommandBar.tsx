@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Search, Bell, ChevronDown, Zap, Bot, Hand, Plus, X, Building2, MapPin, FileText, User, Users, Sparkles, Loader2, MessageSquare } from 'lucide-react';
+import { Search, Bell, ChevronDown, Zap, Bot, Hand, Plus, X, Building2, MapPin, FileText, User, Users, Sparkles, Loader2, MessageSquare, BookOpen, DollarSign, Package } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMemberProfiles } from '@/context/MemberProfilesContext';
 import type { MockMemberProfile } from '@/data/mockData';
@@ -49,9 +49,9 @@ const INITIALS_COLORS = [
 ];
 
 const INITIAL_CLIENT_DATA: ClientData[] = [
-  { name: 'Silicon Oasis Authority', sector: 'Government', industrySubtype: '', contractType: 'FM Contract', contractStartDate: '', contractEndDate: '', slaTier: 'Gold', contractValue: '', numSites: '1', siteNames: ['Silicon Oasis'], totalAssets: '', assetCategories: [], assets: [], contactName: '', contactEmail: '', contactPhone: '', accountManager: '', initialsColor: '#2E7FFF' },
-  { name: 'Emaar', sector: 'Real Estate', industrySubtype: '', contractType: 'Integrated FM', contractStartDate: '', contractEndDate: '', slaTier: 'Platinum', contractValue: '', numSites: '1', siteNames: ['Downtown Dubai'], totalAssets: '', assetCategories: [], assets: [], contactName: '', contactEmail: '', contactPhone: '', accountManager: '', initialsColor: '#10B981' },
-  { name: 'DEWA', sector: 'Government', industrySubtype: '', contractType: 'Hard Services', contractStartDate: '', contractEndDate: '', slaTier: 'Gold', contractValue: '', numSites: '1', siteNames: ['HQ'], totalAssets: '', assetCategories: [], assets: [], contactName: '', contactEmail: '', contactPhone: '', accountManager: '', initialsColor: '#F59E0B' },
+  { name: 'Silicon Oasis Authority', sector: 'Government', industrySubtype: '', contractType: 'FM Contract', contractStartDate: '', contractEndDate: '', slaTier: 'Gold', contractValue: '', numSites: '1', siteNames: ['Silicon Oasis'], totalAssets: '', assetCategories: [], assets: [], contactName: '', contactEmail: '', contactPhone: '', accountManager: '', initialsColor: '#2E7FFF', knowledgeBaseNotes: '', knowledgeBaseDocs: [], budgetAnnual: '', budgetCurrency: 'AED', budgetCostCentre: '', budgetApprovalThreshold: '', budgetServiceLines: [], inventoryItems: [] },
+  { name: 'Emaar', sector: 'Real Estate', industrySubtype: '', contractType: 'Integrated FM', contractStartDate: '', contractEndDate: '', slaTier: 'Platinum', contractValue: '', numSites: '1', siteNames: ['Downtown Dubai'], totalAssets: '', assetCategories: [], assets: [], contactName: '', contactEmail: '', contactPhone: '', accountManager: '', initialsColor: '#10B981', knowledgeBaseNotes: '', knowledgeBaseDocs: [], budgetAnnual: '', budgetCurrency: 'AED', budgetCostCentre: '', budgetApprovalThreshold: '', budgetServiceLines: [], inventoryItems: [] },
+  { name: 'DEWA', sector: 'Government', industrySubtype: '', contractType: 'Hard Services', contractStartDate: '', contractEndDate: '', slaTier: 'Gold', contractValue: '', numSites: '1', siteNames: ['HQ'], totalAssets: '', assetCategories: [], assets: [], contactName: '', contactEmail: '', contactPhone: '', accountManager: '', initialsColor: '#F59E0B', knowledgeBaseNotes: '', knowledgeBaseDocs: [], budgetAnnual: '', budgetCurrency: 'AED', budgetCostCentre: '', budgetApprovalThreshold: '', budgetServiceLines: [], inventoryItems: [] },
 ];
 
 const CONTRACT_TYPES = ['FM Contract', 'Soft Services', 'Hard Services', 'Integrated FM', 'Consultancy'];
@@ -203,6 +203,28 @@ const INDUSTRY_SUBTYPE_ASSET_HINTS: Record<string, SubtypeHint> = {
   'Data Centre':        { defaultCondition: 'Excellent', ppmNote: 'N+1 redundancy required; no single-point-of-failure maintenance; 24/7 monitoring' },
 };
 
+export interface KnowledgeBaseDoc {
+  id: string;
+  title: string;
+  url: string;
+}
+
+export interface BudgetServiceLine {
+  id: string;
+  service: string;
+  allocated: string;
+  actual: string;
+}
+
+export interface InventoryItem {
+  id: string;
+  itemName: string;
+  category: string;
+  quantity: string;
+  unit: string;
+  site: string;
+}
+
 export interface ClientData {
   name: string;
   sector: string;
@@ -222,6 +244,14 @@ export interface ClientData {
   contactEmail: string;
   contactPhone: string;
   accountManager: string;
+  knowledgeBaseNotes: string;
+  knowledgeBaseDocs: KnowledgeBaseDoc[];
+  budgetAnnual: string;
+  budgetCurrency: string;
+  budgetCostCentre: string;
+  budgetApprovalThreshold: string;
+  budgetServiceLines: BudgetServiceLine[];
+  inventoryItems: InventoryItem[];
 }
 
 export type MemberPerspective = 'Strategic' | 'Operational' | 'Client';
@@ -366,12 +396,15 @@ function MultiSelectPill({
   );
 }
 
-type Tab = 'business' | 'sites' | 'team';
+type Tab = 'business' | 'sites' | 'team' | 'knowledge' | 'budget' | 'inventory';
 
 const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
-  { key: 'business', label: 'Business',  icon: <Building2 size={11} /> },
-  { key: 'sites',    label: 'Sites',     icon: <MapPin size={11} /> },
-  { key: 'team',     label: 'Team',      icon: <Users size={11} /> },
+  { key: 'business',  label: 'Business',       icon: <Building2 size={11} /> },
+  { key: 'sites',     label: 'Sites',           icon: <MapPin size={11} /> },
+  { key: 'team',      label: 'Team',            icon: <Users size={11} /> },
+  { key: 'knowledge', label: 'Knowledge Base',  icon: <BookOpen size={11} /> },
+  { key: 'budget',    label: 'Budget',          icon: <DollarSign size={11} /> },
+  { key: 'inventory', label: 'Inventory',       icon: <Package size={11} /> },
 ];
 
 const RBAC_PRIVILEGES = [
@@ -464,6 +497,17 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
   const [teamMembers, setTeamMembers]         = useState<TeamMember[]>([EMPTY_MEMBER()]);
   const [siteAssets, setSiteAssets]           = useState<Record<number, AssetRow[]>>({ 0: [] });
   const [staffSearch, setStaffSearch]         = useState('');
+
+  const [kbNotes, setKbNotes]                 = useState('');
+  const [kbDocs, setKbDocs]                   = useState<KnowledgeBaseDoc[]>([]);
+
+  const [budgetAnnual, setBudgetAnnual]               = useState('');
+  const [budgetCurrency, setBudgetCurrency]           = useState('AED');
+  const [budgetCostCentre, setBudgetCostCentre]       = useState('');
+  const [budgetApprovalThreshold, setBudgetApprovalThreshold] = useState('');
+  const [budgetServiceLines, setBudgetServiceLines]   = useState<BudgetServiceLine[]>([]);
+
+  const [inventoryItems, setInventoryItems]   = useState<InventoryItem[]>([]);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
@@ -720,6 +764,30 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
     }));
   };
 
+  const addKbDoc = () => setKbDocs(prev => [...prev, { id: Math.random().toString(36).slice(2), title: '', url: '' }]);
+  const removeKbDoc = (id: string) => setKbDocs(prev => prev.filter(d => d.id !== id));
+  const updateKbDoc = (id: string, field: 'title' | 'url', val: string) =>
+    setKbDocs(prev => prev.map(d => d.id === id ? { ...d, [field]: val } : d));
+
+  const SERVICE_LINE_OPTIONS = ['Cleaning', 'Security', 'MEP', 'Landscaping', 'Pest Control', 'Waste Management', 'HVAC', 'Electrical', 'Plumbing', 'Civil', 'Other'];
+  const CURRENCY_OPTIONS = ['AED', 'USD', 'EUR', 'GBP', 'SAR', 'QAR'];
+  const INVENTORY_CATEGORIES = ['Equipment', 'Consumables', 'Spare Parts', 'Safety', 'Cleaning Supplies', 'Tools', 'PPE', 'Office Supplies', 'Other'];
+  const INVENTORY_UNITS = ['Pcs', 'Sets', 'Boxes', 'Litres', 'Kg', 'Metres', 'Rolls', 'Pairs', 'Units'];
+
+  const addBudgetServiceLine = () =>
+    setBudgetServiceLines(prev => [...prev, { id: Math.random().toString(36).slice(2), service: '', allocated: '', actual: '' }]);
+  const removeBudgetServiceLine = (id: string) =>
+    setBudgetServiceLines(prev => prev.filter(l => l.id !== id));
+  const updateBudgetServiceLine = (id: string, field: 'service' | 'allocated' | 'actual', val: string) =>
+    setBudgetServiceLines(prev => prev.map(l => l.id === id ? { ...l, [field]: val } : l));
+
+  const addInventoryItem = () =>
+    setInventoryItems(prev => [...prev, { id: Math.random().toString(36).slice(2), itemName: '', category: '', quantity: '1', unit: 'Pcs', site: siteNames[0] ?? '' }]);
+  const removeInventoryItem = (id: string) =>
+    setInventoryItems(prev => prev.filter(item => item.id !== id));
+  const updateInventoryItem = (id: string, field: keyof InventoryItem, val: string) =>
+    setInventoryItems(prev => prev.map(item => item.id === id ? { ...item, [field]: val } : item));
+
   const validate = () => {
     const errs: Record<string, string> = {};
     if (!name.trim())          errs.name = 'Client name is required';
@@ -785,6 +853,14 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
       contactEmail,
       contactPhone,
       accountManager,
+      knowledgeBaseNotes: kbNotes,
+      knowledgeBaseDocs: kbDocs,
+      budgetAnnual,
+      budgetCurrency,
+      budgetCostCentre,
+      budgetApprovalThreshold,
+      budgetServiceLines,
+      inventoryItems,
     };
 
     setIsSaving(true);
@@ -1732,6 +1808,337 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
                   <span className="text-[#2E7FFF] font-semibold">Note:</span> At least one team member with name, email, and role is required. Each invited member receives a welcome email with a platform access link.
                 </p>
               </div>
+            </div>
+          )}
+
+          {/* ── Knowledge Base Tab ── */}
+          {activeTab === 'knowledge' && (
+            <div className="space-y-4">
+              <SectionHeader icon={<BookOpen size={13} className="text-[#2E7FFF]" />} title="Knowledge Base" />
+
+              <div>
+                <FieldLabel label="Notes / SOPs / Escalation Contacts" />
+                <textarea
+                  value={kbNotes}
+                  onChange={e => setKbNotes(e.target.value)}
+                  placeholder="Paste SOPs, escalation contacts, site notes, or any relevant information about this client…"
+                  rows={6}
+                  className={`${inputCls()} resize-none leading-relaxed`}
+                />
+                <p className="mt-0.5 text-[9px] text-[#4A6080]">Free-form notes — visible to the team in the client's knowledge panel</p>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <FieldLabel label="Documents & Links" />
+                  <button
+                    type="button"
+                    onClick={addKbDoc}
+                    className="flex items-center gap-1 text-[10px] text-[#2E7FFF] hover:text-blue-300 transition-colors font-medium"
+                  >
+                    <Plus size={10} />
+                    Add document / link
+                  </button>
+                </div>
+
+                {kbDocs.length === 0 && (
+                  <div className="flex flex-col items-center justify-center py-6 border border-dashed border-[rgba(46,127,255,0.2)] rounded-xl text-[#4A6080]">
+                    <BookOpen size={20} className="mb-2 opacity-40" />
+                    <p className="text-[11px]">No documents added yet</p>
+                    <button
+                      type="button"
+                      onClick={addKbDoc}
+                      className="mt-2 text-[10px] text-[#2E7FFF] hover:text-blue-300 transition-colors"
+                    >
+                      Add your first document or link
+                    </button>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  {kbDocs.map(doc => (
+                    <div key={doc.id} className="flex items-start gap-2 p-2.5 bg-[#0A1628] border border-[rgba(46,127,255,0.15)] rounded-xl">
+                      <div className="flex-1 grid grid-cols-2 gap-2">
+                        <div>
+                          <FieldLabel label="Title / Description" />
+                          <input
+                            value={doc.title}
+                            onChange={e => updateKbDoc(doc.id, 'title', e.target.value)}
+                            placeholder="e.g. Fire Safety SOP"
+                            className={inputCls()}
+                          />
+                        </div>
+                        <div>
+                          <FieldLabel label="URL or File Name" />
+                          <input
+                            value={doc.url}
+                            onChange={e => updateKbDoc(doc.id, 'url', e.target.value)}
+                            placeholder="https://… or filename.pdf"
+                            className={inputCls()}
+                          />
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeKbDoc(doc.id)}
+                        className="mt-5 p-1 rounded-md text-[#4A6080] hover:text-red-400 hover:bg-red-500/10 transition-colors flex-shrink-0"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Budget Tab ── */}
+          {activeTab === 'budget' && (
+            <div className="space-y-4">
+              <SectionHeader icon={<DollarSign size={13} className="text-[#2E7FFF]" />} title="Budget" />
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <FieldLabel label="Annual Budget" />
+                  <input
+                    value={budgetAnnual}
+                    onChange={e => setBudgetAnnual(e.target.value)}
+                    placeholder="e.g. 2500000"
+                    type="number"
+                    min="0"
+                    className={inputCls()}
+                  />
+                </div>
+                <div>
+                  <FieldLabel label="Currency" />
+                  <select
+                    value={budgetCurrency}
+                    onChange={e => setBudgetCurrency(e.target.value)}
+                    className={selectCls}
+                  >
+                    {CURRENCY_OPTIONS.map(c => (
+                      <option key={c} value={c} className="bg-[#0A1628]">{c}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <FieldLabel label="Cost Centre Code" />
+                  <input
+                    value={budgetCostCentre}
+                    onChange={e => setBudgetCostCentre(e.target.value)}
+                    placeholder="e.g. CC-2024-FM-001"
+                    className={inputCls()}
+                  />
+                </div>
+                <div>
+                  <FieldLabel label="Approval Threshold" />
+                  <input
+                    value={budgetApprovalThreshold}
+                    onChange={e => setBudgetApprovalThreshold(e.target.value)}
+                    placeholder="e.g. 10000"
+                    type="number"
+                    min="0"
+                    className={inputCls()}
+                  />
+                  <p className="mt-0.5 text-[9px] text-[#4A6080]">Spend above this amount requires approval</p>
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <FieldLabel label="Service Line Breakdown" />
+                  <button
+                    type="button"
+                    onClick={addBudgetServiceLine}
+                    className="flex items-center gap-1 text-[10px] text-[#2E7FFF] hover:text-blue-300 transition-colors font-medium"
+                  >
+                    <Plus size={10} />
+                    Add service line
+                  </button>
+                </div>
+
+                {budgetServiceLines.length === 0 && (
+                  <div className="flex flex-col items-center justify-center py-6 border border-dashed border-[rgba(46,127,255,0.2)] rounded-xl text-[#4A6080]">
+                    <DollarSign size={20} className="mb-2 opacity-40" />
+                    <p className="text-[11px]">No service lines added yet</p>
+                    <button
+                      type="button"
+                      onClick={addBudgetServiceLine}
+                      className="mt-2 text-[10px] text-[#2E7FFF] hover:text-blue-300 transition-colors"
+                    >
+                      Add your first service line
+                    </button>
+                  </div>
+                )}
+
+                {budgetServiceLines.length > 0 && (
+                  <div className="rounded-xl border border-[rgba(46,127,255,0.15)] overflow-hidden">
+                    <div className="grid grid-cols-[1fr_1fr_1fr_auto] gap-0 bg-[#0A1628]/80 border-b border-[rgba(46,127,255,0.1)] px-3 py-1.5">
+                      <span className="text-[9px] font-bold text-[#4A6080] uppercase tracking-wider">Service Line</span>
+                      <span className="text-[9px] font-bold text-[#4A6080] uppercase tracking-wider">Allocated ({budgetCurrency})</span>
+                      <span className="text-[9px] font-bold text-[#4A6080] uppercase tracking-wider">Actual ({budgetCurrency})</span>
+                      <span className="w-7" />
+                    </div>
+                    <div className="divide-y divide-[rgba(46,127,255,0.07)]">
+                      {budgetServiceLines.map(line => (
+                        <div key={line.id} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 items-center px-3 py-2 bg-[#0A1628] hover:bg-[#0D1E38] transition-colors">
+                          <select
+                            value={line.service}
+                            onChange={e => updateBudgetServiceLine(line.id, 'service', e.target.value)}
+                            className={`${selectCls} text-[11px]`}
+                          >
+                            <option value="" className="bg-[#0A1628]">Select service…</option>
+                            {SERVICE_LINE_OPTIONS.map(s => (
+                              <option key={s} value={s} className="bg-[#0A1628]">{s}</option>
+                            ))}
+                          </select>
+                          <input
+                            value={line.allocated}
+                            onChange={e => updateBudgetServiceLine(line.id, 'allocated', e.target.value)}
+                            placeholder="0"
+                            type="number"
+                            min="0"
+                            className={inputCls()}
+                          />
+                          <input
+                            value={line.actual}
+                            onChange={e => updateBudgetServiceLine(line.id, 'actual', e.target.value)}
+                            placeholder="0"
+                            type="number"
+                            min="0"
+                            className={inputCls()}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeBudgetServiceLine(line.id)}
+                            className="p-1 rounded-md text-[#4A6080] hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    {(budgetServiceLines.some(l => l.allocated) || budgetServiceLines.some(l => l.actual)) && (
+                      <div className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 items-center px-3 py-2 bg-[rgba(46,127,255,0.05)] border-t border-[rgba(46,127,255,0.1)]">
+                        <span className="text-[10px] text-[#7A94B4] font-semibold">Totals</span>
+                        <span className="text-[11px] text-[#2E7FFF] font-bold">
+                          {budgetServiceLines.reduce((sum, l) => sum + (parseFloat(l.allocated) || 0), 0).toLocaleString()}
+                        </span>
+                        <span className="text-[11px] text-emerald-400 font-bold">
+                          {budgetServiceLines.reduce((sum, l) => sum + (parseFloat(l.actual) || 0), 0).toLocaleString()}
+                        </span>
+                        <span className="w-7" />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ── Inventory Tab ── */}
+          {activeTab === 'inventory' && (
+            <div className="space-y-4">
+              <SectionHeader icon={<Package size={13} className="text-[#2E7FFF]" />} title="Inventory" />
+
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] text-[#7A94B4]">Track inventory items associated with this client</p>
+                <button
+                  type="button"
+                  onClick={addInventoryItem}
+                  className="flex items-center gap-1 text-[10px] text-[#2E7FFF] hover:text-blue-300 transition-colors font-medium"
+                >
+                  <Plus size={10} />
+                  Add item
+                </button>
+              </div>
+
+              {inventoryItems.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-8 border border-dashed border-[rgba(46,127,255,0.2)] rounded-xl text-[#4A6080]">
+                  <Package size={24} className="mb-2 opacity-40" />
+                  <p className="text-[11px]">No inventory items added yet</p>
+                  <button
+                    type="button"
+                    onClick={addInventoryItem}
+                    className="mt-2 text-[10px] text-[#2E7FFF] hover:text-blue-300 transition-colors"
+                  >
+                    Add your first item
+                  </button>
+                </div>
+              )}
+
+              {inventoryItems.length > 0 && (
+                <div className="rounded-xl border border-[rgba(46,127,255,0.15)] overflow-hidden">
+                  <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_auto] gap-0 bg-[#0A1628]/80 border-b border-[rgba(46,127,255,0.1)] px-3 py-1.5">
+                    <span className="text-[9px] font-bold text-[#4A6080] uppercase tracking-wider">Item Name</span>
+                    <span className="text-[9px] font-bold text-[#4A6080] uppercase tracking-wider">Category</span>
+                    <span className="text-[9px] font-bold text-[#4A6080] uppercase tracking-wider">Qty</span>
+                    <span className="text-[9px] font-bold text-[#4A6080] uppercase tracking-wider">Unit</span>
+                    <span className="text-[9px] font-bold text-[#4A6080] uppercase tracking-wider">Site</span>
+                    <span className="w-7" />
+                  </div>
+                  <div className="divide-y divide-[rgba(46,127,255,0.07)]">
+                    {inventoryItems.map(item => (
+                      <div key={item.id} className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_auto] gap-2 items-center px-3 py-2 bg-[#0A1628] hover:bg-[#0D1E38] transition-colors">
+                        <input
+                          value={item.itemName}
+                          onChange={e => updateInventoryItem(item.id, 'itemName', e.target.value)}
+                          placeholder="e.g. Fire Extinguisher"
+                          className={inputCls()}
+                        />
+                        <select
+                          value={item.category}
+                          onChange={e => updateInventoryItem(item.id, 'category', e.target.value)}
+                          className={selectCls}
+                        >
+                          <option value="" className="bg-[#0A1628]">—</option>
+                          {INVENTORY_CATEGORIES.map(c => (
+                            <option key={c} value={c} className="bg-[#0A1628]">{c}</option>
+                          ))}
+                        </select>
+                        <input
+                          value={item.quantity}
+                          onChange={e => updateInventoryItem(item.id, 'quantity', e.target.value)}
+                          placeholder="1"
+                          type="number"
+                          min="0"
+                          className={inputCls()}
+                        />
+                        <select
+                          value={item.unit}
+                          onChange={e => updateInventoryItem(item.id, 'unit', e.target.value)}
+                          className={selectCls}
+                        >
+                          {INVENTORY_UNITS.map(u => (
+                            <option key={u} value={u} className="bg-[#0A1628]">{u}</option>
+                          ))}
+                        </select>
+                        <select
+                          value={item.site}
+                          onChange={e => updateInventoryItem(item.id, 'site', e.target.value)}
+                          className={selectCls}
+                        >
+                          <option value="" className="bg-[#0A1628]">All sites</option>
+                          {siteNames.filter(s => s.trim()).map(s => (
+                            <option key={s} value={s} className="bg-[#0A1628]">{s}</option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => removeInventoryItem(item.id)}
+                          className="p-1 rounded-md text-[#4A6080] hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex items-center justify-between px-3 py-2 bg-[rgba(46,127,255,0.05)] border-t border-[rgba(46,127,255,0.1)]">
+                    <span className="text-[10px] text-[#7A94B4] font-semibold">{inventoryItems.length} item{inventoryItems.length !== 1 ? 's' : ''}</span>
+                    <span className="text-[10px] text-[#7A94B4]">Total qty: {inventoryItems.reduce((s, i) => s + (parseFloat(i.quantity) || 0), 0).toLocaleString()}</span>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
