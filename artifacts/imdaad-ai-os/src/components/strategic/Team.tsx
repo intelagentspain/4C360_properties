@@ -582,6 +582,7 @@ export function Team({ onToast }: Props) {
   const [filterRole, setFilterRole] = useState('');
   const [filterZone, setFilterZone] = useState('');
   const [filterAvailability, setFilterAvailability] = useState('');
+  const [filterClient, setFilterClient] = useState('');
 
   const clientNames = useMemo(() => clients.map(c => c.name), [clients]);
 
@@ -604,11 +605,12 @@ export function Team({ onToast }: Props) {
       if (filterRole && m.role !== filterRole) return false;
       if (filterZone && !m.zones.includes(filterZone)) return false;
       if (filterAvailability && m.availability !== filterAvailability) return false;
+      if (filterClient && !m.assignedClients.includes(filterClient)) return false;
       return true;
     });
-  }, [teamMembers, searchQuery, filterPerspective, filterRole, filterZone, filterAvailability]);
+  }, [teamMembers, searchQuery, filterPerspective, filterRole, filterZone, filterAvailability, filterClient]);
 
-  const isFiltered = searchQuery.trim() !== '' || filterPerspective !== 'All' || filterRole !== '' || filterZone !== '' || filterAvailability !== '';
+  const isFiltered = searchQuery.trim() !== '' || filterPerspective !== 'All' || filterRole !== '' || filterZone !== '' || filterAvailability !== '' || filterClient !== '';
 
   function clearAllFilters() {
     setSearchQuery('');
@@ -616,6 +618,7 @@ export function Team({ onToast }: Props) {
     setFilterRole('');
     setFilterZone('');
     setFilterAvailability('');
+    setFilterClient('');
   }
 
   const selectCls = `px-2.5 py-1.5 bg-[#0A1628] border border-[rgba(46,127,255,0.22)] rounded-lg text-[11px] text-[#EEF3FA] focus:outline-none focus:border-[#2E7FFF] transition-colors appearance-none cursor-pointer`;
@@ -700,6 +703,16 @@ export function Team({ onToast }: Props) {
             <option value="" className="bg-[#0A1628]">All Availability</option>
             {AVAILABILITY_OPTS.map(a => (
               <option key={a} value={a} className="bg-[#0A1628]">{a}</option>
+            ))}
+          </select>
+          <select
+            value={filterClient}
+            onChange={e => setFilterClient(e.target.value)}
+            className={selectCls}
+          >
+            <option value="" className="bg-[#0A1628]">All Clients</option>
+            {clientNames.map(name => (
+              <option key={name} value={name} className="bg-[#0A1628]">{name}</option>
             ))}
           </select>
           {isFiltered && (
