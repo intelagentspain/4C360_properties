@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { logger } from "../lib/logger";
 import { sendEmail, ensureResendConfigured } from "../lib/mailer";
+import { db, clientsTable, teamMembersTable, eq, desc } from "../lib/db";
+import crypto from "node:crypto";
 
 const router = Router();
 
@@ -479,6 +481,158 @@ router.post("/clients/invite", async (req, res) => {
   }
 
   res.json({ results });
+});
+
+router.get("/clients", async (_req, res) => {
+  try {
+    const rows = await db.select().from(clientsTable).orderBy(desc(clientsTable.createdAt));
+    res.json(rows);
+  } catch (err) {
+    logger.error({ err }, "Failed to fetch clients from DB");
+    res.status(500).json({ error: "Failed to fetch clients" });
+  }
+});
+
+router.get("/clients/:id", async (req, res) => {
+  const id = String(req.params["id"]);
+  try {
+    const rows = await db.select().from(clientsTable).where(eq(clientsTable.id, id));
+    if (rows.length === 0) { res.status(404).json({ error: "Client not found" }); return; }
+    res.json(rows[0]);
+  } catch (err) {
+    logger.error({ err, id }, "Failed to fetch client from DB");
+    res.status(500).json({ error: "Failed to fetch client" });
+  }
+});
+
+router.post("/clients", async (req, res) => {
+  const body = req.body as {
+    name?: string;
+    status?: string;
+    region?: string;
+    sector?: string;
+    sites?: number;
+    workOrders?: number;
+    incidentsCount?: number;
+    sla?: number;
+    compliance?: number;
+    riskLevel?: string;
+    overdueTasks?: number;
+    aiInsight?: string;
+    contract?: unknown;
+  };
+
+  if (!body.name?.trim()) {
+    res.status(400).json({ error: "name is required" });
+    return;
+  }
+
+  const id = `CLT-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
+  try {
+    const [inserted] = await db.insert(clientsTable).values({
+      id,
+      name: body.name.trim(),
+      status: body.status ?? "live",
+      region: body.region ?? null,
+      sector: body.sector ?? null,
+      sites: body.sites ?? 0,
+      workOrders: body.workOrders ?? 0,
+      incidentsCount: body.incidentsCount ?? 0,
+      sla: body.sla ?? 100,
+      compliance: body.compliance ?? 100,
+      riskLevel: body.riskLevel ?? "low",
+      overdueTasks: body.overdueTasks ?? 0,
+      aiInsight: body.aiInsight ?? null,
+      lastUpdated: "just now",
+      contract: body.contract ?? null,
+    }).returning();
+    logger.info({ id }, "Client saved to DB");
+    res.status(201).json(inserted);
+  } catch (err) {
+    logger.error({ err }, "Failed to save client to DB");
+    res.status(500).json({ error: "Failed to save client" });
+  }
+});
+
+router.patch("/clients/:id", async (req, res) => {
+  const id = String(req.params["id"]);
+  const updates = req.body as Record<string, unknown>;
+  try {
+    const allowed: Record<string, unknown> = {};
+    const fields = ["name","status","region","sector","sites","workOrders","incidentsCount","sla","compliance","riskLevel","overdueTasks","aiInsight","lastUpdated","contract"];
+    for (const f of fields) {
+      if (f in updates) allowed[f] = updates[f];
+    }
+    if (Object.keys(allowed).length === 0) {
+      res.status(400).json({ error: "No valid fields to update" });
+      return;
+    }
+    const [updated] = await db.update(clientsTable).set(allowed).where(eq(clientsTable.id, id)).returning();
+    if (!updated) { res.status(404).json({ error: "Client not found" }); return; }
+    res.json(updated);
+  } catch (err) {
+    logger.error({ err, id }, "Failed to update client in DB");
+    res.status(500).json({ error: "Failed to update client" });
+  }
+});
+
+router.post("/team-members", async (req, res) => {
+  const body = req.body as {
+    name?: string;
+    email?: string;
+    role?: string;
+    perspective?: string;
+    assignedClients?: string[];
+    zones?: string[];
+    skills?: string;
+    responsibilities?: string;
+    siteIds?: string[];
+    phone?: string;
+    id?: string;
+  };
+
+  if (!body.name?.trim() || !body.email?.trim() || !body.role?.trim()) {
+    res.status(400).json({ error: "name, email, and role are required" });
+    return;
+  }
+
+  const id = body.id?.trim() || `mbr-${crypto.randomBytes(4).toString("hex")}`;
+  try {
+    const [inserted] = await db.insert(teamMembersTable).values({
+      id,
+      name: body.name.trim(),
+      email: body.email.trim().toLowerCase(),
+      role: body.role.trim(),
+      perspective: body.perspective ?? "Operational",
+      assignedClients: body.assignedClients ?? [],
+      zones: body.zones ?? [],
+      skills: body.skills ?? null,
+      responsibilities: body.responsibilities ?? null,
+      siteIds: body.siteIds ?? [],
+      phone: body.phone ?? null,
+    }).onConflictDoNothing().returning();
+    if (!inserted) {
+      res.status(409).json({ error: "Team member with this id or email already exists", id });
+      return;
+    }
+    logger.info({ id, email: body.email }, "Team member saved to DB");
+    res.status(201).json(inserted);
+  } catch (err) {
+    logger.error({ err }, "Failed to save team member to DB");
+    res.status(500).json({ error: "Failed to save team member" });
+  }
+});
+
+router.get("/team-members/:id", async (req, res) => {
+  const id = String(req.params["id"]);
+  try {
+    const rows = await db.select().from(teamMembersTable).where(eq(teamMembersTable.id, id));
+    if (rows.length === 0) { res.status(404).json({ error: "Team member not found" }); return; }
+    res.json(rows[0]);
+  } catch (err) {
+    logger.error({ err, id }, "Failed to fetch team member from DB");
+    res.status(500).json({ error: "Failed to fetch team member" });
+  }
 });
 
 export default router;

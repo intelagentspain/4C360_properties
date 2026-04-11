@@ -49,8 +49,17 @@ See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and pa
 
 ### API Server (`artifacts/api-server`)
 - **Type**: api
-- **Stack**: Express 5, TypeScript
-- **Purpose**: Shared backend — handles team member welcome emails and incident/work-order notification emails
+- **Stack**: Express 5, TypeScript, Drizzle ORM + PostgreSQL
+- **Purpose**: Shared backend — handles team member welcome emails, incident/work-order notification emails, and all data persistence via PostgreSQL
+- **Database**: Replit-managed PostgreSQL. Schema defined in `lib/db/src/schema/`. Tables: `clients`, `sites`, `team_members`, `incidents`, `tickets`, `work_orders`, `photo_evidence`
+- **DB Package**: `lib/db` — exports `db` (Drizzle client), all table definitions, and Drizzle query helpers (`eq`, `desc`, `asc`)
+- **DB helper in api-server**: `artifacts/api-server/src/lib/db.ts` — re-exports everything from `@workspace/db`
+- **Persistent REST endpoints**:
+  - `GET/POST /api/incidents`, `GET/PATCH /api/incidents/:id`
+  - `GET /api/workorders`, `POST /api/workorders`
+  - `GET /api/clients`, `POST /api/clients`, `GET/PATCH /api/clients/:id`
+  - `GET /api/team-members`, `POST /api/team-members`, `GET /api/team-members/:id`
+- **Seed data**: 5 clients, 5 sites, 10 team members, 7 incidents, 12 tickets pre-loaded on first DB setup
 - **Email**: Uses Resend (via Replit connector `ccfg_resend_01K69QKYK789WN202XSE3QS17V`) for real email delivery. Credentials are fetched at runtime from the connector API. Falls back to `RESEND_API_KEY` env var if connector unavailable.
 - **Email helper**: `artifacts/api-server/src/lib/mailer.ts` — shared `sendEmail()` utility used by both `clients.ts` (welcome emails) and `incidents.ts` (incident + work order notification emails)
 

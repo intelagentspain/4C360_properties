@@ -1,6 +1,7 @@
-import { createContext, useContext, useState, useCallback, useRef, type ReactNode } from 'react';
-import { mockIncidents, mockPortfolioClients, mockKanbanTasks } from '@/data/mockData';
+import { createContext, useContext, useState, useCallback, useRef, useEffect, type ReactNode } from 'react';
+import { mockIncidents, mockPortfolioClients } from '@/data/mockData';
 import { useNotifications } from './NotificationContext';
+import { api } from '@/lib/api';
 
 export type Incident = {
   id: string;
@@ -37,7 +38,19 @@ export type Incident = {
   };
 };
 
-export type WorkOrderTask = typeof mockKanbanTasks[0] & {
+export type WorkOrderTask = {
+  id: string;
+  title: string;
+  asset: string;
+  location: string;
+  skill: string;
+  priority: string;
+  status: string;
+  tech: string | null;
+  slaMinutes: number;
+  elapsed: number;
+  reportedBy: string;
+  evidence: string[];
   fromIncidentId?: string;
   siteId?: string;
 };
@@ -69,6 +82,30 @@ function deriveInviteList(clientId?: string): InviteListMember[] {
   people.supervisors.forEach(s => addPerson(s));
 
   return list;
+}
+
+function dbIncidentToLocal(d: Record<string, unknown>): Incident {
+  return {
+    id: String(d['id'] ?? ''),
+    title: String(d['title'] ?? ''),
+    location: String(d['location'] ?? ''),
+    severity: String(d['severity'] ?? 'low'),
+    slaMinutes: Number(d['slaMinutes'] ?? 120),
+    elapsed: Number(d['elapsed'] ?? 0),
+    lat: d['lat'] != null ? Number(d['lat']) : undefined,
+    lng: d['lng'] != null ? Number(d['lng']) : undefined,
+    source: String(d['source'] ?? 'Manual'),
+    status: String(d['status'] ?? 'open'),
+    assignedTech: d['assignedTech'] != null ? String(d['assignedTech']) : null,
+    techId: d['techId'] != null ? String(d['techId']) : null,
+    closureNotes: d['closureNotes'] != null ? String(d['closureNotes']) : null,
+    description: String(d['description'] ?? ''),
+    activityLog: Array.isArray(d['activityLog']) ? (d['activityLog'] as { time: string; event: string; type: string }[]) : [],
+    imageUrl: d['imageUrl'] != null ? String(d['imageUrl']) : undefined,
+    siteId: d['siteId'] != null ? String(d['siteId']) : undefined,
+    clientId: d['clientId'] != null ? String(d['clientId']) : undefined,
+    aiMetadata: d['aiMetadata'] as Incident['aiMetadata'],
+  };
 }
 
 export interface CreateWorkOrderInput {
@@ -109,6 +146,46 @@ function IncidentProviderInner({ children }: { children: ReactNode }) {
   const incidentsRef = useRef<Incident[]>(BASE_INCIDENTS);
   const { addIncidentNotification, addWorkOrderNotification } = useNotifications();
 
+  useEffect(() => {
+    api.incidents.list()
+      .then(data => {
+        if (data.length > 0) {
+          const loaded = data.map(dbIncidentToLocal);
+          incidentsRef.current = loaded;
+          setIncidents(loaded);
+        }
+      })
+      .catch(err => {
+        console.warn('[IncidentContext] Failed to load incidents from API, using mock data:', err);
+      });
+
+    api.workOrders.list()
+      .then(data => {
+        if (data.length > 0) {
+          const loaded = data.map(d => ({
+            id: String(d['id'] ?? ''),
+            title: String(d['title'] ?? ''),
+            asset: String(d['asset'] ?? ''),
+            location: String(d['location'] ?? ''),
+            skill: String(d['skill'] ?? ''),
+            priority: String(d['priority'] ?? 'medium'),
+            status: String(d['status'] ?? 'new'),
+            tech: null as null,
+            slaMinutes: 120,
+            elapsed: 0,
+            reportedBy: String(d['incidentId'] ?? ''),
+            evidence: [] as string[],
+            fromIncidentId: d['incidentId'] != null ? String(d['incidentId']) : undefined,
+            siteId: d['siteId'] != null ? String(d['siteId']) : undefined,
+          }));
+          setWorkOrders(loaded);
+        }
+      })
+      .catch(err => {
+        console.warn('[IncidentContext] Failed to load work orders from API:', err);
+      });
+  }, []);
+
   const addIncident = useCallback((inc: Incident) => {
     const inviteList = deriveInviteList(inc.clientId);
     const roles = inviteList.map(m => m.role);
@@ -122,6 +199,28 @@ function IncidentProviderInner({ children }: { children: ReactNode }) {
         { time: timeStr, event: `Stakeholders notified: ${roles.join(', ')}`, type: 'dispatch' },
       ],
     };
+
+    api.incidents.create({
+      id: enriched.id,
+      title: enriched.title,
+      location: enriched.location,
+      severity: enriched.severity,
+      slaMinutes: enriched.slaMinutes,
+      elapsed: enriched.elapsed,
+      source: enriched.source,
+      status: enriched.status,
+      assignedTech: enriched.assignedTech,
+      techId: enriched.techId,
+      description: enriched.description,
+      lat: enriched.lat,
+      lng: enriched.lng,
+      imageUrl: enriched.imageUrl,
+      siteId: enriched.siteId,
+      clientId: enriched.clientId,
+      activityLog: enriched.activityLog,
+      aiMetadata: enriched.aiMetadata,
+    }).catch(err => console.warn('[IncidentContext] Failed to persist incident to API:', err));
+
     incidentsRef.current = [enriched, ...incidentsRef.current];
     setIncidents(incidentsRef.current);
     addIncidentNotification(enriched, inviteList);
@@ -154,6 +253,18 @@ function IncidentProviderInner({ children }: { children: ReactNode }) {
       fromIncidentId: incidentId,
       siteId,
     };
+
+    api.workOrders.create({
+      id,
+      title: data.title,
+      location: data.location,
+      priority: data.priority,
+      asset: data.asset,
+      skill: data.skill,
+      siteId,
+      incidentId,
+      description: data.description,
+    }).catch(err => console.warn('[IncidentContext] Failed to persist work order to API:', err));
 
     incidentsRef.current = incidentsRef.current.map(inc =>
       inc.id === incidentId
@@ -189,6 +300,6 @@ export function IncidentProvider({ children }: { children: ReactNode }) {
 
 export function useIncidents() {
   const ctx = useContext(IncidentContext);
-  if (!ctx) throw new Error('useIncidents must be used inside IncidentProvider');
+  if (!ctx) throw new Error('useIncidents must be inside IncidentProvider');
   return ctx;
 }

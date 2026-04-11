@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from "express";
 import crypto from "node:crypto";
 import { logger } from "../lib/logger";
 import { sendEmail } from "../lib/mailer";
+import { db, incidentsTable, teamMembersTable, workOrdersTable, eq, desc, sql } from "../lib/db";
 
 const router = Router();
 
@@ -33,21 +34,6 @@ const OPERATIONAL_ROLES = new Set([
   "Client Success",
   "Executive",
 ]);
-
-interface MockTeamMember {
-  name: string;
-  email: string;
-  role: string;
-  siteIds: string[];
-}
-
-const MOCK_TEAM_MEMBERS: MockTeamMember[] = [
-  { name: "Sara Al-Hassan",  email: "sara.alhassan@imdaad.ae",  role: "Site Supervisor", siteIds: ["silicon-oasis", "gate-avenue"] },
-  { name: "Omar Khalid",     email: "omar.khalid@imdaad.ae",    role: "FM Engineer",     siteIds: ["silicon-oasis"] },
-  { name: "Layla Mansoor",   email: "layla.mansoor@imdaad.ae",  role: "FM Engineer",     siteIds: ["gate-avenue", "business-bay"] },
-  { name: "James Whitfield", email: "james.whitfield@imdaad.ae",role: "Account Manager", siteIds: ["silicon-oasis", "gate-avenue", "business-bay"] },
-  { name: "Priya Nair",      email: "priya.nair@imdaad.ae",     role: "Safety Officer",  siteIds: ["silicon-oasis"] },
-];
 
 interface AiMetadata {
   confidence?: number;
@@ -115,19 +101,22 @@ function resolveSiteIdToName(siteId: string): string {
   return map[siteId] ?? siteId;
 }
 
-function resolveRecipients(
+async function resolveRecipients(
   incident: IncidentPayload,
   inviteList?: InviteListMember[],
-): Recipient[] {
+): Promise<Recipient[]> {
   const siteId = resolveSiteId(incident);
 
-  const fromMock: Recipient[] = MOCK_TEAM_MEMBERS.filter(
-    m =>
-      OPERATIONAL_ROLES.has(m.role) &&
-      m.siteIds.includes(siteId),
-  ).map(m => ({ name: m.name, email: m.email, role: m.role }));
+  const dbMembers = await db
+    .select()
+    .from(teamMembersTable)
+    .where(sql`${siteId} = ANY(${teamMembersTable.siteIds})`);
 
-  if (!inviteList || inviteList.length === 0) return fromMock;
+  const fromDb: Recipient[] = dbMembers
+    .filter(m => OPERATIONAL_ROLES.has(m.role))
+    .map(m => ({ name: m.name, email: m.email, role: m.role }));
+
+  if (!inviteList || inviteList.length === 0) return fromDb;
 
   const siteName = resolveSiteIdToName(siteId);
   const fromInvite: Recipient[] = inviteList.filter(m => {
@@ -138,8 +127,8 @@ function resolveRecipients(
     );
   }).map(m => ({ name: m.name, email: m.email, role: m.role }));
 
-  const seen = new Set(fromMock.map(m => m.email));
-  const combined = [...fromMock];
+  const seen = new Set(fromDb.map(m => m.email));
+  const combined = [...fromDb];
   for (const m of fromInvite) {
     if (!seen.has(m.email)) {
       seen.add(m.email);
@@ -389,27 +378,31 @@ interface WorkOrderRecipientWithPhone extends Recipient {
   phone?: string;
 }
 
-const MOCK_TEAM_MEMBER_PHONES: Record<string, string> = {
-  "sara.alhassan@imdaad.ae":   "+971501112233",
-  "omar.khalid@imdaad.ae":     "+971502223344",
-  "layla.mansoor@imdaad.ae":   "+971503334455",
-  "james.whitfield@imdaad.ae": "+971504445566",
-  "priya.nair@imdaad.ae":      "+971505556677",
-};
-
-function resolveWorkOrderRecipients(
+async function resolveWorkOrderRecipients(
   wo: WorkOrderPayload,
   inviteList?: InviteListMember[],
-): WorkOrderRecipientWithPhone[] {
+): Promise<WorkOrderRecipientWithPhone[]> {
   const incidentProxy: IncidentPayload = {
     id: wo.incidentId ?? wo.id,
     location: wo.location,
     siteId: wo.siteId,
   };
-  const base = resolveRecipients(incidentProxy, inviteList);
+  const base = await resolveRecipients(incidentProxy, inviteList);
+
+  const siteId = resolveSiteId(incidentProxy);
+  const dbMembers = await db
+    .select()
+    .from(teamMembersTable)
+    .where(sql`${siteId} = ANY(${teamMembersTable.siteIds})`);
+
+  const phoneMap: Record<string, string> = {};
+  for (const m of dbMembers) {
+    if (m.phone) phoneMap[m.email] = m.phone;
+  }
+
   return base.map(r => ({
     ...r,
-    phone: MOCK_TEAM_MEMBER_PHONES[r.email],
+    phone: phoneMap[r.email],
   }));
 }
 
@@ -494,7 +487,7 @@ router.post("/workorders/notify", async (req: Request, res: Response) => {
   }
 
   const incidentId = body.incidentId ?? wo.incidentId;
-  const recipients = resolveWorkOrderRecipients(wo, body.inviteList);
+  const recipients = await resolveWorkOrderRecipients(wo, body.inviteList);
 
   const results: (NotifyResult & { phone?: string; whatsappStatus?: string })[] = [];
 
@@ -559,6 +552,146 @@ router.post("/workorders/notify", async (req: Request, res: Response) => {
   res.json({ workOrderId: wo.id, incidentId, results });
 });
 
+router.get("/incidents", async (_req: Request, res: Response) => {
+  try {
+    const rows = await db.select().from(incidentsTable).orderBy(desc(incidentsTable.createdAt));
+    res.json(rows);
+  } catch (err) {
+    logger.error({ err }, "Failed to fetch incidents from DB");
+    res.status(500).json({ error: "Failed to fetch incidents" });
+  }
+});
+
+router.get("/incidents/:id", async (req: Request, res: Response) => {
+  const id = String(req.params["id"]);
+  try {
+    const rows = await db.select().from(incidentsTable).where(eq(incidentsTable.id, id));
+    if (rows.length === 0) { res.status(404).json({ error: "Incident not found" }); return; }
+    res.json(rows[0]);
+  } catch (err) {
+    logger.error({ err, id }, "Failed to fetch incident from DB");
+    res.status(500).json({ error: "Failed to fetch incident" });
+  }
+});
+
+router.post("/incidents", async (req: Request, res: Response) => {
+  const body = req.body as Partial<IncidentPayload & { clientId?: string; activityLog?: unknown[] }>;
+
+  if (!body.id || !body.title) {
+    res.status(400).json({ error: "id and title are required" });
+    return;
+  }
+
+  try {
+    const newIncident = {
+      id: body.id,
+      title: body.title,
+      location: body.location ?? null,
+      severity: body.severity ?? "low",
+      slaMinutes: body.slaMinutes ?? null,
+      elapsed: 0,
+      source: body.source ?? "Manual",
+      status: body.status ?? "open",
+      assignedTech: body.assignedTech ?? null,
+      techId: null,
+      description: body.description ?? null,
+      lat: body.lat != null ? String(body.lat) : null,
+      lng: body.lng != null ? String(body.lng) : null,
+      imageUrl: body.imageUrl ?? null,
+      siteId: body.siteId ?? null,
+      clientId: body.clientId ?? null,
+      aiMetadata: body.aiMetadata ?? null,
+      activityLog: body.activityLog ?? [],
+      closureNotes: null,
+    };
+
+    const [inserted] = await db.insert(incidentsTable).values(newIncident).onConflictDoNothing().returning();
+    if (!inserted) {
+      res.status(409).json({ error: "Incident with this id already exists", id: body.id });
+      return;
+    }
+    logger.info({ id: body.id }, "Incident saved to DB");
+    res.status(201).json(inserted);
+  } catch (err) {
+    logger.error({ err, id: body.id }, "Failed to save incident to DB");
+    res.status(500).json({ error: "Failed to save incident" });
+  }
+});
+
+router.patch("/incidents/:id", async (req: Request, res: Response) => {
+  const id = String(req.params["id"]);
+  const updates = req.body as Record<string, unknown>;
+
+  try {
+    const allowed: Record<string, unknown> = {};
+    const fields = ["title","location","severity","slaMinutes","source","status","assignedTech","techId","description","lat","lng","imageUrl","siteId","clientId","aiMetadata","activityLog","closureNotes"];
+    for (const f of fields) {
+      if (f in updates) allowed[f] = updates[f];
+    }
+    if (Object.keys(allowed).length === 0) {
+      res.status(400).json({ error: "No valid fields to update" });
+      return;
+    }
+    const [updated] = await db.update(incidentsTable).set(allowed).where(eq(incidentsTable.id, id)).returning();
+    if (!updated) { res.status(404).json({ error: "Incident not found" }); return; }
+    res.json(updated);
+  } catch (err) {
+    logger.error({ err, id }, "Failed to update incident in DB");
+    res.status(500).json({ error: "Failed to update incident" });
+  }
+});
+
+router.get("/team-members", async (_req: Request, res: Response) => {
+  try {
+    const rows = await db.select().from(teamMembersTable).orderBy(teamMembersTable.name);
+    res.json(rows);
+  } catch (err) {
+    logger.error({ err }, "Failed to fetch team members from DB");
+    res.status(500).json({ error: "Failed to fetch team members" });
+  }
+});
+
+router.get("/workorders", async (_req: Request, res: Response) => {
+  try {
+    const rows = await db.select().from(workOrdersTable).orderBy(desc(workOrdersTable.createdAt));
+    res.json(rows);
+  } catch (err) {
+    logger.error({ err }, "Failed to fetch work orders from DB");
+    res.status(500).json({ error: "Failed to fetch work orders" });
+  }
+});
+
+router.post("/workorders", async (req: Request, res: Response) => {
+  const body = req.body as Partial<WorkOrderPayload & { status?: string }>;
+  if (!body.id || !body.title) {
+    res.status(400).json({ error: "id and title are required" });
+    return;
+  }
+  try {
+    const [inserted] = await db.insert(workOrdersTable).values({
+      id: body.id,
+      incidentId: body.incidentId ?? null,
+      title: body.title,
+      location: body.location ?? null,
+      priority: body.priority ?? "medium",
+      asset: body.asset ?? null,
+      skill: body.skill ?? null,
+      siteId: body.siteId ?? null,
+      description: body.description ?? null,
+      status: body.status ?? "open",
+    }).onConflictDoNothing().returning();
+    if (!inserted) {
+      res.status(409).json({ error: "Work order with this id already exists", id: body.id });
+      return;
+    }
+    logger.info({ id: body.id }, "Work order saved to DB");
+    res.status(201).json(inserted);
+  } catch (err) {
+    logger.error({ err, id: body.id }, "Failed to save work order to DB");
+    res.status(500).json({ error: "Failed to save work order" });
+  }
+});
+
 router.post("/incidents/notify", async (req: Request, res: Response) => {
   const body = req.body as Partial<NotifyBody>;
   const incident = body.incident;
@@ -568,7 +701,7 @@ router.post("/incidents/notify", async (req: Request, res: Response) => {
     return;
   }
 
-  const recipients = resolveRecipients(incident, body.inviteList);
+  const recipients = await resolveRecipients(incident, body.inviteList);
 
   const apiBase =
     process.env.API_BASE_URL ??

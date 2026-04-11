@@ -5,12 +5,13 @@ import {
   Zap, ChevronRight, Activity, Database, Users, BarChart2,
   TrendingUp, MapPin, ArrowRight, Shield, Bot, Plus,
 } from 'lucide-react';
-import { mockPortfolioClients, type PortfolioClient } from '@/data/mockData';
+import { type PortfolioClient } from '@/data/mockData';
 import { type ToastFn } from '@/lib/ui';
 import { AnimatedBar } from '@/components/shared/AnimatedBar';
 import { AddClientModal, type ClientData, type TeamMember } from './CommandBar';
 import { useMemberFilter, isFilterActive } from '@/context/MemberFilterContext';
 import { useMemberProfiles } from '@/context/MemberProfilesContext';
+import { useClients } from '@/context/ClientsContext';
 
 const REGIONS   = ['All', 'Dubai East', 'Downtown', 'Business Bay', 'Dubai Marina', 'Jumeirah'];
 const SECTORS   = ['All', 'Mixed-Use Residential', 'Commercial Retail', 'Commercial Office', 'Residential Community', 'Luxury Residential'];
@@ -564,6 +565,7 @@ interface Props { onToast: ToastFn }
 export function AllClients({ onToast }: Props) {
   const memberFilter  = useMemberFilter();
   const { addProfiles } = useMemberProfiles();
+  const { clients: allClients, addClient } = useClients();
   const isMemberMode  = isFilterActive(memberFilter);
 
   const defaultRegion = useMemo(() => {
@@ -583,6 +585,23 @@ export function AllClients({ onToast }: Props) {
   const [showAddModal,  setShowAddModal]  = useState(false);
 
   const handleAddClient = (data: ClientData, teamMembers: TeamMember[], inviteOk: boolean, failedCount: number) => {
+    addClient({
+      id: `CLT-${Date.now()}`,
+      name: data.name,
+      status: 'live',
+      region: data.zone ?? '',
+      sector: data.sector ?? '',
+      sites: Number(data.numSites ?? 0),
+      workOrders: 0,
+      incidentsCount: 0,
+      sla: 100,
+      compliance: 100,
+      riskLevel: 'low',
+      overdueTasks: 0,
+      aiInsight: '',
+      lastUpdated: 'Just now',
+      contract: { number: `IMD-${Date.now()}`, tier: data.slaTier ?? 'Standard', annualValue: data.contractValue ?? '' },
+    }).catch(err => console.warn('[AllClients] Failed to persist client:', err));
     addProfiles(teamMembers);
     setShowAddModal(false);
     if (teamMembers.length > 0 && !inviteOk) {
@@ -597,7 +616,7 @@ export function AllClients({ onToast }: Props) {
     }
   };
 
-  const filtered = mockPortfolioClients
+  const filtered = allClients
     .filter(c => {
       if (isMemberMode && memberFilter.assignedClients.length > 0 &&
           !memberFilter.assignedClients.some(ac => c.name.toLowerCase().includes(ac.toLowerCase()) || ac.toLowerCase().includes(c.name.toLowerCase()))) {
@@ -630,14 +649,14 @@ export function AllClients({ onToast }: Props) {
           <p className="text-[11px] text-[#7A94B4]">
             {isMemberMode
               ? `Personalized scope · ${filtered.length} assigned client${filtered.length !== 1 ? 's' : ''}`
-              : `Portfolio command view · ${mockPortfolioClients.length} clients · Master Admin`}
+              : `Portfolio command view · ${allClients.length} clients · Master Admin`}
           </p>
         </div>
         <div className="flex items-center gap-2">
           {[
-            { label: 'Critical', count: mockPortfolioClients.filter(c => c.status === 'critical').length, color: 'text-red-400 bg-red-500/10 border-red-500/30' },
-            { label: 'Warning',  count: mockPortfolioClients.filter(c => c.status === 'warning').length,  color: 'text-amber-400 bg-amber-500/10 border-amber-500/30' },
-            { label: 'Live',     count: mockPortfolioClients.filter(c => c.status === 'live').length,     color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30' },
+            { label: 'Critical', count: allClients.filter(c => c.status === 'critical').length, color: 'text-red-400 bg-red-500/10 border-red-500/30' },
+            { label: 'Warning',  count: allClients.filter(c => c.status === 'warning').length,  color: 'text-amber-400 bg-amber-500/10 border-amber-500/30' },
+            { label: 'Live',     count: allClients.filter(c => c.status === 'live').length,     color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30' },
           ].map(k => (
             <div key={k.label} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[10px] font-semibold ${k.color}`}>
               <span className="text-[13px] font-bold">{k.count}</span>
@@ -654,7 +673,7 @@ export function AllClients({ onToast }: Props) {
         </div>
       </div>
 
-      <PortfolioSummaryStrip clients={mockPortfolioClients} />
+      <PortfolioSummaryStrip clients={allClients} />
 
       <PortfolioPulseFeed />
 
