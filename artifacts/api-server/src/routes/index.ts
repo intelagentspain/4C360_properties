@@ -7,6 +7,7 @@ import incidentsRouter from "./incidents";
 import whatsappRouter from "./whatsapp";
 import incidentChatRouter from "./incidentChat";
 import pushRouter from "./push";
+import copilotChatRouter from "./copilotChat";
 
 const router: IRouter = Router();
 
@@ -18,5 +19,6 @@ router.use(incidentsRouter);
 router.use(whatsappRouter);
 router.use(incidentChatRouter);
 router.use(pushRouter);
+router.use(copilotChatRouter);
 
 export default router;

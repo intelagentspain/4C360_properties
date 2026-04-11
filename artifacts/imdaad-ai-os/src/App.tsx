@@ -7,6 +7,7 @@ import { OperationalView } from '@/components/operational/OperationalView';
 import { ClientView } from '@/components/client/ClientView';
 import { MemberDashboardView } from '@/components/MemberDashboardView';
 import { ToastContainer } from '@/components/shared/ToastContainer';
+import { CopilotAvatar } from '@/components/CopilotAvatar';
 import { useToast } from '@/hooks/useToast';
 import { useMemberProfiles } from '@/context/MemberProfilesContext';
 import type { MockMemberProfile } from '@/data/mockData';
@@ -97,11 +98,11 @@ function App() {
     window.history.replaceState({}, '', url.toString());
   };
 
-  if (activeMember) {
-    return (
-      <div className="flex flex-col h-screen bg-[#0A1628] overflow-hidden">
-        <TopBar perspective={perspective} setPerspective={handleSetPerspective} />
-        <div className="flex flex-1 overflow-hidden">
+  return (
+    <div className="flex flex-col h-screen bg-[#0A1628] overflow-hidden">
+      <TopBar perspective={perspective} setPerspective={handleSetPerspective} />
+      <div className="flex flex-1 overflow-hidden">
+        {activeMember ? (
           <main className="flex-1 overflow-hidden relative">
             <MemberDashboardView
               member={activeMember}
@@ -109,40 +110,35 @@ function App() {
               onDismiss={handleDismissMemberView}
             />
           </main>
-        </div>
-        <ToastContainer toasts={toasts} removeToast={removeToast} />
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-col h-screen bg-[#0A1628] overflow-hidden">
-      <TopBar perspective={perspective} setPerspective={handleSetPerspective} />
-      <div className="flex flex-1 overflow-hidden">
-        <Sidebar
-          perspective={perspective}
-          strategicPage={strategicPage}
-          onStrategicPageChange={page => { if (page === 'incidents') { setIncidentsClientId(undefined); setInitialIncidentId(undefined); } setStrategicPage(page); }}
-          onToast={msg => addToast(msg, 'info')}
-        />
-        <main className="flex-1 overflow-hidden relative">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={perspective}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2, ease: 'easeInOut' }}
-              className="absolute inset-0 flex flex-col"
-            >
-              {perspective === 'strategic'  && <StrategicView onToast={addToast} page={strategicPage} onClientSelect={handleClientSelect} selectedClientId={selectedClientId} onNavigateToIncidents={handleNavigateToIncidents} onNavigateToCommand={handleNavigateToCommand} incidentsClientId={incidentsClientId} onNavigateToIncident={handleNavigateToIncident} initialIncidentId={initialIncidentId} onInitialIncidentHandled={() => setInitialIncidentId(undefined)} onNavigateToTasks={handleNavigateToTasks} onMarkPPMCreated={handleMarkPPMCreated} ppmCreatedTasks={ppmCreatedTasks} prefilledTask={prefilledTask} onPrefilledTaskConsumed={() => setPrefilledTask(null)} />}
-              {perspective === 'operational' && <OperationalView onToast={addToast} />}
-              {perspective === 'client'      && <ClientView onToast={addToast} />}
-            </motion.div>
-          </AnimatePresence>
-        </main>
+        ) : (
+          <>
+            <Sidebar
+              perspective={perspective}
+              strategicPage={strategicPage}
+              onStrategicPageChange={page => { if (page === 'incidents') { setIncidentsClientId(undefined); setInitialIncidentId(undefined); } setStrategicPage(page); }}
+              onToast={msg => addToast(msg, 'info')}
+            />
+            <main className="flex-1 overflow-hidden relative">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={perspective}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2, ease: 'easeInOut' }}
+                  className="absolute inset-0 flex flex-col"
+                >
+                  {perspective === 'strategic'  && <StrategicView onToast={addToast} page={strategicPage} onClientSelect={handleClientSelect} selectedClientId={selectedClientId} onNavigateToIncidents={handleNavigateToIncidents} onNavigateToCommand={handleNavigateToCommand} incidentsClientId={incidentsClientId} onNavigateToIncident={handleNavigateToIncident} initialIncidentId={initialIncidentId} onInitialIncidentHandled={() => setInitialIncidentId(undefined)} onNavigateToTasks={handleNavigateToTasks} onMarkPPMCreated={handleMarkPPMCreated} ppmCreatedTasks={ppmCreatedTasks} prefilledTask={prefilledTask} onPrefilledTaskConsumed={() => setPrefilledTask(null)} />}
+                  {perspective === 'operational' && <OperationalView onToast={addToast} />}
+                  {perspective === 'client'      && <ClientView onToast={addToast} />}
+                </motion.div>
+              </AnimatePresence>
+            </main>
+          </>
+        )}
       </div>
       <ToastContainer toasts={toasts} removeToast={removeToast} />
+      <CopilotAvatar />
     </div>
   );
 }
