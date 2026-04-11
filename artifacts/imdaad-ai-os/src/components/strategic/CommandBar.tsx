@@ -56,6 +56,17 @@ const INITIAL_CLIENT_DATA: ClientData[] = [
 const CONTRACT_TYPES = ['FM Contract', 'Soft Services', 'Hard Services', 'Integrated FM', 'Consultancy'];
 const ZONE_OPTIONS   = ['All Zones', 'Cluster A', 'Cluster B', 'Block C', 'Recreation Area', 'Main Gate'];
 const SECTOR_OPTIONS = ['Real Estate', 'Retail', 'Hospitality', 'Healthcare', 'Government', 'Education', 'Industrial', 'Mixed-Use', 'Other'];
+const SECTOR_SUBTYPES: Record<string, string[]> = {
+  'Real Estate':  ['Mixed Residential', 'High-Rise Residential', 'Commercial Office', 'Retail Mall', 'Serviced Apartments', 'Villa Community'],
+  'Retail':       ['Shopping Mall', 'Hypermarket', 'Strip Mall', 'Outlet Centre', 'High Street Retail'],
+  'Hospitality':  ['Hotel', 'Resort', 'Serviced Hotel Apartments', 'F&B Complex', 'Convention Centre'],
+  'Healthcare':   ['Hospital', 'Clinic', 'Medical Centre', 'Pharmaceutical Facility', 'Diagnostic Lab'],
+  'Government':   ['Federal Entity', 'Municipality', 'Regulatory Authority', 'Public Infrastructure', 'Port / Airport'],
+  'Education':    ['University', 'K–12 School', 'Vocational Institute', 'Research Campus'],
+  'Industrial':   ['Warehouse / Logistics', 'Manufacturing Plant', 'Free Zone Facility', 'Data Centre'],
+  'Mixed-Use':    ['Integrated Development', 'TOD / Transit Hub', 'Lifestyle Destination'],
+  'Other':        ['Other'],
+};
 const SLA_TIERS      = ['Platinum', 'Gold', 'Silver', 'Bronze'];
 const ASSET_CATEGORIES = ['HVAC', 'Electrical', 'Plumbing', 'Civil', 'Landscaping', 'Cleaning', 'Security', 'Elevators', 'Other'];
 const TEAM_ROLES     = ['Client', 'Account Manager', 'Site Supervisor', 'FM Engineer', 'Project Manager', 'Safety Officer', 'Client Success', 'Executive', 'Other'];
@@ -717,7 +728,7 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
                   <div className="relative">
                     <select
                       value={sector}
-                      onChange={e => { setSector(e.target.value); clearErr('sector'); }}
+                      onChange={e => { setSector(e.target.value); setIndustrySubtype(''); clearErr('sector'); }}
                       className={`${selectCls} ${errors.sector ? 'border-red-500/60' : ''}`}
                     >
                       <option value="" className="bg-[#0A1628]">Select sector…</option>
@@ -731,12 +742,21 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
 
                 <div>
                   <FieldLabel label="Industry Sub-type" />
-                  <input
-                    value={industrySubtype}
-                    onChange={e => setIndustrySubtype(e.target.value)}
-                    placeholder="e.g. Mixed Residential"
-                    className={inputCls()}
-                  />
+                  <div className="relative">
+                    <select
+                      value={industrySubtype}
+                      onChange={e => setIndustrySubtype(e.target.value)}
+                      disabled={!sector}
+                      className={`${selectCls} ${!sector ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      <option value="" className="bg-[#0A1628]">
+                        {sector ? 'Select sub-type…' : 'Select sector first…'}
+                      </option>
+                      {(SECTOR_SUBTYPES[sector] ?? []).map(sub => (
+                        <option key={sub} value={sub} className="bg-[#0A1628]">{sub}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
                 <div className="col-span-2">
