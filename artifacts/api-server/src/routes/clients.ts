@@ -386,6 +386,157 @@ function buildWelcomeEmail(
 }
 
 
+function buildEndClientInviteEmail(
+  name: string,
+  reportUrl: string,
+  clientName: string,
+): string {
+  const safeName = escapeHtml(name);
+  const safeClient = escapeHtml(clientName);
+  const safeUrl = reportUrl;
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Report Any Issue — Imdaad AI-OS</title>
+</head>
+<body style="margin:0;padding:0;background:#F5F0E8;font-family:'Segoe UI',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#F5F0E8;padding:40px 16px;">
+    <tr>
+      <td align="center">
+        <table width="580" cellpadding="0" cellspacing="0" style="background:#FFFFFF;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(26,41,66,0.10);">
+
+          <!-- Header -->
+          <tr>
+            <td style="background:linear-gradient(135deg,#1A2942 0%,#2D4A6E 100%);padding:36px 40px 32px;text-align:center;">
+              <div style="display:inline-block;background:rgba(201,169,110,0.18);border:1px solid rgba(201,169,110,0.35);border-radius:10px;padding:8px 20px;margin-bottom:20px;">
+                <span style="color:#C9A96E;font-size:18px;font-weight:800;letter-spacing:1.5px;">IMDAAD</span>
+                <span style="color:rgba(255,255,255,0.5);font-size:13px;font-weight:400;margin-left:7px;">AI-OS</span>
+              </div>
+              <h1 style="color:#FFFFFF;font-size:26px;font-weight:700;margin:0 0 10px;line-height:1.25;font-family:Georgia,'Times New Roman',serif;">
+                Report Any Issue —<br />Anytime, Instantly
+              </h1>
+              <p style="color:rgba(255,255,255,0.65);font-size:14px;margin:0;line-height:1.6;">
+                Your facility reporting link is ready. It takes less than 60 seconds.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Greeting -->
+          <tr>
+            <td style="padding:36px 40px 0;">
+              <p style="color:#1A2942;font-size:16px;font-weight:600;margin:0 0 12px;">Hello, ${safeName} 👋</p>
+              <p style="color:#4A5568;font-size:14px;line-height:1.7;margin:0 0 28px;">
+                As a valued occupant of <strong style="color:#1A2942;">${safeClient}</strong>, you now have a direct line to report any facility issue — day or night. Imdaad's operations team will be notified immediately and respond within <strong style="color:#1A2942;">30 minutes</strong>.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Reporting Modes -->
+          <tr>
+            <td style="padding:0 40px 28px;">
+              <p style="color:#1A2942;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:2px;margin:0 0 16px;">Four ways to report an issue</p>
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td width="48%" style="vertical-align:top;padding-right:6px;">
+                    <table width="100%" cellpadding="0" cellspacing="0" style="background:#F0F7FF;border:1px solid #BFDBFE;border-radius:10px;margin-bottom:10px;">
+                      <tr><td style="padding:14px 16px;">
+                        <p style="color:#1D4ED8;font-size:20px;margin:0 0 6px;">📸</p>
+                        <p style="color:#1A2942;font-size:12px;font-weight:700;margin:0 0 4px;">Take a Photo</p>
+                        <p style="color:#64748B;font-size:11px;margin:0;line-height:1.5;">Snap a picture of the issue on the spot.</p>
+                      </td></tr>
+                    </table>
+                    <table width="100%" cellpadding="0" cellspacing="0" style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:10px;">
+                      <tr><td style="padding:14px 16px;">
+                        <p style="color:#15803D;font-size:20px;margin:0 0 6px;">🎤</p>
+                        <p style="color:#1A2942;font-size:12px;font-weight:700;margin:0 0 4px;">Voice Note</p>
+                        <p style="color:#64748B;font-size:11px;margin:0;line-height:1.5;">Record a quick voice message — no typing needed.</p>
+                      </td></tr>
+                    </table>
+                  </td>
+                  <td width="4%"></td>
+                  <td width="48%" style="vertical-align:top;padding-left:6px;">
+                    <table width="100%" cellpadding="0" cellspacing="0" style="background:#FFF7ED;border:1px solid #FED7AA;border-radius:10px;margin-bottom:10px;">
+                      <tr><td style="padding:14px 16px;">
+                        <p style="color:#C2410C;font-size:20px;margin:0 0 6px;">📎</p>
+                        <p style="color:#1A2942;font-size:12px;font-weight:700;margin:0 0 4px;">Upload a File</p>
+                        <p style="color:#64748B;font-size:11px;margin:0;line-height:1.5;">Attach a photo or document from your device.</p>
+                      </td></tr>
+                    </table>
+                    <table width="100%" cellpadding="0" cellspacing="0" style="background:#FDF4FF;border:1px solid #E9D5FF;border-radius:10px;">
+                      <tr><td style="padding:14px 16px;">
+                        <p style="color:#7C3AED;font-size:20px;margin:0 0 6px;">💬</p>
+                        <p style="color:#1A2942;font-size:12px;font-weight:700;margin:0 0 4px;">AI Chat</p>
+                        <p style="color:#64748B;font-size:11px;margin:0;line-height:1.5;">Chat with Layla, your AI facility assistant.</p>
+                      </td></tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- CTA -->
+          <tr>
+            <td style="padding:0 40px 12px;text-align:center;">
+              <a href="${safeUrl}"
+                style="display:inline-block;background:linear-gradient(135deg,#1A2942 0%,#2D4A6E 100%);color:#FFFFFF;text-decoration:none;font-size:15px;font-weight:700;padding:16px 48px;border-radius:10px;letter-spacing:0.5px;box-shadow:0 4px 16px rgba(26,41,66,0.3);">
+                Report an Incident →
+              </a>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 40px 28px;text-align:center;">
+              <p style="color:#94A3B8;font-size:10px;margin:8px 0 0;word-break:break-all;">
+                Direct link: <a href="${safeUrl}" style="color:#2D4A6E;">${safeUrl}</a>
+              </p>
+            </td>
+          </tr>
+
+          <!-- Response Guarantee -->
+          <tr>
+            <td style="padding:0 40px 32px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:10px;">
+                <tr>
+                  <td style="padding:16px 20px;">
+                    <p style="color:#92400E;font-size:12px;font-weight:700;margin:0 0 4px;">⏱ 30-Minute Response Guarantee</p>
+                    <p style="color:#78350F;font-size:11px;line-height:1.6;margin:0;">
+                      Every incident you report is logged immediately and routed to the nearest available technician. You will receive a confirmation with a reference number as soon as you submit.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background:#F8FAFC;padding:20px 40px;border-top:1px solid #E2E8F0;">
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td>
+                    <p style="color:#94A3B8;font-size:10px;margin:0;">© ${new Date().getFullYear()} Imdaad. All rights reserved.</p>
+                    <p style="color:#94A3B8;font-size:10px;margin:4px 0 0;">AI-OS Platform · Dubai, UAE · Facility Management Excellence</p>
+                  </td>
+                  <td align="right">
+                    <p style="color:#94A3B8;font-size:10px;margin:0;white-space:nowrap;">Powered by Imdaad AI-OS</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
+
 interface TeamMember {
   id?: string;
   name: string;
@@ -456,25 +607,75 @@ router.post("/clients/invite", async (req, res) => {
   const results: { email: string; status: "sent" | "failed"; error?: string }[] = [];
 
   for (const member of teamMembers) {
-    const memberId = member.id?.trim();
-    const dashboardUrl = memberId ? buildMemberDashboardUrl(memberId) : undefined;
+    const isEndClient = member.role.trim() === "End Client" || member.perspective === "Client";
 
-    const html = buildWelcomeEmail(
-      member.name,
-      member.email,
-      member.role,
-      clientName,
-      member.responsibilities ?? "",
-      clientContext,
-      dashboardUrl,
-      member.perspective,
-      member.zones,
-      member.skills,
-    );
+    const rawId = member.id?.trim();
+    const effectiveId = rawId || (isEndClient ? `ec-${crypto.randomBytes(4).toString("hex")}` : undefined);
+    const dashboardUrl = effectiveId ? buildMemberDashboardUrl(effectiveId) : undefined;
+
+    let html: string;
+    let subject: string;
+
+    if (isEndClient) {
+      if (!dashboardUrl) {
+        results.push({ email: member.email, status: "failed", error: "APP_BASE_URL is not configured — cannot generate personalised report link for End Client invite" });
+        continue;
+      }
+      if (effectiveId) {
+        try {
+          await db.insert(teamMembersTable).values({
+            id: effectiveId,
+            name: member.name,
+            email: member.email.trim().toLowerCase(),
+            role: "End Client",
+            perspective: "Client",
+            assignedClients: member.assignedClients ?? [],
+            zones: member.zones ?? [],
+            skills: member.skills ?? null,
+            responsibilities: member.responsibilities ?? null,
+            privileges: [],
+            mobile: null,
+            whatsapp: null,
+            location: null,
+            availability: null,
+            shift: null,
+            commChannels: [],
+            siteIds: [],
+            phone: null,
+          }).onConflictDoUpdate({
+            target: teamMembersTable.id,
+            set: {
+              name: member.name,
+              email: member.email.trim().toLowerCase(),
+              perspective: "Client",
+            },
+          });
+          logger.info({ id: effectiveId, email: member.email }, "End Client member upserted to DB for invite link");
+        } catch (dbErr) {
+          logger.warn({ dbErr, id: effectiveId }, "Could not upsert End Client member to DB — link may not work");
+        }
+      }
+      html = buildEndClientInviteEmail(member.name, dashboardUrl, clientName);
+      subject = `Your Facility Reporting Link — ${clientName}`;
+    } else {
+      html = buildWelcomeEmail(
+        member.name,
+        member.email,
+        member.role,
+        clientName,
+        member.responsibilities ?? "",
+        clientContext,
+        dashboardUrl,
+        member.perspective,
+        member.zones,
+        member.skills,
+      );
+      subject = `Welcome to Imdaad AI-OS — ${clientName} | ${member.role}`;
+    }
 
     const result = await sendEmail({
       to: member.email,
-      subject: `Welcome to Imdaad AI-OS — ${clientName} | ${member.role}`,
+      subject,
       html,
     });
     results.push({ email: member.email, ...result });
@@ -648,5 +849,43 @@ router.get("/team-members/:id", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch team member" });
   }
 });
+
+const END_CLIENT_TEST_RECIPIENT = "gm@4cksa.com";
+const END_CLIENT_TEST_CLIENT_NAME = "4CKSA Properties";
+const END_CLIENT_TEST_MEMBER_ID = "mbr-4cksa-gm-001";
+
+export async function sendEndClientTestEmail(): Promise<{ status: "sent" | "failed"; error?: string }> {
+  const reportUrl = TRUSTED_APP_BASE
+    ? `${TRUSTED_APP_BASE}?member=${encodeURIComponent(END_CLIENT_TEST_MEMBER_ID)}`
+    : `https://e0f441fc-0270-4880-be01-81df49eee9d1-00-2i7i1iifujpos-g1h59127.spock.replit.dev?member=${encodeURIComponent(END_CLIENT_TEST_MEMBER_ID)}`;
+
+  const html = buildEndClientInviteEmail(
+    "General Manager",
+    reportUrl,
+    END_CLIENT_TEST_CLIENT_NAME,
+  );
+
+  const result = await sendEmail({
+    to: END_CLIENT_TEST_RECIPIENT,
+    subject: `Your Facility Reporting Link — ${END_CLIENT_TEST_CLIENT_NAME}`,
+    html,
+  });
+
+  if (result.status === "sent") {
+    logger.info(
+      { to: END_CLIENT_TEST_RECIPIENT, memberId: END_CLIENT_TEST_MEMBER_ID },
+      "End-client test invite email sent successfully"
+    );
+  } else {
+    logger.error(
+      { to: END_CLIENT_TEST_RECIPIENT, error: result.error },
+      "End-client test invite email FAILED"
+    );
+  }
+
+  return result;
+}
+
+export { buildEndClientInviteEmail };
 
 export default router;
