@@ -592,7 +592,7 @@ export function AllClients({ onToast, onClientSelect }: Props) {
       id: `CLT-${Date.now()}`,
       name: data.name,
       status: 'live',
-      region: data.zones?.[0]?.zone ?? '',
+      region: data.siteNames?.[0] ?? '',
       sector: data.sector ?? '',
       sites: Number(data.numSites ?? 0),
       workOrders: 0,
@@ -603,7 +603,7 @@ export function AllClients({ onToast, onClientSelect }: Props) {
       overdueTasks: 0,
       aiInsight: '',
       lastUpdated: 'Just now',
-      contract: { number: `IMD-${Date.now()}`, tier: data.slaTier ?? 'Standard', annualValue: String(data.zones?.reduce((sum, z) => sum + z.contractValue, 0) ?? '') },
+      contract: { number: `IMD-${Date.now()}`, tier: data.slaTier ?? 'Standard', annualValue: data.contractValue ?? '' },
     }).catch(err => console.warn('[AllClients] Failed to persist client:', err));
     addProfiles(teamMembers);
     setShowAddModal(false);

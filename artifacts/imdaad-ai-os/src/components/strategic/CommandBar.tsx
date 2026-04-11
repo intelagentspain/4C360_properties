@@ -48,13 +48,12 @@ const INITIALS_COLORS = [
 ];
 
 const INITIAL_CLIENT_DATA: ClientData[] = [
-  { name: 'Silicon Oasis Authority', sector: 'Government', industrySubtype: '', contractType: 'FM Contract', contractStartDate: '', contractEndDate: '', slaTier: 'Gold', zones: [{ zone: 'All Zones', contractValue: 0 }], numSites: '1', siteNames: ['Silicon Oasis'], totalAssets: '', assetCategories: [], assets: [], contactName: '', contactEmail: '', contactPhone: '', accountManager: '', initialsColor: '#2E7FFF' },
-  { name: 'Emaar', sector: 'Real Estate', industrySubtype: '', contractType: 'Integrated FM', contractStartDate: '', contractEndDate: '', slaTier: 'Platinum', zones: [{ zone: 'All Zones', contractValue: 0 }], numSites: '1', siteNames: ['Downtown Dubai'], totalAssets: '', assetCategories: [], assets: [], contactName: '', contactEmail: '', contactPhone: '', accountManager: '', initialsColor: '#10B981' },
-  { name: 'DEWA', sector: 'Government', industrySubtype: '', contractType: 'Hard Services', contractStartDate: '', contractEndDate: '', slaTier: 'Gold', zones: [{ zone: 'All Zones', contractValue: 0 }], numSites: '1', siteNames: ['HQ'], totalAssets: '', assetCategories: [], assets: [], contactName: '', contactEmail: '', contactPhone: '', accountManager: '', initialsColor: '#F59E0B' },
+  { name: 'Silicon Oasis Authority', sector: 'Government', industrySubtype: '', contractType: 'FM Contract', contractStartDate: '', contractEndDate: '', slaTier: 'Gold', contractValue: '', numSites: '1', siteNames: ['Silicon Oasis'], totalAssets: '', assetCategories: [], assets: [], contactName: '', contactEmail: '', contactPhone: '', accountManager: '', initialsColor: '#2E7FFF' },
+  { name: 'Emaar', sector: 'Real Estate', industrySubtype: '', contractType: 'Integrated FM', contractStartDate: '', contractEndDate: '', slaTier: 'Platinum', contractValue: '', numSites: '1', siteNames: ['Downtown Dubai'], totalAssets: '', assetCategories: [], assets: [], contactName: '', contactEmail: '', contactPhone: '', accountManager: '', initialsColor: '#10B981' },
+  { name: 'DEWA', sector: 'Government', industrySubtype: '', contractType: 'Hard Services', contractStartDate: '', contractEndDate: '', slaTier: 'Gold', contractValue: '', numSites: '1', siteNames: ['HQ'], totalAssets: '', assetCategories: [], assets: [], contactName: '', contactEmail: '', contactPhone: '', accountManager: '', initialsColor: '#F59E0B' },
 ];
 
 const CONTRACT_TYPES = ['FM Contract', 'Soft Services', 'Hard Services', 'Integrated FM', 'Consultancy'];
-const ZONE_OPTIONS   = ['All Zones', 'Cluster A', 'Cluster B', 'Block C', 'Recreation Area', 'Main Gate'];
 const SECTOR_OPTIONS = ['Real Estate', 'Retail', 'Hospitality', 'Healthcare', 'Government', 'Education', 'Industrial', 'Mixed-Use', 'Other'];
 const SECTOR_SUBTYPES: Record<string, string[]> = {
   'Real Estate':  ['Mixed Residential', 'High-Rise Residential', 'Commercial Office', 'Retail Mall', 'Serviced Apartments', 'Villa Community'],
@@ -203,11 +202,6 @@ const INDUSTRY_SUBTYPE_ASSET_HINTS: Record<string, SubtypeHint> = {
   'Data Centre':        { defaultCondition: 'Excellent', ppmNote: 'N+1 redundancy required; no single-point-of-failure maintenance; 24/7 monitoring' },
 };
 
-export interface ZoneEntry {
-  zone: string;
-  contractValue: number;
-}
-
 export interface ClientData {
   name: string;
   sector: string;
@@ -217,7 +211,7 @@ export interface ClientData {
   contractStartDate: string;
   contractEndDate: string;
   slaTier: string;
-  zones: ZoneEntry[];
+  contractValue: string;
   numSites: string;
   siteNames: string[];
   totalAssets: string;
@@ -367,9 +361,7 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
   const [contractStart, setContractStart]     = useState('');
   const [contractEnd, setContractEnd]         = useState('');
   const [slaTier, setSlaTier]                 = useState('');
-  const [zoneEntries, setZoneEntries]         = useState<ZoneEntry[]>([]);
-  const [pendingZone, setPendingZone]         = useState(ZONE_OPTIONS[0]);
-  const [pendingZoneValue, setPendingZoneValue] = useState('');
+  const [contractValue, setContractValue]     = useState('');
   const [siteNames, setSiteNames]             = useState<string[]>(['']);
   const [totalAssets, setTotalAssets]         = useState('');
   const [assetCategories, setAssetCategories] = useState<string[]>([]);
@@ -531,7 +523,6 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
     if (!contractType)         errs.contractType = 'Contract type is required';
     if (!contractStart)        errs.contractStart = 'Start date is required';
     if (!slaTier)              errs.slaTier = 'SLA tier is required';
-    if (zoneEntries.length === 0) errs.zones = 'At least one zone is required';
     if (!contactName.trim())   errs.contactName = 'Contact name is required';
 
     assetRows.forEach(a => {
@@ -567,7 +558,7 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
       const assetErrKeys = Object.keys(errs).filter(k => k.startsWith('asset_'));
       if (teamErrKeys.length > 0 || errs.team_required) setActiveTab('team');
       else if (errs.contactName) setActiveTab('contact');
-      else if (errs.contractType || errs.contractStart || errs.slaTier || errs.zones) setActiveTab('contract');
+      else if (errs.contractType || errs.contractStart || errs.slaTier) setActiveTab('contract');
       else if (assetErrKeys.length > 0) setActiveTab('assets');
       else if (errs.sites) setActiveTab('sites');
       else if (errs.name || errs.sector) setActiveTab('business');
@@ -584,7 +575,7 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
       contractStartDate: contractStart,
       contractEndDate: contractEnd,
       slaTier,
-      zones: zoneEntries,
+      contractValue,
       numSites: String(siteNames.filter(s => s.trim()).length),
       siteNames: siteNames.filter(s => s.trim()),
       totalAssets,
@@ -611,7 +602,7 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
           slaTier: clientData.slaTier,
           contractStartDate: clientData.contractStartDate,
           contractEndDate: clientData.contractEndDate,
-          zones: clientData.zones,
+          contractValue: clientData.contractValue,
           siteNames: clientData.siteNames,
           teamMembers: filledMembers,
         }),
@@ -640,7 +631,7 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
     if (tab === 'business') return !!(errors.name || errors.sector);
     if (tab === 'sites') return !!errors.sites;
     if (tab === 'assets') return Object.keys(errors).some(k => k.startsWith('asset_'));
-    if (tab === 'contract') return !!(errors.contractType || errors.contractStart || errors.slaTier || errors.zones);
+    if (tab === 'contract') return !!(errors.contractType || errors.contractStart || errors.slaTier);
     if (tab === 'contact') return !!errors.contactName;
     if (tab === 'team') return !!(errors.team_required) || Object.keys(errors).some(k => k.startsWith('team_') && k !== 'team_required');
     return false;
@@ -1146,65 +1137,17 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
                 </div>
 
                 <div className="col-span-2">
-                  <FieldLabel label="Zones" required />
-                  <div className="space-y-2">
-                    {zoneEntries.map((entry, idx) => (
-                      <div key={idx} className="flex items-center gap-2 bg-[#0A1628] border border-[rgba(46,127,255,0.18)] rounded-lg px-3 py-2">
-                        <span className="text-[11px] text-[#EEF3FA] font-medium flex-shrink-0 min-w-[90px]">{entry.zone}</span>
-                        <span className="text-[10px] text-[#4A6080] flex-shrink-0">AED</span>
-                        <span className="text-[11px] text-[#EEF3FA] flex-1">{entry.contractValue.toLocaleString()}</span>
-                        <button
-                          type="button"
-                          onClick={() => setZoneEntries(prev => prev.filter((_, i) => i !== idx))}
-                          className="text-[#7A94B4] hover:text-red-400 transition-colors flex-shrink-0"
-                        >
-                          <X size={12} />
-                        </button>
-                      </div>
-                    ))}
-                    {zoneEntries.length === 0 && (
-                      <p className="text-[10px] text-[#4A6080] italic">No zones added yet.</p>
-                    )}
+                  <FieldLabel label="Contract Value (AED)" />
+                  <div className="relative">
+                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] text-[#7A94B4] font-medium">AED</span>
+                    <input
+                      type="text"
+                      value={contractValue}
+                      onChange={e => setContractValue(e.target.value)}
+                      placeholder="e.g. 1,200,000"
+                      className={`${inputCls()} pl-9`}
+                    />
                   </div>
-                  <div className="mt-2 flex items-center gap-2">
-                    <div className="relative flex-1">
-                      <select
-                        value={pendingZone}
-                        onChange={e => setPendingZone(e.target.value)}
-                        className={selectCls}
-                      >
-                        {ZONE_OPTIONS.map(z => (
-                          <option key={z} value={z} className="bg-[#0A1628]">{z}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="relative flex-1">
-                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] text-[#7A94B4] font-medium">AED</span>
-                      <input
-                        type="number"
-                        min="0"
-                        value={pendingZoneValue}
-                        onChange={e => setPendingZoneValue(e.target.value)}
-                        placeholder="Contract value"
-                        className={`${inputCls()} pl-9`}
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!pendingZone) return;
-                        setZoneEntries(prev => [...prev, { zone: pendingZone, contractValue: parseFloat(pendingZoneValue) || 0 }]);
-                        setPendingZoneValue('');
-                        setPendingZone(ZONE_OPTIONS[0]);
-                        clearErr('zones');
-                      }}
-                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-[#2E7FFF]/20 border border-[#2E7FFF]/40 text-[#2E7FFF] hover:bg-[#2E7FFF]/30 transition-all flex-shrink-0"
-                    >
-                      <Plus size={11} />
-                      Add Zone
-                    </button>
-                  </div>
-                  {errors.zones && <p className="mt-1 text-[10px] text-red-400">{errors.zones}</p>}
                 </div>
               </div>
             </div>
