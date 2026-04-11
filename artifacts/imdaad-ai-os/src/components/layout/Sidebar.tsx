@@ -18,7 +18,7 @@ const strategicItems: NavItem[] = [
   { icon: Map,             label: 'GIS Map',            page: 'dashboard' },
   { icon: Users,           label: 'Team',               page: 'team' },
   { icon: AlertTriangle,   label: 'Incidents',          page: 'incidents' },
-  { icon: CheckSquare,     label: 'Tasks',              page: 'tasks' },
+  { icon: CheckSquare,     label: 'Work Orders',        page: 'tasks' },
   { icon: Calendar,        label: 'PPM Schedule',       page: 'ppmschedule' },
   { icon: Camera,          label: 'AI Capture',         page: 'aicapture' },
   { icon: Database,        label: 'Data Sources',       page: 'datasources' },
