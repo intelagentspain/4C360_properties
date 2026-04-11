@@ -287,13 +287,12 @@ const inputCls = (hasErr?: boolean) =>
 
 const selectCls = `w-full px-2.5 py-1.5 bg-[#0A1628] border border-[rgba(46,127,255,0.22)] rounded-lg text-[11px] text-[#EEF3FA] focus:outline-none focus:border-[#2E7FFF] transition-colors appearance-none cursor-pointer`;
 
-type Tab = 'business' | 'sites' | 'assets' | 'contact' | 'team';
+type Tab = 'business' | 'sites' | 'assets' | 'team';
 
 const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
   { key: 'business', label: 'Business',  icon: <Building2 size={11} /> },
   { key: 'sites',    label: 'Sites',     icon: <MapPin size={11} /> },
   { key: 'assets',   label: 'Assets',    icon: <Layers size={11} /> },
-  { key: 'contact',  label: 'Contact',   icon: <User size={11} /> },
   { key: 'team',     label: 'Team',      icon: <Users size={11} /> },
 ];
 
@@ -553,10 +552,9 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
       const teamErrKeys = Object.keys(errs).filter(k => k.startsWith('team_'));
       const assetErrKeys = Object.keys(errs).filter(k => k.startsWith('asset_'));
       if (teamErrKeys.length > 0 || errs.team_required) setActiveTab('team');
-      else if (errs.contactName) setActiveTab('contact');
       else if (assetErrKeys.length > 0) setActiveTab('assets');
       else if (errs.sites) setActiveTab('sites');
-      else if (errs.name || errs.sector) setActiveTab('business');
+      else if (errs.name || errs.sector || errs.contactName || errs.contractType || errs.contractStart || errs.slaTier) setActiveTab('business');
       return;
     }
 
@@ -623,10 +621,9 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
   };
 
   const tabHasError = (tab: Tab): boolean => {
-    if (tab === 'business') return !!(errors.name || errors.sector);
+    if (tab === 'business') return !!(errors.name || errors.sector || errors.contactName || errors.contractType || errors.contractStart || errors.slaTier);
     if (tab === 'sites') return !!errors.sites;
     if (tab === 'assets') return Object.keys(errors).some(k => k.startsWith('asset_'));
-    if (tab === 'contact') return !!errors.contactName;
     if (tab === 'team') return !!(errors.team_required) || Object.keys(errors).some(k => k.startsWith('team_') && k !== 'team_required');
     return false;
   };
@@ -782,41 +779,44 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
               <SectionHeader icon={SECTION_ICONS.contract} title="Contract Details" />
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <FieldLabel label="Contract Type" />
+                  <FieldLabel label="Contract Type" required />
                   <select
                     value={contractType}
-                    onChange={e => setContractType(e.target.value)}
-                    className={selectCls}
+                    onChange={e => { setContractType(e.target.value); clearErr('contractType'); }}
+                    className={`${selectCls} ${errors.contractType ? 'border-red-500/60' : ''}`}
                   >
                     <option value="" className="bg-[#0A1628]">Select type…</option>
                     {CONTRACT_TYPES.map(ct => (
                       <option key={ct} value={ct} className="bg-[#0A1628]">{ct}</option>
                     ))}
                   </select>
+                  {errors.contractType && <p className="mt-0.5 text-[10px] text-red-400">{errors.contractType}</p>}
                 </div>
 
                 <div>
-                  <FieldLabel label="SLA Tier" />
+                  <FieldLabel label="SLA Tier" required />
                   <select
                     value={slaTier}
-                    onChange={e => setSlaTier(e.target.value)}
-                    className={selectCls}
+                    onChange={e => { setSlaTier(e.target.value); clearErr('slaTier'); }}
+                    className={`${selectCls} ${errors.slaTier ? 'border-red-500/60' : ''}`}
                   >
                     <option value="" className="bg-[#0A1628]">Select tier…</option>
                     {SLA_TIERS.map(t => (
                       <option key={t} value={t} className="bg-[#0A1628]">{t}</option>
                     ))}
                   </select>
+                  {errors.slaTier && <p className="mt-0.5 text-[10px] text-red-400">{errors.slaTier}</p>}
                 </div>
 
                 <div>
-                  <FieldLabel label="Contract Start Date" />
+                  <FieldLabel label="Contract Start Date" required />
                   <input
                     type="date"
                     value={contractStart}
-                    onChange={e => setContractStart(e.target.value)}
-                    className={`${inputCls()} [color-scheme:dark]`}
+                    onChange={e => { setContractStart(e.target.value); clearErr('contractStart'); }}
+                    className={`${inputCls(!!errors.contractStart)} [color-scheme:dark]`}
                   />
+                  {errors.contractStart && <p className="mt-0.5 text-[10px] text-red-400">{errors.contractStart}</p>}
                 </div>
 
                 <div>
@@ -841,6 +841,52 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
                       className={`${inputCls()} pl-9`}
                     />
                   </div>
+                </div>
+              </div>
+
+              <SectionHeader icon={SECTION_ICONS.contact} title="Primary Contact" />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <FieldLabel label="Contact Name" required />
+                  <input
+                    value={contactName}
+                    onChange={e => { setContactName(e.target.value); clearErr('contactName'); }}
+                    placeholder="e.g. Ahmed Al Mansouri"
+                    className={inputCls(!!errors.contactName)}
+                  />
+                  {errors.contactName && <p className="mt-0.5 text-[10px] text-red-400">{errors.contactName}</p>}
+                </div>
+
+                <div>
+                  <FieldLabel label="Account Manager" />
+                  <input
+                    value={accountManager}
+                    onChange={e => setAccountManager(e.target.value)}
+                    placeholder="e.g. Sara Hassan"
+                    className={inputCls()}
+                  />
+                </div>
+
+                <div>
+                  <FieldLabel label="Contact Email" />
+                  <input
+                    type="email"
+                    value={contactEmail}
+                    onChange={e => setContactEmail(e.target.value)}
+                    placeholder="e.g. ahmed@client.ae"
+                    className={inputCls()}
+                  />
+                </div>
+
+                <div>
+                  <FieldLabel label="Contact Phone" />
+                  <input
+                    type="tel"
+                    value={contactPhone}
+                    onChange={e => setContactPhone(e.target.value)}
+                    placeholder="e.g. +971 50 123 4567"
+                    className={inputCls()}
+                  />
                 </div>
               </div>
             </div>
@@ -1136,56 +1182,6 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
                 <p className="text-[10px] text-[#7A94B4] leading-relaxed">
                   <span className="text-[#2E7FFF] font-semibold">Optional:</span> Asset registration is not required to save the client. Partially entered rows must have a name, category, and type filled.
                 </p>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'contact' && (
-            <div className="space-y-4">
-              <SectionHeader icon={SECTION_ICONS.contact} title="Primary Contact" />
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <FieldLabel label="Contact Name" required />
-                  <input
-                    value={contactName}
-                    onChange={e => { setContactName(e.target.value); clearErr('contactName'); }}
-                    placeholder="e.g. Ahmed Al Mansouri"
-                    className={inputCls(!!errors.contactName)}
-                  />
-                  {errors.contactName && <p className="mt-0.5 text-[10px] text-red-400">{errors.contactName}</p>}
-                </div>
-
-                <div>
-                  <FieldLabel label="Account Manager" />
-                  <input
-                    value={accountManager}
-                    onChange={e => setAccountManager(e.target.value)}
-                    placeholder="e.g. Sara Hassan"
-                    className={inputCls()}
-                  />
-                </div>
-
-                <div>
-                  <FieldLabel label="Contact Email" />
-                  <input
-                    type="email"
-                    value={contactEmail}
-                    onChange={e => setContactEmail(e.target.value)}
-                    placeholder="e.g. ahmed@client.ae"
-                    className={inputCls()}
-                  />
-                </div>
-
-                <div>
-                  <FieldLabel label="Contact Phone" />
-                  <input
-                    type="tel"
-                    value={contactPhone}
-                    onChange={e => setContactPhone(e.target.value)}
-                    placeholder="e.g. +971 50 123 4567"
-                    className={inputCls()}
-                  />
-                </div>
               </div>
             </div>
           )}
