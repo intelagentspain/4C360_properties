@@ -1,10 +1,10 @@
 import { Resend } from "resend";
 import { logger } from "./logger";
 
-const DEFAULT_FROM_EMAIL = "Imdaad AI-OS <onboarding@resend.dev>";
+const RESEND_SHARED_FROM = "Imdaad AI-OS <onboarding@resend.dev>";
 
 function getFromEmail(): string {
-  return process.env.SMTP_FROM || DEFAULT_FROM_EMAIL;
+  return process.env.SMTP_FROM || RESEND_SHARED_FROM;
 }
 
 export interface SendEmailOptions {
@@ -157,9 +157,6 @@ export async function ensureResendConfigured(): Promise<void> {
     const creds = await fetchConnectorCredentials();
     if (creds) {
       process.env.RESEND_API_KEY = creds.apiKey;
-      if (creds.fromEmail && creds.fromEmail !== DEFAULT_FROM_EMAIL) {
-        process.env.SMTP_FROM = creds.fromEmail;
-      }
       logger.info("Resend API key loaded from connector and stored to process env");
     }
   } catch (err) {
@@ -178,9 +175,6 @@ export async function checkEmailConfig(): Promise<void> {
     const creds = await fetchConnectorCredentials();
     if (creds) {
       process.env.RESEND_API_KEY = creds.apiKey;
-      if (creds.fromEmail && creds.fromEmail !== DEFAULT_FROM_EMAIL) {
-        process.env.SMTP_FROM = creds.fromEmail;
-      }
       logger.info(
         "Resend configured — API key obtained from connector and persisted to RESEND_API_KEY for this process"
       );
@@ -202,7 +196,7 @@ export async function sendEmail(opts: SendEmailOptions): Promise<SendEmailResult
     return { status: "failed", error: "Email provider not configured" };
   }
 
-  const from = opts.from || resend.fromEmail;
+  const from = opts.from || getFromEmail();
 
   try {
     const { error } = await resend.client.emails.send({
