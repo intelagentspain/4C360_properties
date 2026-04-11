@@ -162,6 +162,7 @@ function AddStaffModal({ onClose, onToast, clientNames }: AddStaffModalProps) {
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [whatsappTarget, setWhatsappTarget] = useState<{ recipientName: string; recipientPhone: string; defaultMessage: string } | null>(null);
+  const isClientRole = form.role === 'Client';
 
   const inputCls = (hasErr?: boolean) =>
     `w-full px-2.5 py-1.5 bg-[#0A1628] border rounded-lg text-[11px] text-[#EEF3FA] placeholder-[#4A6080] focus:outline-none transition-colors ${
@@ -377,6 +378,7 @@ function AddStaffModal({ onClose, onToast, clientNames }: AddStaffModalProps) {
                     </select>
                     {errors.role && <p className="mt-0.5 text-[10px] text-red-400">{errors.role}</p>}
                   </div>
+                  {!isClientRole && (
                   <div>
                     <FieldLabel label="Dashboard Perspective" />
                     <select
@@ -392,10 +394,12 @@ function AddStaffModal({ onClose, onToast, clientNames }: AddStaffModalProps) {
                       {form.perspective === 'Strategic' ? 'KPIs, dispatch, AI rules, all clients' : form.perspective === 'Operational' ? 'Tasks, kanban, smart scan' : 'Service requests & tracking'}
                     </p>
                   </div>
+                  )}
                 </div>
               </div>
 
               {/* Assignment */}
+              {!isClientRole && (
               <div>
                 <SectionHeader icon={<Building2 size={12} className="text-[#2E7FFF]" />} title="Assignment" />
                 <div className="space-y-3">
@@ -423,8 +427,10 @@ function AddStaffModal({ onClose, onToast, clientNames }: AddStaffModalProps) {
                   </div>
                 </div>
               </div>
+              )}
 
               {/* Skills & Responsibilities */}
+              {!isClientRole && (
               <div>
                 <SectionHeader icon={<Wrench size={12} className="text-[#2E7FFF]" />} title="Skills & Responsibilities" />
                 <div className="space-y-3">
@@ -450,8 +456,10 @@ function AddStaffModal({ onClose, onToast, clientNames }: AddStaffModalProps) {
                   </div>
                 </div>
               </div>
+              )}
 
               {/* Privileges */}
+              {!isClientRole && (
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <SectionHeader icon={<Shield size={12} className="text-[#2E7FFF]" />} title="Privileges" />
@@ -476,6 +484,7 @@ function AddStaffModal({ onClose, onToast, clientNames }: AddStaffModalProps) {
                   <p className="mt-1.5 text-[9px] text-[#7A94B4]">{form.privileges.length} privilege{form.privileges.length !== 1 ? 's' : ''} selected</p>
                 )}
               </div>
+              )}
 
               {/* Comm & Availability */}
               <div>
