@@ -1,9 +1,10 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, X, Grid, List, AlertTriangle, CheckCircle, Clock,
   Zap, ChevronRight, Activity, Database, Users, BarChart2,
   TrendingUp, MapPin, ArrowRight, Shield, Bot, Plus,
+  FileText, Truck, Package, Wrench, Calendar,
 } from 'lucide-react';
 import { type PortfolioClient } from '@/data/mockData';
 import { type ToastFn } from '@/lib/ui';
@@ -230,11 +231,13 @@ function CardActions({
   onToast,
   onNavigateToIncidents,
   onNavigateToCommand,
+  onReport,
 }: {
   client: PortfolioClient;
   onToast: ToastFn;
   onNavigateToIncidents: (clientId: string) => void;
   onNavigateToCommand: (clientId: string) => void;
+  onReport: (c: PortfolioClient) => void;
 }) {
   return (
     <div className="grid grid-cols-3 gap-1 pt-2 border-t border-[rgba(46,127,255,0.1)]">
@@ -255,7 +258,7 @@ function CardActions({
         <span className="text-[8px] font-semibold">Incidents</span>
       </button>
       <button
-        onClick={e => { e.stopPropagation(); onToast(`Report generated for ${client.name}`, 'success'); }}
+        onClick={e => { e.stopPropagation(); onReport(client); }}
         className="flex flex-col items-center gap-0.5 py-1.5 rounded-lg bg-[rgba(46,127,255,0.1)] hover:bg-[rgba(46,127,255,0.2)] text-emerald-400 transition-colors"
         title="Generate Report"
       >
@@ -270,6 +273,7 @@ function ClientPortfolioCard({
   client,
   onSelect,
   onToast,
+  onReport,
   view,
   onNavigateToIncidents,
   onNavigateToCommand,
@@ -277,6 +281,7 @@ function ClientPortfolioCard({
   client: PortfolioClient;
   onSelect: (c: PortfolioClient) => void;
   onToast: ToastFn;
+  onReport: (c: PortfolioClient) => void;
   view: 'grid' | 'list';
   onNavigateToIncidents: (clientId: string) => void;
   onNavigateToCommand: (clientId: string) => void;
@@ -321,7 +326,7 @@ function ClientPortfolioCard({
           <ChevronRight size={14} className="text-[#7A94B4] flex-shrink-0" />
         </button>
         <div className="px-4 pb-2.5">
-          <CardActions client={client} onToast={onToast} onNavigateToIncidents={onNavigateToIncidents} onNavigateToCommand={onNavigateToCommand} />
+          <CardActions client={client} onToast={onToast} onNavigateToIncidents={onNavigateToIncidents} onNavigateToCommand={onNavigateToCommand} onReport={onReport} />
         </div>
       </motion.div>
     );
@@ -383,7 +388,442 @@ function ClientPortfolioCard({
       </button>
 
       <div className="px-3 pb-3">
-        <CardActions client={client} onToast={onToast} onNavigateToIncidents={onNavigateToIncidents} onNavigateToCommand={onNavigateToCommand} />
+        <CardActions client={client} onToast={onToast} onNavigateToIncidents={onNavigateToIncidents} onNavigateToCommand={onNavigateToCommand} onReport={onReport} />
+      </div>
+    </motion.div>
+  );
+}
+
+function ArcGauge({ value, label, color }: { value: number; label: string; color: string }) {
+  const cx = 45;
+  const cy = 45;
+  const r = 36;
+  const stroke = 7;
+
+  const polarToCartesian = (angle: number) => ({
+    x: cx + r * Math.cos(angle),
+    y: cy + r * Math.sin(angle),
+  });
+
+  const arcPath = (from: number, to: number) => {
+    const s = polarToCartesian(from);
+    const e = polarToCartesian(to);
+    const large = Math.abs(to - from) > Math.PI ? 1 : 0;
+    return `M ${s.x} ${s.y} A ${r} ${r} 0 ${large} 0 ${e.x} ${e.y}`;
+  };
+
+  const pct = Math.min(Math.max(value, 0), 100) / 100;
+  const angle80 = Math.PI - 0.8 * Math.PI;
+  const angle90 = Math.PI - 0.9 * Math.PI;
+  const m80 = polarToCartesian(angle80);
+  const m90 = polarToCartesian(angle90);
+
+  const circumference = Math.PI * r;
+  const dashOffset = circumference * (1 - pct);
+
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <div className="relative" style={{ width: cx * 2, height: cy + stroke }}>
+        <svg width={cx * 2} height={cy + stroke} style={{ overflow: 'visible' }}>
+          <path d={arcPath(Math.PI, 0)} fill="none" stroke="rgba(46,127,255,0.15)" strokeWidth={stroke} strokeLinecap="round" />
+          <motion.path
+            d={arcPath(Math.PI, 0)}
+            fill="none"
+            stroke={color}
+            strokeWidth={stroke}
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            initial={{ strokeDashoffset: circumference }}
+            animate={{ strokeDashoffset: dashOffset }}
+            transition={{ duration: 1, ease: 'easeOut' }}
+          />
+          <circle cx={m80.x} cy={m80.y} r={3} fill="#FF9B38" opacity={0.8} />
+          <circle cx={m90.x} cy={m90.y} r={3} fill="#38D98A" opacity={0.8} />
+        </svg>
+        <div className="absolute inset-0 flex items-end justify-center pb-0.5">
+          <span className="text-lg font-bold" style={{ color }}>{value}%</span>
+        </div>
+      </div>
+      <span className="text-[10px] text-[#7A94B4] uppercase tracking-wide">{label}</span>
+    </div>
+  );
+}
+
+function ReportSection({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 pb-2 border-b border-[rgba(46,127,255,0.15)]">
+        <div className="text-blue-400">{icon}</div>
+        <span className="text-[11px] font-bold text-[#EEF3FA] uppercase tracking-widest">{title}</span>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function KPITile({ label, value, color, sub }: { label: string; value: string | number; color: string; sub?: string }) {
+  const colorMap: Record<string, string> = {
+    green: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/25',
+    amber: 'text-amber-400 bg-amber-500/10 border-amber-500/25',
+    red: 'text-red-400 bg-red-500/10 border-red-500/25',
+    blue: 'text-blue-400 bg-blue-500/10 border-blue-500/25',
+    cyan: 'text-cyan-400 bg-cyan-500/10 border-cyan-500/25',
+    white: 'text-[#EEF3FA] bg-white/5 border-white/10',
+  };
+  return (
+    <div className={`rounded-xl border px-3 py-3 flex flex-col gap-1 ${colorMap[color] ?? colorMap.white}`}>
+      <span className={`text-2xl font-bold leading-tight ${colorMap[color]?.split(' ')[0]}`}>{value}</span>
+      <span className="text-[9px] text-[#7A94B4] uppercase tracking-wide leading-tight">{label}</span>
+      {sub && <span className="text-[9px] text-[#7A94B4] opacity-70">{sub}</span>}
+    </div>
+  );
+}
+
+function ClientReportPanel({
+  client,
+  onClose,
+}: {
+  client: PortfolioClient;
+  onClose: () => void;
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const slaColor = client.sla >= 90 ? '#38D98A' : client.sla >= 80 ? '#FF9B38' : '#FF4B4B';
+  const compColor = client.compliance >= 90 ? '#38D98A' : client.compliance >= 80 ? '#FF9B38' : '#FF4B4B';
+  const slaGaugeColor = client.sla >= 90 ? '#38D98A' : client.sla >= 80 ? '#FF9B38' : '#FF4B4B';
+  const compGaugeColor = client.compliance >= 90 ? '#38D98A' : client.compliance >= 80 ? '#FF9B38' : '#FF4B4B';
+
+  const dsQuality = (ds: { count: number }) => {
+    if (ds.count === 0) return 0;
+    if (ds.count >= 500) return 96;
+    if (ds.count >= 100) return 88;
+    return 74;
+  };
+
+  const kpiColor = (val: number, good: number, warn: number, invert = false): string => {
+    if (invert) return val === 0 ? 'green' : val <= warn ? 'amber' : 'red';
+    return val >= good ? 'green' : val >= warn ? 'amber' : 'red';
+  };
+
+  const budgetPct = Math.round((client.resources.budgetUsed / client.resources.budgetTotal) * 100);
+
+  return (
+    <motion.div
+      key={`report-${client.id}`}
+      initial={{ x: '100%', opacity: 0 }}
+      animate={{ x: 0, opacity: 1 }}
+      exit={{ x: '100%', opacity: 0 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+      className="absolute right-0 top-0 bottom-0 w-[520px] z-[300] bg-[#0A1628] border-l border-[rgba(46,127,255,0.3)] shadow-2xl flex flex-col"
+    >
+      <div className={`h-1 w-full ${RISK_STRIP[client.riskLevel]}`} />
+
+      <div className="flex items-center justify-between px-5 py-3 border-b border-[rgba(46,127,255,0.15)] flex-shrink-0">
+        <div className="flex items-center gap-2.5">
+          <FileText size={14} className="text-blue-400" />
+          <div>
+            <div className="text-[#EEF3FA] font-bold text-sm leading-tight">Client Insight Report</div>
+            <div className="text-[10px] text-[#7A94B4]">Snapshot · {client.lastUpdated}</div>
+          </div>
+        </div>
+        <button onClick={onClose} className="text-[#7A94B4] hover:text-white transition-colors p-1">
+          <X size={16} />
+        </button>
+      </div>
+
+      <div ref={scrollRef} className="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-6">
+
+        <ReportSection title="Executive Summary" icon={<Shield size={13} />}>
+          <div className="flex items-start gap-3 p-3 bg-[rgba(17,32,64,0.8)] rounded-xl border border-[rgba(46,127,255,0.12)]">
+            <div className={`w-3 h-3 rounded-full flex-shrink-0 mt-1 ${STATUS_DOT[client.status]}`} />
+            <div className="flex-1 min-w-0">
+              <div className="text-base font-bold text-[#EEF3FA] leading-tight">{client.name}</div>
+              <div className="text-[10px] text-[#7A94B4] mt-0.5">{client.region} · {client.sector}</div>
+              <div className="flex flex-wrap gap-2 mt-2">
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border capitalize ${STATUS_TEXT[client.status]} bg-transparent border-current/30`}>
+                  {client.status}
+                </span>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border capitalize ${RISK_BADGE[client.riskLevel]}`}>
+                  {client.riskLevel} risk
+                </span>
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-300">
+                  {client.contract.tier}
+                </span>
+              </div>
+            </div>
+            <div className="text-right flex-shrink-0">
+              <div className="text-[9px] text-[#7A94B4] uppercase tracking-wide">Last Updated</div>
+              <div className="text-[11px] text-[#EEF3FA] font-semibold mt-0.5">{client.lastUpdated}</div>
+            </div>
+          </div>
+        </ReportSection>
+
+        <ReportSection title="KPI Scorecard" icon={<BarChart2 size={13} />}>
+          <div className="grid grid-cols-3 gap-2">
+            <KPITile label="Sites"         value={client.sites}       color="white" />
+            <KPITile label="Work Orders"   value={client.workOrders}  color="blue" />
+            <KPITile label="Incidents"     value={client.incidents}   color={kpiColor(client.incidents, 0, 3, true)} />
+            <KPITile label="Overdue Tasks" value={client.overdueTasks} color={kpiColor(client.overdueTasks, 0, 2, true)} />
+            <KPITile label="SLA %"         value={`${client.sla}%`}   color={kpiColor(client.sla, 90, 80)} />
+            <KPITile label="Compliance %"  value={`${client.compliance}%`} color={kpiColor(client.compliance, 90, 80)} />
+          </div>
+        </ReportSection>
+
+        <ReportSection title="Performance Gauges" icon={<Activity size={13} />}>
+          <div className="flex justify-around items-end py-2">
+            <ArcGauge value={client.sla} label="SLA Performance" color={slaGaugeColor} />
+            <div className="flex flex-col items-center gap-2 text-[9px] text-[#7A94B4]">
+              <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400/70 inline-block" />80% threshold</div>
+              <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-400/70 inline-block" />90% threshold</div>
+            </div>
+            <ArcGauge value={client.compliance} label="Compliance" color={compGaugeColor} />
+          </div>
+        </ReportSection>
+
+        <ReportSection title="Top Sites Health" icon={<MapPin size={13} />}>
+          <div className="space-y-2">
+            {client.topSites.map((site, i) => (
+              <div key={i} className="flex items-center gap-3 p-2.5 bg-[rgba(17,32,64,0.6)] rounded-lg border border-[rgba(46,127,255,0.08)]">
+                <div className={`w-2 h-2 rounded-full flex-shrink-0 ${SITE_STATUS_DOT[site.status]}`} />
+                <span className="text-[12px] text-[#EEF3FA] flex-1 truncate">{site.name}</span>
+                <span className={`text-[9px] capitalize font-semibold flex-shrink-0 ${site.status === 'ok' ? 'text-emerald-400' : site.status === 'warning' ? 'text-amber-400' : 'text-red-400'}`}>
+                  {site.status}
+                </span>
+                {site.incidents > 0 ? (
+                  <span className="text-[9px] text-red-400 font-bold flex-shrink-0 bg-red-500/10 px-1.5 py-0.5 rounded-full border border-red-500/20">
+                    {site.incidents} inc.
+                  </span>
+                ) : (
+                  <span className="text-[9px] text-emerald-400 flex-shrink-0">Clear</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </ReportSection>
+
+        <ReportSection title="Data Source Quality" icon={<Database size={13} />}>
+          <div className="space-y-3">
+            {client.dataSources.map(ds => {
+              const q = dsQuality(ds);
+              const qColor = q >= 90 ? '#38D98A' : q >= 70 ? '#FF9B38' : '#FF4B4B';
+              const qLabel = q >= 90 ? 'Excellent' : q >= 70 ? 'Good' : 'Poor';
+              return (
+                <div key={ds.label}>
+                  <div className="flex justify-between text-[10px] mb-1.5">
+                    <span className="text-[#EEF3FA] font-medium">{ds.label}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[#7A94B4]">{ds.count > 0 ? `${ds.count.toLocaleString()} rec.` : 'Error'}</span>
+                      <span className="font-bold" style={{ color: qColor }}>{q}% · {qLabel}</span>
+                    </div>
+                  </div>
+                  <AnimatedBar value={q} color={qColor} height="h-1.5" />
+                </div>
+              );
+            })}
+          </div>
+        </ReportSection>
+
+        <ReportSection title="Incident Breakdown" icon={<AlertTriangle size={13} />}>
+          <div className="p-3 bg-[rgba(17,32,64,0.6)] rounded-xl border border-[rgba(46,127,255,0.1)] space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-[#EEF3FA]">{client.incidents}</div>
+                <div className="text-[9px] text-[#7A94B4] uppercase tracking-wide">Total Incidents</div>
+              </div>
+              <div className="text-right">
+                <div className={`text-sm font-bold capitalize ${RISK_BADGE[client.riskLevel].split(' ')[0]}`}>{client.riskLevel} Risk</div>
+                <div className="text-[9px] text-[#7A94B4]">Current severity</div>
+              </div>
+            </div>
+            {client.overdueTasks > 0 && (
+              <div className="flex items-center gap-2 p-2 bg-red-500/10 border border-red-500/20 rounded-lg">
+                <Clock size={11} className="text-red-400 flex-shrink-0" />
+                <span className="text-[10px] text-red-300">{client.overdueTasks} overdue task{client.overdueTasks !== 1 ? 's' : ''} require immediate attention</span>
+              </div>
+            )}
+            <div className="flex items-start gap-2 p-2 bg-[rgba(6,182,212,0.05)] border border-cyan-500/10 rounded-lg">
+              <Zap size={10} className="text-cyan-400 flex-shrink-0 mt-0.5" />
+              <p className="text-[10px] text-[#7A94B4] leading-relaxed">{client.aiInsight}</p>
+            </div>
+          </div>
+        </ReportSection>
+
+        <ReportSection title="Recent Activity Timeline" icon={<Clock size={13} />}>
+          <div className="relative pl-4">
+            <div className="absolute left-1.5 top-0 bottom-0 w-px bg-[rgba(46,127,255,0.2)]" />
+            <div className="space-y-3">
+              {client.recentActivity.map((act, i) => {
+                const col = ACTIVITY_COLOR[act.type] || 'text-[#7A94B4]';
+                const icon = ACTIVITY_ICON[act.type] || <Clock size={10} />;
+                return (
+                  <div key={i} className="relative flex items-start gap-3">
+                    <div className={`absolute -left-[13px] w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${col} bg-[#0A1628] border border-[rgba(46,127,255,0.2)]`}>
+                      {icon}
+                    </div>
+                    <div className="flex-1 pl-1">
+                      <div className="text-[11px] text-[#EEF3FA] leading-snug">{act.event}</div>
+                      <div className="text-[9px] text-[#7A94B4] mt-0.5">{act.time}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </ReportSection>
+
+        <ReportSection title="AI Insight" icon={<Bot size={13} />}>
+          <div className="p-4 bg-[rgba(6,182,212,0.07)] border border-cyan-500/25 rounded-xl">
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-lg bg-cyan-500/15 border border-cyan-500/25 flex items-center justify-center flex-shrink-0">
+                <Zap size={14} className="text-cyan-400" />
+              </div>
+              <div className="flex-1">
+                <p className="text-[12px] text-[#EEF3FA] leading-relaxed">{client.aiInsight}</p>
+                <div className="flex items-center gap-1 mt-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                  <span className="text-[9px] text-cyan-400 font-semibold uppercase tracking-wider">Powered by Imdaad AI</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </ReportSection>
+
+        <ReportSection title="Contract Snapshot" icon={<Calendar size={13} />}>
+          <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-2">
+              <div className="p-2.5 bg-[rgba(17,32,64,0.6)] rounded-lg border border-[rgba(46,127,255,0.1)]">
+                <div className="text-[9px] text-[#7A94B4] uppercase tracking-wide mb-1">Contract Tier</div>
+                <div className="text-[13px] font-bold text-blue-300">{client.contract.tier}</div>
+              </div>
+              <div className="p-2.5 bg-[rgba(17,32,64,0.6)] rounded-lg border border-[rgba(46,127,255,0.1)]">
+                <div className="text-[9px] text-[#7A94B4] uppercase tracking-wide mb-1">Annual Value</div>
+                <div className="text-[13px] font-bold text-emerald-400">{client.contract.annualValue}</div>
+              </div>
+              <div className="p-2.5 bg-[rgba(17,32,64,0.6)] rounded-lg border border-[rgba(46,127,255,0.1)]">
+                <div className="text-[9px] text-[#7A94B4] uppercase tracking-wide mb-1">Renewal Date</div>
+                <div className="text-[12px] font-semibold text-[#EEF3FA]">{client.contract.renewalDate}</div>
+              </div>
+              <div className="p-2.5 bg-[rgba(17,32,64,0.6)] rounded-lg border border-[rgba(46,127,255,0.1)]">
+                <div className="text-[9px] text-[#7A94B4] uppercase tracking-wide mb-1">Contract No.</div>
+                <div className="text-[10px] font-mono text-[#7A94B4]">{client.contract.number}</div>
+              </div>
+            </div>
+            <div className="p-2.5 bg-[rgba(17,32,64,0.6)] rounded-lg border border-[rgba(46,127,255,0.1)]">
+              <div className="text-[9px] text-[#7A94B4] uppercase tracking-wide mb-2">Response SLA Targets</div>
+              <div className="space-y-1">
+                {client.contract.responseTimes.map(rt => (
+                  <div key={rt.severity} className="flex items-center justify-between text-[10px]">
+                    <span className="text-[#7A94B4]">{rt.severity}</span>
+                    <span className="text-[#EEF3FA] font-semibold">{rt.target}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {client.contract.penalties && (
+              <div className="flex items-start gap-2 p-2.5 bg-amber-500/5 border border-amber-500/20 rounded-lg">
+                <AlertTriangle size={11} className="text-amber-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <div className="text-[9px] text-amber-400 font-semibold uppercase tracking-wide mb-0.5">Penalty Clause</div>
+                  <div className="text-[10px] text-[#7A94B4] leading-snug">{client.contract.penalties}</div>
+                </div>
+              </div>
+            )}
+          </div>
+        </ReportSection>
+
+        <ReportSection title="Resource Overview" icon={<Wrench size={13} />}>
+          <div className="space-y-4">
+            <div>
+              <div className="flex justify-between text-[10px] mb-1.5">
+                <span className="text-[#7A94B4]">Budget Utilisation</span>
+                <span className={`font-bold ${budgetPct >= 90 ? 'text-red-400' : budgetPct >= 75 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                  AED {(client.resources.budgetUsed / 1000).toFixed(0)}K / {(client.resources.budgetTotal / 1000).toFixed(0)}K · {budgetPct}%
+                </span>
+              </div>
+              <AnimatedBar
+                value={budgetPct}
+                color={budgetPct >= 90 ? '#FF4B4B' : budgetPct >= 75 ? '#FF9B38' : '#38D98A'}
+                height="h-2"
+              />
+            </div>
+
+            {client.resources.fleet.length > 0 && (
+              <div>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Truck size={10} className="text-blue-400" />
+                  <span className="text-[9px] text-[#7A94B4] uppercase tracking-wide">Fleet Availability</span>
+                </div>
+                <div className="space-y-1.5">
+                  {client.resources.fleet.map(f => (
+                    <div key={f.label} className="flex items-center justify-between text-[10px]">
+                      <span className="text-[#7A94B4]">{f.label}</span>
+                      <span className={`font-semibold ${f.available === f.total ? 'text-emerald-400' : f.available > 0 ? 'text-amber-400' : 'text-red-400'}`}>
+                        {f.available}/{f.total} available
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {client.resources.partsStock.length > 0 && (
+              <div>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Package size={10} className="text-purple-400" />
+                  <span className="text-[9px] text-[#7A94B4] uppercase tracking-wide">Spare Parts Stock</span>
+                </div>
+                <div className="space-y-1">
+                  {client.resources.partsStock.map(p => (
+                    <div key={p.name} className="flex items-center justify-between text-[10px]">
+                      <span className="text-[#7A94B4] truncate max-w-[60%]">{p.name}</span>
+                      <span className={`font-semibold flex-shrink-0 ${p.status === 'ok' ? 'text-emerald-400' : p.status === 'low' ? 'text-amber-400' : 'text-red-400'}`}>
+                        {p.qty} units · {p.status.toUpperCase()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {client.resources.equipment.length > 0 && (
+              <div>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Wrench size={10} className="text-cyan-400" />
+                  <span className="text-[9px] text-[#7A94B4] uppercase tracking-wide">Equipment Condition</span>
+                </div>
+                <div className="space-y-2">
+                  {client.resources.equipment.map(eq => {
+                    const eqColor = eq.condition >= 90 ? '#38D98A' : eq.condition >= 70 ? '#FF9B38' : '#FF4B4B';
+                    return (
+                      <div key={eq.name}>
+                        <div className="flex justify-between text-[10px] mb-1">
+                          <span className="text-[#7A94B4]">{eq.name}</span>
+                          <span className="font-semibold" style={{ color: eqColor }}>{eq.condition}% · Next: {eq.nextService}</span>
+                        </div>
+                        <AnimatedBar value={eq.condition} color={eqColor} height="h-1" />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        </ReportSection>
+
+      </div>
+
+      <div className="px-5 py-3 border-t border-[rgba(46,127,255,0.15)] flex-shrink-0 flex items-center gap-2">
+        <div className="flex items-center gap-1.5 flex-1">
+          <div className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+          <span className="text-[9px] text-[#7A94B4]">Static snapshot · {client.lastUpdated}</span>
+        </div>
+        <button
+          onClick={onClose}
+          className="px-4 py-2 text-[11px] font-semibold text-[#7A94B4] border border-[rgba(46,127,255,0.2)] rounded-lg hover:text-white hover:border-[rgba(46,127,255,0.4)] transition-colors"
+        >
+          Close Report
+        </button>
+>>>>>>> 855efb6 (Task #56: Client Insight Report Panel)
       </div>
     </motion.div>
   );
@@ -394,11 +834,13 @@ function ClientDetailDrawer({
   onClose,
   onToast,
   onNavigateToCommand,
+  onReport,
 }: {
   client: PortfolioClient;
   onClose: () => void;
   onToast: ToastFn;
   onNavigateToCommand: (clientId: string) => void;
+  onReport: (c: PortfolioClient) => void;
 }) {
   const slaColor = client.sla >= 90 ? '#38D98A' : client.sla >= 80 ? '#FF9B38' : '#FF4B4B';
   const compColor = client.compliance >= 90 ? '#38D98A' : client.compliance >= 80 ? '#FF9B38' : '#FF4B4B';
@@ -548,10 +990,10 @@ function ClientDetailDrawer({
               Open Command Center <ArrowRight size={13} />
             </button>
             <button
-              onClick={() => { onToast(`Report generated for ${client.name}`, 'success'); }}
+              onClick={() => onReport(client)}
               className="w-full py-2 border border-[rgba(46,127,255,0.3)] text-[#7A94B4] text-[11px] rounded-lg hover:bg-white/5 transition-colors flex items-center justify-center gap-1.5"
             >
-              <BarChart2 size={12} /> Generate Report
+              <FileText size={12} /> Generate Report
             </button>
           </div>
         </motion.div>
@@ -587,6 +1029,7 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
   const [sortKey,       setSortKey]       = useState('risk');
   const [view,          setView]          = useState<'grid' | 'list'>('grid');
   const [selected,      setSelected]      = useState<PortfolioClient | null>(null);
+  const [reportClient,  setReportClient]  = useState<PortfolioClient | null>(null);
   const [showAddModal,  setShowAddModal]  = useState(false);
 
   const handleAddClient = (data: ClientData, teamMembers: TeamMember[], inviteOk: boolean, failedCount: number) => {
@@ -758,13 +1201,13 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
         ) : view === 'grid' ? (
           <div className="grid grid-cols-3 gap-3">
             {filtered.map(c => (
-              <ClientPortfolioCard key={c.id} client={c} onSelect={client => onClientSelect(client.id)} onToast={onToast} view="grid" onNavigateToIncidents={onNavigateToIncidents} onNavigateToCommand={onNavigateToCommand} />
+              <ClientPortfolioCard key={c.id} client={c} onSelect={client => onClientSelect(client.id)} onToast={onToast} onReport={setReportClient} view="grid" onNavigateToIncidents={onNavigateToIncidents} onNavigateToCommand={onNavigateToCommand} />
             ))}
           </div>
         ) : (
           <div className="flex flex-col gap-2">
             {filtered.map(c => (
-              <ClientPortfolioCard key={c.id} client={c} onSelect={client => onClientSelect(client.id)} onToast={onToast} view="list" onNavigateToIncidents={onNavigateToIncidents} onNavigateToCommand={onNavigateToCommand} />
+              <ClientPortfolioCard key={c.id} client={c} onSelect={client => onClientSelect(client.id)} onToast={onToast} onReport={setReportClient} view="list" onNavigateToIncidents={onNavigateToIncidents} onNavigateToCommand={onNavigateToCommand} />
             ))}
           </div>
         )}
@@ -779,6 +1222,19 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
               onClose={() => setSelected(null)}
               onToast={onToast}
               onNavigateToCommand={onNavigateToCommand}
+              onReport={setReportClient}
+            />
+          </>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {reportClient && (
+          <>
+            <div className="absolute inset-0 z-[250]" onClick={() => setReportClient(null)} />
+            <ClientReportPanel
+              client={reportClient}
+              onClose={() => setReportClient(null)}
             />
           </>
         )}
