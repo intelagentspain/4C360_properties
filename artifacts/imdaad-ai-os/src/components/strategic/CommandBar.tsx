@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Search, Bell, ChevronDown, Zap, Bot, Hand, Plus, X, Building2, MapPin, FileText, User, Users, Sparkles, Loader2, MessageSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMemberProfiles } from '@/context/MemberProfilesContext';
+import type { MockMemberProfile } from '@/data/mockData';
 import { useMemberFilter, isFilterActive } from '@/context/MemberFilterContext';
 import { WhatsAppModal } from '@/components/shared/WhatsAppModal';
 
@@ -461,11 +462,14 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
 
   const [teamMembers, setTeamMembers]         = useState<TeamMember[]>([EMPTY_MEMBER()]);
   const [siteAssets, setSiteAssets]           = useState<Record<number, AssetRow[]>>({ 0: [] });
+  const [staffSearch, setStaffSearch]         = useState('');
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [suggestingSiteIdx, setSuggestingSiteIdx] = useState<number | null>(null);
   const [whatsappTarget, setWhatsappTarget] = useState<{ name: string; phone: string; message: string } | null>(null);
+
+  const { profiles } = useMemberProfiles();
 
   const addSite = () => {
     setSiteNames(prev => {
@@ -589,6 +593,35 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
 
   const addMember = () => setTeamMembers(prev => [...prev, EMPTY_MEMBER()]);
   const removeMember = (i: number) => setTeamMembers(prev => prev.filter((_, idx) => idx !== i));
+  const addExistingStaff = (profile: MockMemberProfile) => {
+    const member: TeamMember = {
+      id: profile.id,
+      name: profile.name,
+      email: profile.email,
+      role: profile.role,
+      perspective: profile.perspective,
+      assignedClients: profile.assignedClients ?? [],
+      zones: profile.zones ?? [],
+      skills: Array.isArray(profile.skills)
+        ? profile.skills
+        : profile.skills ? [profile.skills as string] : [],
+      responsibilities: Array.isArray(profile.responsibilities)
+        ? profile.responsibilities
+        : profile.responsibilities ? [profile.responsibilities as string] : [],
+      privileges: profile.privileges ?? [],
+      mobile: profile.mobile ?? '',
+      whatsapp: profile.whatsapp ?? '',
+      location: profile.location ?? '',
+      availability: profile.availability ?? '',
+      shift: profile.shift ?? '',
+      commChannels: (profile.commChannels?.length ? profile.commChannels : ['whatsapp', 'email']),
+    };
+    setTeamMembers(prev => {
+      const isEmpty = prev.length === 1 && !prev[0].name.trim() && !prev[0].email.trim() && !prev[0].role;
+      return isEmpty ? [member] : [...prev, member];
+    });
+    setStaffSearch('');
+  };
   const updateMember = (i: number, field: Exclude<keyof TeamMember, 'privileges' | 'commChannels' | 'assignedClients' | 'zones' | 'skills' | 'responsibilities'>, val: string) => {
     setTeamMembers(prev => {
       const updated = prev.map((m, idx) => {
@@ -1256,14 +1289,76 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
                 Invite team members to this client workspace. Each person will receive a welcome email with login credentials.
               </p>
 
+              {/* Search existing staff */}
+              <div>
+                <div className="relative">
+                  <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#4A6080] pointer-events-none" />
+                  <input
+                    value={staffSearch}
+                    onChange={e => setStaffSearch(e.target.value)}
+                    placeholder="Search existing staff by name or role…"
+                    className="w-full bg-[#0A1628] border border-[rgba(46,127,255,0.18)] rounded-xl pl-7 pr-3 py-2 text-[11px] text-[#EEF3FA] placeholder:text-[#4A6080] focus:outline-none focus:border-[#2E7FFF] transition-colors"
+                  />
+                </div>
+                {staffSearch.trim().length > 0 && (() => {
+                  const q = staffSearch.trim().toLowerCase();
+                  const addedEmails = new Set(teamMembers.map(m => m.email.trim().toLowerCase()));
+                  const matches = profiles
+                    .filter(p => (p.name.toLowerCase().includes(q) || p.role.toLowerCase().includes(q)) && !addedEmails.has(p.email.trim().toLowerCase()))
+                    .slice(0, 5);
+                  return (
+                    <div className="mt-1 bg-[#0A1628] border border-[rgba(46,127,255,0.18)] rounded-xl overflow-hidden">
+                      {matches.length === 0 ? (
+                        <p className="px-3 py-2 text-[10px] text-[#4A6080]">No matching staff found</p>
+                      ) : matches.map((p, idx) => {
+                        const color = INITIALS_COLORS[idx % INITIALS_COLORS.length];
+                        const initials = p.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+                        return (
+                          <div key={p.id} className="flex items-center gap-2.5 px-3 py-2 hover:bg-[rgba(46,127,255,0.06)] transition-colors border-b border-[rgba(46,127,255,0.08)] last:border-0">
+                            <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-[9px] font-bold text-white" style={{ backgroundColor: color }}>{initials}</div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[11px] font-semibold text-[#EEF3FA] truncate">{p.name}</p>
+                              <p className="text-[10px] text-[#7A94B4] truncate">{p.role}</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => addExistingStaff(p)}
+                              className="flex-shrink-0 text-[10px] font-semibold text-[#2E7FFF] hover:text-blue-300 bg-[rgba(46,127,255,0.1)] hover:bg-[rgba(46,127,255,0.18)] border border-[rgba(46,127,255,0.25)] px-2 py-0.5 rounded-lg transition-all"
+                            >
+                              Add
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Divider */}
+              <div className="flex items-center gap-2 my-1">
+                <div className="flex-1 border-t border-[rgba(46,127,255,0.12)]" />
+                <span className="text-[10px] text-[#4A6080] whitespace-nowrap">or add new member</span>
+                <div className="flex-1 border-t border-[rgba(46,127,255,0.12)]" />
+              </div>
+
               <div className="space-y-3">
-                {teamMembers.map((member, i) => (
+                {teamMembers.map((member, i) => {
+                  const isExisting = profiles.some(p => p.id === member.id);
+                  return (
                   <div
                     key={i}
                     className="bg-[#0A1628] border border-[rgba(46,127,255,0.18)] rounded-xl p-3 space-y-2.5 relative"
                   >
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-[10px] font-bold text-[#4A6080] uppercase tracking-widest">Member {i + 1}</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-bold text-[#4A6080] uppercase tracking-widest">Member {i + 1}</span>
+                        {isExisting && (
+                          <span className="ml-2 inline-flex items-center gap-1 text-[9px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 px-1.5 py-0.5 rounded-full">
+                            ● Existing Staff
+                          </span>
+                        )}
+                      </div>
                       {teamMembers.length > 1 && (
                         <button
                           type="button"
@@ -1553,7 +1648,8 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
 
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
 
               <button
