@@ -14,7 +14,7 @@ import { TechAvatar } from '@/components/shared/TechAvatar';
 import { useIncidents, type Incident, type CreateWorkOrderInput, type TicketState, type ResolveIncidentInput } from '@/context/IncidentContext';
 import { WhatsAppModal } from '@/components/shared/WhatsAppModal';
 import { CURRENT_USER } from '@/lib/currentUser';
-import { mockPortfolioClients } from '../../data/mockData';
+import { useClients } from '@/context/ClientsContext';
 
 const WO_ALLOWED_ROLES = new Set(['FM Engineer', 'Site Supervisor', 'FM Manager', 'Safety Officer', 'Project Manager', 'Account Manager', 'Executive']);
 const canCreateWorkOrder = WO_ALLOWED_ROLES.has(CURRENT_USER.role);
@@ -1634,6 +1634,7 @@ const STATUS_ORDER: Record<string, number>   = { overdue: 0, 'in-progress': 1, o
 
 export function Incidents({ onToast, initialClientId, initialIncidentId, onInitialIncidentHandled }: Props) {
   const { incidents, addIncident, createWorkOrder } = useIncidents();
+  const { clients } = useClients();
   const [search,      setSearch]      = useState('');
   const [severity,    setSeverity]    = useState('All');
   const [status,      setStatus]      = useState('All');
@@ -1814,7 +1815,7 @@ export function Incidents({ onToast, initialClientId, initialIncidentId, onIniti
       <div className="flex items-center gap-2 px-5 py-2.5 border-b border-[rgba(46,127,255,0.1)] flex-shrink-0 flex-wrap gap-y-2">
         <select value={client} onChange={e => setClient(e.target.value)} className="bg-[#112040] border border-[rgba(46,127,255,0.2)] rounded-lg px-2 py-1.5 text-[11px] text-[#EEF3FA] outline-none cursor-pointer">
           <option value="All">All clients</option>
-          {mockPortfolioClients.map(c => (
+          {clients.map(c => (
             <option key={c.id} value={c.id}>{c.name}</option>
           ))}
         </select>
