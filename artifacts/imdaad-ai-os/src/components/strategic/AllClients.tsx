@@ -823,7 +823,6 @@ function ClientReportPanel({
         >
           Close Report
         </button>
->>>>>>> 855efb6 (Task #56: Client Insight Report Panel)
       </div>
     </motion.div>
   );

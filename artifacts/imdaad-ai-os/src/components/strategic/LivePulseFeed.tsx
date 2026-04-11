@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { AlertTriangle, Clock, Bot, CheckCircle, X, MapPin, User, ArrowRight, QrCode } from 'lucide-react';
 import { useIncidents } from '@/context/IncidentContext';
 import { useMemberFilter, isFilterActive } from '@/context/MemberFilterContext';
+import { IncidentFullDetailPanel } from './IncidentFullDetailPanel';
 
 type EventType = 'incident' | 'sla' | 'ai' | 'task';
 
@@ -51,9 +52,10 @@ interface DrawerProps {
   event: PulseEvent | null;
   onClose: () => void;
   onToast: (msg: string, type?: 'success' | 'warning' | 'error' | 'info') => void;
+  onViewFullDetail: (event: PulseEvent) => void;
 }
 
-function EventDrawer({ event, onClose, onToast }: DrawerProps) {
+function EventDrawer({ event, onClose, onToast, onViewFullDetail }: DrawerProps) {
   if (!event) return null;
   const cfg = typeConfig[event.type];
 
@@ -130,7 +132,7 @@ function EventDrawer({ event, onClose, onToast }: DrawerProps) {
 
             <div className="p-4 border-t border-[rgba(46,127,255,0.15)] space-y-2">
               <button
-                onClick={() => { onToast('Navigating to incident view', 'info'); onClose(); }}
+                onClick={() => { onViewFullDetail(event); onClose(); }}
                 className="w-full py-2 bg-[#2E7FFF] text-white text-xs font-semibold rounded-lg hover:bg-blue-500 transition-colors flex items-center justify-center gap-1.5"
               >
                 View Full Detail <ArrowRight size={12} />
@@ -166,6 +168,7 @@ export function LivePulseFeed({ onToast }: Props) {
 
   const [events, setEvents] = useState<PulseEvent[]>(initialEvents);
   const [selected, setSelected] = useState<PulseEvent | null>(null);
+  const [fullDetailEvent, setFullDetailEvent] = useState<PulseEvent | null>(null);
   const [tick, setTick] = useState(0);
   const seenIncidentIds = useRef<Set<string>>(new Set(initialEvents.map(e => e.id)));
 
@@ -257,7 +260,23 @@ export function LivePulseFeed({ onToast }: Props) {
         </AnimatePresence>
       </div>
 
-      <EventDrawer event={selected} onClose={() => setSelected(null)} onToast={onToast} />
+      <EventDrawer
+        event={selected}
+        onClose={() => setSelected(null)}
+        onToast={onToast}
+        onViewFullDetail={(ev) => {
+          setSelected(null);
+          setFullDetailEvent(ev);
+        }}
+      />
+
+      {fullDetailEvent && (
+        <IncidentFullDetailPanel
+          event={fullDetailEvent}
+          onClose={() => setFullDetailEvent(null)}
+          onToast={onToast}
+        />
+      )}
     </div>
   );
 }
