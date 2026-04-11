@@ -17,15 +17,6 @@ localPort = 26184
 [services.development]
 run = "pnpm --filter @workspace/imdaad-ai-os run dev"
 
-[services.production]
-build = [ "pnpm", "--filter", "@workspace/imdaad-ai-os", "run", "build" ]
-publicDir = "artifacts/imdaad-ai-os/dist/public"
-serve = "static"
-
-[[services.production.rewrites]]
-from = "/*"
-to = "/index.html"
-
 [services.env]
 PORT = "26184"
 BASE_PATH = "/"
