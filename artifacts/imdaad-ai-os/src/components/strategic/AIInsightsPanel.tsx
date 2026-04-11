@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Brain, TrendingUp, AlertTriangle, Clock, CheckCircle, X, Eye, UserCheck } from 'lucide-react';
 import { type ToastFn } from '@/lib/ui';
 import { AnimatedBar } from '@/components/shared/AnimatedBar';
+import { AssignInsightModal } from '@/components/shared/AssignInsightModal';
 
 interface Insight {
   id: string;
@@ -70,126 +71,143 @@ interface Props {
 export function AIInsightsPanel({ onToast }: Props) {
   const [dismissed, setDismissed] = useState<string[]>([]);
   const [expanded, setExpanded] = useState<string | null>('i1');
+  const [assignInsight, setAssignInsight] = useState<Insight | null>(null);
 
   const visible = insights.filter(i => !dismissed.includes(i.id));
 
   const dismiss = (id: string) => setDismissed(d => [...d, id]);
   const toggle  = (id: string) => setExpanded(prev => prev === id ? null : id);
 
+  const handleAssignConfirm = (candidateName: string) => {
+    if (assignInsight) {
+      onToast(`${candidateName} assigned to: ${assignInsight.title}`, 'success');
+    }
+    setAssignInsight(null);
+  };
+
   return (
-    <div className="mb-4">
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <h3 className="text-[#EEF3FA] text-xs font-semibold uppercase tracking-wide" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-            AI Insights
-          </h3>
-          <span className="px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-400 text-[10px] font-bold border border-purple-500/30">
-            {visible.length}
+    <>
+      <div className="mb-4">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <h3 className="text-[#EEF3FA] text-xs font-semibold uppercase tracking-wide" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+              AI Insights
+            </h3>
+            <span className="px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-400 text-[10px] font-bold border border-purple-500/30">
+              {visible.length}
+            </span>
+          </div>
+          <span className="flex items-center gap-1 text-[10px] text-[#7A94B4]">
+            <Brain size={10} className="text-purple-400" /> 4C360 Engine
           </span>
         </div>
-        <span className="flex items-center gap-1 text-[10px] text-[#7A94B4]">
-          <Brain size={10} className="text-purple-400" /> 4C360 Engine
-        </span>
-      </div>
 
-      <div className="space-y-2">
-        <AnimatePresence>
-          {visible.map(insight => {
-            const cat = CATEGORY_CONFIG[insight.category];
-            const isOpen = expanded === insight.id;
+        <div className="space-y-2">
+          <AnimatePresence>
+            {visible.map(insight => {
+              const cat = CATEGORY_CONFIG[insight.category];
+              const isOpen = expanded === insight.id;
 
-            return (
-              <motion.div
-                key={insight.id}
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-                transition={{ duration: 0.2 }}
-                className="rounded-lg border border-[rgba(46,127,255,0.22)] bg-[rgba(17,32,64,0.85)] overflow-hidden backdrop-blur-xl"
-              >
-                <div className="flex items-start gap-2.5 p-3 hover:bg-white/[0.02] transition-colors">
-                  <button
-                    onClick={() => toggle(insight.id)}
-                    className="flex items-start gap-2.5 flex-1 min-w-0 text-left"
-                  >
-                    <div className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 mt-0.5 ${cat.bg} ${cat.color}`}>
-                      {cat.icon}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-[12px] text-[#EEF3FA] font-medium leading-snug mb-0.5">{insight.title}</div>
-                      <div className="flex items-center gap-2">
-                        <span className={`text-[10px] font-bold ${cat.color}`}>{cat.label}</span>
-                        <span className="text-[10px] text-[#7A94B4]">·</span>
-                        <span className={`text-[10px] font-semibold ${IMPACT_COLOR[insight.impact]}`}>{insight.impact} impact</span>
-                        <span className="text-[10px] text-[#7A94B4]">·</span>
-                        <span className="text-[10px] text-[#7A94B4]">{insight.confidence}% confidence</span>
-                      </div>
-                    </div>
-                  </button>
-                  <button
-                    onClick={() => dismiss(insight.id)}
-                    className="flex-shrink-0 text-[#7A94B4] hover:text-white transition-colors p-0.5"
-                  >
-                    <X size={12} />
-                  </button>
-                </div>
-
-                <AnimatePresence>
-                  {isOpen && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.18 }}
-                      className="overflow-hidden"
+              return (
+                <motion.div
+                  key={insight.id}
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="rounded-lg border border-[rgba(46,127,255,0.22)] bg-[rgba(17,32,64,0.85)] overflow-hidden backdrop-blur-xl"
+                >
+                  <div className="flex items-start gap-2.5 p-3 hover:bg-white/[0.02] transition-colors">
+                    <button
+                      onClick={() => toggle(insight.id)}
+                      className="flex items-start gap-2.5 flex-1 min-w-0 text-left"
                     >
-                      <div className="px-3 pb-3 pt-0 border-t border-[rgba(46,127,255,0.1)]">
-                        <p className="text-[11px] text-[#7A94B4] leading-relaxed mt-2 mb-3">{insight.body}</p>
-
-                        <div className="mb-3">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-[10px] text-[#7A94B4]">Confidence</span>
-                            <span className="text-[10px] font-bold text-[#EEF3FA]">{insight.confidence}%</span>
-                          </div>
-                          <AnimatedBar value={insight.confidence} color={CONFIDENCE_COLOR(insight.confidence)} delay={0.1} />
-                        </div>
-
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => onToast(`Viewing insight: ${insight.title}`, 'info')}
-                            className="flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-[#0A1628] text-[11px] text-[#7A94B4] hover:text-[#EEF3FA] border border-[rgba(46,127,255,0.2)] hover:border-[rgba(46,127,255,0.4)] transition-all"
-                          >
-                            <Eye size={11} /> View
-                          </button>
-                          <button
-                            onClick={() => onToast(`Assigned action for: ${insight.title}`, 'success')}
-                            className="flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-[#2E7FFF] text-white text-[11px] font-semibold hover:bg-blue-500 transition-colors"
-                          >
-                            <UserCheck size={11} /> Assign
-                          </button>
-                          <button
-                            onClick={() => dismiss(insight.id)}
-                            className="flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-[#0A1628] text-[11px] text-[#7A94B4] hover:text-[#EEF3FA] border border-[rgba(46,127,255,0.2)] transition-all ml-auto"
-                          >
-                            <X size={11} /> Ignore
-                          </button>
+                      <div className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 mt-0.5 ${cat.bg} ${cat.color}`}>
+                        {cat.icon}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[12px] text-[#EEF3FA] font-medium leading-snug mb-0.5">{insight.title}</div>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-[10px] font-bold ${cat.color}`}>{cat.label}</span>
+                          <span className="text-[10px] text-[#7A94B4]">·</span>
+                          <span className={`text-[10px] font-semibold ${IMPACT_COLOR[insight.impact]}`}>{insight.impact} impact</span>
+                          <span className="text-[10px] text-[#7A94B4]">·</span>
+                          <span className="text-[10px] text-[#7A94B4]">{insight.confidence}% confidence</span>
                         </div>
                       </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </motion.div>
-            );
-          })}
-        </AnimatePresence>
+                    </button>
+                    <button
+                      onClick={() => dismiss(insight.id)}
+                      className="flex-shrink-0 text-[#7A94B4] hover:text-white transition-colors p-0.5"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
 
-        {visible.length === 0 && (
-          <div className="flex items-center gap-2 p-3 bg-[rgba(17,32,64,0.85)] border border-[rgba(46,127,255,0.22)] rounded-lg">
-            <CheckCircle size={14} className="text-emerald-400" />
-            <span className="text-[12px] text-[#7A94B4]">All insights acknowledged</span>
-          </div>
-        )}
+                  <AnimatePresence>
+                    {isOpen && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.18 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="px-3 pb-3 pt-0 border-t border-[rgba(46,127,255,0.1)]">
+                          <p className="text-[11px] text-[#7A94B4] leading-relaxed mt-2 mb-3">{insight.body}</p>
+
+                          <div className="mb-3">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-[10px] text-[#7A94B4]">Confidence</span>
+                              <span className="text-[10px] font-bold text-[#EEF3FA]">{insight.confidence}%</span>
+                            </div>
+                            <AnimatedBar value={insight.confidence} color={CONFIDENCE_COLOR(insight.confidence)} delay={0.1} />
+                          </div>
+
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => onToast(`Viewing insight: ${insight.title}`, 'info')}
+                              className="flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-[#0A1628] text-[11px] text-[#7A94B4] hover:text-[#EEF3FA] border border-[rgba(46,127,255,0.2)] hover:border-[rgba(46,127,255,0.4)] transition-all"
+                            >
+                              <Eye size={11} /> View
+                            </button>
+                            <button
+                              onClick={() => setAssignInsight(insight)}
+                              className="flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-[#2E7FFF] text-white text-[11px] font-semibold hover:bg-blue-500 transition-colors"
+                            >
+                              <UserCheck size={11} /> Assign
+                            </button>
+                            <button
+                              onClick={() => dismiss(insight.id)}
+                              className="flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-[#0A1628] text-[11px] text-[#7A94B4] hover:text-[#EEF3FA] border border-[rgba(46,127,255,0.2)] transition-all ml-auto"
+                            >
+                              <X size={11} /> Ignore
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
+
+          {visible.length === 0 && (
+            <div className="flex items-center gap-2 p-3 bg-[rgba(17,32,64,0.85)] border border-[rgba(46,127,255,0.22)] rounded-lg">
+              <CheckCircle size={14} className="text-emerald-400" />
+              <span className="text-[12px] text-[#7A94B4]">All insights acknowledged</span>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+
+      <AssignInsightModal
+        open={assignInsight !== null}
+        insight={assignInsight}
+        onConfirm={handleAssignConfirm}
+        onCancel={() => setAssignInsight(null)}
+      />
+    </>
   );
 }
