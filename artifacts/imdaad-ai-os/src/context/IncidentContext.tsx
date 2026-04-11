@@ -22,6 +22,7 @@ export type Incident = {
   siteId?: string;
   clientId?: string;
   workOrderId?: string;
+  notifiedRoles?: string[];
   aiMetadata?: {
     confidence: number;
     issueType: string;
@@ -109,10 +110,21 @@ function IncidentProviderInner({ children }: { children: ReactNode }) {
   const { addIncidentNotification, addWorkOrderNotification } = useNotifications();
 
   const addIncident = useCallback((inc: Incident) => {
-    incidentsRef.current = [inc, ...incidentsRef.current];
-    setIncidents(incidentsRef.current);
     const inviteList = deriveInviteList(inc.clientId);
-    addIncidentNotification(inc, inviteList);
+    const roles = inviteList.map(m => m.role);
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    const enriched: Incident = {
+      ...inc,
+      notifiedRoles: roles,
+      activityLog: [
+        ...inc.activityLog,
+        { time: timeStr, event: `Stakeholders notified: ${roles.join(', ')}`, type: 'dispatch' },
+      ],
+    };
+    incidentsRef.current = [enriched, ...incidentsRef.current];
+    setIncidents(incidentsRef.current);
+    addIncidentNotification(enriched, inviteList);
   }, [addIncidentNotification]);
 
   const createWorkOrder = useCallback((incidentId: string, data: CreateWorkOrderInput): WorkOrderTask => {

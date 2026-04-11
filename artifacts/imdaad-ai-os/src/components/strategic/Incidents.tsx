@@ -5,7 +5,7 @@ import {
   Zap, ChevronRight, Send, TrendingUp, AlertCircle,
   ChevronUp, ChevronDown as ChevronDownIcon, QrCode, Plus,
   MessageSquare, Smartphone, Bot, Briefcase,
-  Camera, Upload, Loader2, Sparkles,
+  Camera, Upload, Loader2, Sparkles, Bell,
 } from 'lucide-react';
 import { SEVERITY_BADGE, slaStatus, type ToastFn } from '@/lib/ui';
 import { AnimatedBar } from '@/components/shared/AnimatedBar';
@@ -142,6 +142,24 @@ function OverviewTab({ incident }: { incident: Incident }) {
             <div>
               <div className="text-[12px] text-[#EEF3FA] font-semibold">{incident.assignedTech}</div>
               <div className="text-[10px] text-blue-400">{incident.status === 'closed' ? 'Closed by technician' : 'En route · GPS tracking active'}</div>
+            </div>
+          </div>
+        </div>
+      )}
+      {incident.notifiedRoles && incident.notifiedRoles.length > 0 && (
+        <div>
+          <div className="text-[10px] text-[#7A94B4] uppercase tracking-wide mb-1.5">Notification Sent</div>
+          <div className="p-2.5 bg-blue-500/5 border border-blue-500/20 rounded-xl">
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <Bell size={11} className="text-blue-400" />
+              <span className="text-[10px] text-blue-400 font-semibold">Notified {incident.notifiedRoles.length} stakeholder{incident.notifiedRoles.length !== 1 ? 's' : ''}</span>
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {incident.notifiedRoles.map(role => (
+                <span key={role} className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold bg-blue-500/10 border border-blue-500/25 text-blue-300">
+                  {role}
+                </span>
+              ))}
             </div>
           </div>
         </div>
@@ -1087,6 +1105,8 @@ export function Incidents({ onToast }: Props) {
     };
     addIncident(newInc);
     setShowModal(false);
+    setSelected(newInc);
+    setActiveTab('Overview');
     onToast(`Incident ${newInc.id} created`, 'success');
   };
 
@@ -1094,7 +1114,6 @@ export function Incidents({ onToast }: Props) {
     if (!woModalFor) return;
     const wo = createWorkOrder(woModalFor.id, data);
     setWoModalFor(null);
-    setSelected(prev => prev?.id === woModalFor.id ? { ...prev, status: 'dispatched', workOrderId: wo.id } : prev);
     onToast(`Work Order ${wo.id} created · stakeholders notified`, 'success');
   };
 
@@ -1117,6 +1136,10 @@ export function Incidents({ onToast }: Props) {
     });
 
   const openIncident = (inc: Incident) => { setSelected(inc); setActiveTab('Overview'); };
+
+  const displayedIncident = selected
+    ? (incidents.find(i => i.id === selected.id) ?? selected)
+    : null;
 
   const counts = {
     critical: incidents.filter(i => i.severity === 'critical').length,
@@ -1294,7 +1317,7 @@ export function Incidents({ onToast }: Props) {
         </div>
 
         <AnimatePresence>
-          {selected && (
+          {displayedIncident && (
             <motion.div
               initial={{ opacity: 0, x: 24 }}
               animate={{ opacity: 1, x: 0 }}
@@ -1304,11 +1327,11 @@ export function Incidents({ onToast }: Props) {
             >
               <div className="flex items-start justify-between px-5 py-4 border-b border-[rgba(46,127,255,0.15)] flex-shrink-0">
                 <div>
-                  <div className={`inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded border mb-1.5 capitalize ${SEVERITY_BADGE[selected.severity]}`}>
-                    {selected.severity}
+                  <div className={`inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded border mb-1.5 capitalize ${SEVERITY_BADGE[displayedIncident.severity]}`}>
+                    {displayedIncident.severity}
                   </div>
-                  <div className="text-[#EEF3FA] font-bold text-sm">{selected.title}</div>
-                  <div className="text-[10px] text-[#7A94B4]">{selected.location}</div>
+                  <div className="text-[#EEF3FA] font-bold text-sm">{displayedIncident.title}</div>
+                  <div className="text-[10px] text-[#7A94B4]">{displayedIncident.location}</div>
                 </div>
                 <button onClick={() => setSelected(null)} className="text-[#7A94B4] hover:text-white transition-colors">
                   <X size={15} />
@@ -1320,7 +1343,7 @@ export function Incidents({ onToast }: Props) {
                   <button key={tab} onClick={() => setActiveTab(tab)}
                     className={`text-[10px] px-3 py-2 font-semibold whitespace-nowrap transition-all border-b-2 ${activeTab === tab ? 'text-[#2E7FFF] border-[#2E7FFF]' : 'text-[#7A94B4] border-transparent hover:text-[#EEF3FA]'}`}>
                     {tab}
-                    {tab === 'AI Analysis' && (selected.source.includes('AI') || selected.source.includes('IoT')) && (
+                    {tab === 'AI Analysis' && (displayedIncident.source.includes('AI') || displayedIncident.source.includes('IoT')) && (
                       <span className="ml-1 w-1.5 h-1.5 inline-block rounded-full bg-cyan-400" />
                     )}
                   </button>
@@ -1329,11 +1352,11 @@ export function Incidents({ onToast }: Props) {
 
               <div className="flex-1 overflow-y-auto custom-scrollbar p-5">
                 <AnimatePresence mode="wait">
-                  <motion.div key={`${selected.id}-${activeTab}`} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.15 }}>
-                    {activeTab === 'Overview'     && <OverviewTab     incident={selected} />}
-                    {activeTab === 'Timeline'     && <TimelineTab     incident={selected} />}
-                    {activeTab === 'AI Analysis'  && <AIAnalysisTab   incident={selected} />}
-                    {activeTab === 'Actions'      && <ActionsTab      incident={selected} onToast={onToast} onCreateWorkOrder={() => setWoModalFor(selected)} />}
+                  <motion.div key={`${displayedIncident.id}-${activeTab}`} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.15 }}>
+                    {activeTab === 'Overview'     && <OverviewTab     incident={displayedIncident} />}
+                    {activeTab === 'Timeline'     && <TimelineTab     incident={displayedIncident} />}
+                    {activeTab === 'AI Analysis'  && <AIAnalysisTab   incident={displayedIncident} />}
+                    {activeTab === 'Actions'      && <ActionsTab      incident={displayedIncident} onToast={onToast} onCreateWorkOrder={() => setWoModalFor(displayedIncident)} />}
                   </motion.div>
                 </AnimatePresence>
               </div>
