@@ -1,11 +1,14 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Send, Mic, MicOff, Bot, Loader2 } from 'lucide-react';
+import { X, Send, Mic, MicOff, Loader2 } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
 
-// VITE_ELEVENLABS_AGENT_ID — set this in Replit Secrets to enable voice mode.
-// If not set, the copilot operates in text-only mode.
 const ELEVENLABS_AGENT_ID = import.meta.env.VITE_ELEVENLABS_AGENT_ID as string | undefined;
+if (ELEVENLABS_AGENT_ID) {
+  console.log('[CopilotAvatar] ElevenLabs voice enabled — agent ID configured');
+} else {
+  console.warn('[CopilotAvatar] VITE_ELEVENLABS_AGENT_ID not set — voice mode disabled');
+}
 
 interface Message {
   id: string;
@@ -21,6 +24,159 @@ interface VoiceSession {
 
 function generateId() {
   return Math.random().toString(36).slice(2, 10);
+}
+
+function AvatarOrb({ size = 32, voiceStatus }: { size?: number; voiceStatus: VoiceStatus }) {
+  const isListening = voiceStatus === 'listening';
+  const isSpeaking = voiceStatus === 'speaking';
+  const isActive = isListening || isSpeaking;
+
+  const dotColor = isListening
+    ? '#22d3ee'
+    : isSpeaking
+    ? '#3b82f6'
+    : '#ffffff';
+
+  return (
+    <div className="relative" style={{ width: size, height: size }}>
+      <div
+        className="absolute inset-0 rounded-full"
+        style={{
+          background: 'radial-gradient(circle at 35% 35%, #67e8f9 0%, #06b6d4 35%, #2563eb 70%, #1e3a8a 100%)',
+          boxShadow: isActive
+            ? '0 0 12px 3px rgba(6,182,212,0.55), inset 0 1px 2px rgba(255,255,255,0.35)'
+            : '0 0 6px 1px rgba(6,182,212,0.25), inset 0 1px 2px rgba(255,255,255,0.25)',
+        }}
+      />
+      <div
+        className="absolute rounded-full pointer-events-none"
+        style={{
+          top: '10%',
+          left: '15%',
+          width: '40%',
+          height: '30%',
+          background: 'radial-gradient(ellipse, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0) 100%)',
+          borderRadius: '50%',
+          transform: 'rotate(-20deg)',
+        }}
+      />
+      <div
+        className="absolute rounded-full"
+        style={{
+          bottom: 0,
+          right: 0,
+          width: size * 0.28,
+          height: size * 0.28,
+          background: dotColor,
+          border: `2px solid #0d1e3a`,
+          transition: 'background 0.3s',
+          boxShadow: `0 0 6px 2px ${dotColor}88`,
+        }}
+      />
+      {isActive && (
+        <motion.div
+          className="absolute inset-0 rounded-full"
+          style={{ border: `1.5px solid rgba(34,211,238,0.5)` }}
+          animate={{ scale: [1, 1.35], opacity: [0.7, 0] }}
+          transition={{ duration: 0.9, repeat: Infinity, ease: 'easeOut' }}
+        />
+      )}
+    </div>
+  );
+}
+
+function FloatingOrb({ open, voiceStatus }: { open: boolean; voiceStatus: VoiceStatus }) {
+  const isListening = voiceStatus === 'listening';
+  const isSpeaking = voiceStatus === 'speaking';
+  const isActive = isListening || isSpeaking;
+
+  return (
+    <div className="relative w-14 h-14 flex items-center justify-center">
+      {!isActive && (
+        <motion.span
+          className="absolute inset-0 rounded-full"
+          style={{ background: 'radial-gradient(circle, rgba(6,182,212,0.25) 0%, transparent 70%)' }}
+          animate={{ scale: [1, 1.55], opacity: [open ? 0.55 : 0.3, 0] }}
+          transition={{ duration: 2.8, repeat: Infinity, ease: 'easeOut' }}
+        />
+      )}
+      {isActive && (
+        <>
+          <motion.span
+            className="absolute inset-0 rounded-full"
+            style={{ border: '2px solid rgba(34,211,238,0.6)' }}
+            animate={{ scale: [1, 1.55], opacity: [0.8, 0] }}
+            transition={{ duration: 0.9, repeat: Infinity, ease: 'easeOut' }}
+          />
+          <motion.span
+            className="absolute inset-0 rounded-full"
+            style={{ border: '1.5px solid rgba(34,211,238,0.35)' }}
+            animate={{ scale: [1, 1.85], opacity: [0.5, 0] }}
+            transition={{ duration: 0.9, repeat: Infinity, ease: 'easeOut', delay: 0.3 }}
+          />
+          <motion.span
+            className="absolute inset-0 rounded-full"
+            style={{ border: '1px solid rgba(59,130,246,0.3)' }}
+            animate={{ scale: [1, 2.2], opacity: [0.4, 0] }}
+            transition={{ duration: 0.9, repeat: Infinity, ease: 'easeOut', delay: 0.6 }}
+          />
+        </>
+      )}
+
+      <div
+        className="relative w-14 h-14 rounded-full flex items-center justify-center overflow-hidden"
+        style={{
+          background: open
+            ? 'radial-gradient(circle at 40% 35%, #67e8f9 0%, #06b6d4 40%, #1d4ed8 80%, #1e3a8a 100%)'
+            : 'radial-gradient(circle at 35% 30%, #a5f3fc 0%, #06b6d4 35%, #2563eb 65%, #1e3a8a 100%)',
+          boxShadow: isActive
+            ? '0 0 28px 8px rgba(6,182,212,0.5), 0 4px 20px rgba(0,0,0,0.4)'
+            : '0 0 16px 4px rgba(6,182,212,0.25), 0 4px 16px rgba(0,0,0,0.35)',
+          transition: 'box-shadow 0.4s',
+        }}
+      >
+        <div
+          className="absolute rounded-full pointer-events-none"
+          style={{
+            top: '10%',
+            left: '18%',
+            width: '42%',
+            height: '28%',
+            background: 'radial-gradient(ellipse, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0) 100%)',
+            transform: 'rotate(-15deg)',
+          }}
+        />
+        <AnimatePresence mode="wait">
+          {open ? (
+            <motion.div
+              key="close"
+              initial={{ opacity: 0, rotate: -45 }}
+              animate={{ opacity: 1, rotate: 0 }}
+              exit={{ opacity: 0, rotate: 45 }}
+              transition={{ duration: 0.18 }}
+              className="relative z-10"
+            >
+              <X className="w-6 h-6 text-white drop-shadow" />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="orb-inner"
+              initial={{ opacity: 0, scale: 0.7 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.7 }}
+              transition={{ duration: 0.18 }}
+              className="relative z-10 w-7 h-7 rounded-full"
+              style={{
+                background: 'radial-gradient(circle at 40% 35%, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.05) 100%)',
+                border: '1.5px solid rgba(255,255,255,0.35)',
+                boxShadow: 'inset 0 1px 3px rgba(255,255,255,0.3)',
+              }}
+            />
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
+  );
 }
 
 export function CopilotAvatar() {
@@ -114,20 +270,24 @@ export function CopilotAvatar() {
       const conv = await Conversation.startSession({
         agentId: ELEVENLABS_AGENT_ID!,
         connectionType: 'webrtc',
-        onConnect: (_props: { conversationId: string }) => {
+        onConnect: (props: { conversationId: string }) => {
+          console.log('[CopilotAvatar] ElevenLabs connected — conversationId:', props.conversationId);
           setVoiceStatus('listening');
         },
         onDisconnect: () => {
+          console.log('[CopilotAvatar] ElevenLabs disconnected');
           setVoiceStatus('idle');
           setVoiceActive(false);
           conversationRef.current = null;
         },
-        onError: (_message: string) => {
+        onError: (message: string) => {
+          console.error('[CopilotAvatar] ElevenLabs error:', message);
           setVoiceStatus('error');
           setVoiceActive(false);
           conversationRef.current = null;
         },
         onModeChange: (prop: { mode: 'speaking' | 'listening' }) => {
+          console.log('[CopilotAvatar] ElevenLabs mode change:', prop.mode);
           if (prop.mode === 'speaking') {
             setVoiceStatus('speaking');
           } else if (prop.mode === 'listening') {
@@ -172,9 +332,6 @@ export function CopilotAvatar() {
   const isListening = voiceStatus === 'listening';
   const isSpeaking = voiceStatus === 'speaking';
   const isConnecting = voiceStatus === 'connecting';
-  const isVoiceBusy = voiceActive;
-
-  const avatarPulse = open || isVoiceBusy;
 
   return (
     <>
@@ -200,13 +357,8 @@ export function CopilotAvatar() {
               onClick={e => e.stopPropagation()}
             >
               <div className="flex items-center gap-3 px-4 py-3 border-b border-white/10 bg-white/5">
-                <div className="relative">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/30">
-                    <Bot className="w-4 h-4 text-white" />
-                  </div>
-                  {isVoiceBusy && (
-                    <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-cyan-400 border-2 border-[#0d1e3a] animate-pulse" />
-                  )}
+                <div className="relative flex-shrink-0">
+                  <AvatarOrb size={32} voiceStatus={voiceStatus} />
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-semibold text-white leading-none">Imdaad Copilot</p>
@@ -333,33 +485,9 @@ export function CopilotAvatar() {
           aria-label="Open Imdaad Copilot"
           whileHover={{ scale: 1.06 }}
           whileTap={{ scale: 0.94 }}
-          className="relative w-14 h-14 rounded-full shadow-xl focus:outline-none"
-          style={{
-            background: 'linear-gradient(135deg, #06b6d4 0%, #2563eb 100%)',
-            boxShadow: '0 0 0 0 rgba(6,182,212,0.4)',
-          }}
+          className="focus:outline-none"
         >
-          {avatarPulse && (
-            <>
-              <motion.span
-                className="absolute inset-0 rounded-full bg-cyan-400/30"
-                animate={{ scale: [1, 1.6], opacity: [0.6, 0] }}
-                transition={{ duration: 1.5, repeat: Infinity, ease: 'easeOut' }}
-              />
-              <motion.span
-                className="absolute inset-0 rounded-full bg-cyan-400/20"
-                animate={{ scale: [1, 1.9], opacity: [0.4, 0] }}
-                transition={{ duration: 1.5, repeat: Infinity, ease: 'easeOut', delay: 0.4 }}
-              />
-            </>
-          )}
-          <span className="relative z-10 flex items-center justify-center w-full h-full">
-            {open ? (
-              <X className="w-6 h-6 text-white" />
-            ) : (
-              <Bot className="w-6 h-6 text-white" />
-            )}
-          </span>
+          <FloatingOrb open={open} voiceStatus={voiceStatus} />
         </motion.button>
       </div>
     </>
