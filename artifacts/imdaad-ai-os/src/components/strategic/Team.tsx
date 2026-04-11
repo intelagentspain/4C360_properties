@@ -632,10 +632,12 @@ function ProfileDrawer({ member, onClose }: ProfileDrawerProps) {
 
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
           <div className="flex items-start gap-4">
-            <div
-              className={`w-16 h-16 rounded-full flex items-center justify-center text-white text-xl font-bold flex-shrink-0 bg-gradient-to-br ${avatarGradient}`}
-            >
-              {getInitials(member.name)}
+            <div className={`w-16 h-16 rounded-full flex-shrink-0 overflow-hidden bg-gradient-to-br ${avatarGradient} flex items-center justify-center`}>
+              {member.photo ? (
+                <img src={member.photo} alt={member.name} className="w-full h-full object-cover" onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+              ) : (
+                <span className="text-white text-xl font-bold">{getInitials(member.name)}</span>
+              )}
             </div>
             <div className="min-w-0 flex-1 pt-1">
               <div className="text-base font-bold text-[#EEF3FA] leading-tight">{member.name}</div>
@@ -999,10 +1001,12 @@ export function Team({ onToast }: Props) {
                     className="flex flex-col rounded-xl border border-[rgba(46,127,255,0.2)] bg-[rgba(17,32,64,0.7)] overflow-hidden"
                   >
                     <div className="p-4 flex items-start gap-3">
-                      <div
-                        className={`w-10 h-10 rounded-full flex items-center justify-center text-white text-[13px] font-bold flex-shrink-0 bg-gradient-to-br ${avatarGradient}`}
-                      >
-                        {getInitials(member.name)}
+                      <div className={`w-10 h-10 rounded-full flex-shrink-0 overflow-hidden bg-gradient-to-br ${avatarGradient} flex items-center justify-center`}>
+                        {member.photo ? (
+                          <img src={member.photo} alt={member.name} className="w-full h-full object-cover" onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+                        ) : (
+                          <span className="text-white text-[13px] font-bold">{getInitials(member.name)}</span>
+                        )}
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="text-[13px] text-[#EEF3FA] font-bold leading-tight truncate">{member.name}</div>

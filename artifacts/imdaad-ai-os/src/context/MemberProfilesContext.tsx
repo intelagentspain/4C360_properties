@@ -30,6 +30,7 @@ function dbMemberToProfile(m: Record<string, unknown>): MockMemberProfile {
     availability: m['availability'] ? String(m['availability']) : undefined,
     shift: m['shift'] ? String(m['shift']) : undefined,
     commChannels: (m['commChannels'] as string[] | null) ?? [],
+    photo: m['photo'] ? String(m['photo']) : undefined,
   };
 }
 

@@ -1,0 +1,32 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "bQ4bWcRCzIvuHDGkwySYd"
+uri = "file://artifacts/imdaad-ai-os/public/team/hassan-yousef.png"
+type = "image"
+title = "hassan-yousef-headshot"
+
+[[generated]]
+id = "DXLw6ovinDo8VrQbRJEST"
+uri = "file://artifacts/imdaad-ai-os/public/team/karim-r.png"
+type = "image"
+title = "karim-r-headshot"
+
+[[generated]]
+id = "aKOFWSa8DM2FzL9Tj2aN4"
+uri = "file://artifacts/imdaad-ai-os/public/team/rania-al-farsi.png"
+type = "image"
+title = "rania-al-farsi-headshot"
+
+[[generated]]
+id = "n1qeKPyS3XDurpGEE5dZ8"
+uri = "file://artifacts/imdaad-ai-os/public/team/tariq-mansour.png"
+type = "image"
+title = "tariq-mansour-headshot"
+
+[[generated]]
+id = "wHwyPYwn7MgDGCnAfkpxr"
+uri = "file://artifacts/imdaad-ai-os/public/team/lina-barakat.png"
+type = "image"
+title = "lina-barakat-headshot"
