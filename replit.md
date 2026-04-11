@@ -50,7 +50,9 @@ See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and pa
 ### API Server (`artifacts/api-server`)
 - **Type**: api
 - **Stack**: Express 5, TypeScript
-- **Purpose**: Shared backend (not used by Imdaad AI-OS demo)
+- **Purpose**: Shared backend — handles team member welcome emails and incident/work-order notification emails
+- **Email**: Uses Resend (via Replit connector `ccfg_resend_01K69QKYK789WN202XSE3QS17V`) for real email delivery. Credentials are fetched at runtime from the connector API. Falls back to `RESEND_API_KEY` env var if connector unavailable.
+- **Email helper**: `artifacts/api-server/src/lib/mailer.ts` — shared `sendEmail()` utility used by both `clients.ts` (welcome emails) and `incidents.ts` (incident + work order notification emails)
 
 ## Design System (Imdaad AI-OS)
 - Primary Navy: #0A1628

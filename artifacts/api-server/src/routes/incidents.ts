@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from "express";
-import nodemailer from "nodemailer";
 import crypto from "node:crypto";
 import { logger } from "../lib/logger";
+import { sendEmail } from "../lib/mailer";
 
 const router = Router();
 
@@ -182,18 +182,6 @@ function isEmailMuted(incidentId: string, email: string): boolean {
   return mutedEmails.get(incidentId)?.has(email.toLowerCase()) ?? false;
 }
 
-function createTransporter(): { transporter: nodemailer.Transporter; from: string } | null {
-  const host = process.env.SMTP_HOST;
-  const port = parseInt(process.env.SMTP_PORT || "587", 10);
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-  const from = process.env.SMTP_FROM || user || "noreply@imdaad.ae";
-  if (!host || !user || !pass) return null;
-  return {
-    transporter: nodemailer.createTransport({ host, port, secure: port === 465, auth: { user, pass } }),
-    from,
-  };
-}
 
 function severityColor(severity: string): string {
   switch (severity.toLowerCase()) {
@@ -373,10 +361,9 @@ interface NotifyBody {
 
 interface NotifyResult {
   email: string;
-  status: "sent" | "preview" | "muted" | "failed";
+  status: "sent" | "muted" | "failed";
   muted?: boolean;
   muteToken?: string;
-  previewUrl?: string;
   error?: string;
 }
 
@@ -509,25 +496,6 @@ router.post("/workorders/notify", async (req: Request, res: Response) => {
   const incidentId = body.incidentId ?? wo.incidentId;
   const recipients = resolveWorkOrderRecipients(wo, body.inviteList);
 
-  const transportConfig = createTransporter();
-  let previewTransport: { transporter: nodemailer.Transporter; from: string } | null = null;
-
-  if (!transportConfig) {
-    try {
-      const testAccount = await nodemailer.createTestAccount();
-      previewTransport = {
-        transporter: nodemailer.createTransport({
-          host: "smtp.ethereal.email",
-          port: 587,
-          auth: { user: testAccount.user, pass: testAccount.pass },
-        }),
-        from: '"Imdaad AI-OS" <noreply@imdaad.ae>',
-      };
-    } catch (err) {
-      logger.error({ err }, "Failed to create Ethereal test account for work order notify");
-    }
-  }
-
   const results: (NotifyResult & { phone?: string; whatsappStatus?: string })[] = [];
 
   const apiBase =
@@ -536,42 +504,15 @@ router.post("/workorders/notify", async (req: Request, res: Response) => {
 
   for (const member of recipients) {
     const html = buildWorkOrderEmail(wo, incidentId, member.name, member.email);
-    const fromAddr =
-      transportConfig?.from ??
-      previewTransport?.from ??
-      '"Imdaad AI-OS" <noreply@imdaad.ae>';
 
-    const mailOptions = {
-      from: fromAddr,
+    const emailResult = await sendEmail({
       to: member.email,
       subject: `[Work Order] ${wo.title ?? "New Work Order"} — ${wo.id}`,
       html,
-    };
+    });
 
-    let emailStatus: "sent" | "preview" | "failed" = "failed";
-    let previewUrl: string | undefined;
-    let emailError: string | undefined;
-
-    if (transportConfig) {
-      try {
-        await transportConfig.transporter.sendMail(mailOptions);
-        emailStatus = "sent";
-      } catch (err) {
-        emailError = (err as Error).message;
-        logger.error({ err, email: member.email }, "Failed to send work order email");
-      }
-    } else if (previewTransport) {
-      try {
-        const info = await previewTransport.transporter.sendMail(mailOptions);
-        const rawPreview = nodemailer.getTestMessageUrl(info);
-        previewUrl = rawPreview || undefined;
-        emailStatus = "preview";
-        logger.info({ email: member.email, previewUrl, workOrderId: wo.id }, "Work order email preview");
-      } catch (err) {
-        emailError = (err as Error).message;
-        logger.error({ err, email: member.email }, "Failed to send preview work order email");
-      }
-    }
+    const emailStatus = emailResult.status;
+    const emailError = emailResult.error;
 
     let whatsappStatus: string | undefined;
     if (member.phone) {
@@ -609,7 +550,6 @@ router.post("/workorders/notify", async (req: Request, res: Response) => {
     results.push({
       email: member.email,
       status: emailStatus,
-      previewUrl,
       error: emailError,
       phone: member.phone,
       whatsappStatus,
@@ -634,25 +574,6 @@ router.post("/incidents/notify", async (req: Request, res: Response) => {
     process.env.API_BASE_URL ??
     `http://localhost:${process.env.PORT ?? 3001}`;
 
-  const transportConfig = createTransporter();
-  let previewTransport: { transporter: nodemailer.Transporter; from: string } | null = null;
-
-  if (!transportConfig) {
-    try {
-      const testAccount = await nodemailer.createTestAccount();
-      previewTransport = {
-        transporter: nodemailer.createTransport({
-          host: "smtp.ethereal.email",
-          port: 587,
-          auth: { user: testAccount.user, pass: testAccount.pass },
-        }),
-        from: '"Imdaad AI-OS" <noreply@imdaad.ae>',
-      };
-    } catch (err) {
-      logger.error({ err }, "Failed to create Ethereal test account");
-    }
-  }
-
   const results: NotifyResult[] = [];
 
   for (const member of recipients) {
@@ -665,39 +586,17 @@ router.post("/incidents/notify", async (req: Request, res: Response) => {
     const muteUrl = `${apiBase}/api/incidents/${encodeURIComponent(incident.id)}/mute?token=${muteToken}`;
 
     const html = buildIncidentEmail(incident, member.name, member.email, muteUrl);
-    const fromAddr =
-      transportConfig?.from ??
-      previewTransport?.from ??
-      '"Imdaad AI-OS" <noreply@imdaad.ae>';
 
-    const mailOptions = {
-      from: fromAddr,
+    const emailResult = await sendEmail({
       to: member.email,
       subject: `[${(incident.severity ?? "").toUpperCase()}] Incident Alert: ${incident.title ?? "New Incident"} — ${incident.id}`,
       html,
-    };
+    });
 
-    if (transportConfig) {
-      try {
-        await transportConfig.transporter.sendMail(mailOptions);
-        results.push({ email: member.email, status: "sent", muteToken });
-      } catch (err) {
-        logger.error({ err, email: member.email }, "Failed to send incident email");
-        results.push({ email: member.email, status: "failed", error: (err as Error).message });
-      }
-    } else if (previewTransport) {
-      try {
-        const info = await previewTransport.transporter.sendMail(mailOptions);
-        const rawPreview = nodemailer.getTestMessageUrl(info);
-        const previewUrl: string | undefined = rawPreview || undefined;
-        logger.info({ email: member.email, previewUrl, incidentId: incident.id }, "Incident email preview");
-        results.push({ email: member.email, status: "preview", previewUrl, muteToken });
-      } catch (err) {
-        logger.error({ err, email: member.email }, "Failed to send preview incident email");
-        results.push({ email: member.email, status: "failed", error: (err as Error).message });
-      }
+    if (emailResult.status === "sent") {
+      results.push({ email: member.email, status: "sent", muteToken });
     } else {
-      results.push({ email: member.email, status: "failed", error: "No transport available" });
+      results.push({ email: member.email, status: "failed", error: emailResult.error });
     }
   }
 

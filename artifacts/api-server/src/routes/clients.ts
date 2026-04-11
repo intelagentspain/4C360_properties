@@ -1,6 +1,6 @@
 import { Router } from "express";
-import nodemailer from "nodemailer";
 import { logger } from "../lib/logger";
+import { sendEmail } from "../lib/mailer";
 
 const router = Router();
 
@@ -383,20 +383,6 @@ function buildWelcomeEmail(
 </html>`;
 }
 
-function createTransporter() {
-  const host = process.env.SMTP_HOST;
-  const port = parseInt(process.env.SMTP_PORT || "587", 10);
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-  const from = process.env.SMTP_FROM || user || "noreply@imdaad.ae";
-
-  if (!host || !user || !pass) {
-    logger.warn("SMTP env vars not configured — using Ethereal preview transport");
-    return null;
-  }
-
-  return { transporter: nodemailer.createTransport({ host, port, secure: port === 465, auth: { user, pass } }), from };
-}
 
 interface TeamMember {
   id?: string;
@@ -463,26 +449,7 @@ router.post("/clients/invite", async (req, res) => {
     siteNames: Array.isArray(siteNames) ? siteNames : [],
   };
 
-  const transportConfig = createTransporter();
-
-  let previewTransport: { transporter: nodemailer.Transporter; from: string } | null = null;
-  if (!transportConfig) {
-    try {
-      const testAccount = await nodemailer.createTestAccount();
-      previewTransport = {
-        transporter: nodemailer.createTransport({
-          host: "smtp.ethereal.email",
-          port: 587,
-          auth: { user: testAccount.user, pass: testAccount.pass },
-        }),
-        from: '"Imdaad AI-OS" <noreply@imdaad.ae>',
-      };
-    } catch (err: unknown) {
-      logger.error({ err }, "Failed to create Ethereal test account");
-    }
-  }
-
-  const results: { email: string; status: "sent" | "preview" | "failed"; previewUrl?: string; error?: string }[] = [];
+  const results: { email: string; status: "sent" | "failed"; error?: string }[] = [];
 
   for (const member of teamMembers) {
     const memberId = member.id?.trim();
@@ -500,35 +467,13 @@ router.post("/clients/invite", async (req, res) => {
       member.zones,
       member.skills,
     );
-    const fromAddr = transportConfig?.from ?? previewTransport?.from ?? '"Imdaad AI-OS" <noreply@imdaad.ae>';
-    const mailOptions = {
-      from: fromAddr,
+
+    const result = await sendEmail({
       to: member.email,
       subject: `Welcome to Imdaad AI-OS — ${clientName} | ${member.role}`,
       html,
-    };
-
-    if (transportConfig) {
-      try {
-        await transportConfig.transporter.sendMail(mailOptions);
-        results.push({ email: member.email, status: "sent" });
-      } catch (err: unknown) {
-        logger.error({ err, email: member.email }, "Failed to send welcome email");
-        results.push({ email: member.email, status: "failed", error: (err as Error).message });
-      }
-    } else if (previewTransport) {
-      try {
-        const info = await previewTransport.transporter.sendMail(mailOptions);
-        const previewUrl = nodemailer.getTestMessageUrl(info) || undefined;
-        logger.info({ email: member.email, previewUrl }, "Welcome email preview");
-        results.push({ email: member.email, status: "preview", previewUrl: previewUrl as string | undefined });
-      } catch (err: unknown) {
-        logger.error({ err, email: member.email }, "Failed to send preview email");
-        results.push({ email: member.email, status: "failed", error: (err as Error).message });
-      }
-    } else {
-      results.push({ email: member.email, status: "failed", error: "No transport available" });
-    }
+    });
+    results.push({ email: member.email, ...result });
   }
 
   res.json({ results });
