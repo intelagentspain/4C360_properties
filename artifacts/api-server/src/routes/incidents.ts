@@ -176,7 +176,13 @@ async function resolveRecipients(
     .filter(m => OPERATIONAL_ROLES.has(m.role))
     .map(m => ({ name: m.name, email: m.email, role: m.role }));
 
-  if (!inviteList || inviteList.length === 0) return fromDb;
+  if (!inviteList || inviteList.length === 0) {
+    logger.info(
+      { incidentId: incident.id, siteId, fromDb: fromDb.length, fromInvite: 0, total: fromDb.length },
+      "resolveRecipients: DB-only resolution (no inviteList provided)"
+    );
+    return fromDb;
+  }
 
   const siteName = resolveSiteIdToName(siteId);
   const fromInvite: Recipient[] = inviteList.filter(m => {
@@ -195,6 +201,11 @@ async function resolveRecipients(
       combined.push(m);
     }
   }
+
+  logger.info(
+    { incidentId: incident.id, siteId, fromDb: fromDb.length, fromInvite: fromInvite.length, total: combined.length },
+    "resolveRecipients: merged DB and inviteList recipients"
+  );
   return combined;
 }
 
@@ -1656,10 +1667,36 @@ router.post("/incidents/notify", async (req: Request, res: Response) => {
   const results: NotifyResult[] = [];
 
   if (fromEndClient) {
-    const [amRecipients, ssRecipients] = await Promise.all([
-      resolveAllByRole("Account Manager"),
-      resolveAllByRole("Site Supervisor"),
-    ]);
+    const siteId = resolveSiteId(incident);
+    const dbAMs = await resolveAllByRole("Account Manager");
+    const dbSSs = await resolveAllByRole("Site Supervisor");
+
+    const inviteAMs: Recipient[] = (body.inviteList ?? [])
+      .filter(m => m.role === "Account Manager")
+      .map(m => ({ name: m.name, email: m.email, role: m.role }));
+    const inviteSSs: Recipient[] = (body.inviteList ?? [])
+      .filter(m => m.role === "Site Supervisor")
+      .map(m => ({ name: m.name, email: m.email, role: m.role }));
+
+    const mergeRecipients = (fromDb: Recipient[], fromInvite: Recipient[]): Recipient[] => {
+      const seen = new Set(fromDb.map(m => m.email.toLowerCase()));
+      const merged = [...fromDb];
+      for (const m of fromInvite) {
+        if (!seen.has(m.email.toLowerCase())) {
+          seen.add(m.email.toLowerCase());
+          merged.push(m);
+        }
+      }
+      return merged;
+    };
+
+    const amRecipients = mergeRecipients(dbAMs, inviteAMs);
+    const ssRecipients = mergeRecipients(dbSSs, inviteSSs);
+
+    logger.info(
+      { incidentId: incident.id, siteId, amFromDb: dbAMs.length, amFromInvite: inviteAMs.length, amTotal: amRecipients.length, ssFromDb: dbSSs.length, ssFromInvite: inviteSSs.length, ssTotal: ssRecipients.length },
+      "End-client incident: resolved AM and SS recipients"
+    );
 
     if (amRecipients.length === 0) {
       logger.warn({ incidentId: incident.id }, "No Account Manager found for end-client incident — no AM email will be sent");
@@ -1707,19 +1744,16 @@ router.post("/incidents/notify", async (req: Request, res: Response) => {
 
     logger.info({ incidentId: incident.id, amCount: amRecipients.length, ssCount: ssRecipients.length }, "End-client incident emails dispatched");
   } else {
-    const [globalAMs, globalSSs] = await Promise.all([
-      resolveAllByRole("Account Manager"),
-      resolveAllByRole("Site Supervisor"),
+    const siteId = resolveSiteId(incident);
+    const [allRecipients, approvers] = await Promise.all([
+      resolveRecipients(incident, body.inviteList),
+      resolveApprovers(incident, body.inviteList),
     ]);
-    const seen = new Set<string>();
-    const allRecipients: Recipient[] = [];
-    for (const r of [...globalSSs, ...globalAMs]) {
-      if (!seen.has(r.email)) {
-        seen.add(r.email);
-        allRecipients.push(r);
-      }
-    }
-    const approvers = allRecipients.filter(r => APPROVER_ROLES.has(r.role));
+
+    logger.info(
+      { incidentId: incident.id, siteId, totalRecipients: allRecipients.length, approverCount: approvers.length, inviteListCount: body.inviteList?.length ?? 0 },
+      "Non-end-client incident: resolved recipients and approvers"
+    );
 
     for (const member of allRecipients) {
       if (isEmailMuted(incident.id, member.email)) {
