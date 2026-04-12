@@ -82,13 +82,19 @@ Severity guidelines:
 
 If the transcript is very short or unclear, still produce a best-effort FM classification with confidence set to 30-50. Always return valid JSON.`;
 
+function transcriptSummary(transcript: string, maxLen = 200): string {
+  const trimmed = transcript.trim();
+  if (!trimmed) return "";
+  return `Resident said: "${trimmed.length > maxLen ? trimmed.slice(0, maxLen) + "…" : trimmed}." `;
+}
+
 function getMockVoiceAnalysis(transcript: string): Analysis {
   const lower = transcript.toLowerCase();
 
   if (lower.includes("ac") || lower.includes("air") || lower.includes("cool") || lower.includes("hvac") || lower.includes("cold")) {
     return {
       title: "Air Conditioning Not Working",
-      description: `Resident reports that the air conditioning unit is not functioning correctly. Based on the description, this may be a refrigerant, thermostat, or fan motor issue. Without cooling in Dubai's climate, this requires urgent attention.`,
+      description: `${transcriptSummary(transcript)}The air conditioning unit appears to be malfunctioning — this may be a refrigerant, thermostat, or fan motor issue. Without cooling in Dubai's climate, this requires urgent attention.`,
       issueType: "Mechanical Failure",
       category: "HVAC",
       severity: "high",
@@ -106,7 +112,7 @@ function getMockVoiceAnalysis(transcript: string): Analysis {
   if (lower.includes("leak") || lower.includes("water") || lower.includes("drip") || lower.includes("flood") || lower.includes("pipe")) {
     return {
       title: "Water Leak Reported",
-      description: `Resident has reported a water leak in their unit or the common area. This could be from a supply pipe joint, fixture, or overflow from an adjacent area. Water ingress can cause structural damage and electrical hazards if not addressed promptly.`,
+      description: `${transcriptSummary(transcript)}A water leak has been reported in the unit or common area. This could be from a supply pipe joint, fixture, or overflow from an adjacent area. Water ingress can cause structural damage and electrical hazards if not addressed promptly.`,
       issueType: "Water Damage",
       category: "Plumbing",
       severity: "high",
@@ -124,7 +130,7 @@ function getMockVoiceAnalysis(transcript: string): Analysis {
   if (lower.includes("light") || lower.includes("electric") || lower.includes("power") || lower.includes("socket") || lower.includes("switch")) {
     return {
       title: "Electrical Issue Reported",
-      description: `Resident reports an electrical fault — this may involve a failed light fixture, tripped circuit breaker, or faulty socket/switch. Electrical faults in residential properties require immediate inspection to rule out fire or shock risk.`,
+      description: `${transcriptSummary(transcript)}An electrical fault has been reported — this may involve a failed light fixture, tripped circuit breaker, or faulty socket/switch. Electrical faults in residential properties require immediate inspection to rule out fire or shock risk.`,
       issueType: "Electrical Fault",
       category: "Electrical",
       severity: "medium",
@@ -142,7 +148,7 @@ function getMockVoiceAnalysis(transcript: string): Analysis {
   if (lower.includes("lift") || lower.includes("elevator")) {
     return {
       title: "Lift Fault Reported",
-      description: `Resident has reported an issue with the lift/elevator. This could involve irregular door operation, failure to respond to calls, or abnormal sounds during travel. Lift faults affecting access are a high-priority maintenance issue.`,
+      description: `${transcriptSummary(transcript)}An issue with the lift/elevator has been reported. This could involve irregular door operation, failure to respond to calls, or abnormal sounds during travel. Lift faults affecting access are a high-priority maintenance issue.`,
       issueType: "Mechanical Failure",
       category: "Vertical Transport",
       severity: "high",
@@ -163,7 +169,7 @@ function getMockVoiceAnalysis(transcript: string): Analysis {
 
   return {
     title: fallbackTitle,
-    description: transcript.length > 20
+    description: transcript.length > 10
       ? `${transcript.slice(0, 300)}${transcript.length > 300 ? "…" : ""}`
       : "Resident has submitted a voice note reporting a facility issue. Maintenance team to review and assess upon arrival.",
     issueType: "General Wear",

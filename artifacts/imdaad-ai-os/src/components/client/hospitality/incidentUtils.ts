@@ -212,17 +212,18 @@ export async function transcribeAndAnalyzeVoice(audioBlob: Blob): Promise<{ anal
 
     const data = await resp.json() as { success?: boolean; transcript?: string; analysisFallbackUsed?: boolean; analysis?: ApiAnalysisPayload };
     const transcript = data.transcript ?? '';
-    const analysisFallbackUsed = data.analysisFallbackUsed ?? true;
 
     if (!data.analysis || !data.analysis.title) {
-      return { analysis: mockVoiceAnalysis(transcript), transcript, failed: true };
+      const failed = transcript.length === 0;
+      return { analysis: mockVoiceAnalysis(transcript), transcript, failed };
     }
 
     const analysis = mapAnalysisResponse(
       data.analysis,
       transcript.length > 0 ? transcript.slice(0, 120) : 'Issue reported via voice note',
     );
-    return { analysis, transcript, failed: analysisFallbackUsed };
+    const failed = transcript.length === 0;
+    return { analysis, transcript, failed };
   } catch {
     return { analysis: mockVoiceAnalysis(''), transcript: '', failed: true };
   }
