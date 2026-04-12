@@ -867,6 +867,9 @@ const END_CLIENT_TEST_CLIENT_NAME = "4CKSA Properties";
 const END_CLIENT_TEST_MEMBER_ID = "mbr-4cksa-gm-001";
 
 export async function sendEndClientTestEmail(): Promise<{ status: "sent" | "failed"; error?: string }> {
+  if (!TRUSTED_APP_BASE) {
+    return { status: "failed", error: "APP_BASE_URL / REPLIT_DOMAINS not configured — cannot generate report link" };
+  }
   const reportUrl = `${TRUSTED_APP_BASE}?member=${encodeURIComponent(END_CLIENT_TEST_MEMBER_ID)}`;
 
   const html = buildEndClientInviteEmail(
