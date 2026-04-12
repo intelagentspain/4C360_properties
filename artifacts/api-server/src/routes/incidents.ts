@@ -204,6 +204,14 @@ async function resolveApprovers(incident: IncidentPayload, inviteList?: InviteLi
   return approvers.length > 0 ? approvers : all.slice(0, 2);
 }
 
+async function resolveAllByRole(role: string): Promise<Recipient[]> {
+  const dbMembers = await db
+    .select()
+    .from(teamMembersTable)
+    .where(eq(teamMembersTable.role, role));
+  return dbMembers.map(m => ({ name: m.name, email: m.email, role: m.role }));
+}
+
 const muteStore = new Map<string, Map<string, string>>();
 const mutedEmails = new Map<string, Set<string>>();
 
@@ -1648,11 +1656,10 @@ router.post("/incidents/notify", async (req: Request, res: Response) => {
   const results: NotifyResult[] = [];
 
   if (fromEndClient) {
-    const allRecipients = await resolveRecipients(incident, body.inviteList);
-    const accountManagers = allRecipients.filter(r => r.role === "Account Manager");
-    const siteSupervisors = allRecipients.filter(r => r.role === "Site Supervisor");
-    const amRecipients = accountManagers;
-    const ssRecipients = siteSupervisors;
+    const [amRecipients, ssRecipients] = await Promise.all([
+      resolveAllByRole("Account Manager"),
+      resolveAllByRole("Site Supervisor"),
+    ]);
 
     if (amRecipients.length === 0) {
       logger.warn({ incidentId: incident.id }, "No Account Manager found for end-client incident — no AM email will be sent");
@@ -1700,8 +1707,19 @@ router.post("/incidents/notify", async (req: Request, res: Response) => {
 
     logger.info({ incidentId: incident.id, amCount: amRecipients.length, ssCount: ssRecipients.length }, "End-client incident emails dispatched");
   } else {
-    const allRecipients = await resolveRecipients(incident, body.inviteList);
-    const approvers = await resolveApprovers(incident, body.inviteList);
+    const [globalAMs, globalSSs] = await Promise.all([
+      resolveAllByRole("Account Manager"),
+      resolveAllByRole("Site Supervisor"),
+    ]);
+    const seen = new Set<string>();
+    const allRecipients: Recipient[] = [];
+    for (const r of [...globalSSs, ...globalAMs]) {
+      if (!seen.has(r.email)) {
+        seen.add(r.email);
+        allRecipients.push(r);
+      }
+    }
+    const approvers = allRecipients.filter(r => APPROVER_ROLES.has(r.role));
 
     for (const member of allRecipients) {
       if (isEmailMuted(incident.id, member.email)) {
