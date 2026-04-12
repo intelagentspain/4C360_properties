@@ -290,6 +290,9 @@ function PhotosTab({ incident }: { incident: Incident }) {
   const isClosed     = incident.status === 'closed' || incident.status === 'resolved';
   const isAI         = incident.source.includes('AI Capture') || incident.source.includes('IoT') || incident.source === 'QR Scan';
 
+  const effectiveBeforeUrl = incident.beforePhotoUrl || incident.imageUrl || null;
+  const beforeIsCaptureFallback = !hasBefore && !!incident.imageUrl;
+
   const SEVERITY_PHOTO_RING: Record<string, string> = {
     critical: 'ring-red-500/60',
     high: 'ring-orange-400/60',
@@ -343,22 +346,30 @@ function PhotosTab({ incident }: { incident: Incident }) {
 
       <div>
         <div className="text-[10px] text-[#7A94B4] uppercase tracking-wide font-semibold mb-2">Resolution Evidence</div>
-        {hasBefore || hasAfter ? (
+        {effectiveBeforeUrl || hasAfter ? (
           <div className="grid grid-cols-2 gap-3">
-            {hasBefore ? (
+            {effectiveBeforeUrl ? (
               <div>
                 <div className="flex items-center gap-1 mb-1.5">
                   <div className="w-2 h-2 rounded-full bg-red-500/80" />
                   <span className="text-[9px] text-[#7A94B4] font-semibold uppercase tracking-wide">Before</span>
                 </div>
-                <div className="rounded-xl overflow-hidden ring-1 ring-red-500/30">
+                <div className="relative rounded-xl overflow-hidden ring-1 ring-red-500/30">
                   <img
-                    src={incident.beforePhotoUrl}
+                    src={effectiveBeforeUrl}
                     alt="Before"
                     className="w-full object-cover"
                     style={{ maxHeight: 160 }}
                     onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                   />
+                  {beforeIsCaptureFallback && (
+                    <div className="absolute top-1.5 left-1.5">
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] font-bold bg-black/60 border border-white/15 text-[#7A94B4]">
+                        <Camera size={8} />
+                        Incident Capture
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (

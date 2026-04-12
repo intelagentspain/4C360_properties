@@ -383,7 +383,9 @@ function AITab({ incident, allIncidents, event }: { incident: Incident | null; a
 }
 
 function EvidenceTab({ incident, event }: { incident: Incident | null; event: PulseEvent }) {
-  const photoUrl = incident?.imageUrl || incident?.beforePhotoUrl;
+  const hasDedicatedBefore = !!incident?.beforePhotoUrl;
+  const photoUrl = incident?.beforePhotoUrl || incident?.imageUrl || null;
+  const beforeIsCaptureFallback = !hasDedicatedBefore && !!incident?.imageUrl;
   const afterUrl = incident?.afterPhotoUrl;
 
   if (!photoUrl && !afterUrl) {
@@ -409,9 +411,19 @@ function EvidenceTab({ incident, event }: { incident: Incident | null; event: Pu
 
       {photoUrl && (
         <div>
-          <div className="text-[9px] text-[#7A94B4] mb-1.5 uppercase tracking-wide">Before — AI Captured</div>
-          <div className="rounded-xl overflow-hidden border border-red-500/30">
+          <div className="text-[9px] text-[#7A94B4] mb-1.5 uppercase tracking-wide">
+            {beforeIsCaptureFallback ? 'Before — Incident Capture' : 'Before — AI Captured'}
+          </div>
+          <div className="relative rounded-xl overflow-hidden border border-red-500/30">
             <img src={photoUrl} alt="Before" className="w-full object-cover max-h-52" />
+            {beforeIsCaptureFallback && (
+              <div className="absolute top-1.5 left-1.5">
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] font-bold bg-black/60 border border-white/15 text-[#7A94B4]">
+                  <Camera size={8} />
+                  Incident Capture
+                </span>
+              </div>
+            )}
           </div>
         </div>
       )}
