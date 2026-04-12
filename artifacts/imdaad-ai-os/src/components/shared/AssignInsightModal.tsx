@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X,
@@ -238,12 +239,20 @@ const AVAILABILITY_COLOR: Record<string, string> = {
 };
 
 export function AssignInsightModal({ open, insight, onConfirm, onCancel }: Props) {
+  const [selectedCandidateName, setSelectedCandidateName] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (open && insight) {
+      setSelectedCandidateName(MOCK_CANDIDATES[insight.category][0].name);
+    }
+  }, [open, insight?.category]);
+
   if (!insight) return null;
 
   const cat = CATEGORY_CONFIG[insight.category];
-  const candidates = MOCK_CANDIDATES[insight.category];
   const steps = RECOMMENDED_STEPS[insight.category];
-  const topCandidate = candidates[0];
+  const activeCandidates = MOCK_CANDIDATES[insight.category];
+  const selected = activeCandidates.find(c => c.name === selectedCandidateName) ?? activeCandidates[0];
 
   return (
     <AnimatePresence>
@@ -292,13 +301,16 @@ export function AssignInsightModal({ open, insight, onConfirm, onCancel }: Props
                 </div>
 
                 <div className="space-y-2.5">
-                  {candidates.map((candidate, index) => (
+                  {activeCandidates.map((candidate, index) => {
+                    const isSelected = selected.name === candidate.name;
+                    return (
                     <div
                       key={candidate.name}
-                      className={`rounded-xl border p-3 ${
-                        index === 0
-                          ? 'border-[rgba(46,127,255,0.4)] bg-[rgba(46,127,255,0.06)]'
-                          : 'border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.6)]'
+                      onClick={() => setSelectedCandidateName(candidate.name)}
+                      className={`rounded-xl border p-3 cursor-pointer transition-all ${
+                        isSelected
+                          ? 'border-[rgba(46,127,255,0.6)] bg-[rgba(46,127,255,0.12)] ring-1 ring-[rgba(46,127,255,0.35)]'
+                          : 'border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.6)] hover:border-[rgba(46,127,255,0.35)] hover:bg-[rgba(46,127,255,0.04)]'
                       }`}
                     >
                       <div className="flex items-start gap-2.5 mb-2.5">
@@ -348,7 +360,8 @@ export function AssignInsightModal({ open, insight, onConfirm, onCancel }: Props
                         "{candidate.rationale}"
                       </p>
                     </div>
-                  ))}
+                  );
+                  })}
                 </div>
               </div>
 
@@ -378,10 +391,10 @@ export function AssignInsightModal({ open, insight, onConfirm, onCancel }: Props
                 Cancel
               </button>
               <button
-                onClick={() => onConfirm(topCandidate.name)}
+                onClick={() => onConfirm(selected.name)}
                 className="flex-1 py-2.5 bg-[#2E7FFF] text-white text-xs font-semibold rounded-xl hover:bg-blue-500 transition-colors flex items-center justify-center gap-1.5"
               >
-                <UserCheck size={12} /> Confirm Assignment
+                <UserCheck size={12} /> Confirm — {selected.name}
               </button>
             </div>
           </motion.div>
