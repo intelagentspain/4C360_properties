@@ -49,23 +49,6 @@ const resolvedAppUrl: string =
 
 const router = Router();
 
-router.post("/uploads/incident-image", (req: Request, res: Response) => {
-  const { imageData } = req.body as { imageData?: string };
-  if (!imageData || typeof imageData !== "string") {
-    res.status(400).json({ error: "imageData (base64 data URL) is required" });
-    return;
-  }
-  try {
-    const base64Data = imageData.replace(/^data:[^;]+;base64,/, "");
-    const filename = `incident-${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
-    const filepath = path.join(evidenceUploadsDir, filename);
-    fs.writeFileSync(filepath, Buffer.from(base64Data, "base64"));
-    res.json({ url: `/api/uploads/evidence/${filename}` });
-  } catch (err) {
-    logger.error({ err }, "Failed to save incident image");
-    res.status(500).json({ error: "Failed to save image" });
-  }
-});
 
 const APP_SECRET =
   process.env.INCIDENT_MUTE_SECRET ??
@@ -1685,6 +1668,18 @@ router.post("/incidents/notify", async (req: Request, res: Response) => {
   if (!incident || !incident.id) {
     res.status(400).json({ error: "incident with id is required" });
     return;
+  }
+
+  if (incident.imageUrl?.startsWith("data:")) {
+    try {
+      const base64Data = incident.imageUrl.replace(/^data:[^;]+;base64,/, "");
+      const filename = `incident-${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
+      const filepath = path.join(evidenceUploadsDir, filename);
+      fs.writeFileSync(filepath, Buffer.from(base64Data, "base64"));
+      incident.imageUrl = `${resolvedAppUrl}/api/uploads/evidence/${filename}`;
+    } catch {
+      incident.imageUrl = undefined;
+    }
   }
 
   const apiBase =
