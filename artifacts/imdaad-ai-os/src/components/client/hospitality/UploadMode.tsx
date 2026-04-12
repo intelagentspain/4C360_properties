@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, CheckCircle, Loader2, Brain, X, ImageIcon } from 'lucide-react';
 import type { ToastFn } from '@/lib/ui';
 import { submitIncident, analyzeImage, type AiAnalysis } from './incidentUtils';
+import { AnalysisResultCard } from './AnalysisResultCard';
 
 interface Props {
   onSuccess: (ref: string) => void;
@@ -107,7 +108,7 @@ export function UploadMode({ onSuccess, onToast }: Props) {
           animate={{ opacity: 1 }}
           className="relative rounded-2xl overflow-hidden border border-[#E8DEC8]"
         >
-          <img src={preview} alt="upload preview" className="w-full object-cover max-h-64" />
+          <img src={preview} alt="upload preview" className="w-full object-cover max-h-56" />
           <button
             onClick={clearPhoto}
             className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/50 flex items-center justify-center text-white"
@@ -134,7 +135,7 @@ export function UploadMode({ onSuccess, onToast }: Props) {
             <Brain size={16} className="text-emerald-600 animate-pulse flex-shrink-0" />
             <div>
               <div className="text-[12px] font-semibold text-emerald-800">AI is analysing your photo…</div>
-              <div className="text-[10px] text-emerald-600">Identifying the issue and priority</div>
+              <div className="text-[10px] text-emerald-600">Identifying the issue, observations and priority</div>
             </div>
           </motion.div>
         )}
@@ -142,30 +143,7 @@ export function UploadMode({ onSuccess, onToast }: Props) {
 
       <AnimatePresence>
         {analysis && !analysing && (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="p-3 rounded-xl bg-[#F5EFE0] border border-[#E8DEC8] space-y-1.5"
-          >
-            <div className="flex items-center gap-2">
-              <CheckCircle size={14} className="text-[#0D9488]" />
-              <span className="text-[12px] font-semibold text-[#2C1810]">AI Analysis Complete</span>
-              <span className="ml-auto text-[10px] bg-[#0D9488]/10 text-[#0D9488] border border-[#0D9488]/30 px-2 py-0.5 rounded-full font-semibold">
-                {analysis.confidence}% confident
-              </span>
-            </div>
-            <div className="flex justify-between text-[11px]">
-              <span className="text-[#8B7355]">Issue type</span>
-              <span className="text-[#2C1810] font-semibold">{analysis.category}</span>
-            </div>
-            <div className="flex justify-between text-[11px]">
-              <span className="text-[#8B7355]">Priority</span>
-              <span className={`font-semibold ${analysis.priority === 'high' ? 'text-red-600' : analysis.priority === 'medium' ? 'text-amber-600' : 'text-emerald-600'}`}>
-                {analysis.priority.charAt(0).toUpperCase() + analysis.priority.slice(1)}
-              </span>
-            </div>
-            <div className="text-[10px] text-[#8B7355] pt-1 border-t border-[#E8DEC8]">{analysis.summary}</div>
-          </motion.div>
+          <AnalysisResultCard analysis={analysis} />
         )}
       </AnimatePresence>
 
