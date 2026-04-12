@@ -1,0 +1,116 @@
+Add a deep-link entry flow for the Field Engineer mobile experience.
+
+Purpose:
+Allow the demo to open directly into a real assigned job without navigating through the full login and home flow.
+
+Do NOT rebuild the app.
+Extend the existing login and field engineer mobile experience.
+
+==================================================
+1. DEEP LINK ROUTE
+==================================================
+
+Create a route pattern such as:
+
+/field/job/:jobId
+or
+/field/job/:jobId?user=:userId
+
+This route should:
+- simulate or apply authenticated field engineer context
+- load the assigned user
+- load the selected job
+- open directly into the job workspace
+
+==================================================
+2. DEMO USER CONTEXT
+==================================================
+
+Use a demo field engineer profile:
+
+Name: Karim R.
+Role: Field Engineer – HVAC
+Status: On Duty
+Current Site: Silicon Oasis / Villa 23 Cluster A
+
+If user param exists, load matching mock user.
+If not, default to Karim R.
+
+==================================================
+3. DEMO JOB TO PRELOAD
+==================================================
+
+Create or reuse a job like:
+
+Job ID: SI-2241
+Title: HVAC — Corrective Maintenance
+Asset: Chiller Unit C-04
+Location: Villa 23, Cluster A, Silicon Oasis
+Priority: High
+SLA Remaining: 38 minutes
+Source: AI Capture
+Parts Status: R-410A low stock
+
+This job should already include:
+- AI diagnostics
+- checklist
+- parts status
+- copilot access
+
+==================================================
+4. LOADING EXPERIENCE
+==================================================
+
+When opening the deep link:
+show a short branded transition state:
+
+“Loading active assignment…”
+“Karim R. • HVAC Specialist • On Duty”
+
+Then navigate into the job detail screen automatically.
+
+Do not force PIN entry for this flow.
+This is a controlled demo shortcut.
+
+==================================================
+5. JOB DETAIL ENTRY
+==================================================
+
+The deep link should land directly in the work order detail screen, not home.
+
+The visible screen should include:
+- task summary
+- asset / location
+- SLA countdown
+- AI diagnostics
+- start job CTA
+- open copilot CTA
+- open checklist CTA
+- parts status
+
+==================================================
+6. OPTIONAL SECONDARY DEEP LINKS
+==================================================
+
+If easy, also support:
+- /field/inspection/:inspectionId
+- /field/copilot/:jobId
+
+But priority is direct job entry.
+
+==================================================
+7. DEMO SAFETY
+==================================================
+
+Keep the normal PIN login flow intact.
+This deep link is an additional entry path for demo speed only.
+
+==================================================
+8. OUTPUT
+==================================================
+
+After implementing, show:
+1. new route(s)
+2. how user context is injected
+3. how demo job data is loaded
+4. how normal login flow remains untouched
