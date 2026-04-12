@@ -173,7 +173,6 @@ export function AssetExpertCopilot({
       setMessages(prev => [...prev, assistantMsg]);
 
       if (incident) {
-        setPendingIncident(incident);
         onCreateIncident?.(incident);
         setIncidentToast(true);
         setTimeout(() => setIncidentToast(false), 3000);
