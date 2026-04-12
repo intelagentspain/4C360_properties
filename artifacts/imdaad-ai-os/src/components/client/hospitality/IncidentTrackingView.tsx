@@ -19,7 +19,7 @@ interface IncidentRow {
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: typeof CheckCircle }> = {
   open:          { label: 'Open',        color: '#B45309', bg: '#FEF3C7', icon: Clock       },
-  dispatched:    { label: 'Dispatched',  color: '#2563EB', bg: '#EFF6FF', icon: RefreshCw   },
+  dispatched:    { label: 'Assigned',    color: '#2563EB', bg: '#EFF6FF', icon: RefreshCw   },
   'in-progress': { label: 'In Progress', color: '#7C3AED', bg: '#F5F3FF', icon: RefreshCw   },
   resolved:      { label: 'Resolved',    color: '#059669', bg: '#ECFDF5', icon: CheckCircle  },
   closed:        { label: 'Resolved',    color: '#059669', bg: '#ECFDF5', icon: CheckCircle  },
@@ -227,8 +227,8 @@ export function IncidentTrackingView({ incidentId }: Props) {
             />
           </div>
           <div className="flex justify-between">
-            {['Received', 'Dispatched', 'In Progress', 'Resolved'].map(step => {
-              const stepIdx = ['Received', 'Dispatched', 'In Progress', 'Resolved'].indexOf(step);
+            {['Received', 'Assigned', 'In Progress', 'Resolved'].map(step => {
+              const stepIdx = ['Received', 'Assigned', 'In Progress', 'Resolved'].indexOf(step);
               const currentIdx = isClosed ? 3 : (incident.status ?? '').toLowerCase() === 'in-progress' ? 2 : (incident.status ?? '').toLowerCase() === 'dispatched' ? 1 : 0;
               const done = stepIdx <= currentIdx;
               return (

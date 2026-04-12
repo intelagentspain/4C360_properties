@@ -32,7 +32,7 @@ const TICKET_STATE_CONFIG: Record<TicketState, { label: string; dot: string; tex
 
 const STATUS_CONFIG: Record<string, { label: string; dot: string; text: string; bg: string }> = {
   open:        { label: 'Open',        dot: 'bg-[#7A94B4]',       text: 'text-[#7A94B4]',    bg: 'bg-white/5 border-white/10' },
-  dispatched:  { label: 'Dispatched',  dot: 'bg-blue-400',        text: 'text-blue-400',     bg: 'bg-blue-500/10 border-blue-500/30' },
+  dispatched:  { label: 'Assigned',    dot: 'bg-blue-400',        text: 'text-blue-400',     bg: 'bg-blue-500/10 border-blue-500/30' },
   'in-progress':{ label: 'In Progress', dot: 'bg-cyan-400 animate-pulse', text: 'text-cyan-400', bg: 'bg-cyan-500/10 border-cyan-500/30' },
   assigned:    { label: 'Assigned',    dot: 'bg-blue-400',        text: 'text-blue-400',     bg: 'bg-blue-500/10 border-blue-500/30' },
   overdue:     { label: 'Overdue',     dot: 'bg-red-400',         text: 'text-red-400',      bg: 'bg-red-500/10 border-red-500/30' },
@@ -1836,7 +1836,7 @@ export function Incidents({ onToast, initialClientId, initialIncidentId, onIniti
           {ALL_STATUSES.map(s => (
             <button key={s} onClick={() => setStatus(s)}
               className={`text-[10px] px-2 py-1 rounded-lg border capitalize transition-all ${status === s ? 'bg-[rgba(46,127,255,0.2)] border-[#2E7FFF] text-[#EEF3FA]' : 'border-[rgba(46,127,255,0.15)] text-[#7A94B4] hover:text-[#EEF3FA]'}`}>
-              {s.replace('-', ' ')}
+              {s === 'All' ? 'All' : (STATUS_CONFIG[s]?.label ?? s.replace('-', ' '))}
             </button>
           ))}
         </div>

@@ -34,7 +34,7 @@ type TabName = typeof TABS[number];
 
 const STATUS_CONFIG: Record<string, { label: string; dot: string; text: string; bg: string }> = {
   open:          { label: 'Open',         dot: 'bg-[#7A94B4]',              text: 'text-[#7A94B4]',    bg: 'bg-white/5 border-white/10' },
-  dispatched:    { label: 'Dispatched',   dot: 'bg-blue-400',               text: 'text-blue-400',     bg: 'bg-blue-500/10 border-blue-500/30' },
+  dispatched:    { label: 'Assigned',     dot: 'bg-blue-400',               text: 'text-blue-400',     bg: 'bg-blue-500/10 border-blue-500/30' },
   'in-progress': { label: 'In Progress',  dot: 'bg-cyan-400 animate-pulse', text: 'text-cyan-400',     bg: 'bg-cyan-500/10 border-cyan-500/30' },
   assigned:      { label: 'Assigned',     dot: 'bg-blue-400',               text: 'text-blue-400',     bg: 'bg-blue-500/10 border-blue-500/30' },
   overdue:       { label: 'Overdue',      dot: 'bg-red-400',                text: 'text-red-400',      bg: 'bg-red-500/10 border-red-500/30' },
