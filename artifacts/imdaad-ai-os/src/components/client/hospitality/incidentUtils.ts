@@ -234,21 +234,56 @@ function generateIncidentRef(): string {
   return `INC-H-${num}`;
 }
 
+const SILICON_OASIS_LAT = 25.1174;
+const SILICON_OASIS_LNG = 55.3784;
+
+function deriveSlaMinutes(priority?: string): number {
+  if (priority === 'high') return 60;
+  if (priority === 'low') return 240;
+  return 120;
+}
+
 interface SubmitOptions {
   source: 'camera' | 'upload' | 'voice' | 'ai-chat';
   analysis?: AiAnalysis | null;
   description?: string;
+  clientId?: string;
+  siteId?: string;
 }
 
 export async function submitIncident(opts: SubmitOptions): Promise<string> {
   const ref = generateIncidentRef();
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  const priority = opts.analysis?.priority ?? 'medium';
+
+  const aiMetadata = opts.analysis ? {
+    confidence: opts.analysis.confidence,
+    issueType: opts.analysis.subCategory,
+    category: opts.analysis.category,
+    identifiedAsset: opts.analysis.identifiedAsset,
+    observations: opts.analysis.observations,
+    recommendedAction: opts.analysis.recommendedAction,
+    siteId: opts.siteId,
+  } : undefined;
 
   const body: Record<string, unknown> = {
     id: ref,
     title: opts.analysis?.title ?? opts.analysis?.category ?? 'Hospitality Incident',
     description: opts.description ?? opts.analysis?.description ?? 'Incident reported via hospitality portal',
     source: opts.source,
-    severity: opts.analysis?.priority ?? 'medium',
+    severity: priority,
+    slaMinutes: deriveSlaMinutes(priority),
+    clientId: opts.clientId,
+    siteId: opts.siteId,
+    lat: SILICON_OASIS_LAT,
+    lng: SILICON_OASIS_LNG,
+    location: 'Silicon Oasis',
+    reportedAt: now.toISOString(),
+    activityLog: [
+      { time: timeStr, event: `Incident reported by resident via ${opts.source} — awaiting FM team review`, type: 'update' },
+    ],
+    ...(aiMetadata ? { aiMetadata } : {}),
   };
 
   const resp = await fetch(`${BASE_URL}/api/incidents`, {

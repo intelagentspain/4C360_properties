@@ -17,6 +17,8 @@ interface Props {
   guestName?: string;
   propertyName?: string;
   memberToken?: string;
+  clientId?: string;
+  siteId?: string;
 }
 
 const MODES = [
@@ -58,7 +60,7 @@ const MODES = [
   },
 ];
 
-export function HospitalityClientView({ onToast, guestName = 'Resident', propertyName = 'Dubai Silicon Oasis', memberToken }: Props) {
+export function HospitalityClientView({ onToast, guestName = 'Resident', propertyName = 'Dubai Silicon Oasis', memberToken, clientId, siteId }: Props) {
   const [activeMode, setActiveMode] = useState<ReportingMode | null>(null);
   const [incidentRef, setIncidentRef] = useState<string | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
@@ -115,22 +117,22 @@ export function HospitalityClientView({ onToast, guestName = 'Resident', propert
           <AnimatePresence mode="wait">
             {activeMode === 'camera' && (
               <motion.div key="camera" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="h-full">
-                <CameraMode onSuccess={handleSuccess} onToast={onToast} />
+                <CameraMode onSuccess={handleSuccess} onToast={onToast} clientId={clientId} siteId={siteId} />
               </motion.div>
             )}
             {activeMode === 'upload' && (
               <motion.div key="upload" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="h-full">
-                <UploadMode onSuccess={handleSuccess} onToast={onToast} />
+                <UploadMode onSuccess={handleSuccess} onToast={onToast} clientId={clientId} siteId={siteId} />
               </motion.div>
             )}
             {activeMode === 'voice' && (
               <motion.div key="voice" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="h-full">
-                <VoiceMode onSuccess={handleSuccess} onToast={onToast} />
+                <VoiceMode onSuccess={handleSuccess} onToast={onToast} clientId={clientId} siteId={siteId} />
               </motion.div>
             )}
             {activeMode === 'ai-chat' && (
               <motion.div key="ai-chat" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="h-full">
-                <AIChatMode onSuccess={handleSuccess} onToast={onToast} guestName={guestName} />
+                <AIChatMode onSuccess={handleSuccess} onToast={onToast} guestName={guestName} clientId={clientId} siteId={siteId} />
               </motion.div>
             )}
           </AnimatePresence>

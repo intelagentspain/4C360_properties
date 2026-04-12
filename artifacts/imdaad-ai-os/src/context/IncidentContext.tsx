@@ -235,7 +235,7 @@ function IncidentProviderInner({ children }: { children: ReactNode }) {
     const pollInterval = setInterval(() => {
       loadIncidents();
       loadWorkOrders();
-    }, 30000);
+    }, 10000);
 
     return () => clearInterval(pollInterval);
   }, [loadIncidents, loadWorkOrders]);

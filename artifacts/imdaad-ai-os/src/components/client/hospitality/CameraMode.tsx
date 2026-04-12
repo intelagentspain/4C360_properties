@@ -8,9 +8,11 @@ import { AnalysisResultCard } from './AnalysisResultCard';
 interface Props {
   onSuccess: (ref: string) => void;
   onToast: ToastFn;
+  clientId?: string;
+  siteId?: string;
 }
 
-export function CameraMode({ onSuccess, onToast }: Props) {
+export function CameraMode({ onSuccess, onToast, clientId, siteId }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
@@ -68,7 +70,7 @@ export function CameraMode({ onSuccess, onToast }: Props) {
   const handleSubmit = async () => {
     setSubmitting(true);
     try {
-      const ref = await submitIncident({ source: 'camera', analysis });
+      const ref = await submitIncident({ source: 'camera', analysis, clientId, siteId });
       onToast(`Incident ${ref} submitted — our team is on it`, 'success');
       onSuccess(ref);
     } catch (err) {

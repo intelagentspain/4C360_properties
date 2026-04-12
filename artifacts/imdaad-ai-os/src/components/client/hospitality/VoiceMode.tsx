@@ -8,6 +8,8 @@ import { AnalysisResultCard } from './AnalysisResultCard';
 interface Props {
   onSuccess: (ref: string) => void;
   onToast: ToastFn;
+  clientId?: string;
+  siteId?: string;
 }
 
 function formatTime(seconds: number): string {
@@ -16,7 +18,7 @@ function formatTime(seconds: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
-export function VoiceMode({ onSuccess, onToast }: Props) {
+export function VoiceMode({ onSuccess, onToast, clientId, siteId }: Props) {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -137,6 +139,8 @@ export function VoiceMode({ onSuccess, onToast }: Props) {
         source: 'voice',
         analysis: analysis ?? undefined,
         description: descOverride,
+        clientId,
+        siteId,
       });
       onToast(`Incident ${ref} submitted — our team is on it`, 'success');
       onSuccess(ref);

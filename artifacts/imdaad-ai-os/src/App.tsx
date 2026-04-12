@@ -161,6 +161,8 @@ function App() {
             guestName={activeMember.name}
             propertyName={activeMember.propertyName ?? activeMember.assignedClients[0]}
             memberToken={memberToken}
+            clientId="CLT-001"
+            siteId="silicon-oasis"
           />
         </div>
         <ToastContainer toasts={toasts} removeToast={removeToast} />

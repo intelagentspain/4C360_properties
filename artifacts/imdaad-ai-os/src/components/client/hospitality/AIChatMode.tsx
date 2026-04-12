@@ -20,6 +20,8 @@ interface Props {
   onSuccess: (ref: string) => void;
   onToast: ToastFn;
   guestName?: string;
+  clientId?: string;
+  siteId?: string;
 }
 
 const BASE_URL = import.meta.env.BASE_URL?.replace(/\/$/, '') ?? '';
@@ -52,7 +54,7 @@ function buildDescription(summary: IncidentSummary): string {
   return `Issue: ${summary.issue}\nLocation: ${summary.location}\nUrgency: ${summary.urgency}\nNotes: ${summary.notes}`;
 }
 
-export function AIChatMode({ onSuccess, onToast, guestName = 'Guest' }: Props) {
+export function AIChatMode({ onSuccess, onToast, guestName = 'Guest', clientId, siteId }: Props) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [apiMessages, setApiMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
   const [input, setInput] = useState('');
@@ -141,6 +143,8 @@ export function AIChatMode({ onSuccess, onToast, guestName = 'Guest' }: Props) {
       const ref = await submitIncident({
         source: 'ai-chat',
         description: buildDescription(summary),
+        clientId,
+        siteId,
       });
       onToast(`Incident ${ref} submitted — our team is on it`, 'success');
       onSuccess(ref);

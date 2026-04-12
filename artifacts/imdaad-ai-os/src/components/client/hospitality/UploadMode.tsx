@@ -8,9 +8,11 @@ import { AnalysisResultCard } from './AnalysisResultCard';
 interface Props {
   onSuccess: (ref: string) => void;
   onToast: ToastFn;
+  clientId?: string;
+  siteId?: string;
 }
 
-export function UploadMode({ onSuccess, onToast }: Props) {
+export function UploadMode({ onSuccess, onToast, clientId, siteId }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -57,7 +59,7 @@ export function UploadMode({ onSuccess, onToast }: Props) {
   const handleSubmit = async () => {
     setSubmitting(true);
     try {
-      const ref = await submitIncident({ source: 'upload', analysis });
+      const ref = await submitIncident({ source: 'upload', analysis, clientId, siteId });
       onToast(`Incident ${ref} submitted — our team is on it`, 'success');
       onSuccess(ref);
     } catch (err) {
