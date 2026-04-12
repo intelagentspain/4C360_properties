@@ -13,6 +13,7 @@ import { AddClientModal, type ClientData, type TeamMember } from './CommandBar';
 import { useMemberFilter, isFilterActive } from '@/context/MemberFilterContext';
 import { useMemberProfiles } from '@/context/MemberProfilesContext';
 import { useClients } from '@/context/ClientsContext';
+import { useIncidents } from '@/context/IncidentContext';
 
 const REGIONS   = ['All', 'Dubai East', 'Downtown', 'Business Bay', 'Dubai Marina', 'Jumeirah'];
 const SECTORS   = ['All', 'Mixed-Use Residential', 'Commercial Retail', 'Commercial Office', 'Residential Community', 'Luxury Residential'];
@@ -126,7 +127,8 @@ const PULSE_SEV_ICON: Record<string, { icon: React.ReactNode; cls: string }> = {
 function PortfolioSummaryStrip({ clients }: { clients: PortfolioClient[] }) {
   const totalSites       = clients.reduce((s, c) => s + c.sites, 0);
   const totalWO          = clients.reduce((s, c) => s + c.workOrders, 0);
-  const criticalInc      = clients.filter(c => c.riskLevel === 'critical' || c.riskLevel === 'high').reduce((s, c) => s + c.incidents, 0);
+  const { incidents }    = useIncidents();
+  const criticalInc      = incidents.filter(i => i.severity === 'critical' && i.status !== 'closed').length;
   const avgSLA           = Math.round(clients.reduce((s, c) => s + c.sla, 0) / clients.length);
   const totalDS          = clients.reduce((s, c) => s + c.dataSources.length, 0);
 
