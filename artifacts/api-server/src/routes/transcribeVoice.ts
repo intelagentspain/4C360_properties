@@ -186,26 +186,30 @@ async function transcribeAudio(filePath: string, originalName: string): Promise<
 
   const openai = new OpenAI({ apiKey });
 
-  const ext = path.extname(originalName).toLowerCase() || ".webm";
-  const renamedPath = filePath + ext;
-  if (filePath !== renamedPath) {
+  const originalExt = path.extname(originalName).toLowerCase();
+  const uploadedExt = path.extname(filePath).toLowerCase();
+  const needsRename = originalExt && originalExt !== uploadedExt;
+  const renamedPath = needsRename ? filePath.replace(/(\.[^.]+)?$/, originalExt) : filePath;
+
+  if (needsRename) {
     fs.renameSync(filePath, renamedPath);
   }
 
-  const fileStream = fs.createReadStream(renamedPath);
-
-  const transcription = await openai.audio.transcriptions.create({
-    file: fileStream,
-    model: "whisper-1",
-    language: "en",
-    response_format: "text",
-  });
-
-  if (filePath !== renamedPath) {
+  let transcription: string;
+  try {
+    const fileStream = fs.createReadStream(renamedPath);
+    const result = await openai.audio.transcriptions.create({
+      file: fileStream,
+      model: "whisper-1",
+      language: "en",
+      response_format: "text",
+    });
+    transcription = typeof result === "string" ? result.trim() : String(result).trim();
+  } finally {
     try { fs.unlinkSync(renamedPath); } catch { /* ignore */ }
   }
 
-  return typeof transcription === "string" ? transcription.trim() : String(transcription).trim();
+  return transcription;
 }
 
 async function classifyTranscript(transcript: string): Promise<Analysis> {
