@@ -22,6 +22,24 @@ function getMemberIdFromUrl(): string | null {
   return params.get('member');
 }
 
+function isResidentDomain(): boolean {
+  return window.location.hostname.includes('resident');
+}
+
+function makeResidentProfile(id = 'resident-portal'): MockMemberProfile {
+  return {
+    id,
+    name: 'Resident',
+    perspective: 'Client',
+    role: 'End Client',
+    email: '',
+    assignedClients: [],
+    zones: [],
+    skills: '',
+    responsibilities: '',
+  } as MockMemberProfile;
+}
+
 const PERSP_MAP: Record<string, Perspective> = {
   Strategic: 'strategic',
   Operational: 'operational',
@@ -33,7 +51,11 @@ function App() {
   const [perspective,    setPerspective]     = useState<Perspective>('strategic');
   const [strategicPage,  setStrategicPage]   = useState<StrategicPage>('allclients');
   const { toasts, addToast, removeToast }    = useToast();
-  const [activeMember,   setActiveMember]    = useState<MockMemberProfile | null>(null);
+  // On resident.4cgrc.com (or any hostname containing "resident"), open the
+  // resident portal directly — no ?member= param required.
+  const [activeMember, setActiveMember]      = useState<MockMemberProfile | null>(
+    isResidentDomain() && !getMemberIdFromUrl() ? makeResidentProfile() : null
+  );
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [incidentsClientId, setIncidentsClientId] = useState<string | undefined>(undefined);
   const [initialIncidentId, setInitialIncidentId] = useState<string | undefined>(undefined);
@@ -53,17 +75,7 @@ function App() {
     } else {
       // Member not found in profiles store (e.g. ec-xxxx invite token or short ID).
       // Any external ?member= link is an end-client portal link — open the resident portal.
-      setActiveMember({
-        id: memberId,
-        name: 'Resident',
-        perspective: 'Client',
-        role: 'End Client',
-        email: '',
-        assignedClients: [],
-        zones: [],
-        skills: '',
-        responsibilities: '',
-      } as MockMemberProfile);
+      setActiveMember(makeResidentProfile(memberId));
       setPerspective('client');
     }
   }, []);
