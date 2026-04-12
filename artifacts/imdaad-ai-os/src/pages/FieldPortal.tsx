@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '@/lib/api';
-import { mockAssets, mockKBResources, type KBResource, type KBCategory } from '@/data/mockData';
+import { mockAssets, mockKBResources, mockIncidents, mockParts, mockChecklist, type KBResource, type KBCategory } from '@/data/mockData';
 import {
   ClipboardList, BookOpen, MessageSquare, ChevronLeft, Search, Upload,
   Camera, CheckCircle, Clock, AlertTriangle, XCircle, MapPin, Wrench,
@@ -571,8 +571,57 @@ export function FieldPortal({ initialWorkOrderId }: FieldPortalProps) {
         variant="sheet"
         assetType={selectedWO?.skill ?? 'HVAC'}
         assetName={selectedWO?.asset ?? undefined}
-        siteName={selectedWO?.siteId ?? 'Silicon Oasis'}
+        siteName={selectedWO?.location ?? selectedWO?.siteId ?? 'Silicon Oasis'}
         ppmTemplateName={selectedWO?.title}
+        currentStep={
+          selectedWO?.status === 'in_progress' ? 'On-site — job in progress'
+          : selectedWO?.status === 'assigned' ? 'Travelling to site'
+          : selectedWO?.status === 'open' ? 'Not yet started'
+          : selectedWO?.status === 'resolved' ? 'Awaiting supervisor sign-off'
+          : undefined
+        }
+        techReadings={selectedWO ? {
+          'Work Order': selectedWO.id,
+          'Priority': selectedWO.priority ?? 'medium',
+          'Status': selectedWO.status,
+          ...(selectedWO.description ? { 'Description / Fault Summary': selectedWO.description } : {}),
+          ...(selectedWO.assignedTo ? { 'Assigned Tech': selectedWO.assignedTo } : {}),
+        } : undefined}
+        priorIncidents={
+          mockIncidents
+            .filter(inc => {
+              const skill = (selectedWO?.skill ?? '').toLowerCase();
+              const asset = (selectedWO?.asset ?? '').toLowerCase();
+              return (
+                inc.title.toLowerCase().includes(skill) ||
+                inc.description.toLowerCase().includes(skill) ||
+                (asset && inc.description.toLowerCase().includes(asset.split(' ')[0]))
+              );
+            })
+            .slice(0, 3)
+            .map(inc => ({
+              title: inc.title,
+              description: inc.description,
+              date: inc.capturedAt,
+              status: inc.status,
+              severity: inc.severity,
+            }))
+        }
+        partsAvailability={(() => {
+          const skill = (selectedWO?.skill ?? '').toLowerCase();
+          const relevantParts = mockParts.filter(p => {
+            const pn = p.name.toLowerCase();
+            if (skill.includes('hvac')) return pn.includes('refrigerant') || pn.includes('filter') || pn.includes('condenser') || pn.includes('thermostat');
+            if (skill.includes('plumbing')) return pn.includes('pipe') || pn.includes('filter');
+            if (skill.includes('electrical')) return true;
+            return true;
+          });
+          return (relevantParts.length > 0 ? relevantParts : mockParts).map(p => ({
+            name: p.name,
+            inStock: p.inStock,
+            status: p.status,
+          }));
+        })()}
         onCreateIncident={prefill => {
           showToast(`Corrective incident prefilled: ${prefill.title}`, 'info');
           setExpertOpen(false);

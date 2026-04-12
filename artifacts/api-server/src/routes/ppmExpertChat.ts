@@ -85,18 +85,78 @@ function resolveExpert(assetType: string, assetSubtype?: string, assetName?: str
 }
 
 function buildSystemPrompt(expert: ExpertAgent, body: ExpertChatBody): string {
-  const ctx: string[] = [];
-  if (body.assetName) ctx.push(`Asset: ${body.assetName}${body.assetId ? ` (${body.assetId})` : ""}`);
-  if (body.siteName)  ctx.push(`Site: ${body.siteName}`);
-  if (body.ppmTemplateName) ctx.push(`PPM Template: ${body.ppmTemplateName}`);
-  if (body.currentStep) ctx.push(`Current Step: ${body.currentStep}`);
-  if (body.checklistItems?.length) {
-    ctx.push(`Checklist Items:\n${body.checklistItems.map(i => `  • ${i}`).join("\n")}`);
-  }
-  if (body.techNotes) ctx.push(`Technician Notes So Far: ${body.techNotes}`);
+  const sections: string[] = [];
 
-  const contextBlock = ctx.length > 0
-    ? `\n\nCurrent PPM Context:\n${ctx.join("\n")}`
+  // ── Asset identity ──
+  const assetLine = [
+    body.assetName ?? "Unknown asset",
+    body.assetId ? `(${body.assetId})` : "",
+    body.assetSubtype ? `· ${body.assetSubtype}` : "",
+  ].filter(Boolean).join(" ");
+  sections.push(`Asset: ${assetLine}`);
+  if (body.siteName) sections.push(`Site: ${body.siteName}`);
+  if (body.ppmTemplateName) sections.push(`PPM Template: ${body.ppmTemplateName}`);
+
+  // ── Current step ──
+  if (body.currentStep) {
+    sections.push(`\nCurrent Step (technician is HERE): ${body.currentStep}`);
+  }
+
+  // ── Checklist ──
+  const allSteps = body.checklistItems ?? [];
+  const mandatory = body.mandatorySteps ?? [];
+  const evidenceReq = body.evidenceRequired ?? [];
+  const completed = body.completedSteps ?? [];
+
+  if (allSteps.length > 0) {
+    const formatted = allSteps.map(step => {
+      const isMandatory = mandatory.includes(step);
+      const needsEvidence = evidenceReq.includes(step);
+      const isDone = completed.includes(step);
+      const tags = [
+        isDone ? "✓ DONE" : "○ PENDING",
+        isMandatory ? "MANDATORY" : "",
+        needsEvidence ? "EVIDENCE REQUIRED" : "",
+      ].filter(Boolean).join(" · ");
+      return `  ${tags}: ${step}`;
+    });
+    sections.push(`\nChecklist (${completed.length}/${allSteps.length} complete):\n${formatted.join("\n")}`);
+  } else if (mandatory.length > 0 || evidenceReq.length > 0) {
+    if (mandatory.length > 0) sections.push(`\nMandatory Steps (must not be skipped):\n${mandatory.map(s => `  • ${s}`).join("\n")}`);
+    if (evidenceReq.length > 0) sections.push(`Evidence Required For:\n${evidenceReq.map(s => `  • ${s}`).join("\n")}`);
+  }
+
+  // ── Technician readings ──
+  if (body.techReadings && Object.keys(body.techReadings).length > 0) {
+    const readingLines = Object.entries(body.techReadings)
+      .map(([k, v]) => `  ${k}: ${v}`)
+      .join("\n");
+    sections.push(`\nLatest Technician Readings / Observations:\n${readingLines}`);
+  }
+
+  // ── Prior incidents for this asset ──
+  if (body.priorIncidents && body.priorIncidents.length > 0) {
+    const incLines = body.priorIncidents.map(inc => {
+      const meta = [inc.severity ? `[${inc.severity.toUpperCase()}]` : "", inc.status ?? "", inc.date ?? ""].filter(Boolean).join(" · ");
+      return `  • ${inc.title}${meta ? ` (${meta})` : ""}: ${inc.description}`;
+    }).join("\n");
+    sections.push(`\nPrior Incidents on This Asset (use for pattern recognition):\n${incLines}`);
+  }
+
+  // ── Parts availability ──
+  if (body.partsAvailability && body.partsAvailability.length > 0) {
+    const partLines = body.partsAvailability.map(p => {
+      const stockLabel = p.inStock === 0 ? "OUT OF STOCK" : p.inStock <= 3 ? `LOW STOCK (${p.inStock} left)` : `In stock (${p.inStock})`;
+      return `  • ${p.name}: ${stockLabel}`;
+    }).join("\n");
+    sections.push(`\nParts Availability (inform your recommendations):\n${partLines}`);
+  }
+
+  // ── Technician notes ──
+  if (body.techNotes) sections.push(`\nTechnician Notes: ${body.techNotes}`);
+
+  const contextBlock = sections.length > 0
+    ? `\n\n── FIELD CONTEXT ──\n${sections.join("\n")}\n── END CONTEXT ──`
     : "";
 
   return `${expert.systemPrompt}${contextBlock}
@@ -107,12 +167,15 @@ Rules:
 1. Be concise — 2-4 sentences unless a step-by-step breakdown is explicitly requested.
 2. Safety first — if you detect any safety risk, flag it immediately and clearly.
 3. Distinguish NORMAL from ABNORMAL conditions with specific, measurable language where possible.
-4. If an abnormal condition is detected, recommend whether to: a) note and continue, b) raise a corrective incident, or c) stop the PPM and escalate.
-5. When recommending a corrective incident, end your response with exactly this on a new line:
+4. Use prior incident history to spot repeat failures or chronic issues on this asset.
+5. If parts are OUT OF STOCK, factor this into your recommendation (e.g. advise ordering or temporary workarounds).
+6. If an abnormal condition is detected, recommend whether to: a) note and continue, b) raise a corrective incident, or c) stop the PPM and escalate.
+7. When recommending a corrective incident, end your response with exactly this on a new line:
    [CREATE_INCIDENT] {"title":"<title>","severity":"<critical|high|medium|low>","description":"<description>"}
-6. Never suggest skipping mandatory checklist steps.
-7. When the situation is ambiguous, recommend escalating to a supervisor rather than guessing.
-8. Reference readings, tolerances, or standards where relevant (e.g., refrigerant pressure ranges, voltage tolerances, flow rates).
+8. Never suggest skipping mandatory checklist steps. If a mandatory step cannot be completed, recommend escalation.
+9. When a step requires photographic evidence, remind the technician to capture it before proceeding.
+10. When the situation is ambiguous, recommend escalating to a supervisor rather than guessing.
+11. Reference readings, tolerances, or standards where relevant (e.g., refrigerant pressure ranges, voltage tolerances, flow rates).
 
 You respond only in English. Keep a professional but approachable tone.`;
 }
@@ -120,6 +183,20 @@ You respond only in English. Keep a professional but approachable tone.`;
 interface ChatMessage {
   role: "user" | "assistant";
   content: string;
+}
+
+interface PriorIncident {
+  title: string;
+  description: string;
+  date?: string;
+  status?: string;
+  severity?: string;
+}
+
+interface PartAvailability {
+  name: string;
+  inStock: number;
+  status: string;
 }
 
 interface ExpertChatBody {
@@ -131,6 +208,12 @@ interface ExpertChatBody {
   ppmTemplateName?: string;
   currentStep?: string;
   checklistItems?: string[];
+  mandatorySteps?: string[];
+  evidenceRequired?: string[];
+  completedSteps?: string[];
+  techReadings?: Record<string, string>;
+  priorIncidents?: PriorIncident[];
+  partsAvailability?: PartAvailability[];
   techNotes?: string;
   messages: ChatMessage[];
 }

@@ -27,6 +27,20 @@ interface IncidentPrefill {
   location?: string;
 }
 
+interface PriorIncident {
+  title: string;
+  description: string;
+  date?: string;
+  status?: string;
+  severity?: string;
+}
+
+interface PartAvailability {
+  name: string;
+  inStock: number;
+  status: string;
+}
+
 export interface AssetExpertCopilotProps {
   assetType: string;
   assetSubtype?: string;
@@ -36,6 +50,12 @@ export interface AssetExpertCopilotProps {
   ppmTemplateName?: string;
   currentStep?: string;
   checklistItems?: string[];
+  mandatorySteps?: string[];
+  evidenceRequired?: string[];
+  completedSteps?: string[];
+  techReadings?: Record<string, string>;
+  priorIncidents?: PriorIncident[];
+  partsAvailability?: PartAvailability[];
   techNotes?: string;
   open: boolean;
   onClose: () => void;
@@ -96,6 +116,12 @@ export function AssetExpertCopilot({
   ppmTemplateName,
   currentStep,
   checklistItems,
+  mandatorySteps,
+  evidenceRequired,
+  completedSteps,
+  techReadings,
+  priorIncidents,
+  partsAvailability,
   techNotes,
   open,
   onClose,
@@ -193,6 +219,12 @@ export function AssetExpertCopilot({
           ppmTemplateName,
           currentStep,
           checklistItems,
+          mandatorySteps,
+          evidenceRequired,
+          completedSteps,
+          techReadings,
+          priorIncidents,
+          partsAvailability,
           techNotes,
           messages: apiMessages,
         }),

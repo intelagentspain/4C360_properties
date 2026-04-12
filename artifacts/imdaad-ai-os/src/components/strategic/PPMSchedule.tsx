@@ -4,7 +4,7 @@ import {
   Calendar, ChevronDown, ChevronRight, AlertTriangle,
   CheckCircle, Clock, User, Wrench, X, Brain,
 } from 'lucide-react';
-import { mockPPMSchedule, mockAssets } from '@/data/mockData';
+import { mockPPMSchedule, mockAssets, mockChecklist, mockParts, mockIncidents } from '@/data/mockData';
 import { scoreColor, type ToastFn } from '@/lib/ui';
 import { AnimatedBar } from '@/components/shared/AnimatedBar';
 import { TechAvatar } from '@/components/shared/TechAvatar';
@@ -409,7 +409,44 @@ export function PPMSchedule({ onToast }: Props) {
         assetId={copilotItem?.assetId ?? selectedAsset?.id}
         siteName="Silicon Oasis"
         ppmTemplateName={copilotItem?.task}
-        checklistItems={copilotItem ? [`Complete ${copilotItem.task} on ${copilotItem.asset}`] : undefined}
+        currentStep={
+          mockChecklist.find(c => !c.done && c.mandatory)?.text ??
+          mockChecklist.find(c => !c.done)?.text
+        }
+        checklistItems={mockChecklist.map(c => c.text)}
+        mandatorySteps={mockChecklist.filter(c => c.mandatory).map(c => c.text)}
+        evidenceRequired={mockChecklist.filter(c => c.evidenceRequired).map(c => c.text)}
+        completedSteps={mockChecklist.filter(c => c.done).map(c => c.text)}
+        techReadings={copilotItem ? {
+          'Asset Condition Score': `${copilotItem.condition}% health`,
+          'Days Since Last Service': `${copilotItem.lastDone} days`,
+          'Risk Level': copilotItem.riskLevel,
+          ...(copilotItem.notes ? { 'IoT / Sensor Notes': copilotItem.notes } : {}),
+        } : undefined}
+        priorIncidents={
+          mockIncidents
+            .filter(inc =>
+              copilotItem
+                ? inc.title.toLowerCase().includes(copilotItem.type.toLowerCase()) ||
+                  (inc.description ?? '').toLowerCase().includes((copilotItem.asset ?? '').toLowerCase().split(' ')[0])
+                : selectedAsset
+                  ? inc.title.toLowerCase().includes(selectedAsset.type.toLowerCase())
+                  : false
+            )
+            .slice(0, 3)
+            .map(inc => ({
+              title: inc.title,
+              description: inc.description,
+              date: inc.capturedAt,
+              status: inc.status,
+              severity: inc.severity,
+            }))
+        }
+        partsAvailability={mockParts.map(p => ({
+          name: p.name,
+          inStock: p.inStock,
+          status: p.status,
+        }))}
         onCreateIncident={prefill => {
           onToast(`Corrective incident prefilled: ${prefill.title}`, 'warning');
           setCopilotOpen(false);
