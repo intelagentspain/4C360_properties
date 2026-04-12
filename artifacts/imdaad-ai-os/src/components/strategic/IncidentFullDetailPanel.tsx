@@ -598,7 +598,8 @@ function TimelineTab({ incident, event }: { incident: Incident | null; event: Pu
 
 function ActionsTab({ incident, event, onToast, onClose }: { incident: Incident | null; event: PulseEvent; onToast: (msg: string, type?: 'success' | 'warning' | 'error' | 'info') => void; onClose: () => void }) {
   const canAcknowledge = !incident || !['closed', 'resolved'].includes(incident.status);
-  const canWorkOrder = incident && !incident.workOrderId && !['closed', 'resolved'].includes(incident.status);
+  const canWorkOrder = incident && !incident.workOrderId && !['assigned', 'closed', 'resolved'].includes(incident.status);
+  const canEditWorkOrder = incident && (!!incident.workOrderId || incident.status === 'assigned') && !['closed', 'resolved'].includes(incident.status);
   const canResolve = incident && ['dispatched', 'in-progress', 'assigned'].includes(incident.status);
 
   return (
@@ -645,6 +646,24 @@ function ActionsTab({ incident, event, onToast, onClose }: { incident: Incident 
         </button>
       )}
 
+      {canEditWorkOrder && (
+        <button
+          onClick={() => { onToast('Opening work order editor…', 'info'); }}
+          className="w-full flex items-center justify-between p-3 bg-amber-500/5 hover:bg-amber-500/10 border border-amber-500/30 rounded-xl transition-colors group"
+        >
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-amber-500/15 flex items-center justify-center">
+              <Briefcase size={14} className="text-amber-400" />
+            </div>
+            <div className="text-left">
+              <div className="text-[12px] text-amber-300 font-semibold">Edit Work Order</div>
+              <div className="text-[10px] text-amber-400/60">Modify existing work order for {incident?.id}</div>
+            </div>
+          </div>
+          <ArrowRight size={12} className="text-amber-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+        </button>
+      )}
+
       {canResolve && (
         <button
           onClick={() => { onToast('Opening resolution flow…', 'info'); }}
@@ -671,7 +690,7 @@ function ActionsTab({ incident, event, onToast, onClose }: { incident: Incident 
         </div>
       )}
 
-      {!canAcknowledge && !canWorkOrder && !canResolve && incident?.status !== 'closed' && (
+      {!canAcknowledge && !canWorkOrder && !canEditWorkOrder && !canResolve && incident?.status !== 'closed' && (
         <div className="flex flex-col items-center justify-center py-8 gap-2 text-center">
           <div className="text-[11px] text-[#7A94B4] opacity-60">No actions available for current status</div>
         </div>
