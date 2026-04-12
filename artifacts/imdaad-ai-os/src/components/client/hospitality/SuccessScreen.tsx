@@ -1,12 +1,37 @@
+import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { CheckCircle, Clock, Phone, RefreshCw } from 'lucide-react';
+import { CheckCircle, Clock, Phone, RefreshCw, Mail, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+
+const BASE_URL = import.meta.env.BASE_URL?.replace(/\/$/, '') ?? '';
 
 interface Props {
   incidentRef: string;
+  incidentSla?: number;
   onDone: () => void;
 }
 
-export function SuccessScreen({ incidentRef, onDone }: Props) {
+export function SuccessScreen({ incidentRef, incidentSla = 30, onDone }: Props) {
+  const [email, setEmail] = useState('');
+  const [emailState, setEmailState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+
+  const slaText = incidentSla <= 30 ? '30 minutes' : incidentSla <= 60 ? '1 hour' : `${incidentSla} minutes`;
+
+  async function handleSendEmail(e: React.FormEvent) {
+    e.preventDefault();
+    if (!email || emailState === 'sending' || emailState === 'sent') return;
+    setEmailState('sending');
+    try {
+      const res = await fetch(`${BASE_URL}/api/incidents/${encodeURIComponent(incidentRef)}/confirm-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      setEmailState(res.ok ? 'sent' : 'error');
+    } catch {
+      setEmailState('error');
+    }
+  }
+
   return (
     <div className="flex flex-col h-full bg-[#FDFAF5] overflow-y-auto">
       <div
@@ -80,14 +105,63 @@ export function SuccessScreen({ incidentRef, onDone }: Props) {
             <span className="text-[11px] text-[#8B7355] flex-shrink-0">En route</span>
           </div>
           <p className="text-[12px] text-[#5C4A2A]">
-            Our team will be with you within <span className="font-bold text-[#1C3A35]">30 minutes</span>. You'll be contacted if we need any additional information.
+            Our team will be with you within <span className="font-bold text-[#1C3A35]">{slaText}</span>. You'll be contacted if we need any additional information.
           </p>
+        </motion.div>
+
+        {/* Email confirmation card */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6 }}
+          className="p-4 rounded-2xl bg-white border border-[#E8DEC8] shadow-sm"
+        >
+          {emailState === 'sent' ? (
+            <div className="flex items-center gap-2.5 py-0.5">
+              <CheckCircle2 size={17} className="text-emerald-600 flex-shrink-0" />
+              <span className="text-[13px] text-emerald-700 font-semibold">Confirmation email sent!</span>
+            </div>
+          ) : (
+            <form onSubmit={handleSendEmail}>
+              <div className="flex items-center gap-2 mb-1.5">
+                <Mail size={15} className="text-[#B45309]" />
+                <span className="text-[13px] font-semibold text-[#2C1810]">Get email confirmation</span>
+              </div>
+              <p className="text-[11px] text-[#8B7355] mb-3 leading-relaxed">
+                Receive your reference number and a link to track your request.
+              </p>
+              {emailState === 'error' && (
+                <div className="flex items-center gap-1.5 mb-2 text-red-600">
+                  <AlertCircle size={13} />
+                  <span className="text-[11px]">Couldn't send — please try again</span>
+                </div>
+              )}
+              <div className="flex gap-2">
+                <input
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="your@email.com"
+                  className="flex-1 min-w-0 px-3 py-2.5 text-[12px] rounded-xl border border-[#E8DEC8] bg-[#FDFAF5] text-[#2C1810] placeholder-[#BDB09A] outline-none focus:border-[#1C3A35] transition-colors"
+                  required
+                />
+                <button
+                  type="submit"
+                  disabled={emailState === 'sending' || !email}
+                  className="px-4 py-2.5 rounded-xl font-semibold text-white text-[12px] flex items-center gap-1.5 disabled:opacity-60 transition-opacity flex-shrink-0"
+                  style={{ background: 'linear-gradient(135deg, #1C3A35 0%, #2D5A50 100%)' }}
+                >
+                  {emailState === 'sending' ? <Loader2 size={13} className="animate-spin" /> : 'Send'}
+                </button>
+              </div>
+            </form>
+          )}
         </motion.div>
 
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6 }}
+          transition={{ delay: 0.65 }}
           className="p-4 rounded-2xl bg-[#F5EFE0] border border-[#E8DEC8] flex items-start gap-3"
         >
           <div className="w-8 h-8 rounded-full bg-[#D4C5A0] flex items-center justify-center flex-shrink-0">
@@ -102,7 +176,7 @@ export function SuccessScreen({ incidentRef, onDone }: Props) {
         <motion.button
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.8 }}
+          transition={{ delay: 0.75 }}
           onClick={onDone}
           className="w-full py-3.5 rounded-2xl font-semibold text-[#5C4A2A] text-sm border border-[#E8DEC8] bg-white flex items-center justify-center gap-2 hover:bg-[#F5EFE0] transition-colors"
         >

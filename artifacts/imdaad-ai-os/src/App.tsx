@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { TopBar } from '@/components/layout/TopBar';
 import { Sidebar } from '@/components/layout/Sidebar';
@@ -7,6 +7,7 @@ import { OperationalView } from '@/components/operational/OperationalView';
 import { ClientView } from '@/components/client/ClientView';
 import { MemberDashboardView } from '@/components/MemberDashboardView';
 import { HospitalityClientView } from '@/components/client/hospitality/HospitalityClientView';
+import { IncidentTrackingView } from '@/components/client/hospitality/IncidentTrackingView';
 import { ToastContainer } from '@/components/shared/ToastContainer';
 import { CopilotAvatar } from '@/components/CopilotAvatar';
 import { useToast } from '@/hooks/useToast';
@@ -73,6 +74,8 @@ function App() {
   const [commandClientId, setCommandClientId] = useState<string | null>(null);
   const [commandClientName, setCommandClientName] = useState<string | null>(null);
 
+  const trackId = useMemo(() => new URLSearchParams(window.location.search).get('track'), []);
+
   useEffect(() => {
     const memberId = getMemberIdFromUrl();
     if (!memberId) return;
@@ -136,6 +139,10 @@ function App() {
     setCommandClientId(null);
     setCommandClientName(null);
   };
+
+  if (trackId) {
+    return <IncidentTrackingView incidentId={trackId} />;
+  }
 
   if (commandClientId) {
     return (

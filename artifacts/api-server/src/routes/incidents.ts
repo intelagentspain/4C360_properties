@@ -2250,4 +2250,150 @@ router.post("/incidents/:id/confirm-resolution", async (req: Request, res: Respo
   res.json({ ok: true, incidentId: id, status: "closed", confirmedBy, confirmedAt: confirmedAt.toISOString() });
 });
 
+// ─── Resident confirmation email ────────────────────────────────────────────
+
+function buildResidentConfirmationEmail(
+  incident: Record<string, unknown>,
+  trackUrl: string,
+): string {
+  const id          = String(incident["id"] ?? "");
+  const title       = String(incident["title"] ?? "Incident Report");
+  const severity    = String(incident["severity"] ?? "medium");
+  const description = String(incident["description"] ?? "");
+  const slaMinutes  = (incident["slaMinutes"] as number | null) ?? 60;
+  const slaText     = slaMinutes <= 30 ? "30 minutes" : slaMinutes <= 60 ? "1 hour" : `${slaMinutes} minutes`;
+  const ai          = incident["aiMetadata"] as AiMetadata | null | undefined;
+
+  const sevColor = severityColor(severity);
+  const sevLabel = severityLabel(severity);
+
+  const aiSummary = ai?.category || ai?.issueType
+    ? `<p style="margin:8px 0 4px;color:#5C4A2A;font-size:12px;"><strong>Category:</strong> ${escapeHtml(ai.category ?? ai.issueType ?? "")}</p>`
+    : "";
+
+  const aiRec = ai?.recommendedAction
+    ? `<p style="margin:4px 0 0;color:#5C4A2A;font-size:12px;"><strong>Next steps:</strong> ${escapeHtml(ai.recommendedAction)}</p>`
+    : "";
+
+  const descBlock = description
+    ? `<tr>
+        <td style="background:#FDFAF6;padding:0 40px;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#F5EFE0;border:1px solid #EDE5D4;border-radius:12px;margin-bottom:20px;">
+            <tr><td style="padding:16px 24px;">
+              <p style="margin:0 0 6px;color:#A0957A;font-size:10px;letter-spacing:2px;text-transform:uppercase;font-weight:700;">What you reported</p>
+              <p style="margin:0;color:#5C4A2A;font-size:12px;line-height:1.7;">${escapeHtml(description.slice(0, 300))}${description.length > 300 ? "…" : ""}</p>
+              ${aiSummary}${aiRec}
+            </td></tr>
+          </table>
+        </td>
+      </tr>`
+    : "";
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Service Request Received — ${escapeHtml(id)}</title></head>
+<body style="margin:0;padding:0;background:#F5EFE0;font-family:'Segoe UI',Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#F5EFE0;padding:32px 16px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;border-radius:16px;overflow:hidden;box-shadow:0 8px 32px rgba(28,58,53,0.15);">
+  <tr>
+    <td style="background:linear-gradient(135deg,#1C3A35 0%,#2D5A50 100%);padding:36px 40px 28px;">
+      <p style="margin:0 0 6px;color:rgba(255,255,255,0.5);font-size:10px;letter-spacing:3px;text-transform:uppercase;font-weight:700;">IMDAAD · 4C360 FACILITY MANAGEMENT</p>
+      <h1 style="margin:0 0 8px;color:#ffffff;font-size:26px;font-weight:700;font-family:Georgia,serif;letter-spacing:-0.5px;">We're on it.</h1>
+      <p style="margin:0;color:rgba(255,255,255,0.65);font-size:13px;line-height:1.6;">Your service request has been received and our FM team has been alerted. You will be contacted if any additional information is needed.</p>
+    </td>
+  </tr>
+  <tr>
+    <td style="background:#FDFAF6;padding:28px 40px 0;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:#fff;border:1px solid #EDE5D4;border-radius:12px;margin-bottom:20px;">
+        <tr><td style="padding:20px 24px;">
+          <p style="margin:0 0 4px;color:#A0957A;font-size:10px;letter-spacing:2.5px;text-transform:uppercase;font-weight:700;">Incident Reference</p>
+          <p style="margin:0 0 14px;color:#C9A96E;font-size:22px;font-weight:700;font-family:'Courier New',monospace;letter-spacing:1px;">${escapeHtml(id)}</p>
+          <table width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="width:55%;vertical-align:top;padding-right:16px;">
+                <p style="margin:0 0 2px;color:#A0957A;font-size:10px;text-transform:uppercase;letter-spacing:1px;font-weight:600;">Issue</p>
+                <p style="margin:0;color:#2C1810;font-size:13px;font-weight:600;">${escapeHtml(title)}</p>
+              </td>
+              <td style="width:45%;vertical-align:top;">
+                <p style="margin:0 0 4px;color:#A0957A;font-size:10px;text-transform:uppercase;letter-spacing:1px;font-weight:600;">Priority</p>
+                <span style="display:inline-block;background:${sevColor}22;color:${sevColor};border:1px solid ${sevColor}55;font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;text-transform:uppercase;letter-spacing:0.5px;">${escapeHtml(sevLabel)}</span>
+              </td>
+            </tr>
+          </table>
+        </td></tr>
+      </table>
+    </td>
+  </tr>
+  ${descBlock}
+  <tr>
+    <td style="background:#FDFAF6;padding:0 40px;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:#fff;border:1px solid #EDE5D4;border-radius:12px;margin-bottom:24px;">
+        <tr><td style="padding:16px 24px;">
+          <p style="margin:0 0 8px;color:#A0957A;font-size:10px;letter-spacing:2px;text-transform:uppercase;font-weight:700;">Expected Response</p>
+          <p style="margin:0;color:#2C1810;font-size:13px;line-height:1.6;">Our FM team will respond within <strong>${slaText}</strong>. Track your request status in real time using the button below.</p>
+        </td></tr>
+      </table>
+    </td>
+  </tr>
+  <tr>
+    <td style="background:#FDFAF6;padding:0 40px 32px;" align="center">
+      <a href="${escapeHtml(trackUrl)}" style="display:inline-block;background:linear-gradient(135deg,#1C3A35 0%,#2D5A50 100%);color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;padding:16px 40px;border-radius:12px;letter-spacing:0.3px;">
+        Track Your Request →
+      </a>
+    </td>
+  </tr>
+  <tr>
+    <td style="background:#1C3A35;padding:20px 40px;text-align:center;">
+      <p style="margin:0 0 4px;color:rgba(255,255,255,0.45);font-size:10px;">Automated notification from Imdaad Facility Management · 4C360</p>
+      <p style="margin:0;color:rgba(255,255,255,0.3);font-size:10px;">noreply@4cgrc.com · Silicon Oasis, Dubai, UAE</p>
+    </td>
+  </tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`;
+}
+
+router.post("/incidents/:id/confirm-email", async (req: Request, res: Response) => {
+  const id = String(req.params["id"]);
+  const { email } = req.body as { email?: string };
+
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    res.status(400).json({ ok: false, error: "A valid email address is required" });
+    return;
+  }
+
+  try {
+    const rows = await db.select().from(incidentsTable).where(eq(incidentsTable.id, id));
+    if (rows.length === 0) {
+      res.status(404).json({ ok: false, error: "Incident not found" });
+      return;
+    }
+
+    const incident = rows[0] as Record<string, unknown>;
+    const trackUrl = `https://resident.4cgrc.com?track=${encodeURIComponent(id)}`;
+    const html = buildResidentConfirmationEmail(incident, trackUrl);
+
+    const result = await sendEmail({
+      to: email,
+      subject: `Service Request Received — ${id}`,
+      html,
+    });
+
+    if (result.status === "sent") {
+      logger.info({ incidentId: id, email }, "Resident confirmation email sent");
+      res.json({ ok: true });
+    } else {
+      logger.warn({ incidentId: id, email, error: result.error }, "Failed to send resident confirmation email");
+      res.status(500).json({ ok: false, error: "Email could not be delivered" });
+    }
+  } catch (err) {
+    logger.error({ err, id }, "Error in confirm-email endpoint");
+    res.status(500).json({ ok: false, error: "Internal server error" });
+  }
+});
+
 export default router;

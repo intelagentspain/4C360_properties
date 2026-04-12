@@ -89,6 +89,7 @@ export function HospitalityClientView({ onToast, guestName = 'Resident', propert
     return (
       <SuccessScreen
         incidentRef={incidentRef}
+        incidentSla={30}
         onDone={() => setIncidentRef(null)}
       />
     );
