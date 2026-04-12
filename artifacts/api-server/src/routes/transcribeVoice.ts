@@ -253,24 +253,24 @@ router.post(
     } catch (transcribeErr) {
       logger.warn({ err: transcribeErr }, "Whisper transcription failed — using mock analysis");
       const analysis = getMockVoiceAnalysis("");
-      res.json({ success: true, transcript: "", analysis });
+      res.json({ success: true, transcript: "", analysisFallbackUsed: true, analysis });
       return;
     }
 
     if (!transcript || transcript.length < 3) {
       logger.warn("Transcript too short — using mock analysis");
       const analysis = getMockVoiceAnalysis("");
-      res.json({ success: true, transcript, analysis });
+      res.json({ success: true, transcript, analysisFallbackUsed: true, analysis });
       return;
     }
 
     try {
       const analysis = await classifyTranscript(transcript);
-      res.json({ success: true, transcript, analysis });
+      res.json({ success: true, transcript, analysisFallbackUsed: false, analysis });
     } catch (classifyErr) {
       logger.warn({ err: classifyErr }, "GPT-4o classification failed — using mock analysis with transcript");
       const analysis = getMockVoiceAnalysis(transcript);
-      res.json({ success: true, transcript, analysis });
+      res.json({ success: true, transcript, analysisFallbackUsed: true, analysis });
     }
   },
 );

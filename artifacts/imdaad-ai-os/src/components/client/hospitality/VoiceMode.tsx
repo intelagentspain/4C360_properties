@@ -36,6 +36,7 @@ export function VoiceMode({ onSuccess, onToast }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [waveform, setWaveform] = useState<number[]>(Array(20).fill(8));
   const [micError, setMicError] = useState<string | null>(null);
+  const [manualDescription, setManualDescription] = useState('');
 
   useEffect(() => {
     return () => {
@@ -102,7 +103,7 @@ export function VoiceMode({ onSuccess, onToast }: Props) {
       };
       tick();
     } catch {
-      setMicError('Microphone access denied. Please allow microphone access or use another reporting method.');
+      setMicError('Microphone access denied.');
     }
   };
 
@@ -129,13 +130,13 @@ export function VoiceMode({ onSuccess, onToast }: Props) {
     }
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (descOverride?: string) => {
     setSubmitting(true);
     try {
       const ref = await submitIncident({
         source: 'voice',
         analysis: analysis ?? undefined,
-        description: analyseFailed ? (fallbackText || undefined) : undefined,
+        description: descOverride,
       });
       onToast(`Incident ${ref} submitted — our team is on it`, 'success');
       onSuccess(ref);
@@ -148,11 +149,37 @@ export function VoiceMode({ onSuccess, onToast }: Props) {
 
   if (micError) {
     return (
-      <div className="flex flex-col items-center justify-center h-full px-6 text-center gap-4">
-        <div className="w-14 h-14 rounded-full bg-amber-100 flex items-center justify-center">
-          <Mic size={28} className="text-amber-600" />
+      <div className="flex flex-col h-full bg-[#FDFAF5] p-4 space-y-4 overflow-y-auto">
+        <div className="flex flex-col items-center py-5 bg-white rounded-2xl border border-[#E8DEC8] gap-3 px-4">
+          <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center">
+            <Mic size={22} className="text-amber-600" />
+          </div>
+          <p className="text-[#5C4A2A] text-[12px] leading-relaxed text-center">{micError}</p>
+          <p className="text-[11px] text-[#8B7355] text-center">Please describe your issue in writing instead.</p>
         </div>
-        <p className="text-[#5C4A2A] text-sm leading-relaxed">{micError}</p>
+
+        <div className="space-y-2">
+          <label className="text-[10px] font-medium text-[#8B7355] uppercase tracking-widest">
+            Describe the issue
+          </label>
+          <textarea
+            value={manualDescription}
+            onChange={e => setManualDescription(e.target.value)}
+            rows={4}
+            placeholder="e.g. My air conditioning is not working — the unit turns on but doesn't produce cool air."
+            className="w-full p-3 rounded-xl border border-[#E8DEC8] bg-white text-[#2C1810] text-[12px] resize-none focus:outline-none focus:border-[#1C3A35] transition-colors placeholder-[#A89070]"
+          />
+        </div>
+
+        <button
+          onClick={() => handleSubmit(manualDescription || undefined)}
+          disabled={submitting || !manualDescription.trim()}
+          className="w-full py-3.5 rounded-2xl font-semibold text-white text-sm flex items-center justify-center gap-2 disabled:opacity-60"
+          style={{ background: 'linear-gradient(135deg, #1C3A35 0%, #2D5A50 100%)' }}
+        >
+          {submitting ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle size={16} />}
+          {submitting ? 'Submitting…' : 'Submit Incident Report'}
+        </button>
       </div>
     );
   }
@@ -253,7 +280,7 @@ export function VoiceMode({ onSuccess, onToast }: Props) {
       </AnimatePresence>
 
       <AnimatePresence>
-        {analysis && !analysing && !analyseFailed && transcript && (
+        {analysis && !analysing && !analyseFailed && (
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -262,9 +289,12 @@ export function VoiceMode({ onSuccess, onToast }: Props) {
             <label className="text-[10px] font-medium text-[#8B7355] uppercase tracking-widest">
               What you said
             </label>
-            <p className="w-full p-3 rounded-xl border border-[#E8DEC8] bg-white text-[#2C1810] text-[12px] leading-relaxed">
-              {transcript}
-            </p>
+            <textarea
+              readOnly
+              value={transcript}
+              rows={2}
+              className="w-full p-3 rounded-xl border border-[#E8DEC8] bg-[#FAFAF7] text-[#2C1810] text-[12px] leading-relaxed resize-none focus:outline-none"
+            />
           </motion.div>
         )}
       </AnimatePresence>
@@ -293,7 +323,13 @@ export function VoiceMode({ onSuccess, onToast }: Props) {
 
       {audioUrl && !analysing && (
         <button
-          onClick={handleSubmit}
+          onClick={() => {
+            if (analyseFailed) {
+              handleSubmit(fallbackText || undefined);
+            } else {
+              handleSubmit();
+            }
+          }}
           disabled={submitting || (analyseFailed && !fallbackText.trim())}
           className="w-full py-3.5 rounded-2xl font-semibold text-white text-sm flex items-center justify-center gap-2 disabled:opacity-60"
           style={{ background: 'linear-gradient(135deg, #1C3A35 0%, #2D5A50 100%)' }}
