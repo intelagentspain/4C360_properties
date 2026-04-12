@@ -1202,7 +1202,14 @@ export function Team({ onToast }: Props) {
                         onClick={() => setSelectedMember(member)}
                         className="flex-1 py-1.5 text-[10px] font-semibold rounded-lg border border-[rgba(46,127,255,0.35)] text-[#2E7FFF] hover:bg-[rgba(46,127,255,0.12)] transition-colors"
                       >
-                        View Profile
+                        View
+                      </button>
+                      <button
+                        onClick={() => setEditingMember(profiles.find(p => p.id === member.id) ?? member)}
+                        className="flex-1 py-1.5 text-[10px] font-semibold rounded-lg border border-[rgba(46,127,255,0.35)] text-[#2E7FFF] hover:bg-[rgba(46,127,255,0.12)] transition-colors flex items-center justify-center gap-1"
+                      >
+                        <Pencil size={10} />
+                        Edit
                       </button>
                       <button
                         onClick={() => updateProfile(member.id, { isActive: !isActive })}
