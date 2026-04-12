@@ -19,6 +19,7 @@ import { PPMSchedule } from './PPMSchedule';
 import { AICapture } from './AICapture';
 import { DispatchAIRules } from './DispatchAIRules';
 import { initialDispatchSettings, type DispatchSettings } from '@/data/dispatchSettings';
+import { ManageClients } from './ManageClients';
 import { AllClients } from './AllClients';
 import { Team } from './Team';
 import type { StrategicPage } from '@/App';
@@ -80,6 +81,44 @@ function Dashboard({ onToast, selectedClientId, onNavigateToIncident, onNavigate
   );
 }
 
+type SettingsTab = 'dispatch' | 'clients';
+
+function SettingsPage({ onToast, dispatchSettings, setDispatchSettings }: { onToast: ToastFn; dispatchSettings: DispatchSettings; setDispatchSettings: (s: DispatchSettings) => void }) {
+  const [tab, setTab] = useState<SettingsTab>('dispatch');
+  return (
+    <div className="flex flex-col h-full overflow-hidden">
+      <div className="flex-shrink-0 px-6 pt-5 pb-0 border-b border-[rgba(46,127,255,0.12)]">
+        <div className="flex gap-1">
+          {([
+            { id: 'dispatch', label: 'AI Dispatch Rules' },
+            { id: 'clients',  label: 'Manage Clients'   },
+          ] as { id: SettingsTab; label: string }[]).map(t => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`px-4 py-2 text-[12px] font-semibold rounded-t-lg border-b-2 transition-colors ${
+                tab === t.id
+                  ? 'text-[#2E7FFF] border-[#2E7FFF] bg-[rgba(46,127,255,0.06)]'
+                  : 'text-[#7A94B4] border-transparent hover:text-[#EEF3FA]'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="flex-1 overflow-hidden">
+        {tab === 'dispatch' && (
+          <DispatchAIRules onToast={onToast} settings={dispatchSettings} setSettings={setDispatchSettings} />
+        )}
+        {tab === 'clients' && (
+          <ManageClients onToast={onToast} />
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function StrategicView({ onToast, page, onClientSelect, selectedClientId, onNavigateToIncidents, onNavigateToCommand, incidentsClientId, onNavigateToIncident, initialIncidentId, onInitialIncidentHandled, onNavigateToTasks, onMarkPPMCreated, ppmCreatedTasks, prefilledTask, onPrefilledTaskConsumed }: Props) {
   const [dispatchSettings, setDispatchSettings] = useState<DispatchSettings>(initialDispatchSettings);
 
@@ -104,10 +143,10 @@ export function StrategicView({ onToast, page, onClientSelect, selectedClientId,
         {page === 'ppmschedule' && <PPMSchedule   onToast={onToast} />}
         {page === 'aicapture'   && <AICapture     onToast={onToast} />}
         {page === 'settings'    && (
-          <DispatchAIRules
+          <SettingsPage
             onToast={onToast}
-            settings={dispatchSettings}
-            setSettings={setDispatchSettings}
+            dispatchSettings={dispatchSettings}
+            setDispatchSettings={setDispatchSettings}
           />
         )}
         {page === 'allclients'  && <AllClients    onToast={onToast} onClientSelect={onClientSelect} onNavigateToIncidents={onNavigateToIncidents} onNavigateToCommand={onNavigateToCommand} />}

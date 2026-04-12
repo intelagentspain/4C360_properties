@@ -5,6 +5,7 @@ import { api } from '@/lib/api';
 interface ClientsContextValue {
   clients: PortfolioClient[];
   addClient: (clientData: Record<string, unknown>) => Promise<void>;
+  removeClient: (id: string) => Promise<void>;
   refreshClients: () => Promise<void>;
 }
 
@@ -95,8 +96,13 @@ export function ClientsProvider({ children }: { children: ReactNode }) {
     }
   }, [refreshClients]);
 
+  const removeClient = useCallback(async (id: string) => {
+    await api.clients.delete(id);
+    setClients(prev => prev.filter(c => c.id !== id));
+  }, []);
+
   return (
-    <ClientsContext.Provider value={{ clients, addClient, refreshClients }}>
+    <ClientsContext.Provider value={{ clients, addClient, removeClient, refreshClients }}>
       {children}
     </ClientsContext.Provider>
   );

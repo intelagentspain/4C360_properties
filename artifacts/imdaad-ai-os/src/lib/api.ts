@@ -17,6 +17,7 @@ export const api = {
     list: () => apiFetch<Record<string, unknown>[]>('/clients'),
     create: (body: Record<string, unknown>) => apiFetch<Record<string, unknown>>('/clients', { method: 'POST', body: JSON.stringify(body) }),
     update: (id: string, body: Record<string, unknown>) => apiFetch<Record<string, unknown>>(`/clients/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+    delete: (id: string) => apiFetch<{ ok: boolean; id: string }>(`/clients/${id}`, { method: 'DELETE' }),
   },
   incidents: {
     list: () => apiFetch<Record<string, unknown>[]>('/incidents'),

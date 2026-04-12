@@ -767,6 +767,19 @@ router.post("/clients", async (req, res) => {
   }
 });
 
+router.delete("/clients/:id", async (req, res) => {
+  const id = String(req.params["id"]);
+  try {
+    const [deleted] = await db.delete(clientsTable).where(eq(clientsTable.id, id)).returning();
+    if (!deleted) { res.status(404).json({ error: "Client not found" }); return; }
+    logger.info({ id }, "Client deleted from DB");
+    res.json({ ok: true, id });
+  } catch (err) {
+    logger.error({ err, id }, "Failed to delete client from DB");
+    res.status(500).json({ error: "Failed to delete client" });
+  }
+});
+
 router.patch("/clients/:id", async (req, res) => {
   const id = String(req.params["id"]);
   const updates = req.body as Record<string, unknown>;
