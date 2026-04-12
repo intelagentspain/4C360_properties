@@ -144,9 +144,10 @@ function createOpenAIClient(): OpenAI {
 
 const STATIC_SUGGESTIONS: string[] = [
   "Guide me through this step",
-  "Is this reading normal?",
+  "Is this normal?",
   "What evidence do I need?",
   "Should I escalate this?",
+  "Summarize remaining steps",
   "Create corrective incident",
 ];
 

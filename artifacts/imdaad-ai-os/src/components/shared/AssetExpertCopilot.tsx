@@ -43,9 +43,10 @@ export interface AssetExpertCopilotProps {
 
 const STATIC_CHIPS = [
   'Guide me through this step',
-  'Is this reading normal?',
+  'Is this normal?',
   'What evidence do I need?',
   'Should I escalate this?',
+  'Summarize remaining steps',
   'Create corrective incident',
 ];
 
@@ -173,6 +174,9 @@ export function AssetExpertCopilot({
 
       if (incident) {
         setPendingIncident(incident);
+        onCreateIncident?.(incident);
+        setIncidentToast(true);
+        setTimeout(() => setIncidentToast(false), 3000);
       }
 
       if (data.suggestions?.length > 0) {
@@ -246,20 +250,21 @@ export function AssetExpertCopilot({
 
   function handleChip(chip: string) {
     if (chip === 'Create corrective incident') {
-      if (pendingIncident) {
-        handleCreateIncident(pendingIncident);
-      } else {
-        sendMessage('I need to create a corrective incident for this issue. What information should I include?');
-      }
+      const prefill = pendingIncident ?? {
+        title: assetName ? `Corrective Maintenance — ${assetName}` : 'Corrective Maintenance Required',
+        description: ppmTemplateName
+          ? `Corrective action required following PPM inspection: ${ppmTemplateName}.`
+          : 'Corrective action required — please review findings from the PPM inspection.',
+        severity: 'medium',
+      };
+      handleCreateIncident(prefill);
     } else {
       sendMessage(chip);
     }
   }
 
   function handleCreateIncident(prefill: IncidentPrefill) {
-    if (onCreateIncident) {
-      onCreateIncident({ ...prefill, location: siteName });
-    }
+    onCreateIncident?.({ ...prefill, location: siteName });
     setIncidentToast(true);
     setTimeout(() => setIncidentToast(false), 3000);
     setPendingIncident(null);
