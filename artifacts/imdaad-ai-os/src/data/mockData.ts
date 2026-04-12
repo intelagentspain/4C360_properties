@@ -1235,3 +1235,739 @@ export const mockPortfolioClients: PortfolioClient[] = [
     marketLabel: 'Downtown',
   },
 ];
+
+export type KBCategory = 'guide' | 'video' | 'sop' | 'checklist';
+export type KBDifficulty = 'beginner' | 'intermediate' | 'advanced';
+
+export interface KBStep {
+  title: string;
+  body: string;
+  warning?: string;
+  tip?: string;
+}
+
+export interface KBResource {
+  id: string;
+  title: string;
+  category: KBCategory;
+  description: string;
+  estimatedTime: string;
+  difficulty: KBDifficulty;
+  tags: string[];
+  tools?: string[];
+  steps: KBStep[];
+  videoUrl?: string;
+  thumbnailUrl?: string;
+}
+
+export const mockKBResources: KBResource[] = [
+  {
+    id: 'KB-001',
+    title: 'HVAC Refrigerant Top-Up Procedure',
+    category: 'guide',
+    description: 'Step-by-step guide to safely check, recover, and recharge refrigerant in split and central AC units.',
+    estimatedTime: '25 min',
+    difficulty: 'intermediate',
+    tags: ['HVAC', 'refrigerant', 'AC', 'R-410A'],
+    tools: ['Manifold gauge set', 'Refrigerant cylinder (R-410A)', 'Leak detector', 'Safety gloves & goggles', 'Torque wrench'],
+    steps: [
+      {
+        title: 'Safety first — PPE and isolation',
+        body: 'Put on safety gloves and goggles before handling any refrigerant. Isolate the AC unit at the MCB panel and confirm power is off using a voltage tester.',
+        warning: 'Never work on a live system. Refrigerant under pressure is hazardous — always isolate before connecting gauges.',
+      },
+      {
+        title: 'Connect the manifold gauge set',
+        body: 'Attach the low-pressure (blue) and high-pressure (red) hoses to the service ports. Finger-tighten first, then quarter-turn with a wrench to ensure a leak-free connection.',
+        tip: 'Blow a small puff of refrigerant through the hoses before connecting to the gauge to purge any air or moisture.',
+      },
+      {
+        title: 'Record initial pressure readings',
+        body: 'Switch the unit on in cooling mode and allow 5 minutes for pressures to stabilise. Record low-side and high-side readings on your job sheet. For R-410A, normal low-side should be 65–80 PSI.',
+      },
+      {
+        title: 'Check for leaks',
+        body: 'Run the electronic leak detector around all joints, valves, and flare connections. If a leak is found, mark it with a UV dye pen and report it as a separate fault. Do not top up if there is an active leak.',
+        warning: 'Topping up a leaking system is a temporary fix and a regulatory violation. Always fix the root cause first.',
+      },
+      {
+        title: 'Add refrigerant in liquid phase',
+        body: 'With the cylinder inverted (liquid valve open), slowly open the low-side manifold valve. Add refrigerant in 30-second bursts, monitoring suction pressure. Target 70–75 PSI for R-410A in standard ambient conditions.',
+        tip: 'Never open the high-side manifold valve while adding refrigerant — this can cause liquid slugging and compressor damage.',
+      },
+      {
+        title: 'Verify superheat and subcooling',
+        body: 'Use a clamp thermometer on the suction line. Superheat should read 10–15°F above saturation temperature. Subcooling on the liquid line should be 10–12°F. If values are off, consult the manufacturer specs.',
+      },
+      {
+        title: 'Disconnect and complete job sheet',
+        body: 'Close both manifold valves, then disconnect hoses slowly to minimise refrigerant loss. Replace service port caps. Log all pressure readings, refrigerant amount added, and any anomalies on your job sheet.',
+      },
+    ],
+  },
+  {
+    id: 'KB-002',
+    title: 'How to Reset a Tripped MCB Panel',
+    category: 'guide',
+    description: 'Safe procedure to diagnose and reset a miniature circuit breaker (MCB) that has tripped due to overload or fault.',
+    estimatedTime: '10 min',
+    difficulty: 'beginner',
+    tags: ['electrical', 'MCB', 'circuit breaker', 'power'],
+    tools: ['Voltage tester', 'Torch/flashlight', 'Safety gloves'],
+    steps: [
+      {
+        title: 'Do not reset immediately',
+        body: 'Before touching the panel, identify which MCB has tripped — it will be in the middle or OFF position. Do not reset it yet. First, unplug all appliances from the affected circuit.',
+        warning: 'Resetting an MCB without removing the fault can cause sparks, fire, or repeated tripping that damages the breaker.',
+      },
+      {
+        title: 'Inspect for visible hazards',
+        body: 'Check the panel for burn marks, melted insulation, or unusual heat. Use a torch to inspect the inside of the panel if the cover allows. If you see visible burning or smell burning rubber, do not proceed — escalate immediately.',
+      },
+      {
+        title: 'Reset the MCB',
+        body: 'Push the tripped MCB fully to the OFF position first (some models need this to reset), then flip it firmly back to ON. You should feel a firm click.',
+        tip: 'If the MCB trips again immediately, the fault is still present — do not keep resetting. Log the fault and isolate the circuit.',
+      },
+      {
+        title: 'Test appliances one at a time',
+        body: 'Plug appliances back in one at a time, waiting 30 seconds between each. This helps identify a faulty appliance causing the overload.',
+      },
+      {
+        title: 'Document and close',
+        body: 'Log the MCB location, circuit reference, and any appliances that caused the trip. If the root cause is a faulty appliance, advise the resident to have it inspected by an electrician.',
+      },
+    ],
+  },
+  {
+    id: 'KB-003',
+    title: 'Lift Safety Inspection — Monthly Check',
+    category: 'sop',
+    description: 'Standard Operating Procedure for the monthly lift safety inspection, covering mechanical, electrical, and safety components.',
+    estimatedTime: '45 min',
+    difficulty: 'intermediate',
+    tags: ['lift', 'elevator', 'safety', 'inspection', 'SOP'],
+    tools: ['Inspection checklist', 'Multimeter', 'Lux meter', 'Torque wrench', 'Safety harness'],
+    steps: [
+      {
+        title: 'Pre-inspection — isolate and notify',
+        body: 'Notify building management and place "Lift Under Maintenance" notices at all landing levels. Use the key switch in the machine room to take the lift out of service before entering the shaft.',
+        warning: 'Never enter the lift shaft without confirming the lift car is secured and the main isolator is locked out with your personal lock.',
+      },
+      {
+        title: 'Machine room checks',
+        body: 'Inspect the machine room for signs of overheating, oil leaks, or unusual noise. Check the motor temperature (should not exceed 70°C). Verify all electrical connections are tight. Log the oil level on the gearbox if applicable.',
+      },
+      {
+        title: 'Inspect ropes and pulleys',
+        body: 'Examine main hoist ropes for fraying, corrosion, and kinking. Measure rope diameter — replace if 10% or more reduction from nominal. Check all pulleys and sheaves for wear and correct alignment.',
+        warning: 'Ropes with broken wires exceeding the manufacturer limit must be replaced immediately. Do not return the lift to service.',
+      },
+      {
+        title: 'Door mechanisms and safety devices',
+        body: 'Test each landing door — check door closing speed, re-opening sensitivity, and interlock function. Verify the door safety edge retracts correctly. All landing doors must lock positively before the lift can move.',
+      },
+      {
+        title: 'Safety gear and buffers',
+        body: 'With the lift at ground floor level, inspect the buffer condition and oil level (hydraulic buffers). Test the overspeed governor trip mechanism as per the manufacturer schedule. Record the date and governor trip speed.',
+        tip: 'If the governor trip speed is outside tolerance, do not put the lift back in service — contact the specialist contractor.',
+      },
+      {
+        title: 'Emergency systems test',
+        body: 'Test the emergency lighting inside the car and machine room. Verify the emergency phone/intercom connects correctly. Check the emergency stop button function in the car and machine room.',
+      },
+      {
+        title: 'Return to service and document',
+        body: 'Remove all isolation locks, restore the key switch to normal, and test the lift through five complete runs before returning to service. Complete the statutory inspection logbook with all findings, dates, and your signature.',
+      },
+    ],
+  },
+  {
+    id: 'KB-004',
+    title: 'Fire Safety Panel — Weekly Function Test',
+    category: 'checklist',
+    description: 'Weekly test checklist for fire alarm panels including zone testing, battery backup, and audible alarm verification.',
+    estimatedTime: '20 min',
+    difficulty: 'beginner',
+    tags: ['fire safety', 'fire panel', 'alarm', 'safety', 'weekly'],
+    tools: ['Fire panel key', 'Test detector spray or magnet', 'Log book'],
+    steps: [
+      {
+        title: 'Notify occupants and control room',
+        body: 'Inform building occupants and the main security control room that a fire alarm test is about to be carried out. Ensure no false evacuations are triggered by keeping fire brigade on a "test notification" hold.',
+        tip: 'Always test during agreed hours (typically 09:00–17:00 weekdays) and confirm with the building manager before proceeding.',
+      },
+      {
+        title: 'Log panel current status',
+        body: 'Open the fire panel and note any existing faults or isolations. Do not proceed if there are unresolved critical faults — report to supervisor first. Record the current date, time, and panel reading in the log book.',
+      },
+      {
+        title: 'Activate a test zone',
+        body: 'Select one zone per week for testing on a rotating schedule. Activate a detector in that zone using the appropriate test tool (spray aerosol or magnet). The panel should show the zone alarm within 30 seconds.',
+        warning: 'Use only the correct test method for the detector type. Using the wrong method can damage optical or heat detectors.',
+      },
+      {
+        title: 'Verify audible alarm and outputs',
+        body: 'Confirm audible alarms are sounding on all sounders in the building. Check that any output relays (door holders, ventilation shutdown) are activating correctly. Verify the alarm is received at the monitoring station.',
+      },
+      {
+        title: 'Reset and log',
+        body: 'Reset the fire panel using the key. Confirm the panel returns to normal status with no residual faults. Complete the log book entry with zone tested, time of alarm, time of reset, and any observations.',
+      },
+    ],
+  },
+  {
+    id: 'KB-005',
+    title: 'Diagnosing Water Leaks — Pipe and Joint Faults',
+    category: 'guide',
+    description: 'How to locate, assess, and temporarily contain water leaks from pipe joints, isolation valves, and flexible hoses in residential units.',
+    estimatedTime: '15 min',
+    difficulty: 'beginner',
+    tags: ['plumbing', 'water leak', 'pipe', 'joint', 'diagnosis'],
+    tools: ['Torch', 'Dry cloth or paper towels', 'Isolation valve key', 'Camera (for documentation)'],
+    steps: [
+      {
+        title: 'Locate the source of the leak',
+        body: 'Dry the area around the suspected leak with a cloth, then observe carefully. Use a torch to inspect behind pipes and under joints. Look for active dripping, staining, or corrosion at joints and connections.',
+        tip: 'If the source is not immediately visible, trace the water upward — leaks often travel along pipe runs before dripping.',
+      },
+      {
+        title: 'Assess the severity',
+        body: 'Determine if it is a slow drip (low urgency), a steady flow (medium urgency), or active gushing (emergency — isolate immediately). Check if any electrical items are at risk from the water.',
+        warning: 'If water is near electrical outlets or appliances, isolate the electrical circuit at the MCB before proceeding with the plumbing work.',
+      },
+      {
+        title: 'Isolate the water supply',
+        body: 'Locate the nearest isolation valve upstream of the leak — usually found directly on the supply pipe to the fixture. Turn clockwise to close. If no local isolation valve exists, use the main stop tap.',
+      },
+      {
+        title: 'Document and photograph',
+        body: 'Photograph the source of the leak, the pipe type, and any visible damage. Note the location, pipe size, and fitting type on your job sheet. This is critical for ordering the correct replacement parts.',
+      },
+      {
+        title: 'Apply temporary containment if needed',
+        body: 'If a permanent repair cannot be done immediately (waiting for parts), apply PTFE tape or a temporary pipe repair clamp to slow the leak. Inform the resident and supervisor of the temporary fix status.',
+      },
+      {
+        title: 'Permanent repair and function test',
+        body: 'Replace or re-seal the faulty joint or pipe section. Slowly re-open the isolation valve and observe for at least 2 minutes. Run the fixture to test flow and confirm no leakage before signing off.',
+      },
+    ],
+  },
+  {
+    id: 'KB-006',
+    title: 'Chiller Unit Quarterly Service — Full Procedure',
+    category: 'sop',
+    description: 'Complete SOP for the quarterly service of central chiller units including coil cleaning, oil checks, and performance verification.',
+    estimatedTime: '3–4 hours',
+    difficulty: 'advanced',
+    tags: ['HVAC', 'chiller', 'quarterly', 'SOP', 'maintenance'],
+    tools: ['Manifold gauges', 'Refrigerant recovery unit', 'Fin comb', 'Chemical coil cleaner', 'High-pressure washer', 'Oil analysis kit', 'Multimeter'],
+    steps: [
+      {
+        title: 'Pre-service planning and isolation',
+        body: 'Review the asset history and last service report. Confirm the service window with building management. Isolate the chiller at the main MCC and attach lockout tags. Close all refrigerant circuit valves and allow 10 minutes for pressure equalisation.',
+        warning: 'Central chiller units operate at high refrigerant pressures (200–400 PSI). All technicians must hold a valid refrigerant handling certificate.',
+      },
+      {
+        title: 'Condenser coil inspection and cleaning',
+        body: 'Inspect the condenser coil for fouling, fin damage, and corrosion. Apply chemical coil cleaner (allow 10 minutes dwell time), then rinse with a low-pressure water wash. Do not use high pressure directly on fins — use a fan pattern nozzle at 45°.',
+        tip: 'Document the fouling level (% area blocked) before and after cleaning. This data feeds the PPM trend analysis.',
+      },
+      {
+        title: 'Evaporator coil and drain pan inspection',
+        body: 'Inspect the evaporator coil for ice formation, blocked fins, or refrigerant oil contamination. Check and clear the condensate drain pan and drain line — pour water to verify free-flow drainage.',
+      },
+      {
+        title: 'Oil and lubrication checks',
+        body: 'Check compressor oil level in the sight glass. If the oil appears cloudy or discoloured, take an oil sample for analysis. Grease all bearing points on motors and fans with the manufacturer-specified grease type.',
+        warning: 'Using the wrong lubricant type will void the compressor warranty. Always check the asset\'s spec sheet.',
+      },
+      {
+        title: 'Electrical and controls checks',
+        body: 'Inspect all electrical connections, contactors, and capacitors. Measure compressor motor winding insulation resistance (should be >1 MΩ). Verify the control panel settings against the commissioning sheet — do not change setpoints without supervisor approval.',
+      },
+      {
+        title: 'Performance test and data logging',
+        body: 'Restore power and run the chiller through a full start-up cycle. Record suction/discharge pressures, superheat, subcooling, leaving chilled water temperature, and compressor amps. Compare against baseline data from the last service.',
+      },
+      {
+        title: 'Close out and update asset record',
+        body: 'Complete all documentation including parts used, oil added, and performance readings. Update the asset maintenance record in the platform. Attach before/after photos of the coil condition. Notify the FM Manager of the completed service.',
+      },
+    ],
+  },
+  {
+    id: 'KB-007',
+    title: 'Pool Pump Inspection & Maintenance',
+    category: 'checklist',
+    description: 'Monthly inspection checklist for pool pump systems covering motor, impeller, seals, and water chemistry equipment.',
+    estimatedTime: '30 min',
+    difficulty: 'beginner',
+    tags: ['plumbing', 'pool pump', 'monthly', 'checklist', 'inspection'],
+    tools: ['Multimeter', 'Clip-on ammeter', 'Strainer basket', 'Silicone lubricant', 'Water test kit'],
+    steps: [
+      {
+        title: 'Visual pre-check',
+        body: 'Inspect the pump body for cracks, corrosion, and water staining. Check all union connections and O-ring glands for drips. Note any unusual discolouration around the motor housing (can indicate overheating).',
+      },
+      {
+        title: 'Clean the strainer basket',
+        body: 'Switch the pump off and close the suction isolation valve. Remove the strainer lid, extract the basket, and clean all debris. Inspect the basket for cracks or missing sections — replace if damaged.',
+        tip: 'Apply a thin coat of silicone lubricant to the lid O-ring before replacing to ensure a good seal and prevent air ingress.',
+      },
+      {
+        title: 'Motor temperature and amp draw check',
+        body: 'Run the pump and use a clip-on ammeter to check running current against the nameplate rating. Use a contact thermometer to check motor housing temperature — should not exceed nameplate rating + ambient temperature.',
+        warning: 'If the motor draws 10% above nameplate current consistently, this indicates bearing wear or impeller blockage. Do not defer — arrange full service.',
+      },
+      {
+        title: 'Pressure gauge check',
+        body: 'Record the filter inlet pressure. If pressure has risen 8–10 PSI above the clean baseline, the filter requires backwashing or replacement media. Log the reading and compare to last month\'s data.',
+      },
+      {
+        title: 'Water chemistry and dosing equipment',
+        body: 'Test pH, free chlorine, and total alkalinity. Verify the chemical dosing pump is operating correctly. Check the chemical storage containers and ensure they are labelled and secured.',
+        warning: 'Pool chemicals are hazardous. Never mix different chemicals and always store acids and chlorine separately.',
+      },
+      {
+        title: 'Log and report',
+        body: 'Complete the monthly inspection log with all readings, observations, and any work carried out. Flag any items requiring follow-up parts or specialist inspection to the FM Manager.',
+      },
+    ],
+  },
+  {
+    id: 'KB-008',
+    title: 'How to Recharge a Fire Extinguisher',
+    category: 'guide',
+    description: 'Procedure for inspecting and recharging CO2 and dry powder fire extinguishers following discharge or scheduled service.',
+    estimatedTime: '20 min',
+    difficulty: 'intermediate',
+    tags: ['fire safety', 'extinguisher', 'safety', 'recharge'],
+    tools: ['Refill station', 'Weighing scale', 'CO2 cylinder (for CO2 units)', 'Tamper seal', 'Inspection tag'],
+    steps: [
+      {
+        title: 'Safety — depressurise and inspect',
+        body: 'Ensure the extinguisher is fully discharged and depressurised before opening. Inspect the body for dents, corrosion, or damage to the neck thread. Any structural damage means the extinguisher must be decommissioned, not recharged.',
+        warning: 'Never attempt to recharge a damaged, corroded, or overdue-for-hydrostatic-test extinguisher. This is a serious safety risk.',
+      },
+      {
+        title: 'Disassemble and clean',
+        body: 'Remove the valve assembly using the correct valve wrench. Empty any residual agent and clean the cylinder interior. Inspect the valve O-rings and seals — replace all O-rings as a matter of course.',
+      },
+      {
+        title: 'Recharge with agent',
+        body: 'For dry powder: weigh the correct charge of powder into the cylinder using a scale. For CO2: connect to the CO2 filling station and fill to the weight marked on the cylinder nameplate label. Do not overfill.',
+      },
+      {
+        title: 'Reassemble and pressurise',
+        body: 'Replace the valve assembly and torque to specification. For stored pressure units, pressurise with dry nitrogen to the pressure marked on the label. Check the gauge reads in the green zone.',
+      },
+      {
+        title: 'Final inspection and tag',
+        body: 'Pull the pin and squeeze the trigger briefly to confirm pressure. Replace the pin and fit a new tamper seal. Attach a new inspection tag showing the service date, technician name, and next service date.',
+      },
+    ],
+  },
+  {
+    id: 'KB-009',
+    title: 'AC Installation — Condensate Drain Line Setup',
+    category: 'video',
+    description: 'Video guide covering correct condensate drain line installation, slope requirements, and trap placement for split AC units.',
+    estimatedTime: '12 min watch',
+    difficulty: 'intermediate',
+    tags: ['HVAC', 'AC installation', 'drain', 'condensate', 'video'],
+    tools: ['PVC pipe cutter', 'Spirit level', 'PVC cement', 'Drain trap kit', 'Insulation tape'],
+    videoUrl: 'https://www.youtube.com/embed/V3BDkDlzH7Q',
+    thumbnailUrl: 'https://img.youtube.com/vi/V3BDkDlzH7Q/hqdefault.jpg',
+    steps: [
+      {
+        title: 'Drain line slope requirement',
+        body: 'Condensate drain lines must slope a minimum of 1:100 (1 cm fall per 100 cm run). Use a spirit level to verify slope during installation. Insufficient slope causes water backup and mould growth.',
+        warning: 'Never run drain lines horizontally — even a small negative slope will cause drain pans to overflow and damage ceilings.',
+      },
+      {
+        title: 'Installing the P-trap',
+        body: 'A P-trap is required on all fan coil drain connections to prevent air from being siphoned back through the drain and causing drain pan overflow. Position the trap as close to the unit drain outlet as possible.',
+      },
+      {
+        title: 'Pipe sizing and connections',
+        body: 'Use the pipe size specified by the manufacturer (typically 25mm or 32mm OD). All joints must be PVC solvent-welded — do not use rubber connectors on indoor drain lines. Insulate all drain pipe in humid areas to prevent condensation dripping.',
+      },
+      {
+        title: 'Test before finishing',
+        body: 'Pour water into the drain pan to test flow before closing up any ceiling or casing. Confirm water flows freely to the discharge point. Check all joints for weeping.',
+      },
+    ],
+  },
+  {
+    id: 'KB-010',
+    title: 'Understanding and Setting HVAC Thermostat Setpoints',
+    category: 'video',
+    description: 'Video walkthrough of how to read, configure, and calibrate digital and analogue thermostats in commercial HVAC systems.',
+    estimatedTime: '18 min watch',
+    difficulty: 'beginner',
+    tags: ['HVAC', 'thermostat', 'setpoints', 'controls', 'video'],
+    videoUrl: 'https://www.youtube.com/embed/qSqz4Xg0LxU',
+    thumbnailUrl: 'https://img.youtube.com/vi/qSqz4Xg0LxU/hqdefault.jpg',
+    steps: [
+      {
+        title: 'Understanding the deadband',
+        body: 'The deadband (or differential) is the temperature range around the setpoint where neither heating nor cooling activates. A typical deadband is 1–2°C. Narrower deadbands cause the system to cycle more frequently.',
+        tip: 'In commercial buildings, a deadband of 1.5°C is typically a good balance between comfort and equipment longevity.',
+      },
+      {
+        title: 'Setting cooling setpoints',
+        body: 'For residential units, the standard cooling setpoint is 23–24°C. For commercial spaces, follow the client\'s comfort specification. Change the setpoint in the thermostat programming menu — never set below 20°C without supervisor approval.',
+        warning: 'Do not override setpoints without a written instruction from the FM Manager or client. Unauthorised changes can invalidate the service contract.',
+      },
+      {
+        title: 'Calibration offset adjustment',
+        body: 'If the measured air temperature differs from the thermostat display by more than 1°C, apply a calibration offset in the thermostat settings. This corrects for sensor position or age drift — do not move the sensor itself.',
+      },
+    ],
+  },
+  {
+    id: 'KB-011',
+    title: 'Plumbing Isolation Valve Replacement',
+    category: 'sop',
+    description: 'Standard procedure for safely replacing a faulty isolation valve on domestic water services without full building shutdown.',
+    estimatedTime: '40 min',
+    difficulty: 'intermediate',
+    tags: ['plumbing', 'isolation valve', 'SOP', 'replacement'],
+    tools: ['Adjustable spanner', 'Pipe wrench', 'PTFE tape', 'Compression fitting tool', 'Isolation valve (correct size)', 'Bucket and towels'],
+    steps: [
+      {
+        title: 'Identify the correct isolation point',
+        body: 'Locate the next upstream isolation point — typically the flat stopcock on the water meter or the zone valve. Turn it off and check that water flow has stopped at the faulty valve location by opening the downstream fixture.',
+      },
+      {
+        title: 'Drain the line',
+        body: 'Place a bucket beneath the faulty valve. Open the fixture served by the valve to drain any residual water from the line. Absorb remaining water with towels before cutting or undoing any fittings.',
+      },
+      {
+        title: 'Remove the faulty valve',
+        body: 'Unscrew or disconnect the faulty valve using the appropriate tool. For compression fittings, slide the nut back and ease the valve off. Do not force or twist the pipe — support it firmly.',
+        tip: 'If the valve has seized and cannot be turned, use penetrating oil and allow 10 minutes before attempting again. Do not apply excessive force to plastic pipe.',
+      },
+      {
+        title: 'Prepare and fit the new valve',
+        body: 'Check the replacement valve matches the pipe size and material. Apply PTFE tape clockwise to threaded connections. For compression fittings, ensure the olive is correctly positioned and the nut is finger-tight before tightening 1–1.5 turns with a spanner.',
+      },
+      {
+        title: 'Reinstate water and test',
+        body: 'Slowly open the upstream isolation. Observe the new valve and all connections for 2 minutes — look for drips at the fittings. Open the downstream fixture to purge air from the line. Confirm full flow before closing up.',
+      },
+    ],
+  },
+  {
+    id: 'KB-012',
+    title: 'Electrical Safety — Working at Heights',
+    category: 'sop',
+    description: 'Safety SOP for electrical maintenance work carried out above 2 metres, covering ladder safety, harness use, and permit requirements.',
+    estimatedTime: '30 min read',
+    difficulty: 'intermediate',
+    tags: ['electrical', 'safety', 'working at height', 'SOP', 'permit'],
+    tools: ['Safety harness', 'Anchor point / anchor strap', 'Scaffold/platform (where required)', 'Ladder (BS EN 131 rated)', 'Permit to Work form'],
+    steps: [
+      {
+        title: 'Obtain a Permit to Work',
+        body: 'All work above 2 metres requires a signed Permit to Work (PTW) from the Site Supervisor before starting. The PTW defines the work area, method, and rescue plan. Do not start work without a valid signed PTW.',
+        warning: 'Starting work at height without a valid PTW is a disciplinary offence and may result in removal from site.',
+      },
+      {
+        title: 'Inspect equipment before use',
+        body: 'Check ladder for cracks, bent rungs, and secure feet before each use. Inspect the harness for fraying, damaged buckles, or previous shock-loading. Any defective equipment must be tagged and removed from service immediately.',
+      },
+      {
+        title: 'Set up safe access',
+        body: 'Position the ladder at the correct angle (1:4 ratio — 1 metre out for every 4 metres up). Secure the top and bottom against movement. A second person must foot the ladder when ascending or descending.',
+        tip: 'Use a mobile elevated work platform (MEWP) for any work exceeding 4 metres — ladder use should be limited to short-duration access only.',
+      },
+      {
+        title: 'Attach the fall arrest system',
+        body: 'If working at height above 2 metres for more than 30 minutes or without stable footing, wear the full harness and connect the lanyard to a certified anchor point. The anchor must be above shoulder height.',
+      },
+      {
+        title: 'Carry out the electrical work',
+        body: 'Work within arm\'s reach only — do not lean out or overreach from the ladder. Tools must be in a belt pouch or on a tool tray. All cables must be secured before working to prevent them pulling you off balance.',
+      },
+      {
+        title: 'Clear down and close PTW',
+        body: 'Remove all tools and materials from height before descending. Inspect the work area from below. Return the signed PTW to the supervisor for closure and log all work in the maintenance record.',
+      },
+    ],
+  },
+  {
+    id: 'KB-013',
+    title: 'Generator Load Test — Quarterly Procedure',
+    category: 'checklist',
+    description: 'Quarterly load test checklist for standby diesel generators to verify fuel, battery, start-up, and load transfer performance.',
+    estimatedTime: '1.5 hours',
+    difficulty: 'intermediate',
+    tags: ['electrical', 'generator', 'load test', 'quarterly', 'checklist'],
+    tools: ['Multimeter', 'Clip-on ammeter', 'Load bank (if required)', 'Fuel test kit', 'Battery tester'],
+    steps: [
+      {
+        title: 'Pre-test checks',
+        body: 'Verify fuel level is at least 75% full. Check coolant level and condition. Inspect battery terminals for corrosion and check battery voltage (should be 24V for most standby generators at rest). Check oil level on the dipstick.',
+      },
+      {
+        title: 'Notify building management',
+        body: 'Inform the FM Manager and building occupants that a generator test will take place. Confirm the test time with the control room and ensure any critical systems are prepared for a momentary transfer.',
+      },
+      {
+        title: 'Manual start test',
+        body: 'Start the generator manually using the local start button. Observe start-up sequence — it should reach operating speed within 10 seconds. Check for exhaust smoke colour (light grey is normal; black smoke indicates fuel or air issues).',
+        warning: 'Do not attempt a load transfer test if the generator does not reach stable voltage and frequency within 30 seconds of start-up.',
+      },
+      {
+        title: 'Automatic transfer switch test',
+        body: 'With the generator running in manual, initiate a simulated mains failure through the ATS panel. Verify the ATS transfers load to the generator within the specified time (typically <10 seconds). Confirm all essential circuits are energised.',
+      },
+      {
+        title: 'Load run and data logging',
+        body: 'Run the generator under load for at least 30 minutes. Record voltage on all three phases, frequency, current per phase, oil pressure, and coolant temperature every 10 minutes. Compare against the factory test sheet.',
+      },
+      {
+        title: 'Restore mains and cool down',
+        body: 'Transfer load back to mains. Allow the generator to run off-load for 5 minutes to cool down before shutting down. Check for fluid leaks after shutdown. Log all data and update the generator maintenance record.',
+      },
+    ],
+  },
+  {
+    id: 'KB-014',
+    title: 'Lift Troubleshooting — Common Faults',
+    category: 'video',
+    description: 'Video guide covering the five most common lift faults encountered on site, how to diagnose them, and when to escalate.',
+    estimatedTime: '22 min watch',
+    difficulty: 'intermediate',
+    tags: ['lift', 'elevator', 'troubleshooting', 'faults', 'video'],
+    videoUrl: 'https://www.youtube.com/embed/hJMPQ6eCGq8',
+    thumbnailUrl: 'https://img.youtube.com/vi/hJMPQ6eCGq8/hqdefault.jpg',
+    steps: [
+      {
+        title: 'Fault 1 — Lift will not move, door open',
+        body: 'Most common cause: a door interlock fault on a landing door. Inspect each landing door for debris in the door track, damaged door edges, or a loose interlock contact. Reset the lift via the car operating panel.',
+        tip: 'If the fault repeats, check the controller fault log — it will show which zone triggered the interlock fault.',
+      },
+      {
+        title: 'Fault 2 — Lift stopping between floors',
+        body: 'Usually caused by a levelling sensor fault or brake adjustment issue. Do not attempt to re-level the car yourself. Take the lift out of service and contact the specialist contractor. Verify no occupants are trapped.',
+        warning: 'Never try to manually move a lift car that has stopped between floors without proper training and the correct rescue equipment.',
+      },
+      {
+        title: 'Fault 3 — Sluggish door operation',
+        body: 'Check the door drive belt for wear and the door operator motor for correct voltage. Clean the door tracks and apply the correct door lubricant. Adjust the door closing time in the controller menu if required.',
+      },
+      {
+        title: 'Fault 4 — Overheating machine room alarm',
+        body: 'Check that the machine room ventilation fan is running. Clean the fan filters and check the thermostat setting. If the ambient temperature exceeds 40°C, the lift must be taken out of service until cooling is restored.',
+      },
+    ],
+  },
+  {
+    id: 'KB-015',
+    title: 'Building Hand-Over Defect Walk — Checklist',
+    category: 'checklist',
+    description: 'Checklist for field engineers conducting a building handover or defect liability period inspection across all FM systems.',
+    estimatedTime: '2–3 hours',
+    difficulty: 'advanced',
+    tags: ['inspection', 'handover', 'defects', 'checklist', 'all systems'],
+    tools: ['Inspection app / tablet', 'Torch', 'Lux meter', 'Thermometer', 'Camera', 'Measuring tape'],
+    steps: [
+      {
+        title: 'Prepare the inspection pack',
+        body: 'Before starting, obtain the as-built drawings, commissioning certificates, and the defect log from the project team. Load the inspection checklist into the platform and assign the correct building zone to your session.',
+      },
+      {
+        title: 'HVAC systems check',
+        body: 'Verify all AC units, AHUs, and exhaust fans are commissioned and operational. Check supply and extract grille positions match the design drawings. Measure supply air temperature — should be within 2°C of the design setpoint.',
+      },
+      {
+        title: 'Electrical systems check',
+        body: 'Verify all lighting circuits are functioning (use lux meter in critical areas — corridors, stairwells, car parks). Test all emergency lighting on a 3-hour duration test per BS 5266. Confirm all MCB labels are accurate and legible.',
+        warning: 'Do not energise any unfused or unlabelled circuits. Flag these to the project electrical engineer before proceeding.',
+      },
+      {
+        title: 'Plumbing and sanitary check',
+        body: 'Run all taps, showers, and WCs for 30 seconds each. Check for drain blockages, slow drainage, or water hammer. Verify hot water is reaching ≥55°C at the calorifier outlet to meet Legionella prevention requirements.',
+      },
+      {
+        title: 'Fire and safety systems check',
+        body: 'Confirm fire panel is live with no faults. Test all pull-stations and heat detectors in rotation. Verify all fire doors close and latch correctly and all exit signs are illuminated with emergency backup.',
+      },
+      {
+        title: 'Document all defects',
+        body: 'Log every defect with a photo, location reference, system category, and severity. Submit the completed defect schedule to the project manager and FM Manager within 48 hours of the walk.',
+        tip: 'Use consistent location references (floor, zone, room number) so defects can be tracked accurately through the snagging period.',
+      },
+    ],
+  },
+  {
+    id: 'KB-016',
+    title: 'Legionella Risk — Hot and Cold Water Management',
+    category: 'sop',
+    description: 'SOP for managing Legionella risk in domestic hot and cold water systems, covering temperature checks, flushing, and remediation.',
+    estimatedTime: '45 min read',
+    difficulty: 'advanced',
+    tags: ['plumbing', 'legionella', 'water management', 'health & safety', 'SOP'],
+    tools: ['Calibrated thermometer', 'Water sampling bottles', 'Flushing log sheet', 'PPE (face shield for hot work)'],
+    steps: [
+      {
+        title: 'Understand the risk conditions',
+        body: 'Legionella bacteria thrive at temperatures between 20–45°C. Water stored or distributed within this range for extended periods poses a risk. The highest risk is in infrequently used outlets, dead legs, and low-flow areas.',
+        warning: 'Legionellosis (Legionnaire\'s Disease) is a notifiable disease. Any suspected case must be reported immediately to the FM Manager and, where required, to the health authority.',
+      },
+      {
+        title: 'Monthly temperature monitoring',
+        body: 'Measure hot water temperature at the calorifier flow (must be ≥60°C), calorifier return (must be ≥50°C), and at representative sentinel outlets (nearest and furthest from calorifier). Cold water storage must be <20°C.',
+        tip: 'Use a calibrated digital thermometer and run the tap for at least 1 minute before taking the temperature reading.',
+      },
+      {
+        title: 'Flush infrequently used outlets',
+        body: 'Any outlet not used in the past 7 days must be flushed for 2–5 minutes. In buildings with long periods of low occupancy, establish a weekly flushing programme for all outlets. Log every flush event.',
+      },
+      {
+        title: 'Inspect and clean cold water storage tanks',
+        body: 'Inspect cold water storage tanks at least annually — check for debris, insulation damage, signs of birds or insects, and any discolouration. Tanks must have a close-fitting lid and overflow screen.',
+      },
+      {
+        title: 'Respond to a temperature failure',
+        body: 'If a temperature reading falls outside acceptable limits, do not wait — increase calorifier setpoint to 60°C immediately and flush all outlets on the affected system. Take a water sample and send for laboratory analysis within 24 hours.',
+        warning: 'Do not increase the calorifier above 65°C without specialist guidance — scalding risk to residents must be managed via thermostatic mixing valves.',
+      },
+    ],
+  },
+  {
+    id: 'KB-017',
+    title: 'Generator Emergency Start — Quick Reference',
+    category: 'guide',
+    description: 'Quick reference guide for field engineers on how to manually start the standby generator during a mains power failure.',
+    estimatedTime: '5 min',
+    difficulty: 'beginner',
+    tags: ['electrical', 'generator', 'emergency', 'power failure', 'quick reference'],
+    tools: ['Generator key', 'Torch', 'Radio or phone for comms'],
+    steps: [
+      {
+        title: 'Confirm mains failure',
+        body: 'Before going to the generator, confirm this is a mains supply failure (not an internal distribution fault). Check the incoming mains breaker at the main LV switchboard. If the breaker has tripped, do not start the generator — investigate the board first.',
+      },
+      {
+        title: 'Go to the generator',
+        body: 'Go to the generator room and check fuel level — must be above 25% to attempt a start. Visually inspect for any obvious faults (fluid leaks, disconnected cables). Confirm the mode selector is set to AUTO or MANUAL.',
+      },
+      {
+        title: 'Manual start',
+        body: 'Turn the key to the START position and hold for up to 10 seconds. Release when the engine fires. The generator should reach operating speed within 20 seconds. Check the panel for green "Generator Running" indication.',
+        warning: 'Do not crank the engine for more than 10 seconds continuously — rest for 30 seconds between attempts to avoid battery damage. Maximum 3 attempts.',
+      },
+      {
+        title: 'Transfer load',
+        body: 'Once the generator is stable (check voltage 380–415V, frequency 49.5–50.5 Hz), manually transfer the ATS to generator supply if it has not transferred automatically. Notify the control room and FM Manager immediately.',
+      },
+      {
+        title: 'Monitor and log',
+        body: 'Stay with the generator for the first 15 minutes of operation. Monitor fuel consumption, temperature, and voltage. Keep the FM Manager updated every 30 minutes. Log the start time, reason, and fuel level before and after.',
+      },
+    ],
+  },
+  {
+    id: 'KB-018',
+    title: 'HVAC Filter Replacement — Step-by-Step',
+    category: 'video',
+    description: 'Video guide for replacing air handling unit (AHU) and fan coil unit (FCU) filters, covering filter grades, fitting, and disposal.',
+    estimatedTime: '8 min watch',
+    difficulty: 'beginner',
+    tags: ['HVAC', 'filter', 'AHU', 'FCU', 'replacement', 'video'],
+    videoUrl: 'https://www.youtube.com/embed/kQCKmhpBj_4',
+    thumbnailUrl: 'https://img.youtube.com/vi/kQCKmhpBj_4/hqdefault.jpg',
+    steps: [
+      {
+        title: 'Identify the correct filter grade',
+        body: 'Check the asset record for the required filter specification — typically G4 (coarse pre-filter) or F7 (fine filter) for most commercial AHUs. Using the wrong filter grade can restrict airflow or reduce air quality.',
+        tip: 'Filter grades are stamped on the filter frame. Never substitute a lower grade filter — it will not catch the contaminants the system is designed to filter.',
+      },
+      {
+        title: 'Switch off and open access panel',
+        body: 'Stop the AHU at the local isolator. Open the filter access panel — most panels have a quarter-turn fastener. Do not reach into the unit while it is running.',
+      },
+      {
+        title: 'Remove old filter and inspect',
+        body: 'Slide the filter out carefully — fold a bag around it as you withdraw to contain dust. Photograph the dirty filter as evidence of the service. Inspect the filter housing and seals for damage or bypass gaps.',
+      },
+      {
+        title: 'Install new filter and restart',
+        body: 'Insert the new filter in the correct airflow direction (arrow on the filter frame must point in the direction of airflow). Ensure the filter seats flush against all four sides with no gaps. Close and secure the access panel. Restart the AHU and verify normal operation.',
+      },
+    ],
+  },
+  {
+    id: 'KB-019',
+    title: 'PPM Schedule Compliance — Field Guide',
+    category: 'sop',
+    description: 'Guide for field engineers on accessing, completing, and closing PPM tasks in the platform, including evidence requirements.',
+    estimatedTime: '10 min read',
+    difficulty: 'beginner',
+    tags: ['PPM', 'compliance', 'platform', 'SOP', 'documentation'],
+    tools: ['Mobile device with Imdaad platform access', 'Camera'],
+    steps: [
+      {
+        title: 'Access your assigned PPM tasks',
+        body: 'Open the Imdaad Field portal and navigate to your Work Orders. PPM tasks will appear with the "PPM" tag. Filter by "Open" to see all due tasks. Tap a task to view the service requirement and equipment checklist.',
+      },
+      {
+        title: 'Arrive on site and log start time',
+        body: 'Tap "Start Work" as soon as you arrive on site. This timestamps your arrival and starts the SLA clock correctly. Do not forget to start the job — late logging affects your SLA performance metrics.',
+        warning: 'Starting a job before physically arriving on site is a recordable compliance breach and will be flagged in your monthly performance review.',
+      },
+      {
+        title: 'Complete the service checklist',
+        body: 'Work through each checklist item in the task. Tick each item as you complete it. Mandatory items marked with an asterisk (*) must be completed — you cannot close the job without them.',
+      },
+      {
+        title: 'Upload evidence',
+        body: 'Photograph before and after shots of the asset worked on. Upload them directly in the task view. High-quality, well-lit photos are required — blurry or unrelated photos will be rejected by the supervisor.',
+        tip: 'Take the "after" photo from the same angle as the "before" photo — this makes supervisor review much faster and reduces queries.',
+      },
+      {
+        title: 'Add notes and submit',
+        body: 'Complete the resolution notes field with a brief summary of work done (parts replaced, readings taken, issues found). Tap "Submit" to send the completed job for supervisor review. The task status will change to "Awaiting Review".',
+      },
+    ],
+  },
+  {
+    id: 'KB-020',
+    title: 'Incident Reporting — When and How',
+    category: 'sop',
+    description: 'SOP for field engineers on correctly logging and escalating incidents discovered on site, including near-misses and safety hazards.',
+    estimatedTime: '8 min read',
+    difficulty: 'beginner',
+    tags: ['incident', 'reporting', 'SOP', 'safety', 'escalation'],
+    tools: ['Mobile device', 'Camera'],
+    steps: [
+      {
+        title: 'Identify what must be reported',
+        body: 'Any of the following must be reported immediately: personal injury or near-miss, structural damage, active water leaks near electrical, fire or smoke, gas smell, hazardous chemical spill, or any fault affecting life safety systems.',
+        warning: 'Never assume someone else has reported a hazard. If you see it, you own it — report it immediately.',
+      },
+      {
+        title: 'Make the area safe',
+        body: 'Before logging the incident, make the immediate area safe if it is safe to do so. Cordon off slip hazards, isolate faulty electrical equipment, and keep people clear of the affected area.',
+      },
+      {
+        title: 'Log the incident in the platform',
+        body: 'Open the Imdaad platform, navigate to New Incident, and complete the form: location, description, severity, and your name. Attach at least one photo. Submit within 15 minutes of discovery.',
+        tip: 'Be factual and specific — "Water dripping from ceiling in corridor B3 near light fitting LE-042" is much more useful than "wet floor in block B".',
+      },
+      {
+        title: 'Notify your supervisor verbally',
+        body: 'After logging the incident in the platform, call or radio your site supervisor to notify them verbally. For critical or life-safety incidents, call first, then log.',
+      },
+      {
+        title: 'Follow up and close the loop',
+        body: 'Monitor the incident status in the platform. If a corrective work order has been raised, track it through to completion. If the incident is not acted on within the SLA timeframe, escalate to the FM Manager.',
+      },
+    ],
+  },
+];

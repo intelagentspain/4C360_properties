@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '@/lib/api';
-import { mockAssets } from '@/data/mockData';
+import { mockAssets, mockKBResources, type KBResource, type KBCategory } from '@/data/mockData';
 import {
   ClipboardList, BookOpen, MessageSquare, ChevronLeft, Search, Upload,
   Camera, CheckCircle, Clock, AlertTriangle, XCircle, MapPin, Wrench,
-  User, Calendar, Send, ArrowRight, RefreshCw, X, ZoomIn
+  User, Calendar, Send, ArrowRight, RefreshCw, X, ZoomIn,
+  Play, FileText, Video, ListChecks, ChevronDown, ChevronUp,
+  TriangleAlert, Lightbulb, Hammer
 } from 'lucide-react';
 
 type WOStatus = 'open' | 'assigned' | 'in_progress' | 'resolved' | 'closed' | string;
@@ -468,28 +470,14 @@ export function FieldPortal({ initialWorkOrderId }: FieldPortalProps) {
           )}
 
           {tab === 'knowledge' && (
-            <motion.div key="knowledge" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} transition={{ duration: 0.2 }}
-              className="p-4">
-              {relevantAsset && selectedWO && (
-                <div className="mb-4 bg-[rgba(46,127,255,0.07)] border border-[rgba(46,127,255,0.22)] rounded-xl p-4">
-                  <p className="text-[#7A94B4] text-xs uppercase tracking-widest font-bold mb-2">Asset for Current WO</p>
-                  <AssetCard asset={relevantAsset} highlighted />
-                </div>
-              )}
-              <div className="flex items-center gap-2 bg-[#0D1E38] border border-[rgba(46,127,255,0.18)] rounded-xl px-3 py-2.5 mb-4">
-                <Search size={14} className="text-[#7A94B4]" />
-                <input value={assetSearch} onChange={e => setAssetSearch(e.target.value)}
-                  placeholder="Search assets by name, type, location…"
-                  className="flex-1 bg-transparent text-sm text-[#EEF3FA] placeholder-[#4A6080] outline-none" />
-                {assetSearch && <button onClick={() => setAssetSearch('')}><X size={14} className="text-[#7A94B4]" /></button>}
-              </div>
-              <p className="text-[#7A94B4] text-xs uppercase tracking-widest font-bold mb-3">All Assets</p>
-              <div className="space-y-3">
-                {filteredAssets.map(a => <AssetCard key={a.id} asset={a} />)}
-                {filteredAssets.length === 0 && (
-                  <p className="text-center text-[#4A6080] text-sm py-8">No assets found</p>
-                )}
-              </div>
+            <motion.div key="knowledge" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} transition={{ duration: 0.2 }}>
+              <KnowledgeBase
+                relevantAsset={relevantAsset}
+                selectedWO={selectedWO}
+                assetSearch={assetSearch}
+                setAssetSearch={setAssetSearch}
+                filteredAssets={filteredAssets}
+              />
             </motion.div>
           )}
 
@@ -973,6 +961,305 @@ function ResolutionModal({ wo, resolutionNotes, onNotesChange, beforePhoto, afte
           </button>
         </div>
       </motion.div>
+    </div>
+  );
+}
+
+const KB_CATEGORY_META: Record<KBCategory, { label: string; color: string; bg: string; border: string; icon: React.ReactNode }> = {
+  guide:     { label: 'Guide',     color: '#2E7FFF', bg: 'rgba(46,127,255,0.12)',   border: 'rgba(46,127,255,0.3)',   icon: <FileText size={12} /> },
+  video:     { label: 'Video',     color: '#A78BFA', bg: 'rgba(167,139,250,0.12)',  border: 'rgba(167,139,250,0.3)',  icon: <Video size={12} /> },
+  sop:       { label: 'SOP',       color: '#F59E0B', bg: 'rgba(245,158,11,0.12)',   border: 'rgba(245,158,11,0.3)',   icon: <FileText size={12} /> },
+  checklist: { label: 'Checklist', color: '#10B981', bg: 'rgba(16,185,129,0.12)',   border: 'rgba(16,185,129,0.3)',   icon: <ListChecks size={12} /> },
+};
+
+const KB_DIFFICULTY_META: Record<string, { label: string; color: string }> = {
+  beginner:     { label: 'Beginner',     color: '#10B981' },
+  intermediate: { label: 'Intermediate', color: '#F59E0B' },
+  advanced:     { label: 'Advanced',     color: '#EF4444' },
+};
+
+function KBCategoryBadge({ category }: { category: KBCategory }) {
+  const meta = KB_CATEGORY_META[category];
+  return (
+    <span style={{ background: meta.bg, border: `1px solid ${meta.border}`, color: meta.color }}
+      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap">
+      {meta.icon} {meta.label}
+    </span>
+  );
+}
+
+function KnowledgeBase({ relevantAsset, selectedWO, assetSearch, setAssetSearch, filteredAssets }: {
+  relevantAsset: typeof mockAssets[number] | null | undefined;
+  selectedWO: { title?: string | null } | null;
+  assetSearch: string;
+  setAssetSearch: (v: string) => void;
+  filteredAssets: typeof mockAssets;
+}) {
+  const [kbSearch, setKbSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<KBCategory | 'all'>('all');
+  const [selectedResource, setSelectedResource] = useState<KBResource | null>(null);
+  const [assetsExpanded, setAssetsExpanded] = useState(() => !!(relevantAsset && selectedWO));
+
+  const filtered = mockKBResources.filter(r => {
+    const matchCat = categoryFilter === 'all' || r.category === categoryFilter;
+    const q = kbSearch.toLowerCase();
+    const matchSearch = !q ||
+      r.title.toLowerCase().includes(q) ||
+      r.description.toLowerCase().includes(q) ||
+      r.tags.some(t => t.toLowerCase().includes(q));
+    return matchCat && matchSearch;
+  });
+
+  if (selectedResource) {
+    return (
+      <KnowledgeResourceDetail
+        resource={selectedResource}
+        onBack={() => setSelectedResource(null)}
+      />
+    );
+  }
+
+  const categoryFilters: { id: KBCategory | 'all'; label: string }[] = [
+    { id: 'all', label: 'All' },
+    { id: 'guide', label: 'Guides' },
+    { id: 'video', label: 'Videos' },
+    { id: 'sop', label: 'SOPs' },
+    { id: 'checklist', label: 'Checklists' },
+  ];
+
+  return (
+    <div className="p-4">
+      <div className="mb-5">
+        <h2 className="text-[#EEF3FA] font-bold text-base">Knowledge Base</h2>
+        <p className="text-[#7A94B4] text-xs mt-0.5">How-to guides, SOPs, videos & checklists</p>
+      </div>
+
+      <div className="flex items-center gap-2 bg-[#0D1E38] border border-[rgba(46,127,255,0.18)] rounded-xl px-3 py-2.5 mb-3">
+        <Search size={14} className="text-[#7A94B4]" />
+        <input value={kbSearch} onChange={e => setKbSearch(e.target.value)}
+          placeholder="Search guides, SOPs, videos…"
+          className="flex-1 bg-transparent text-sm text-[#EEF3FA] placeholder-[#4A6080] outline-none" />
+        {kbSearch && <button onClick={() => setKbSearch('')}><X size={14} className="text-[#7A94B4]" /></button>}
+      </div>
+
+      <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
+        {categoryFilters.map(f => (
+          <button key={f.id} onClick={() => setCategoryFilter(f.id)}
+            className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${
+              categoryFilter === f.id
+                ? 'bg-[#2E7FFF] text-white'
+                : 'bg-[rgba(46,127,255,0.08)] border border-[rgba(46,127,255,0.15)] text-[#7A94B4] hover:text-[#EEF3FA]'
+            }`}>
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="text-center py-12">
+          <BookOpen size={36} className="text-[#7A94B4] opacity-30 mx-auto mb-3" />
+          <p className="text-[#7A94B4] text-sm">No resources found</p>
+        </div>
+      ) : (
+        <div className="space-y-3 mb-6">
+          {filtered.map(r => (
+            <KBResourceCard key={r.id} resource={r} onOpen={() => setSelectedResource(r)} />
+          ))}
+        </div>
+      )}
+
+      <div className="mt-4 border-t border-[rgba(46,127,255,0.12)] pt-4">
+        <button
+          onClick={() => setAssetsExpanded(!assetsExpanded)}
+          className="w-full flex items-center justify-between py-2 text-left">
+          <span className="text-[#7A94B4] text-xs uppercase tracking-widest font-bold">Assets</span>
+          {assetsExpanded ? <ChevronUp size={14} className="text-[#7A94B4]" /> : <ChevronDown size={14} className="text-[#7A94B4]" />}
+        </button>
+
+        <AnimatePresence>
+          {assetsExpanded && (
+            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }}
+              className="overflow-hidden">
+              {relevantAsset && selectedWO && (
+                <div className="mb-3 bg-[rgba(46,127,255,0.07)] border border-[rgba(46,127,255,0.22)] rounded-xl p-3">
+                  <p className="text-[#7A94B4] text-xs uppercase tracking-widest font-bold mb-2">Asset for Current WO</p>
+                  <AssetCard asset={relevantAsset} highlighted />
+                </div>
+              )}
+              <div className="flex items-center gap-2 bg-[#0D1E38] border border-[rgba(46,127,255,0.18)] rounded-xl px-3 py-2.5 mb-3">
+                <Search size={14} className="text-[#7A94B4]" />
+                <input value={assetSearch} onChange={e => setAssetSearch(e.target.value)}
+                  placeholder="Search assets by name, type, location…"
+                  className="flex-1 bg-transparent text-sm text-[#EEF3FA] placeholder-[#4A6080] outline-none" />
+                {assetSearch && <button onClick={() => setAssetSearch('')}><X size={14} className="text-[#7A94B4]" /></button>}
+              </div>
+              <div className="space-y-3">
+                {filteredAssets.map(a => <AssetCard key={a.id} asset={a} />)}
+                {filteredAssets.length === 0 && (
+                  <p className="text-center text-[#4A6080] text-sm py-4">No assets found</p>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+}
+
+function KBResourceCard({ resource, onOpen }: { resource: KBResource; onOpen: () => void }) {
+  const meta = KB_CATEGORY_META[resource.category];
+  const diff = KB_DIFFICULTY_META[resource.difficulty];
+  const isVideo = resource.category === 'video';
+
+  return (
+    <button onClick={onOpen}
+      className="w-full text-left bg-[#0D1E38] border border-[rgba(46,127,255,0.18)] rounded-xl p-4 hover:border-[rgba(46,127,255,0.4)] hover:bg-[rgba(46,127,255,0.05)] transition-all active:scale-[0.99]">
+      {isVideo && resource.thumbnailUrl && (
+        <div className="relative w-full aspect-video rounded-lg overflow-hidden mb-3 bg-[#060F1E]">
+          <img src={resource.thumbnailUrl} alt={resource.title} className="w-full h-full object-cover opacity-80" />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="w-12 h-12 rounded-full bg-[rgba(167,139,250,0.9)] flex items-center justify-center shadow-lg">
+              <Play size={20} className="text-white ml-0.5" />
+            </div>
+          </div>
+          <div className="absolute bottom-2 right-2 bg-black/70 rounded px-1.5 py-0.5 text-white text-xs font-semibold">
+            {resource.estimatedTime}
+          </div>
+        </div>
+      )}
+      <div className="flex items-start justify-between gap-2 mb-2">
+        <p className="text-[#EEF3FA] font-semibold text-sm leading-tight flex-1">{resource.title}</p>
+        <KBCategoryBadge category={resource.category} />
+      </div>
+      <p className="text-[#7A94B4] text-xs leading-relaxed mb-3">{resource.description}</p>
+      <div className="flex items-center gap-3">
+        {!isVideo && (
+          <span className="flex items-center gap-1 text-[#7A94B4] text-xs">
+            <Clock size={11} /> {resource.estimatedTime}
+          </span>
+        )}
+        <span style={{ color: diff.color }} className="text-xs font-semibold">{diff.label}</span>
+        <span className="ml-auto text-[#2E7FFF] text-xs font-semibold flex items-center gap-1">
+          {isVideo ? 'Watch' : 'Open'} <ArrowRight size={10} />
+        </span>
+      </div>
+    </button>
+  );
+}
+
+function KnowledgeResourceDetail({ resource, onBack }: { resource: KBResource; onBack: () => void }) {
+  const meta = KB_CATEGORY_META[resource.category];
+  const diff = KB_DIFFICULTY_META[resource.difficulty];
+  const isVideo = resource.category === 'video';
+
+  return (
+    <div>
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-[rgba(46,127,255,0.12)] bg-[rgba(46,127,255,0.04)] sticky top-[105px] z-10">
+        <button onClick={onBack} className="text-[#7A94B4] hover:text-[#2E7FFF] transition-colors p-1.5 rounded-lg hover:bg-[rgba(46,127,255,0.08)]">
+          <ChevronLeft size={20} />
+        </button>
+        <div className="flex-1 min-w-0">
+          <p className="text-[#7A94B4] text-xs">Knowledge Base</p>
+          <p className="text-[#EEF3FA] font-bold text-sm truncate">{resource.title}</p>
+        </div>
+        <KBCategoryBadge category={resource.category} />
+      </div>
+
+      <div className="p-4 space-y-4">
+        {isVideo && resource.videoUrl ? (
+          <div className="rounded-xl overflow-hidden border border-[rgba(167,139,250,0.25)] aspect-video bg-black">
+            <iframe
+              src={resource.videoUrl}
+              title={resource.title}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+              className="w-full h-full"
+            />
+          </div>
+        ) : isVideo && resource.thumbnailUrl ? (
+          <a href={resource.thumbnailUrl} target="_blank" rel="noreferrer"
+            className="relative block w-full aspect-video rounded-xl overflow-hidden border border-[rgba(167,139,250,0.25)] bg-[#060F1E]">
+            <img src={resource.thumbnailUrl} alt={resource.title} className="w-full h-full object-cover opacity-80" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-16 h-16 rounded-full bg-[rgba(167,139,250,0.9)] flex items-center justify-center shadow-xl">
+                <Play size={28} className="text-white ml-1" />
+              </div>
+            </div>
+          </a>
+        ) : null}
+
+        <div className="bg-[rgba(46,127,255,0.07)] border border-[rgba(46,127,255,0.2)] rounded-xl p-4">
+          <p className="text-[#EEF3FA] text-sm leading-relaxed mb-3">{resource.description}</p>
+          <div className="flex flex-wrap gap-3 text-xs">
+            <span className="flex items-center gap-1 text-[#7A94B4]"><Clock size={11} /> {resource.estimatedTime}</span>
+            <span style={{ color: diff.color }} className="font-semibold">{diff.label}</span>
+          </div>
+          {resource.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-3">
+              {resource.tags.map(tag => (
+                <span key={tag} className="bg-[rgba(46,127,255,0.1)] border border-[rgba(46,127,255,0.2)] text-[#7A94B4] px-2 py-0.5 rounded text-xs">
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {resource.tools && resource.tools.length > 0 && (
+          <div className="bg-[#0D1E38] border border-[rgba(46,127,255,0.15)] rounded-xl p-4">
+            <p className="text-[#7A94B4] text-xs uppercase tracking-widest font-bold mb-3 flex items-center gap-1.5">
+              <Hammer size={12} /> Tools Required
+            </p>
+            <ul className="space-y-1.5">
+              {resource.tools.map((tool, i) => (
+                <li key={i} className="flex items-center gap-2 text-[#EEF3FA] text-sm">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#2E7FFF] flex-shrink-0" />
+                  {tool}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <div>
+          <p className="text-[#7A94B4] text-xs uppercase tracking-widest font-bold mb-3">
+            {isVideo ? 'Key Points' : `Steps (${resource.steps.length})`}
+          </p>
+          <div className="space-y-3">
+            {resource.steps.map((step, i) => (
+              <div key={i} className="bg-[#0D1E38] border border-[rgba(46,127,255,0.15)] rounded-xl overflow-hidden">
+                <div className="flex items-start gap-3 p-4">
+                  <div className="w-7 h-7 rounded-full bg-[rgba(46,127,255,0.15)] border border-[rgba(46,127,255,0.3)] flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <span className="text-[#2E7FFF] text-xs font-bold">{i + 1}</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[#EEF3FA] font-semibold text-sm mb-1.5">{step.title}</p>
+                    <p className="text-[#B0C4DC] text-xs leading-relaxed">{step.body}</p>
+                  </div>
+                </div>
+                {step.warning && (
+                  <div className="mx-4 mb-3 flex items-start gap-2 bg-[rgba(239,68,68,0.08)] border border-[rgba(239,68,68,0.25)] rounded-lg p-3">
+                    <TriangleAlert size={14} className="text-red-400 flex-shrink-0 mt-0.5" />
+                    <p className="text-red-300 text-xs leading-relaxed">{step.warning}</p>
+                  </div>
+                )}
+                {step.tip && (
+                  <div className="mx-4 mb-3 flex items-start gap-2 bg-[rgba(16,185,129,0.07)] border border-[rgba(16,185,129,0.2)] rounded-lg p-3">
+                    <Lightbulb size={14} className="text-emerald-400 flex-shrink-0 mt-0.5" />
+                    <p className="text-emerald-300 text-xs leading-relaxed">{step.tip}</p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <button onClick={onBack}
+          className="w-full flex items-center justify-center gap-2 bg-[rgba(46,127,255,0.1)] border border-[rgba(46,127,255,0.25)] text-[#2E7FFF] font-semibold text-sm py-3.5 rounded-xl hover:bg-[rgba(46,127,255,0.18)] transition-colors mt-2">
+          <ChevronLeft size={16} /> Back to Knowledge Base
+        </button>
+      </div>
     </div>
   );
 }
