@@ -51,9 +51,20 @@ function App() {
       setPerspective(PERSP_MAP[member.perspective] ?? 'strategic');
       setTimeout(() => addToast(`Welcome, ${member.name} — personalized dashboard loaded`, 'success'), 400);
     } else {
-      const url = new URL(window.location.href);
-      url.searchParams.delete('member');
-      window.history.replaceState({}, '', url.toString());
+      // Member not found in profiles store (e.g. ec-xxxx invite token or short ID).
+      // Any external ?member= link is an end-client portal link — open the resident portal.
+      setActiveMember({
+        id: memberId,
+        name: 'Resident',
+        perspective: 'Client',
+        role: 'End Client',
+        email: '',
+        assignedClients: [],
+        zones: [],
+        skills: '',
+        responsibilities: '',
+      } as MockMemberProfile);
+      setPerspective('client');
     }
   }, []);
 
