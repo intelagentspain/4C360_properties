@@ -2,13 +2,24 @@ import { useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, Mail, MapPin, Wrench, ClipboardList, UserPlus, X,
-  MessageSquare, Building2, FileText, User, Shield, Search, Phone, Camera,
+  MessageSquare, Building2, FileText, User, Shield, Search, Phone, Camera, Pencil,
 } from 'lucide-react';
 import { useMemberProfiles } from '@/context/MemberProfilesContext';
 import { useClients } from '@/context/ClientsContext';
 import { WhatsAppModal } from '@/components/shared/WhatsAppModal';
 import type { ToastFn } from '@/lib/ui';
 import type { MockMemberProfile } from '@/data/mockData';
+
+function resolvePhoto(photo: string | undefined): string | undefined {
+  if (!photo) return undefined;
+  if (photo.startsWith('data:') || photo.startsWith('http')) return photo;
+  const base = (import.meta.env.BASE_URL ?? '/').replace(/\/+$/, '');
+  if (photo.startsWith('/')) {
+    const teamPathMatch = photo.match(/^\/(team\/.+)$/);
+    return teamPathMatch ? `${base}/${teamPathMatch[1]}` : photo;
+  }
+  return `${base}/${photo}`;
+}
 
 const PERSPECTIVE_BADGE: Record<string, string> = {
   Strategic:   'bg-blue-500/15 text-blue-300 border-blue-500/30',
@@ -153,11 +164,33 @@ interface AddStaffModalProps {
   onClose: () => void;
   onToast: ToastFn;
   clientNames: string[];
+  editMember?: MockMemberProfile;
 }
 
-function AddStaffModal({ onClose, onToast, clientNames }: AddStaffModalProps) {
-  const { addProfiles } = useMemberProfiles();
-  const [form, setForm] = useState<AddStaffForm>(EMPTY_FORM);
+function AddStaffModal({ onClose, onToast, clientNames, editMember }: AddStaffModalProps) {
+  const { addProfiles, updateProfile } = useMemberProfiles();
+  const isEditMode = !!editMember;
+
+  const initialForm: AddStaffForm = editMember ? {
+    photo: editMember.photo ?? '',
+    name: editMember.name,
+    email: editMember.email,
+    role: editMember.role,
+    perspective: editMember.perspective as MemberPerspective,
+    assignedClients: editMember.assignedClients,
+    zones: editMember.zones,
+    skills: editMember.skills ?? '',
+    responsibilities: editMember.responsibilities ?? '',
+    privileges: editMember.privileges ?? [],
+    mobile: editMember.mobile ?? '',
+    whatsapp: editMember.whatsapp ?? '',
+    location: editMember.location ?? '',
+    availability: editMember.availability ?? '',
+    shift: editMember.shift ?? '',
+    commChannels: editMember.commChannels ?? [],
+  } : EMPTY_FORM;
+
+  const [form, setForm] = useState<AddStaffForm>(initialForm);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -242,6 +275,32 @@ function AddStaffModal({ onClose, onToast, clientNames }: AddStaffModalProps) {
       return;
     }
     setSubmitting(true);
+
+    if (isEditMode && editMember) {
+      updateProfile(editMember.id, {
+        name: form.name.trim(),
+        email: form.email.trim(),
+        role: form.role.trim(),
+        perspective: form.perspective,
+        assignedClients: form.assignedClients,
+        zones: form.zones,
+        skills: form.skills.trim(),
+        responsibilities: form.responsibilities.trim(),
+        privileges: form.privileges,
+        mobile: form.mobile.trim() || undefined,
+        whatsapp: form.whatsapp.trim() || undefined,
+        location: form.location.trim() || undefined,
+        availability: form.availability || undefined,
+        shift: form.shift || undefined,
+        commChannels: form.commChannels,
+        ...(form.photo ? { photo: form.photo } : {}),
+      });
+      onToast(`${form.name.trim()} updated`, 'success');
+      setSubmitting(false);
+      onClose();
+      return;
+    }
+
     try {
       await addProfiles([{
         id: '',
@@ -291,9 +350,9 @@ function AddStaffModal({ onClose, onToast, clientNames }: AddStaffModalProps) {
           <div className="flex items-center justify-between px-5 py-4 border-b border-[rgba(46,127,255,0.15)] flex-shrink-0">
             <div>
               <h3 className="text-[#EEF3FA] font-bold text-[14px]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-                Add Staff Member
+                {isEditMode ? 'Edit Staff Member' : 'Add Staff Member'}
               </h3>
-              <p className="text-[10px] text-[#7A94B4] mt-0.5">Fill in details to add a new team member</p>
+              <p className="text-[10px] text-[#7A94B4] mt-0.5">{isEditMode ? 'Update this team member\u2019s details' : 'Fill in details to add a new team member'}</p>
             </div>
             <button
               onClick={onClose}
@@ -327,7 +386,7 @@ function AddStaffModal({ onClose, onToast, clientNames }: AddStaffModalProps) {
                   >
                     {form.photo ? (
                       <>
-                        <img src={form.photo} alt="Preview" className="w-full h-full object-cover" />
+                        <img src={resolvePhoto(form.photo) ?? form.photo} alt="Preview" className="w-full h-full object-cover" />
                         <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                           <Camera size={16} className="text-white" />
                         </div>
@@ -601,7 +660,7 @@ function AddStaffModal({ onClose, onToast, clientNames }: AddStaffModalProps) {
                 disabled={submitting}
                 className="flex-1 py-2 text-[11px] font-semibold rounded-lg bg-[#2E7FFF] text-white hover:bg-[#2270E8] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                {submitting ? 'Adding…' : 'Add Staff Member'}
+                {submitting ? (isEditMode ? 'Saving…' : 'Adding…') : (isEditMode ? 'Save Changes' : 'Add Staff Member')}
               </button>
             </div>
           </form>
@@ -636,9 +695,10 @@ function DrawerSection({ title, children }: { title: string; children: React.Rea
 interface ProfileDrawerProps {
   member: MockMemberProfile;
   onClose: () => void;
+  onEdit: () => void;
 }
 
-function ProfileDrawer({ member, onClose }: ProfileDrawerProps) {
+function ProfileDrawer({ member, onClose, onEdit }: ProfileDrawerProps) {
   const [whatsappOpen, setWhatsappOpen] = useState(false);
   const avatarGradient = AVATAR_COLORS[member.id.charCodeAt(0) % AVATAR_COLORS.length];
   const badgeCls = PERSPECTIVE_BADGE[member.perspective] ?? 'bg-[#112040] text-[#7A94B4] border-[rgba(46,127,255,0.2)]';
@@ -676,22 +736,31 @@ function ProfileDrawer({ member, onClose }: ProfileDrawerProps) {
             <X size={16} />
           </button>
           <span className="text-[11px] font-semibold text-[#7A94B4]">Staff Profile</span>
-          {(member.whatsapp || member.mobile) ? (
+          <div className="flex items-center gap-2">
             <button
-              onClick={() => setWhatsappOpen(true)}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25 transition-colors text-[10px] font-semibold"
+              onClick={onEdit}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[rgba(46,127,255,0.12)] border border-[rgba(46,127,255,0.3)] text-[#2E7FFF] hover:bg-[rgba(46,127,255,0.22)] transition-colors text-[10px] font-semibold"
             >
-              <MessageSquare size={12} />
-              WhatsApp
+              <Pencil size={11} />
+              Edit
             </button>
-          ) : <div className="w-[82px]" />}
+            {(member.whatsapp || member.mobile) && (
+              <button
+                onClick={() => setWhatsappOpen(true)}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25 transition-colors text-[10px] font-semibold"
+              >
+                <MessageSquare size={12} />
+                WhatsApp
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
           <div className="flex items-start gap-4">
             <div className={`w-16 h-16 rounded-full flex-shrink-0 overflow-hidden bg-gradient-to-br ${avatarGradient} flex items-center justify-center`}>
-              {member.photo ? (
-                <img src={member.photo} alt={member.name} className="w-full h-full object-cover" onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+              {resolvePhoto(member.photo) ? (
+                <img src={resolvePhoto(member.photo)} alt={member.name} className="w-full h-full object-cover" onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
               ) : (
                 <span className="text-white text-xl font-bold">{getInitials(member.name)}</span>
               )}
@@ -703,10 +772,17 @@ function ProfileDrawer({ member, onClose }: ProfileDrawerProps) {
                 <div className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[9px] font-semibold ${badgeCls}`}>
                   {member.perspective}
                 </div>
-                <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9px] font-semibold bg-emerald-500/10 border-emerald-500/25 text-emerald-400">
-                  <span className="w-1 h-1 rounded-full bg-emerald-400 inline-block" />
-                  Active
-                </div>
+                {member.isActive !== false ? (
+                  <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9px] font-semibold bg-emerald-500/10 border-emerald-500/25 text-emerald-400">
+                    <span className="w-1 h-1 rounded-full bg-emerald-400 inline-block" />
+                    Active
+                  </div>
+                ) : (
+                  <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9px] font-semibold bg-[rgba(100,100,120,0.15)] border-[rgba(100,100,120,0.3)] text-[#6B7A8D]">
+                    <span className="w-1 h-1 rounded-full bg-[#6B7A8D] inline-block" />
+                    Inactive
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -874,10 +950,11 @@ interface Props {
 const PERSPECTIVE_FILTER_OPTS = ['All', 'Strategic', 'Operational'] as const;
 
 export function Team({ onToast }: Props) {
-  const { profiles } = useMemberProfiles();
+  const { profiles, updateProfile } = useMemberProfiles();
   const { clients } = useClients();
   const [showModal, setShowModal] = useState(false);
   const [selectedMember, setSelectedMember] = useState<MockMemberProfile | null>(null);
+  const [editingMember, setEditingMember] = useState<MockMemberProfile | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPerspective, setFilterPerspective] = useState('All');
@@ -1049,18 +1126,24 @@ export function Team({ onToast }: Props) {
               {filteredMembers.map((member, idx) => {
                 const avatarGradient = AVATAR_COLORS[idx % AVATAR_COLORS.length];
                 const badgeCls = PERSPECTIVE_BADGE[member.perspective] ?? 'bg-[#112040] text-[#7A94B4] border-[rgba(46,127,255,0.2)]';
+                const isActive = member.isActive !== false;
+                const photoSrc = resolvePhoto(member.photo);
                 return (
                   <motion.div
                     key={member.id}
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.18, delay: idx * 0.04 }}
-                    className="flex flex-col rounded-xl border border-[rgba(46,127,255,0.2)] bg-[rgba(17,32,64,0.7)] overflow-hidden"
+                    className={`flex flex-col rounded-xl border overflow-hidden transition-opacity ${
+                      isActive
+                        ? 'border-[rgba(46,127,255,0.2)] bg-[rgba(17,32,64,0.7)]'
+                        : 'border-[rgba(100,100,120,0.2)] bg-[rgba(17,20,32,0.6)] opacity-70'
+                    }`}
                   >
                     <div className="p-4 flex items-start gap-3">
                       <div className={`w-10 h-10 rounded-full flex-shrink-0 overflow-hidden bg-gradient-to-br ${avatarGradient} flex items-center justify-center`}>
-                        {member.photo ? (
-                          <img src={member.photo} alt={member.name} className="w-full h-full object-cover" onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+                        {photoSrc ? (
+                          <img src={photoSrc} alt={member.name} className="w-full h-full object-cover" onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
                         ) : (
                           <span className="text-white text-[13px] font-bold">{getInitials(member.name)}</span>
                         )}
@@ -1072,10 +1155,17 @@ export function Team({ onToast }: Props) {
                           <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9px] font-semibold ${badgeCls}`}>
                             {member.perspective}
                           </div>
-                          <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9px] font-semibold bg-emerald-500/10 border-emerald-500/25 text-emerald-400">
-                            <span className="w-1 h-1 rounded-full bg-emerald-400 inline-block" />
-                            Active
-                          </div>
+                          {isActive ? (
+                            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9px] font-semibold bg-emerald-500/10 border-emerald-500/25 text-emerald-400">
+                              <span className="w-1 h-1 rounded-full bg-emerald-400 inline-block" />
+                              Active
+                            </div>
+                          ) : (
+                            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9px] font-semibold bg-[rgba(100,100,120,0.15)] border-[rgba(100,100,120,0.3)] text-[#6B7A8D]">
+                              <span className="w-1 h-1 rounded-full bg-[#6B7A8D] inline-block" />
+                              Inactive
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1107,12 +1197,25 @@ export function Team({ onToast }: Props) {
                       )}
                     </div>
 
-                    <div className="px-4 pb-4">
+                    <div className="px-4 pb-4 flex items-center gap-2">
                       <button
                         onClick={() => setSelectedMember(member)}
-                        className="w-full py-1.5 text-[10px] font-semibold rounded-lg border border-[rgba(46,127,255,0.35)] text-[#2E7FFF] hover:bg-[rgba(46,127,255,0.12)] transition-colors"
+                        className="flex-1 py-1.5 text-[10px] font-semibold rounded-lg border border-[rgba(46,127,255,0.35)] text-[#2E7FFF] hover:bg-[rgba(46,127,255,0.12)] transition-colors"
                       >
                         View Profile
+                      </button>
+                      <button
+                        onClick={() => updateProfile(member.id, { isActive: !isActive })}
+                        title={isActive ? 'Mark as Inactive' : 'Mark as Active'}
+                        className="flex items-center gap-1.5 flex-shrink-0"
+                        aria-label={isActive ? 'Deactivate' : 'Activate'}
+                      >
+                        <span className={`text-[9px] font-semibold transition-colors ${isActive ? 'text-emerald-400' : 'text-[#6B7A8D]'}`}>
+                          {isActive ? 'Active' : 'Inactive'}
+                        </span>
+                        <div className={`relative w-7 h-4 rounded-full transition-colors ${isActive ? 'bg-emerald-500/60' : 'bg-[rgba(100,100,120,0.35)]'}`}>
+                          <span className={`absolute top-0.5 w-3 h-3 rounded-full shadow transition-all ${isActive ? 'left-3.5 bg-emerald-300' : 'left-0.5 bg-[#6B7A8D]'}`} />
+                        </div>
                       </button>
                     </div>
                   </motion.div>
@@ -1124,11 +1227,12 @@ export function Team({ onToast }: Props) {
       </div>
 
       <AnimatePresence>
-        {showModal && (
+        {(showModal || editingMember) && (
           <AddStaffModal
-            onClose={() => setShowModal(false)}
+            onClose={() => { setShowModal(false); setEditingMember(null); }}
             onToast={onToast}
             clientNames={clientNames}
+            editMember={editingMember ?? undefined}
           />
         )}
       </AnimatePresence>
@@ -1138,6 +1242,11 @@ export function Team({ onToast }: Props) {
           <ProfileDrawer
             member={selectedMember}
             onClose={() => setSelectedMember(null)}
+            onEdit={() => {
+              const m = profiles.find(p => p.id === selectedMember.id) ?? selectedMember;
+              setSelectedMember(null);
+              setEditingMember(m);
+            }}
           />
         )}
       </AnimatePresence>

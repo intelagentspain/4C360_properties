@@ -18,6 +18,7 @@ export interface MockMemberProfile {
   shift?: string;
   commChannels?: string[];
   photo?: string;
+  isActive?: boolean;
   clientSector?: string;
   propertyName?: string;
 }
@@ -33,7 +34,8 @@ export const mockMemberProfiles: MockMemberProfile[] = [
     zones: ['Cluster A', 'Cluster B', 'Block C'],
     skills: 'HVAC, Electrical, PPM Management, Asset Intelligence',
     responsibilities: 'Oversee FM operations for Dubai Silicon Oasis and Gate Avenue DIFC\nMonitor SLA performance and escalate breaches immediately\nReview AI dispatch recommendations and adjust automation rules weekly\nConduct monthly KPI reviews with account managers',
-    photo: '/team/hassan-yousef.png',
+    photo: 'team/hassan-yousef.png',
+    isActive: true,
   },
   {
     id: 'mbr-002',
@@ -45,7 +47,8 @@ export const mockMemberProfiles: MockMemberProfile[] = [
     zones: ['Cluster A', 'Block C'],
     skills: 'HVAC Specialist, Refrigerant Handling, Predictive Maintenance',
     responsibilities: 'Respond to HVAC incidents in Cluster A within SLA targets\nConduct quarterly chiller and AHU servicing\nLog all interventions in the platform after each job\nTrain junior technicians on HVAC diagnostic procedures',
-    photo: '/team/karim-r.png',
+    photo: 'team/karim-r.png',
+    isActive: true,
   },
   {
     id: 'mbr-003',
@@ -57,7 +60,8 @@ export const mockMemberProfiles: MockMemberProfile[] = [
     zones: ['Dubai East'],
     skills: 'Client Relations, KPI Reporting, Contract Management',
     responsibilities: 'Manage the Dubai Silicon Oasis client relationship\nDeliver monthly performance reports to the client board\nTrack contract renewal milestones and renewal readiness\nCoordinate with FM Manager on escalation resolution',
-    photo: '/team/rania-al-farsi.png',
+    photo: 'team/rania-al-farsi.png',
+    isActive: true,
   },
   {
     id: 'mbr-004',
@@ -69,7 +73,8 @@ export const mockMemberProfiles: MockMemberProfile[] = [
     zones: ['Cluster A', 'Cluster B', 'Block C', 'Recreation Area'],
     skills: 'HVAC & Electrical, Site Safety, Permit to Work',
     responsibilities: 'Conduct daily site walk-arounds and log observations before 09:00\nEnsure all technicians hold valid permits for high-risk tasks\nChase overdue work orders 30 min before SLA breach\nReview team attendance and assign shift coverage',
-    photo: '/team/tariq-mansour.png',
+    photo: 'team/tariq-mansour.png',
+    isActive: true,
   },
   {
     id: 'mbr-005',
@@ -81,7 +86,8 @@ export const mockMemberProfiles: MockMemberProfile[] = [
     zones: ['Dubai Marina'],
     skills: 'Facility Management Oversight, Compliance Review',
     responsibilities: 'Review service request status and SLA compliance\nSubmit and track maintenance requests for JLT North\nAccess performance reports and satisfaction data\nEscalate unresolved issues to Imdaad account management',
-    photo: '/team/lina-barakat.png',
+    photo: 'team/lina-barakat.png',
+    isActive: true,
   },
   {
     id: 'mbr-006',
@@ -93,7 +99,8 @@ export const mockMemberProfiles: MockMemberProfile[] = [
     zones: ['Dubai Creek Harbour'],
     skills: 'Hospitality Guest',
     responsibilities: 'Report maintenance issues in your room or hotel area\nTrack the status of your service request\nProvide feedback on completed maintenance',
-    photo: '/team/sara-rashidi.png',
+    photo: 'team/sara-rashidi.png',
+    isActive: true,
     clientSector: 'Hospitality',
     propertyName: 'Palace Residences Hotel',
   },

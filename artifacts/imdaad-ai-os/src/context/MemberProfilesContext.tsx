@@ -7,6 +7,7 @@ import { api } from '@/lib/api';
 interface MemberProfilesContextValue {
   profiles: MockMemberProfile[];
   addProfiles: (members: TeamMember[]) => Promise<void>;
+  updateProfile: (id: string, patch: Partial<MockMemberProfile>) => void;
   getById: (id: string) => MockMemberProfile | undefined;
 }
 
@@ -31,6 +32,7 @@ function dbMemberToProfile(m: Record<string, unknown>): MockMemberProfile {
     shift: m['shift'] ? String(m['shift']) : undefined,
     commChannels: (m['commChannels'] as string[] | null) ?? [],
     photo: m['photo'] ? String(m['photo']) : undefined,
+    isActive: m['isActive'] !== undefined ? Boolean(m['isActive']) : true,
   };
 }
 
@@ -99,10 +101,14 @@ export function MemberProfilesProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const updateProfile = useCallback((id: string, patch: Partial<MockMemberProfile>) => {
+    setProfiles(prev => prev.map(p => p.id === id ? { ...p, ...patch } : p));
+  }, []);
+
   const getById = useCallback((id: string) => profiles.find(p => p.id === id), [profiles]);
 
   return (
-    <MemberProfilesContext.Provider value={{ profiles, addProfiles, getById }}>
+    <MemberProfilesContext.Provider value={{ profiles, addProfiles, updateProfile, getById }}>
       {children}
     </MemberProfilesContext.Provider>
   );
