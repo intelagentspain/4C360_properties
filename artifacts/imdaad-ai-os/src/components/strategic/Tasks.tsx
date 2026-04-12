@@ -11,8 +11,27 @@ import { TechAvatar } from '@/components/shared/TechAvatar';
 import type { PPMRiskPayload } from './PPMRiskPanel';
 import { CreateWorkOrderModal } from './CreateWorkOrderModal';
 import { AssignTechModal } from '@/components/shared/AssignTechModal';
+import { useIncidents } from '@/context/IncidentContext';
 
-type KTask = typeof mockKanbanTasks[0];
+type RawKTask = typeof mockKanbanTasks[0];
+
+interface TaskItem {
+  id: string;
+  title: string;
+  asset: string;
+  location: string;
+  skill: RawKTask['skill'];
+  priority: RawKTask['priority'];
+  status: RawKTask['status'];
+  tech: string | null;
+  slaMinutes: number;
+  elapsed: number;
+  reportedBy: string;
+  evidence: string[];
+  _dueLabel?: string;
+}
+
+type KTask = RawKTask;
 type KTaskArr = KTask[];
 
 const STATUS_LABEL: Record<string, string> = {
@@ -79,6 +98,10 @@ const RISK_TO_SKILL: Record<string, string> = {
   Lift: 'General',
 };
 
+const VALID_SKILLS = new Set<KTask['skill']>(['HVAC', 'Plumbing', 'Electrical', 'General', 'Safety']);
+const VALID_PRIORITIES = new Set<KTask['priority']>(['critical', 'high', 'medium', 'low']);
+const VALID_STATUSES = new Set<KTask['status']>(['new', 'assigned', 'in-progress', 'awaiting-evidence', 'closed', 'overdue']);
+
 function buildSyntheticTask(risk: PPMRiskPayload): KTask {
   const priority = RISK_TO_PRIORITY[risk.riskLevel] ?? 'medium';
   const typeWords = risk.type.split(' ');
@@ -120,6 +143,7 @@ interface Props {
 }
 
 export function Tasks({ onToast, prefilledTask, onPrefilledTaskConsumed }: Props) {
+  const { workOrders, addWorkOrder } = useIncidents();
   const [search,    setSearch]    = useState('');
   const [status,    setStatus]    = useState('All');
   const [priority,  setPriority]  = useState('All');
@@ -159,11 +183,34 @@ export function Tasks({ onToast, prefilledTask, onPrefilledTaskConsumed }: Props
     onPrefilledTaskConsumed?.();
   }, [prefilledTask]);
 
-  const allTasks = [
+  const contextWorkOrderTasks: TaskItem[] = workOrders.map(wo => ({
+    id: wo.id,
+    title: wo.title,
+    asset: wo.asset,
+    location: wo.location,
+    skill: VALID_SKILLS.has(wo.skill as KTask['skill']) ? (wo.skill as KTask['skill']) : 'General',
+    priority: VALID_PRIORITIES.has(wo.priority as KTask['priority']) ? (wo.priority as KTask['priority']) : 'medium',
+    status: VALID_STATUSES.has(wo.status as KTask['status']) ? (wo.status as KTask['status']) : 'new',
+    tech: wo.tech,
+    slaMinutes: wo.slaMinutes,
+    elapsed: wo.elapsed,
+    reportedBy: wo.reportedBy,
+    evidence: wo.evidence,
+  }));
+
+  const seenIds = new Set<string>();
+  const allTasks: TaskItem[] = [];
+  for (const t of [
+    ...contextWorkOrderTasks,
     ...syntheticTasks,
-    ...mockKanbanTasks.map(t => taskOverrides[t.id] ? { ...t, ...taskOverrides[t.id] } : t),
     ...extraTasks,
-  ];
+    ...mockKanbanTasks.map(t => taskOverrides[t.id] ? { ...t, ...taskOverrides[t.id] } : t),
+  ]) {
+    if (!seenIds.has(t.id)) {
+      seenIds.add(t.id);
+      allTasks.push(t);
+    }
+  }
 
   const filtered = allTasks.filter(t => {
     if (status   !== 'All' && t.status   !== status)   return false;
@@ -483,7 +530,23 @@ export function Tasks({ onToast, prefilledTask, onPrefilledTaskConsumed }: Props
       <CreateWorkOrderModal
         open={showCreate}
         onClose={() => setShowCreate(false)}
-        onCreated={task => setExtraTasks(prev => [task, ...prev])}
+        onCreated={task => {
+          addWorkOrder({
+            id: task.id,
+            title: task.title,
+            asset: task.asset,
+            location: task.location,
+            skill: task.skill,
+            priority: task.priority,
+            status: task.status,
+            tech: task.tech,
+            slaMinutes: task.slaMinutes,
+            elapsed: task.elapsed,
+            reportedBy: task.reportedBy,
+            evidence: task.evidence,
+          });
+          setExtraTasks(prev => [task, ...prev]);
+        }}
         onToast={onToast}
       />
 

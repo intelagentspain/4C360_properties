@@ -149,6 +149,7 @@ interface IncidentContextValue {
   incidents: Incident[];
   addIncident: (inc: Incident) => void;
   workOrders: WorkOrderTask[];
+  addWorkOrder: (wo: WorkOrderTask) => void;
   createWorkOrder: (incidentId: string, data: CreateWorkOrderInput) => WorkOrderTask;
   approveTicket: (incidentId: string, approvedBy?: string) => Promise<void>;
   rejectTicket: (incidentId: string, reason: string, rejectedBy?: string) => Promise<void>;
@@ -464,6 +465,13 @@ function IncidentProviderInner({ children }: { children: ReactNode }) {
     setIncidents([...incidentsRef.current]);
   }, []);
 
+  const addWorkOrder = useCallback((wo: WorkOrderTask) => {
+    setWorkOrders(wos => {
+      if (wos.some(w => w.id === wo.id)) return wos;
+      return [wo, ...wos];
+    });
+  }, []);
+
   const createWorkOrder = useCallback((incidentId: string, data: CreateWorkOrderInput): WorkOrderTask => {
     const id = generateWorkOrderId();
     const now = new Date();
@@ -527,7 +535,7 @@ function IncidentProviderInner({ children }: { children: ReactNode }) {
   }, [addWorkOrderNotification]);
 
   return (
-    <IncidentContext.Provider value={{ incidents, addIncident, workOrders, createWorkOrder, approveTicket, rejectTicket, resolveIncident, confirmResolution }}>
+    <IncidentContext.Provider value={{ incidents, addIncident, workOrders, addWorkOrder, createWorkOrder, approveTicket, rejectTicket, resolveIncident, confirmResolution }}>
       {children}
     </IncidentContext.Provider>
   );
