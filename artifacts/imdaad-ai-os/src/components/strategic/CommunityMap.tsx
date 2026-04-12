@@ -7,6 +7,7 @@ import {
   mockTechnicians, mockAssets,
   mockTasks, mockSLAZones, mockPredictedFailures,
 } from '@/data/mockData';
+import { PPMHistoryDrawer } from '@/components/shared/PPMHistoryDrawer';
 import { useClients } from '@/context/ClientsContext';
 import { useMemberFilter, isFilterActive } from '@/context/MemberFilterContext';
 import { useIncidents } from '@/context/IncidentContext';
@@ -114,9 +115,10 @@ interface MapDrawerProps {
   item: DrawerItem | null;
   onClose: () => void;
   onToast: (msg: string, type?: 'success' | 'warning' | 'error' | 'info') => void;
+  onViewHistory: (asset: typeof mockAssets[0]) => void;
 }
 
-function MapDrawer({ item, onClose, onToast }: MapDrawerProps) {
+function MapDrawer({ item, onClose, onToast, onViewHistory }: MapDrawerProps) {
   return (
     <AnimatePresence>
       {item && (
@@ -140,7 +142,7 @@ function MapDrawer({ item, onClose, onToast }: MapDrawerProps) {
           <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
             {item.kind === 'tech' && <TechDetail data={item.data} onToast={onToast} onClose={onClose} />}
             {item.kind === 'incident' && <IncidentDetail data={item.data} onToast={onToast} onClose={onClose} />}
-            {item.kind === 'asset' && <AssetDetail data={item.data} onToast={onToast} onClose={onClose} />}
+            {item.kind === 'asset' && <AssetDetail data={item.data} onToast={onToast} onClose={onClose} onViewHistory={onViewHistory} />}
             {item.kind === 'task' && <TaskDetail data={item.data} onToast={onToast} onClose={onClose} />}
             {item.kind === 'failure' && <FailureDetail data={item.data} onToast={onToast} onClose={onClose} />}
           </div>
@@ -241,7 +243,7 @@ function IncidentDetail({ data, onToast, onClose }: { data: Incident; onToast: (
   );
 }
 
-function AssetDetail({ data, onToast, onClose }: { data: typeof mockAssets[0]; onToast: (m: string, t?: any) => void; onClose: () => void }) {
+function AssetDetail({ data, onToast, onClose, onViewHistory }: { data: typeof mockAssets[0]; onToast: (m: string, t?: any) => void; onClose: () => void; onViewHistory: (asset: typeof mockAssets[0]) => void }) {
   return (
     <>
       <div>
@@ -270,7 +272,7 @@ function AssetDetail({ data, onToast, onClose }: { data: typeof mockAssets[0]; o
       </div>
       <div className="flex gap-2">
         <ActionBtn primary onClick={() => { onToast('Creating PPM task', 'success'); onClose(); }}>Schedule PPM</ActionBtn>
-        <ActionBtn onClick={() => { onToast(`Viewing asset ${data.id}`, 'info'); onClose(); }}>View History</ActionBtn>
+        <ActionBtn onClick={() => { onViewHistory(data); onClose(); }}>View History</ActionBtn>
       </div>
     </>
   );
@@ -439,6 +441,7 @@ export function CommunityMap({ onToast, selectedClientId }: Props) {
     predictedFailures: false,
   });
   const [drawer, setDrawer] = useState<DrawerItem | null>(null);
+  const [historyAsset, setHistoryAsset] = useState<typeof mockAssets[0] | null>(null);
 
   const toggleLayer = (key: LayerKey) => setActiveLayers(prev => ({ ...prev, [key]: !prev[key] }));
 
@@ -626,7 +629,18 @@ export function CommunityMap({ onToast, selectedClientId }: Props) {
         </div>
       </div>
 
-      <MapDrawer item={drawer} onClose={() => setDrawer(null)} onToast={onToast ?? (() => {})} />
+      <MapDrawer
+        item={drawer}
+        onClose={() => setDrawer(null)}
+        onToast={onToast ?? (() => {})}
+        onViewHistory={asset => setHistoryAsset(asset)}
+      />
+
+      <PPMHistoryDrawer
+        asset={historyAsset}
+        open={historyAsset !== null}
+        onClose={() => setHistoryAsset(null)}
+      />
     </div>
   );
 }

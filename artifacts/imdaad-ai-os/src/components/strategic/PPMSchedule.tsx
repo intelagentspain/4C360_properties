@@ -10,6 +10,7 @@ import { AnimatedBar } from '@/components/shared/AnimatedBar';
 import { TechAvatar } from '@/components/shared/TechAvatar';
 import { AssignTechModal } from '@/components/shared/AssignTechModal';
 import { AssetExpertCopilot } from '@/components/shared/AssetExpertCopilot';
+import { PPMHistoryDrawer } from '@/components/shared/PPMHistoryDrawer';
 
 type PPMItem = typeof mockPPMSchedule[0];
 
@@ -178,6 +179,7 @@ export function PPMSchedule({ onToast }: Props) {
   const [ppmTechOverrides, setPpmTechOverrides] = useState<Record<string, string>>({});
   const [copilotOpen, setCopilotOpen] = useState(false);
   const [copilotItem, setCopilotItem] = useState<PPMItem | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   const grouped = RISK_ORDER.reduce((acc, level) => {
     acc[level] = mockPPMSchedule.filter(p => p.riskLevel === level);
@@ -361,7 +363,7 @@ export function PPMSchedule({ onToast }: Props) {
                     <Wrench size={12} /> Schedule PPM
                   </button>
                   <button
-                    onClick={() => onToast(`Viewing asset history for ${selectedAsset.name}`, 'info')}
+                    onClick={() => setHistoryOpen(true)}
                     className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-white/5 border border-white/10 text-[#EEF3FA] text-[11px] font-semibold hover:bg-white/10 transition-colors"
                   >
                     <Clock size={12} /> View History
@@ -382,6 +384,12 @@ export function PPMSchedule({ onToast }: Props) {
           )}
         </AnimatePresence>
       </div>
+
+      <PPMHistoryDrawer
+        asset={selectedAsset}
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+      />
 
       <AssignTechModal
         open={assignTarget !== null}

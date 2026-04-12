@@ -291,6 +291,133 @@ export const mockPPMSchedule = [
   },
 ];
 
+export interface PPMHistoryRecord {
+  id: string;
+  date: string;
+  technician: string;
+  techId: string;
+  result: 'pass' | 'fail' | 'partial';
+  conditionScore: number;
+  durationMinutes: number;
+  findings: string;
+  partsUsed?: string[];
+  onTime: boolean;
+}
+
+export interface PPMAssetHistory {
+  assetId: string;
+  aiInsight: string;
+  complianceRate: number;
+  avgDaysBetweenService: number;
+  failureFrequency: number;
+  recurringFindings: { finding: string; occurrences: number; total: number }[];
+  records: PPMHistoryRecord[];
+}
+
+export const mockPPMHistory: PPMAssetHistory[] = [
+  {
+    assetId: 'AST-001',
+    aiInsight: 'Chiller Unit C-04 shows a declining condition trend over the last 4 services, with refrigerant pressure consistently underperforming. Three of the last four services flagged refrigerant-related findings, and the on-time compliance rate has dropped to 71% — indicating scheduling gaps that may be accelerating wear.',
+    complianceRate: 71,
+    avgDaysBetweenService: 88,
+    failureFrequency: 1,
+    recurringFindings: [
+      { finding: 'Low refrigerant pressure', occurrences: 3, total: 4 },
+      { finding: 'Condenser coil fouling', occurrences: 2, total: 4 },
+      { finding: 'Filter replacement required', occurrences: 4, total: 4 },
+    ],
+    records: [
+      { id: 'H-001-1', date: '12 Jan 2026', technician: 'Karim R.', techId: 'KR', result: 'partial', conditionScore: 72, durationMinutes: 140, findings: 'Refrigerant at 72% nominal — topped up to 89%. Condenser coils cleaned. Filter replaced (Grade F7). Minor belt wear noted.', partsUsed: ['R-410A Refrigerant 2kg', 'Filter Grade F7'], onTime: false },
+      { id: 'H-001-2', date: '13 Oct 2025', technician: 'Karim R.', techId: 'KR', result: 'pass', conditionScore: 81, durationMinutes: 120, findings: 'Quarterly service completed. All readings within spec. Filter replaced. Coils cleaned — light fouling only. Refrigerant pressure at 94%.', partsUsed: ['Filter Grade F7'], onTime: true },
+      { id: 'H-001-3', date: '10 Jul 2025', technician: 'Omar T.', techId: 'OT', result: 'partial', conditionScore: 78, durationMinutes: 175, findings: 'Refrigerant pressure at 76% — below threshold. Leak suspected at connection joint. Topped up. Joint re-sealed. Recommend follow-up in 30 days.', partsUsed: ['R-410A Refrigerant 3kg', 'Sealant Kit'], onTime: true },
+      { id: 'H-001-4', date: '14 Apr 2025', technician: 'Karim R.', techId: 'KR', result: 'pass', conditionScore: 86, durationMinutes: 115, findings: 'Routine quarterly service. All parameters nominal. Filter replaced, coils washed, thermostat calibrated. Asset in good condition.', partsUsed: ['Filter Grade F7'], onTime: true },
+      { id: 'H-001-5', date: '10 Jan 2025', technician: 'Karim R.', techId: 'KR', result: 'fail', conditionScore: 63, durationMinutes: 220, findings: 'Refrigerant critically low at 48%. Compressor showing intermittent fault. Full refrigerant recharge performed. Compressor contacts replaced. Follow-up required.', partsUsed: ['R-410A Refrigerant 5kg', 'Compressor Contacts'], onTime: false },
+      { id: 'H-001-6', date: '11 Oct 2024', technician: 'Karim R.', techId: 'KR', result: 'pass', conditionScore: 88, durationMinutes: 110, findings: 'Standard quarterly service. Minor condenser fouling cleared. All readings nominal post-service. Asset operating within specification.', onTime: true },
+    ],
+  },
+  {
+    assetId: 'AST-002',
+    aiInsight: 'Lift Cluster A Block 2 has a concerning vibration history — motor anomalies were detected in 3 of the last 4 services. The asset compliance rate is 58%, suggesting PPMs are frequently deferred. Given the active IoT vibration alert, the risk of imminent failure is elevated and immediate intervention is recommended.',
+    complianceRate: 58,
+    avgDaysBetweenService: 34,
+    failureFrequency: 2,
+    recurringFindings: [
+      { finding: 'Motor vibration anomaly', occurrences: 3, total: 4 },
+      { finding: 'Guide rail lubrication needed', occurrences: 4, total: 4 },
+      { finding: 'Door sensor misalignment', occurrences: 2, total: 4 },
+    ],
+    records: [
+      { id: 'H-002-1', date: '9 Mar 2026', technician: 'Faisal N.', techId: 'FN', result: 'partial', conditionScore: 58, durationMinutes: 95, findings: 'Monthly safety check. Motor vibration at 4.2mm/s — above 3.5mm/s threshold. Guide rails lubricated. Door sensors adjusted. Vibration issue escalated for specialist review.', onTime: false },
+      { id: 'H-002-2', date: '6 Feb 2026', technician: 'Faisal N.', techId: 'FN', result: 'pass', conditionScore: 64, durationMinutes: 80, findings: 'Monthly check completed. Light vibration noted (3.1mm/s — within tolerance). Rails lubricated. Emergency button tested and functional. Cabin lighting checked.', onTime: false },
+      { id: 'H-002-3', date: '5 Jan 2026', technician: 'Ahmed K.', techId: 'AK', result: 'fail', conditionScore: 55, durationMinutes: 180, findings: 'Motor overheating detected (82°C — limit is 75°C). Lift taken out of service for 4 hours. Motor cooling fan replaced. Bearings greased. Service resumed after cool-down.', partsUsed: ['Cooling Fan Assembly', 'Bearing Grease 500g'], onTime: true },
+      { id: 'H-002-4', date: '4 Dec 2025', technician: 'Faisal N.', techId: 'FN', result: 'partial', conditionScore: 62, durationMinutes: 90, findings: 'Motor vibration elevated (3.9mm/s). Door sensor on Floor 3 misaligned — adjusted and re-tested. Guide rails lubricated. Recommend motor inspection next service.', onTime: true },
+      { id: 'H-002-5', date: '2 Nov 2025', technician: 'Faisal N.', techId: 'FN', result: 'pass', conditionScore: 71, durationMinutes: 75, findings: 'Standard monthly check. All parameters within spec. No anomalies detected. Rails lubricated, emergency lighting tested.', onTime: true },
+      { id: 'H-002-6', date: '1 Oct 2025', technician: 'Ahmed K.', techId: 'AK', result: 'pass', conditionScore: 75, durationMinutes: 85, findings: 'Monthly safety inspection completed. Cabin interior checked. Safety switches tested. Drive belt tension verified. Asset in satisfactory condition.', onTime: false },
+    ],
+  },
+  {
+    assetId: 'AST-003',
+    aiInsight: 'Generator G-01 has an excellent maintenance track record with 100% compliance and consistent pass results across all 6 recorded services. Condition scores have remained above 90% throughout, and no recurring faults have been identified. The asset is well-maintained and operating well within expected parameters — a model example of preventive maintenance done right.',
+    complianceRate: 100,
+    avgDaysBetweenService: 91,
+    failureFrequency: 0,
+    recurringFindings: [
+      { finding: 'Load test completed successfully', occurrences: 6, total: 6 },
+      { finding: 'Battery voltage check — nominal', occurrences: 6, total: 6 },
+      { finding: 'Fuel level verified and topped up', occurrences: 6, total: 6 },
+    ],
+    records: [
+      { id: 'H-003-1', date: '15 Jan 2026', technician: 'Sara M.', techId: 'SM', result: 'pass', conditionScore: 94, durationMinutes: 120, findings: 'Quarterly load test conducted at 80% rated capacity for 30 minutes. All readings nominal. Battery voltage 13.8V. Fuel at 92%. Coolant level OK.', onTime: true },
+      { id: 'H-003-2', date: '16 Oct 2025', technician: 'Sara M.', techId: 'SM', result: 'pass', conditionScore: 95, durationMinutes: 115, findings: 'Load test completed. Transfer switch tested — 2.3s switchover (within 3s SLA). Engine oil changed. Air filter cleaned. All systems nominal.', partsUsed: ['Engine Oil 5L', 'Air Filter'], onTime: true },
+      { id: 'H-003-3', date: '18 Jul 2025', technician: 'Omar T.', techId: 'OT', result: 'pass', conditionScore: 93, durationMinutes: 130, findings: 'Quarterly service. Load test at 75% capacity — stable. Voltage regulator tested. Fuel injectors cleaned. Battery replaced as preventive measure.', partsUsed: ['Battery 12V 100Ah'], onTime: true },
+      { id: 'H-003-4', date: '22 Apr 2025', technician: 'Sara M.', techId: 'SM', result: 'pass', conditionScore: 96, durationMinutes: 105, findings: 'Routine quarterly service. All parameters excellent. Load test completed. Radiator checked — no leaks. Coolant topped up. Asset in excellent condition.', partsUsed: ['Coolant 2L'], onTime: true },
+      { id: 'H-003-5', date: '19 Jan 2025', technician: 'Sara M.', techId: 'SM', result: 'pass', conditionScore: 95, durationMinutes: 118, findings: 'Quarterly load test completed — 85% rated capacity for 35 minutes. All fuel, battery, coolant, and oil readings within spec. Exhaust checked — no abnormal emissions. No issues found.', onTime: true },
+      { id: 'H-003-6', date: '20 Oct 2024', technician: 'Omar T.', techId: 'OT', result: 'pass', conditionScore: 97, durationMinutes: 108, findings: 'Quarterly service. Load test at 80% capacity — generator held load steadily for 30 minutes. Engine oil changed. Air filter replaced. Fuel topped up to 100%. Asset performing excellently.', partsUsed: ['Engine Oil 5L', 'Air Filter'], onTime: true },
+    ],
+  },
+  {
+    assetId: 'AST-004',
+    aiInsight: 'Pool Pump PP-02 has been well-maintained with mostly pass results, though a persistent pressure variance issue has emerged over the last 3 services. The current IoT sensor reading anomalous vibration directly aligns with the strainer blockage and impeller wear pattern observed since November 2025. Early intervention is advisable before the next monthly inspection to prevent escalation.',
+    complianceRate: 83,
+    avgDaysBetweenService: 31,
+    failureFrequency: 0,
+    recurringFindings: [
+      { finding: 'Pressure variance detected', occurrences: 3, total: 6 },
+      { finding: 'Impeller inspection completed', occurrences: 5, total: 6 },
+      { finding: 'Seal integrity verified', occurrences: 6, total: 6 },
+      { finding: 'Strainer cleaning required', occurrences: 2, total: 6 },
+    ],
+    records: [
+      { id: 'H-004-1', date: '31 Mar 2026', technician: 'Ahmed K.', techId: 'AK', result: 'partial', conditionScore: 89, durationMinutes: 65, findings: 'Monthly inspection. Pressure variance of ±0.4 bar noted — borderline tolerance. Impeller inspected — minor leading-edge wear detected. Seals intact. Monitoring recommended.', onTime: true },
+      { id: 'H-004-2', date: '28 Feb 2026', technician: 'Ahmed K.', techId: 'AK', result: 'pass', conditionScore: 91, durationMinutes: 60, findings: 'Routine inspection completed. Pump pressure stable. Flow rate at 98% nominal. Impeller clear. No issues noted.', onTime: true },
+      { id: 'H-004-3', date: '30 Jan 2026', technician: 'Faisal N.', techId: 'FN', result: 'partial', conditionScore: 87, durationMinutes: 80, findings: 'Pressure oscillation of ±0.5 bar detected during inspection. Strainer cleaned — significant debris found. Pressure stabilised post-clean. Impeller checked — intact.', onTime: false },
+      { id: 'H-004-4', date: '31 Dec 2025', technician: 'Ahmed K.', techId: 'AK', result: 'pass', conditionScore: 92, durationMinutes: 55, findings: 'Year-end inspection. All readings nominal. Pump running smoothly. Seals and gaskets in good condition. Lubrication applied to motor bearings.', partsUsed: ['Bearing Lubricant'], onTime: true },
+      { id: 'H-004-5', date: '30 Nov 2025', technician: 'Ahmed K.', techId: 'AK', result: 'partial', conditionScore: 88, durationMinutes: 70, findings: 'Pressure variance of ±0.3 bar first observed this service. Strainer inspected — light debris accumulation cleared. Impeller checked, no wear. Seals intact. Flagged for monitoring.', onTime: true },
+      { id: 'H-004-6', date: '31 Oct 2025', technician: 'Faisal N.', techId: 'FN', result: 'pass', conditionScore: 93, durationMinutes: 58, findings: 'Monthly inspection. All pressures nominal. Impeller visually inspected — clear. Seals checked — no leaks. Motor temperature within limits. Asset in good condition.', onTime: true },
+    ],
+  },
+  {
+    assetId: 'AST-005',
+    aiInsight: 'Fire Panel FP-01 is one of the best-maintained assets on site, with 100% compliance and perfect pass results across all 6 inspections spanning nearly 3 years. Condition scores have remained above 95% throughout, reflecting the priority given to life-safety equipment. No corrective actions have been required — this asset represents the compliance standard all critical equipment should meet.',
+    complianceRate: 100,
+    avgDaysBetweenService: 182,
+    failureFrequency: 0,
+    recurringFindings: [
+      { finding: 'All zone detectors tested — functional', occurrences: 6, total: 6 },
+      { finding: 'Battery backup duration verified', occurrences: 6, total: 6 },
+      { finding: 'Alarm sounders and strobes tested', occurrences: 6, total: 6 },
+    ],
+    records: [
+      { id: 'H-005-1', date: '20 Sep 2025', technician: 'Sara M.', techId: 'SM', result: 'pass', conditionScore: 97, durationMinutes: 180, findings: '6-month inspection completed. All 48 zone detectors tested and functional. Panel battery backup duration verified at 72 hours. All sounders and strobes tested. Regulatory sign-off completed.', onTime: true },
+      { id: 'H-005-2', date: '22 Mar 2025', technician: 'Sara M.', techId: 'SM', result: 'pass', conditionScore: 98, durationMinutes: 175, findings: 'Bi-annual inspection. Detector sensitivity calibrated. Manual call points tested. Control panel firmware updated to v3.2.1. All outputs verified functional.', partsUsed: ['Firmware Update Kit'], onTime: true },
+      { id: 'H-005-3', date: '20 Sep 2024', technician: 'Omar T.', techId: 'OT', result: 'pass', conditionScore: 99, durationMinutes: 165, findings: 'Full 6-month fire panel inspection. All systems passed. No faults or degradation detected. Panel in excellent condition. Next inspection due March 2025.', onTime: true },
+      { id: 'H-005-4', date: '21 Mar 2024', technician: 'Sara M.', techId: 'SM', result: 'pass', conditionScore: 98, durationMinutes: 178, findings: 'Bi-annual inspection completed. All 48 detectors functioning. Manual call points across all zones tested — all operational. Battery backup load-tested — 72-hour capacity confirmed. Regulatory checklist signed off.', onTime: true },
+      { id: 'H-005-5', date: '22 Sep 2023', technician: 'Sara M.', techId: 'SM', result: 'pass', conditionScore: 97, durationMinutes: 172, findings: '6-month inspection. Control panel diagnostics run — no fault codes. All zones active. Sounder circuit tested in all zones. Fault LED test passed. Battery checked — 12.9V open circuit voltage.', onTime: true },
+      { id: 'H-005-6', date: '24 Mar 2023', technician: 'Omar T.', techId: 'OT', result: 'pass', conditionScore: 96, durationMinutes: 160, findings: 'Annual inspection and bi-annual interim. All detectors, sounders, and manual call points tested. Control panel Earth fault checked — none detected. Panel cleaned. Sign-off documentation submitted to compliance team.', onTime: true },
+    ],
+  },
+];
+
 const RISK_PRIORITY: Record<string, number> = { overdue: 0, critical: 1, high: 2, medium: 3, low: 4 };
 export const mockPPMRisks = [...mockPPMSchedule]
   .sort((a, b) => (RISK_PRIORITY[a.riskLevel] ?? 9) - (RISK_PRIORITY[b.riskLevel] ?? 9))
