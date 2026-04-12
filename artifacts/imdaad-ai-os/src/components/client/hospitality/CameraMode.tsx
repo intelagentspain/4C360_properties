@@ -25,6 +25,7 @@ function compressThumbnail(dataUrl: string, maxWidth = 320, quality = 0.6): Prom
       cv.getContext('2d')?.drawImage(img, 0, 0, w, h);
       resolve(cv.toDataURL('image/jpeg', quality));
     };
+    img.onerror = () => resolve(dataUrl);
     img.src = dataUrl;
   });
 }

@@ -254,7 +254,7 @@ export interface SubmitAiMetadata {
 }
 
 interface SubmitOptions {
-  source: string;
+  source: 'Resident App' | 'AI Capture' | 'QR Scan' | 'WhatsApp → Manual' | 'Manual' | string;
   analysis?: AiAnalysis | null;
   description?: string;
   clientId?: string;
