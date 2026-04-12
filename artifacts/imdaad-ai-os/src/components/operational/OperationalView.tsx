@@ -15,6 +15,7 @@ interface Props {
 }
 
 type Tab = 'task' | 'checklist' | 'parts' | 'board' | 'stats';
+type UserRole = 'field_engineer' | 'supervisor' | 'admin';
 
 export function OperationalView({ onToast }: Props) {
   const [loggedIn, setLoggedIn] = useState(false);
@@ -22,9 +23,13 @@ export function OperationalView({ onToast }: Props) {
 
   const { state: pushState, subscribe, unsubscribe } = usePushNotifications(mockLoggedInTech.email);
 
-  const handleLogin = () => {
-    setLoggedIn(true);
-    setTimeout(() => onToast('Welcome back, Karim R. · 1 active task assigned', 'success'), 300);
+  const handleLogin = (role: UserRole) => {
+    if (role === 'field_engineer') {
+      setLoggedIn(true);
+      setTimeout(() => onToast('Welcome back, Karim R. · 1 active task assigned', 'success'), 300);
+    }
+    // stub: supervisor → Operational Dashboard (not yet built)
+    // stub: admin → Strategic Dashboard (not yet built)
   };
 
   const handleScanNav = () => {
@@ -70,7 +75,7 @@ export function OperationalView({ onToast }: Props) {
               exit={{ opacity: 0, scale: 0.95 }}
               className="flex-1 overflow-hidden"
             >
-              <LoginScreen onLogin={handleLogin} />
+              <LoginScreen onLogin={handleLogin} onScanWithoutLogin={handleScanNav} />
             </motion.div>
           ) : (
             <motion.div
