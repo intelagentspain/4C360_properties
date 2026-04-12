@@ -321,6 +321,7 @@ function severityLabel(severity: string): string {
 
 function buildIncidentEmailBody(
   incident: IncidentPayload,
+  inlineImageUrl?: string,
 ): { aiBlock: string; imageBlock: string; locationBlock: string; sevColor: string; sevLabel: string } {
   const sev      = incident.severity ?? "low";
   const sevColor = severityColor(sev);
@@ -354,14 +355,19 @@ function buildIncidentEmailBody(
     </table>`
     : "";
 
-  const rawImgUrl = incident.imageUrl ?? "";
-  const absImgUrl = rawImgUrl && !rawImgUrl.startsWith("data:")
-    ? (rawImgUrl.startsWith("/") ? `${resolvedAppUrl}${rawImgUrl}` : rawImgUrl)
-    : "";
-  const imageBlock = absImgUrl
+  const SAFE_DATA_URI_RE = /^data:image\/(png|jpeg|jpg|webp|gif);base64,[A-Za-z0-9+/=]+$/;
+  const candidateUrl = inlineImageUrl ?? incident.imageUrl ?? "";
+  const rawImgUrl = candidateUrl.startsWith("data:")
+    ? (SAFE_DATA_URI_RE.test(candidateUrl) ? candidateUrl : "")
+    : candidateUrl;
+  const imgSrc = rawImgUrl.startsWith("data:")
+    ? rawImgUrl
+    : (rawImgUrl.startsWith("/") ? `${resolvedAppUrl}${rawImgUrl}` : rawImgUrl);
+  const safeImgSrc = rawImgUrl.startsWith("data:") ? rawImgUrl : escapeHtml(imgSrc);
+  const imageBlock = imgSrc
     ? `<p style="color:#7A94B4;font-size:10px;text-transform:uppercase;letter-spacing:2px;margin:24px 0 12px;font-weight:700;">Incident Image</p>
        <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
-         <tr><td align="center"><img src="${escapeHtml(absImgUrl)}" alt="Incident" style="max-width:100%;border-radius:8px;border:1px solid rgba(46,127,255,0.2);" /></td></tr>
+         <tr><td align="center"><img src="${safeImgSrc}" alt="Incident" style="max-width:100%;border-radius:8px;border:1px solid rgba(46,127,255,0.2);" /></td></tr>
        </table>`
     : "";
 
@@ -468,8 +474,9 @@ export function buildEndClientIncidentEmailForAM(
   confirmIssueUrl: string,
   rejectBaseUrl: string,
   muteUrl: string,
+  inlineImageUrl?: string,
 ): string {
-  const { aiBlock, imageBlock, locationBlock, sevColor, sevLabel } = buildIncidentEmailBody(incident);
+  const { aiBlock, imageBlock, locationBlock, sevColor, sevLabel } = buildIncidentEmailBody(incident, inlineImageUrl);
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -553,8 +560,9 @@ export function buildEndClientIncidentEmailForSupervisor(
   recipientName: string,
   recipientEmail: string,
   muteUrl: string,
+  inlineImageUrl?: string,
 ): string {
-  const { aiBlock, imageBlock, locationBlock, sevColor, sevLabel } = buildIncidentEmailBody(incident);
+  const { aiBlock, imageBlock, locationBlock, sevColor, sevLabel } = buildIncidentEmailBody(incident, inlineImageUrl);
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -1670,7 +1678,9 @@ router.post("/incidents/notify", async (req: Request, res: Response) => {
     return;
   }
 
+  let rawDataUrl: string | undefined;
   if (incident.imageUrl?.startsWith("data:")) {
+    rawDataUrl = incident.imageUrl;
     try {
       const base64Data = incident.imageUrl.replace(/^data:[^;]+;base64,/, "");
       const filename = `incident-${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
@@ -1754,7 +1764,7 @@ router.post("/incidents/notify", async (req: Request, res: Response) => {
       const confirmIssueUrl = `${apiBase}/api/tickets/${encodeURIComponent(incident.id)}/approve?token=${approveToken}&email=${encodeURIComponent(am.email)}`;
       const rejectBaseUrl   = `${apiBase}/api/tickets/${encodeURIComponent(incident.id)}/reject?token=${rejectToken}&email=${encodeURIComponent(am.email)}`;
 
-      const html = buildEndClientIncidentEmailForAM(incident, am.name, am.email, confirmIssueUrl, rejectBaseUrl, muteUrl);
+      const html = buildEndClientIncidentEmailForAM(incident, am.name, am.email, confirmIssueUrl, rejectBaseUrl, muteUrl, rawDataUrl);
       const emailResult = await sendEmail({
         to: am.email,
         subject: `[CLIENT ISSUE — ACTION REQUIRED] ${incident.title ?? "New Issue"} — ${incident.id}`,
@@ -1770,7 +1780,7 @@ router.post("/incidents/notify", async (req: Request, res: Response) => {
       }
       const muteToken = registerMuteToken(incident.id, ss.email);
       const muteUrl = `${apiBase}/api/incidents/${encodeURIComponent(incident.id)}/mute?token=${muteToken}`;
-      const html = buildEndClientIncidentEmailForSupervisor(incident, ss.name, ss.email, muteUrl);
+      const html = buildEndClientIncidentEmailForSupervisor(incident, ss.name, ss.email, muteUrl, rawDataUrl);
       const emailResult = await sendEmail({
         to: ss.email,
         subject: `[CLIENT ISSUE — FYI] ${incident.title ?? "New Issue"} — ${incident.id}`,
