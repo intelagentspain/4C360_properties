@@ -11,6 +11,7 @@ import pushRouter from "./push";
 import copilotChatRouter from "./copilotChat";
 import shareReportRouter from "./shareReport";
 import devRouter from "./dev";
+import ppmExpertChatRouter from "./ppmExpertChat";
 
 const router: IRouter = Router();
 
@@ -25,6 +26,7 @@ router.use(incidentChatRouter);
 router.use(pushRouter);
 router.use(copilotChatRouter);
 router.use(shareReportRouter);
+router.use(ppmExpertChatRouter);
 router.use(devRouter);
 
 export default router;

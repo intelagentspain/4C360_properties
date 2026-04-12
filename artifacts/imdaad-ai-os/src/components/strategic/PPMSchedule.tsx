@@ -2,13 +2,14 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Calendar, ChevronDown, ChevronRight, AlertTriangle,
-  CheckCircle, Clock, User, Wrench, X,
+  CheckCircle, Clock, User, Wrench, X, Brain,
 } from 'lucide-react';
 import { mockPPMSchedule, mockAssets } from '@/data/mockData';
 import { scoreColor, type ToastFn } from '@/lib/ui';
 import { AnimatedBar } from '@/components/shared/AnimatedBar';
 import { TechAvatar } from '@/components/shared/TechAvatar';
 import { AssignTechModal } from '@/components/shared/AssignTechModal';
+import { AssetExpertCopilot } from '@/components/shared/AssetExpertCopilot';
 
 type PPMItem = typeof mockPPMSchedule[0];
 
@@ -46,7 +47,7 @@ function DaysChip({ days }: { days: number }) {
   return <span className="text-[#7A94B4] text-[10px]">Due in {days}d</span>;
 }
 
-function PPMRow({ item, onToast, onAssignTech }: { item: PPMItem; onToast: ToastFn; onAssignTech: (item: PPMItem) => void }) {
+function PPMRow({ item, onToast, onAssignTech, onCopilot }: { item: PPMItem; onToast: ToastFn; onAssignTech: (item: PPMItem) => void; onCopilot: (item: PPMItem) => void }) {
   const [expanded, setExpanded] = useState(false);
   const cfg = RISK_CONFIG[item.riskLevel];
   const condColor = scoreColor(item.condition);
@@ -126,7 +127,7 @@ function PPMRow({ item, onToast, onAssignTech }: { item: PPMItem; onToast: Toast
                   </div>
                 </div>
               ) : null}
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => onToast(`PPM scheduled for ${item.asset}`, 'success')}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#2E7FFF] text-white text-[10px] font-semibold hover:bg-blue-500 transition-colors"
@@ -154,6 +155,12 @@ function PPMRow({ item, onToast, onAssignTech }: { item: PPMItem; onToast: Toast
                 >
                   <Clock size={11} /> Defer
                 </button>
+                <button
+                  onClick={() => onCopilot(item)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[rgba(46,127,255,0.12)] border border-[rgba(46,127,255,0.3)] text-[#2E7FFF] text-[10px] font-semibold hover:bg-[rgba(46,127,255,0.2)] transition-colors"
+                >
+                  <Brain size={11} /> Expert Copilot
+                </button>
               </div>
             </div>
           </motion.div>
@@ -169,6 +176,8 @@ export function PPMSchedule({ onToast }: Props) {
   const [selectedAsset, setSelectedAsset] = useState<typeof mockAssets[0] | null>(null);
   const [assignTarget, setAssignTarget] = useState<PPMItem | null>(null);
   const [ppmTechOverrides, setPpmTechOverrides] = useState<Record<string, string>>({});
+  const [copilotOpen, setCopilotOpen] = useState(false);
+  const [copilotItem, setCopilotItem] = useState<PPMItem | null>(null);
 
   const grouped = RISK_ORDER.reduce((acc, level) => {
     acc[level] = mockPPMSchedule.filter(p => p.riskLevel === level);
@@ -259,6 +268,7 @@ export function PPMSchedule({ onToast }: Props) {
                       item={resolvedItem}
                       onToast={onToast}
                       onAssignTech={setAssignTarget}
+                      onCopilot={item => { setCopilotItem(item); setCopilotOpen(true); }}
                     />
                   );
                 })}
@@ -357,6 +367,16 @@ export function PPMSchedule({ onToast }: Props) {
                     <Clock size={12} /> View History
                   </button>
                 </div>
+                <button
+                  onClick={() => {
+                    const linkedTask = mockPPMSchedule.find(p => p.assetId === selectedAsset.id);
+                    setCopilotItem(linkedTask ?? null);
+                    setCopilotOpen(true);
+                  }}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[rgba(46,127,255,0.12)] border border-[rgba(46,127,255,0.3)] text-[#2E7FFF] text-[11px] font-bold hover:bg-[rgba(46,127,255,0.2)] transition-colors"
+                >
+                  <Brain size={12} /> Expert Copilot
+                </button>
               </div>
             </motion.div>
           )}
@@ -378,6 +398,22 @@ export function PPMSchedule({ onToast }: Props) {
           onToast(`${techName} assigned to ${assignTarget.id}`, 'success');
         }}
         onCancel={() => setAssignTarget(null)}
+      />
+
+      <AssetExpertCopilot
+        open={copilotOpen}
+        onClose={() => setCopilotOpen(false)}
+        variant="drawer"
+        assetType={copilotItem?.type ?? selectedAsset?.type ?? 'HVAC'}
+        assetName={copilotItem?.asset ?? selectedAsset?.name}
+        assetId={copilotItem?.assetId ?? selectedAsset?.id}
+        siteName="Silicon Oasis"
+        ppmTemplateName={copilotItem?.task}
+        checklistItems={copilotItem ? [`Complete ${copilotItem.task} on ${copilotItem.asset}`] : undefined}
+        onCreateIncident={prefill => {
+          onToast(`Corrective incident prefilled: ${prefill.title}`, 'warning');
+          setCopilotOpen(false);
+        }}
       />
     </div>
   );

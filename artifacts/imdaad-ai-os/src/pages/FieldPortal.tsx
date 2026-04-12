@@ -7,8 +7,9 @@ import {
   Camera, CheckCircle, Clock, AlertTriangle, XCircle, MapPin, Wrench,
   User, Calendar, Send, ArrowRight, RefreshCw, X, ZoomIn,
   Play, FileText, Video, ListChecks, ChevronDown, ChevronUp,
-  TriangleAlert, Lightbulb, Hammer
+  TriangleAlert, Lightbulb, Hammer, Brain, Mic,
 } from 'lucide-react';
+import { AssetExpertCopilot } from '@/components/shared/AssetExpertCopilot';
 
 type WOStatus = 'open' | 'assigned' | 'in_progress' | 'resolved' | 'closed' | string;
 type TabId = 'workorders' | 'knowledge' | 'comms';
@@ -165,6 +166,7 @@ export function FieldPortal({ initialWorkOrderId }: FieldPortalProps) {
   const [afterPhotoFile, setAfterPhotoFile] = useState<File | null>(null);
   const [resolutionSubmitting, setResolutionSubmitting] = useState(false);
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [expertOpen, setExpertOpen] = useState(false);
   const commsEndRef = useRef<HTMLDivElement>(null);
 
   const showToast = useCallback((msg: string, type: 'success' | 'error' | 'info' = 'info') => {
@@ -456,6 +458,7 @@ export function FieldPortal({ initialWorkOrderId }: FieldPortalProps) {
                   onGoToComms={() => setTab('comms')}
                   onGoToKnowledge={() => setTab('knowledge')}
                   statusUpdating={statusUpdating}
+                  onExpertOpen={() => setExpertOpen(true)}
                 />
               ) : (
                 <WorkOrderList
@@ -561,6 +564,20 @@ export function FieldPortal({ initialWorkOrderId }: FieldPortalProps) {
           submitting={resolutionSubmitting}
         />
       )}
+
+      <AssetExpertCopilot
+        open={expertOpen}
+        onClose={() => setExpertOpen(false)}
+        variant="sheet"
+        assetType={selectedWO?.skill ?? 'HVAC'}
+        assetName={selectedWO?.asset ?? undefined}
+        siteName={selectedWO?.siteId ?? 'Silicon Oasis'}
+        ppmTemplateName={selectedWO?.title}
+        onCreateIncident={prefill => {
+          showToast(`Corrective incident prefilled: ${prefill.title}`, 'info');
+          setExpertOpen(false);
+        }}
+      />
     </div>
   );
 }
@@ -673,7 +690,7 @@ function WorkOrderList({ workOrders, loading, loadError, onSelect, onRetry }: {
   );
 }
 
-function WorkOrderDetail({ wo, onBack, onStartWork, onResolve, onGoToComms, onGoToKnowledge, statusUpdating }: {
+function WorkOrderDetail({ wo, onBack, onStartWork, onResolve, onGoToComms, onGoToKnowledge, statusUpdating, onExpertOpen }: {
   wo: WorkOrder;
   onBack: () => void;
   onStartWork: () => void;
@@ -681,6 +698,7 @@ function WorkOrderDetail({ wo, onBack, onStartWork, onResolve, onGoToComms, onGo
   onGoToComms: () => void;
   onGoToKnowledge: () => void;
   statusUpdating: boolean;
+  onExpertOpen: () => void;
 }) {
   const normalizedStatus = (wo.status ?? '').toLowerCase().replace(/-/g, '_');
   const canStart = normalizedStatus === 'open' || normalizedStatus === 'assigned';
@@ -771,6 +789,16 @@ function WorkOrderDetail({ wo, onBack, onStartWork, onResolve, onGoToComms, onGo
             </button>
           </div>
         )}
+
+        <button
+          onClick={onExpertOpen}
+          className="w-full flex items-center justify-center gap-2.5 py-4 rounded-xl font-bold text-sm text-white transition-all active:scale-[0.98]"
+          style={{ background: 'linear-gradient(135deg, #1a3a5c 0%, #0D2845 50%, #0A1E38 100%)', border: '1px solid rgba(46,127,255,0.35)' }}
+        >
+          <Brain size={16} className="text-[#2E7FFF]" />
+          Talk to Asset Expert
+          <Mic size={14} className="text-[#7A94B4]" />
+        </button>
 
         {wo.location && (
           <a href={`https://www.google.com/maps/search/${encodeURIComponent(wo.location)}`} target="_blank" rel="noreferrer"
