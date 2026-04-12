@@ -1,0 +1,147 @@
+{
+  "colorScheme": "light",
+  "fonts": [
+    {
+      "family": "Play",
+      "role": "body"
+    },
+    {
+      "family": "Droid Kufi",
+      "role": "unknown"
+    }
+  ],
+  "colors": {
+    "primary": "#173D6E",
+    "secondary": "#537EB6",
+    "accent": "#173D6E",
+    "background": "#F9F9F9",
+    "textPrimary": "#000000",
+    "link": "#CAA978"
+  },
+  "typography": {
+    "fontFamilies": {
+      "primary": "Play",
+      "heading": "Play"
+    },
+    "fontStacks": {
+      "heading": [
+        "Play",
+        "sans-serif"
+      ],
+      "body": [
+        "Play",
+        "sans-serif"
+      ],
+      "paragraph": [
+        "Play",
+        "sans-serif"
+      ]
+    },
+    "fontSizes": {
+      "h1": "16px",
+      "h2": "50px",
+      "body": "14px"
+    }
+  },
+  "spacing": {
+    "baseUnit": 4,
+    "borderRadius": "0px"
+  },
+  "components": {
+    "input": {
+      "background": "#FFFFFF",
+      "textColor": "#000000",
+      "borderColor": null,
+      "borderRadius": "33554400px",
+      "borderRadiusCorners": {
+        "topLeft": "33554400px",
+        "topRight": "33554400px",
+        "bottomRight": "33554400px",
+        "bottomLeft": "33554400px"
+      },
+      "shadow": "none"
+    },
+    "buttonPrimary": {
+      "background": "#173D6E",
+      "textColor": "#FFFFFF",
+      "borderColor": "#FFFFFF",
+      "borderRadius": "50px",
+      "borderRadiusCorners": {
+        "topLeft": "50px",
+        "topRight": "50px",
+        "bottomRight": "50px",
+        "bottomLeft": "50px"
+      },
+      "shadow": "none"
+    },
+    "buttonSecondary": {
+      "background": "transparent",
+      "textColor": "#000000",
+      "borderColor": "#000000",
+      "borderRadius": "50px",
+      "borderRadiusCorners": {
+        "topLeft": "50px",
+        "topRight": "50px",
+        "bottomRight": "50px",
+        "bottomLeft": "50px"
+      },
+      "shadow": "none"
+    }
+  },
+  "images": {
+    "logo": "https://www.imdaad.ae/_next/image?url=%2Fimages%2FImdaad-logo.png&w=128&q=75",
+    "favicon": "https://www.imdaad.ae/favicon.ico?favicon.a63ff231.ico",
+    "ogImage": "File saved at: attached_assets/ogImage.png",
+    "logoHref": "File saved at: attached_assets/logoHref.html",
+    "logoAlt": "Imdaad Logo"
+  },
+  "__llm_logo_reasoning": {
+    "selectedIndex": 7,
+    "reasoning": "Selected #0 because it is visible, located in the header, links to the homepage, and the alt text matches the brand name 'Imdaad'.",
+    "confidence": 0.95,
+    "source": "llm"
+  },
+  "__llm_button_reasoning": {
+    "primary": {
+      "index": 0,
+      "text": "Contact us",
+      "reasoning": "Button #10 ('Contact us') has a vibrant blue background (#173D6E), which is the brand color, making it the most prominent CTA."
+    },
+    "secondary": {
+      "index": 6,
+      "text": "View all",
+      "reasoning": "Button #1 ('View all') has a transparent background, providing a clear contrast to the primary button's vibrant color, making it suitable as a secondary CTA."
+    },
+    "confidence": 0.95
+  },
+  "personality": {
+    "tone": "professional",
+    "energy": "medium",
+    "targetAudience": "businesses and organizations in Dubai, UAE"
+  },
+  "designSystem": {
+    "framework": "tailwind",
+    "componentLibrary": ""
+  },
+  "confidence": {
+    "buttons": 0.95,
+    "colors": 0.9,
+    "overall": 0.925
+  },
+  "__llm_metadata": {
+    "logoSelection": {
+      "llmCalled": true,
+      "llmSucceeded": true,
+      "finalSource": "llm",
+      "rawLogoSelection": {
+        "selectedLogoIndex": 0,
+        "selectedLogoReasoning": "Selected #0 because it is visible, located in the header, links to the homepage, and the alt text matches the brand name 'Imdaad'.",
+        "confidence": 0.95
+      }
+    },
+    "buttonClassification": {
+      "llmCalled": true,
+      "llmSucceeded": true
+    }
+  }
+}

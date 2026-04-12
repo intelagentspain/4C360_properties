@@ -32,9 +32,9 @@ function AvatarOrb({ size = 32, voiceStatus }: { size?: number; voiceStatus: Voi
   const isActive = isListening || isSpeaking;
 
   const dotColor = isListening
-    ? '#22d3ee'
+    ? '#F0D9B5'
     : isSpeaking
-    ? '#3b82f6'
+    ? '#CAA978'
     : '#ffffff';
 
   return (
@@ -42,10 +42,10 @@ function AvatarOrb({ size = 32, voiceStatus }: { size?: number; voiceStatus: Voi
       <div
         className="absolute inset-0 rounded-full"
         style={{
-          background: 'radial-gradient(circle at 35% 35%, #67e8f9 0%, #06b6d4 35%, #2563eb 70%, #1e3a8a 100%)',
+          background: 'radial-gradient(circle at 35% 35%, #F0D9B5 0%, #CAA978 35%, #9A7040 70%, #4A3015 100%)',
           boxShadow: isActive
-            ? '0 0 12px 3px rgba(6,182,212,0.55), inset 0 1px 2px rgba(255,255,255,0.35)'
-            : '0 0 6px 1px rgba(6,182,212,0.25), inset 0 1px 2px rgba(255,255,255,0.25)',
+            ? '0 0 12px 3px rgba(202,169,120,0.6), inset 0 1px 2px rgba(255,255,255,0.35)'
+            : '0 0 6px 1px rgba(202,169,120,0.3), inset 0 1px 2px rgba(255,255,255,0.25)',
         }}
       />
       <div
@@ -68,7 +68,7 @@ function AvatarOrb({ size = 32, voiceStatus }: { size?: number; voiceStatus: Voi
           width: size * 0.28,
           height: size * 0.28,
           background: dotColor,
-          border: `2px solid #0d1e3a`,
+          border: `2px solid #1a0e04`,
           transition: 'background 0.3s',
           boxShadow: `0 0 6px 2px ${dotColor}88`,
         }}
@@ -76,7 +76,7 @@ function AvatarOrb({ size = 32, voiceStatus }: { size?: number; voiceStatus: Voi
       {isActive && (
         <motion.div
           className="absolute inset-0 rounded-full"
-          style={{ border: `1.5px solid rgba(34,211,238,0.5)` }}
+          style={{ border: `1.5px solid rgba(202,169,120,0.55)` }}
           animate={{ scale: [1, 1.35], opacity: [0.7, 0] }}
           transition={{ duration: 0.9, repeat: Infinity, ease: 'easeOut' }}
         />
@@ -95,7 +95,7 @@ function FloatingOrb({ open, voiceStatus }: { open: boolean; voiceStatus: VoiceS
       {!isActive && (
         <motion.span
           className="absolute inset-0 rounded-full"
-          style={{ background: 'radial-gradient(circle, rgba(6,182,212,0.25) 0%, transparent 70%)' }}
+          style={{ background: 'radial-gradient(circle, rgba(202,169,120,0.3) 0%, transparent 70%)' }}
           animate={{ scale: [1, 1.55], opacity: [open ? 0.55 : 0.3, 0] }}
           transition={{ duration: 2.8, repeat: Infinity, ease: 'easeOut' }}
         />
@@ -104,19 +104,19 @@ function FloatingOrb({ open, voiceStatus }: { open: boolean; voiceStatus: VoiceS
         <>
           <motion.span
             className="absolute inset-0 rounded-full"
-            style={{ border: '2px solid rgba(34,211,238,0.6)' }}
+            style={{ border: '2px solid rgba(202,169,120,0.65)' }}
             animate={{ scale: [1, 1.55], opacity: [0.8, 0] }}
             transition={{ duration: 0.9, repeat: Infinity, ease: 'easeOut' }}
           />
           <motion.span
             className="absolute inset-0 rounded-full"
-            style={{ border: '1.5px solid rgba(34,211,238,0.35)' }}
+            style={{ border: '1.5px solid rgba(202,169,120,0.38)' }}
             animate={{ scale: [1, 1.85], opacity: [0.5, 0] }}
             transition={{ duration: 0.9, repeat: Infinity, ease: 'easeOut', delay: 0.3 }}
           />
           <motion.span
             className="absolute inset-0 rounded-full"
-            style={{ border: '1px solid rgba(59,130,246,0.3)' }}
+            style={{ border: '1px solid rgba(154,112,64,0.3)' }}
             animate={{ scale: [1, 2.2], opacity: [0.4, 0] }}
             transition={{ duration: 0.9, repeat: Infinity, ease: 'easeOut', delay: 0.6 }}
           />
@@ -127,11 +127,11 @@ function FloatingOrb({ open, voiceStatus }: { open: boolean; voiceStatus: VoiceS
         className="relative w-14 h-14 rounded-full flex items-center justify-center overflow-hidden"
         style={{
           background: open
-            ? 'radial-gradient(circle at 40% 35%, #67e8f9 0%, #06b6d4 40%, #1d4ed8 80%, #1e3a8a 100%)'
-            : 'radial-gradient(circle at 35% 30%, #a5f3fc 0%, #06b6d4 35%, #2563eb 65%, #1e3a8a 100%)',
+            ? 'radial-gradient(circle at 40% 35%, #F0D9B5 0%, #CAA978 40%, #8A6030 80%, #4A3015 100%)'
+            : 'radial-gradient(circle at 35% 30%, #F5E4C0 0%, #CAA978 35%, #9A7040 65%, #4A3015 100%)',
           boxShadow: isActive
-            ? '0 0 28px 8px rgba(6,182,212,0.5), 0 4px 20px rgba(0,0,0,0.4)'
-            : '0 0 16px 4px rgba(6,182,212,0.25), 0 4px 16px rgba(0,0,0,0.35)',
+            ? '0 0 28px 8px rgba(202,169,120,0.55), 0 4px 20px rgba(0,0,0,0.4)'
+            : '0 0 16px 4px rgba(202,169,120,0.28), 0 4px 16px rgba(0,0,0,0.35)',
           transition: 'box-shadow 0.4s',
         }}
       >
