@@ -260,30 +260,102 @@ async function executeToolCall(name: string, args: Record<string, unknown>): Pro
   }
 }
 
-function getMockCopilotReply(message: string): string {
+const DEFAULT_SUGGESTIONS = [
+  "Show critical incidents",
+  "Summarise work orders",
+  "KPI overview",
+];
+
+function getMockCopilotReply(message: string): { reply: string; suggestions: string[] } {
   const msg = message.toLowerCase();
 
   if (msg.includes("incident") || msg.includes("issue") || msg.includes("problem")) {
-    return "You can view all active incidents in the Incidents section under the Strategic view. Filter by severity or client to prioritize your response. Would you like guidance on escalation procedures?";
+    return {
+      reply: "You can view all active incidents in the Incidents section under the Strategic view. Filter by severity or client to prioritize your response. Would you like guidance on escalation procedures?",
+      suggestions: ["Filter by critical severity", "Show overdue incidents", "List unassigned incidents"],
+    };
   }
 
   if (msg.includes("client") || msg.includes("portfolio")) {
-    return "Your client portfolio overview is available on the All Clients page. Each client card shows health score, open incidents, and SLA compliance. Click any client to drill into their Command Centre.";
+    return {
+      reply: "Your client portfolio overview is available on the All Clients page. Each client card shows health score, open incidents, and SLA compliance. Click any client to drill into their Command Centre.",
+      suggestions: ["Show critical clients", "List client SLA scores", "Active client issues"],
+    };
   }
 
   if (msg.includes("kpi") || msg.includes("metric") || msg.includes("performance") || msg.includes("benchmark")) {
-    return "KPI dashboards are available in the Strategic view. You can compare performance against industry benchmarks and track trends over time. The Benchmark tab provides peer comparisons.";
+    return {
+      reply: "KPI dashboards are available in the Strategic view. You can compare performance against industry benchmarks and track trends over time. The Benchmark tab provides peer comparisons.",
+      suggestions: ["Show SLA trends", "Compare benchmark scores", "List underperforming sites"],
+    };
   }
 
   if (msg.includes("task") || msg.includes("work order") || msg.includes("maintenance")) {
-    return "Tasks and work orders are managed under the Tasks section. You can filter by priority, assignee, or due date. PPM schedules are available under the PPM Schedule tab for preventive maintenance planning.";
+    return {
+      reply: "Tasks and work orders are managed under the Tasks section. You can filter by priority, assignee, or due date. PPM schedules are available under the PPM Schedule tab for preventive maintenance planning.",
+      suggestions: ["Show overdue work orders", "List unassigned tasks", "View PPM schedule"],
+    };
   }
 
   if (msg.includes("hello") || msg.includes("hi") || msg.includes("hey") || msg.includes("help")) {
-    return "Hello! I'm Imdaad Copilot, your AI assistant for the Imdaad AI-OS platform. I can help you navigate incidents, understand KPIs, manage client portfolios, and more. What would you like to know?";
+    return {
+      reply: "Hello! I'm Imdaad Copilot, your AI assistant for the Imdaad AI-OS platform. I can help you navigate incidents, understand KPIs, manage client portfolios, and more. What would you like to know?",
+      suggestions: ["Show open incidents", "KPI overview", "Active client issues"],
+    };
   }
 
-  return "I'm here to help you get the most out of the Imdaad AI-OS platform. You can ask me about incidents, client portfolios, KPIs, work orders, or any facility management topic. What would you like to explore?";
+  return {
+    reply: "I'm here to help you get the most out of the Imdaad AI-OS platform. You can ask me about incidents, client portfolios, KPIs, work orders, or any facility management topic. What would you like to explore?",
+    suggestions: DEFAULT_SUGGESTIONS,
+  };
+}
+
+function normalizeSuggestions(raw: unknown[]): string[] {
+  const valid = raw
+    .filter((s): s is string => typeof s === "string" && s.trim().length > 0)
+    .map(s => s.trim())
+    .slice(0, 4);
+
+  while (valid.length < 3) {
+    valid.push(DEFAULT_SUGGESTIONS[valid.length % DEFAULT_SUGGESTIONS.length]);
+  }
+
+  return valid;
+}
+
+async function generateSuggestions(openai: OpenAI, reply: string): Promise<string[]> {
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: 'You are a helpful assistant. Given an AI assistant\'s reply in a facilities management context, generate exactly 3 short follow-up questions or actions the user might want to ask next. Each suggestion must be concise (under 8 words). Respond with a JSON object: { "suggestions": ["...", "...", "..."] }',
+        },
+        {
+          role: "user",
+          content: `AI reply: "${reply}"\n\nRespond with { "suggestions": [ ... ] }`,
+        },
+      ],
+      max_tokens: 200,
+      temperature: 0.7,
+      response_format: { type: "json_object" },
+    });
+
+    const content = response.choices[0]?.message?.content?.trim() ?? "{}";
+    const parsed = JSON.parse(content) as unknown;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      const obj = parsed as Record<string, unknown>;
+      if (Array.isArray(obj["suggestions"])) {
+        return normalizeSuggestions(obj["suggestions"] as unknown[]);
+      }
+      const fallbackArr = Object.values(obj).find(v => Array.isArray(v)) as unknown[] | undefined;
+      if (fallbackArr) return normalizeSuggestions(fallbackArr);
+    }
+    return [...DEFAULT_SUGGESTIONS];
+  } catch {
+    return [...DEFAULT_SUGGESTIONS];
+  }
 }
 
 router.post("/copilot/chat", async (req: Request, res: Response) => {
@@ -299,7 +371,7 @@ router.post("/copilot/chat", async (req: Request, res: Response) => {
   const apiKey = process.env["OPENAI_API_KEY"];
   if (!apiKey) {
     logger.warn("OPENAI_API_KEY not set — using mock copilot response");
-    res.json({ reply: getMockCopilotReply(message) });
+    res.json(getMockCopilotReply(message));
     return;
   }
 
@@ -356,14 +428,16 @@ router.post("/copilot/chat", async (req: Request, res: Response) => {
       });
 
       const reply = secondResponse.choices[0]?.message?.content?.trim() ?? "I'm sorry, I couldn't generate a response.";
-      res.json({ reply });
+      const suggestions = await generateSuggestions(openai, reply);
+      res.json({ reply, suggestions });
     } else {
       const reply = firstMessage?.content?.trim() ?? "I'm sorry, I couldn't generate a response.";
-      res.json({ reply });
+      const suggestions = await generateSuggestions(openai, reply);
+      res.json({ reply, suggestions });
     }
   } catch (err) {
     logger.warn({ err }, "OpenAI copilot chat failed — using mock response");
-    res.json({ reply: getMockCopilotReply(message) });
+    res.json(getMockCopilotReply(message));
   }
 });
 

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Send, Mic, MicOff, Loader2 } from 'lucide-react';
+import { X, Send, Mic, MicOff, Loader2, Trash2 } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
 
 const ELEVENLABS_AGENT_ID = import.meta.env.VITE_ELEVENLABS_AGENT_ID as string | undefined;
@@ -179,28 +179,39 @@ function FloatingOrb({ open, voiceStatus }: { open: boolean; voiceStatus: VoiceS
   );
 }
 
+const INITIAL_GREETING: Message = {
+  id: 'greeting',
+  role: 'assistant',
+  content: "Hello! I'm Imdaad Copilot, your AI assistant. I can help you navigate incidents, understand KPIs, manage client portfolios, and more. How can I help you today?",
+};
+
+const INITIAL_CHIPS = [
+  'Show open incidents',
+  'Summarise work orders',
+  'List unassigned tickets',
+  'Active client issues',
+  'KPI overview',
+];
+
 export function CopilotAvatar() {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
   const [voiceStatus, setVoiceStatus] = useState<VoiceStatus>('idle');
   const [voiceActive, setVoiceActive] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const conversationRef = useRef<VoiceSession | null>(null);
+  const requestIdRef = useRef<string>('');
 
   const voiceEnabled = Boolean(ELEVENLABS_AGENT_ID);
 
   useEffect(() => {
     if (open && messages.length === 0) {
-      setMessages([
-        {
-          id: generateId(),
-          role: 'assistant',
-          content: "Hello! I'm Imdaad Copilot, your AI assistant. I can help you navigate incidents, understand KPIs, manage client portfolios, and more. How can I help you today?",
-        },
-      ]);
+      setMessages([INITIAL_GREETING]);
+      setSuggestions([]);
     }
   }, [open]);
 
@@ -217,8 +228,12 @@ export function CopilotAvatar() {
   const sendMessage = useCallback(async (text: string) => {
     if (!text.trim() || loading) return;
 
+    const reqId = generateId();
+    requestIdRef.current = reqId;
+
     const userMsg: Message = { id: generateId(), role: 'user', content: text.trim() };
     setMessages(prev => [...prev, userMsg]);
+    setSuggestions([]);
     setInput('');
     setLoading(true);
 
@@ -228,16 +243,20 @@ export function CopilotAvatar() {
         .slice(-10)
         .map(m => ({ role: m.role, content: m.content }));
 
-      const data = await apiFetch<{ reply: string }>('/copilot/chat', {
+      const data = await apiFetch<{ reply: string; suggestions?: string[] }>('/copilot/chat', {
         method: 'POST',
         body: JSON.stringify({ message: text.trim(), history }),
       });
+
+      if (requestIdRef.current !== reqId) return;
 
       setMessages(prev => [
         ...prev,
         { id: generateId(), role: 'assistant', content: data.reply },
       ]);
+      setSuggestions(data.suggestions ?? []);
     } catch {
+      if (requestIdRef.current !== reqId) return;
       setMessages(prev => [
         ...prev,
         {
@@ -246,8 +265,11 @@ export function CopilotAvatar() {
           content: "I'm having trouble connecting right now. Please try again in a moment.",
         },
       ]);
+      setSuggestions([]);
     } finally {
-      setLoading(false);
+      if (requestIdRef.current === reqId) {
+        setLoading(false);
+      }
     }
   }, [loading, messages]);
 
@@ -329,6 +351,14 @@ export function CopilotAvatar() {
     if (voiceActive) stopVoice();
   }, [voiceActive, stopVoice]);
 
+  const clearThread = useCallback(() => {
+    requestIdRef.current = '';
+    setMessages([INITIAL_GREETING]);
+    setSuggestions([]);
+    setInput('');
+    setLoading(false);
+  }, []);
+
   const isListening = voiceStatus === 'listening';
   const isSpeaking = voiceStatus === 'speaking';
   const isConnecting = voiceStatus === 'connecting';
@@ -367,6 +397,14 @@ export function CopilotAvatar() {
                   </p>
                 </div>
                 <button
+                  onClick={clearThread}
+                  className="p-1.5 rounded-lg text-white/40 hover:text-white/80 hover:bg-white/10 transition-colors"
+                  aria-label="Clear conversation"
+                  title="Clear conversation"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+                <button
                   onClick={handleClose}
                   className="p-1.5 rounded-lg text-white/50 hover:text-white hover:bg-white/10 transition-colors"
                   aria-label="Close copilot"
@@ -376,40 +414,51 @@ export function CopilotAvatar() {
               </div>
 
               <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0" style={{ maxHeight: '340px' }}>
-                {messages.map((msg, idx) => (
-                  <div key={msg.id}>
-                    <div className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                      <div
-                        className={`max-w-[85%] px-3 py-2 rounded-2xl text-sm leading-relaxed ${
-                          msg.role === 'user'
-                            ? 'bg-cyan-500/20 text-cyan-100 border border-cyan-500/30 rounded-br-sm'
-                            : 'bg-white/8 text-white/90 border border-white/10 rounded-bl-sm'
-                        }`}
-                      >
-                        {msg.content}
+                {messages.map((msg, idx) => {
+                  const isLastMsg = idx === messages.length - 1;
+                  const isFirstOnly = idx === 0 && messages.length === 1;
+                  return (
+                    <div key={msg.id}>
+                      <div className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                        <div
+                          className={`max-w-[85%] px-3 py-2 rounded-2xl text-sm leading-relaxed ${
+                            msg.role === 'user'
+                              ? 'bg-cyan-500/20 text-cyan-100 border border-cyan-500/30 rounded-br-sm'
+                              : 'bg-white/8 text-white/90 border border-white/10 rounded-bl-sm'
+                          }`}
+                        >
+                          {msg.content}
+                        </div>
                       </div>
+                      {isFirstOnly && !loading && (
+                        <div className="flex gap-2 mt-3 overflow-x-auto pb-1 scrollbar-none">
+                          {INITIAL_CHIPS.map(chip => (
+                            <button
+                              key={chip}
+                              onClick={() => sendMessage(chip)}
+                              className="shrink-0 px-3 py-1.5 rounded-full text-xs bg-white/5 border border-white/15 text-white/70 hover:border-cyan-500/60 hover:text-cyan-300 hover:bg-cyan-500/10 transition-colors cursor-pointer"
+                            >
+                              {chip}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {isLastMsg && msg.role === 'assistant' && !isFirstOnly && !loading && suggestions.length > 0 && (
+                        <div className="flex gap-2 mt-3 overflow-x-auto pb-1 scrollbar-none">
+                          {suggestions.map((chip, i) => (
+                            <button
+                              key={`${i}-${chip}`}
+                              onClick={() => sendMessage(chip)}
+                              className="shrink-0 px-3 py-1.5 rounded-full text-xs bg-white/5 border border-white/15 text-white/70 hover:border-cyan-500/60 hover:text-cyan-300 hover:bg-cyan-500/10 transition-colors cursor-pointer"
+                            >
+                              {chip}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    {idx === 0 && messages.length === 1 && (
-                      <div className="flex gap-2 mt-3 overflow-x-auto pb-1 scrollbar-none">
-                        {[
-                          'Show open incidents',
-                          'Summarise work orders',
-                          'List unassigned tickets',
-                          'Active client issues',
-                          'KPI overview',
-                        ].map(chip => (
-                          <button
-                            key={chip}
-                            onClick={() => sendMessage(chip)}
-                            className="shrink-0 px-3 py-1.5 rounded-full text-xs bg-white/5 border border-white/15 text-white/70 hover:border-cyan-500/60 hover:text-cyan-300 hover:bg-cyan-500/10 transition-colors cursor-pointer"
-                          >
-                            {chip}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
                 {loading && (
                   <div className="flex justify-start">
                     <div className="bg-white/8 border border-white/10 rounded-2xl rounded-bl-sm px-3 py-2">
