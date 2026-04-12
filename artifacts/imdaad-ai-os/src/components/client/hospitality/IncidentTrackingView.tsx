@@ -62,13 +62,21 @@ export function IncidentTrackingView({ incidentId }: Props) {
   async function fetchIncident() {
     try {
       const res = await fetch(`${BASE_URL}/api/incidents/${encodeURIComponent(incidentId)}`);
-      if (res.status === 404) { setNotFound(true); setLoading(false); return; }
-      if (!res.ok) throw new Error('fetch failed');
+      if (res.status === 404) {
+        setNotFound(true);
+        setLoading(false);
+        return;
+      }
+      if (!res.ok) {
+        // Server/network error — show generic error but don't mark as not-found
+        setLoading(false);
+        return;
+      }
       const data: IncidentRow = await res.json();
       setIncident(data);
       setLastUpdated(new Date());
     } catch {
-      if (!incident) setNotFound(true);
+      // Network error — don't mark as not-found on transient failures
     } finally {
       setLoading(false);
     }
@@ -94,9 +102,27 @@ export function IncidentTrackingView({ incidentId }: Props) {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center h-full bg-[#FDFAF5]" style={{ minHeight: '100dvh' }}>
-        <Loader2 size={32} className="text-[#1C3A35] animate-spin mb-3" />
-        <p className="text-[13px] text-[#8B7355]">Loading your request…</p>
+      <div className="flex flex-col bg-[#FDFAF5]" style={{ minHeight: '100dvh' }}>
+        <div
+          className="flex-shrink-0 px-5 pt-10 pb-7"
+          style={{ background: 'linear-gradient(135deg, #1C3A35 0%, #2D5A50 100%)' }}
+        >
+          <div className="h-3 w-28 rounded bg-white/20 mb-4 animate-pulse" />
+          <div className="h-7 w-40 rounded bg-white/30 mb-2 animate-pulse" />
+          <div className="h-3 w-48 rounded bg-white/15 animate-pulse" />
+        </div>
+        <div className="flex-1 px-4 py-5 space-y-4">
+          <div className="p-4 rounded-2xl bg-white border border-[#E8DEC8] space-y-3">
+            <div className="h-3 w-24 rounded bg-[#EDE5D4] animate-pulse" />
+            <div className="h-6 w-44 rounded bg-[#EDE5D4] animate-pulse" />
+            <div className="h-4 w-36 rounded bg-[#EDE5D4] animate-pulse" />
+          </div>
+          <div className="p-4 rounded-2xl bg-white border border-[#E8DEC8] space-y-3">
+            <div className="h-3 w-32 rounded bg-[#EDE5D4] animate-pulse" />
+            <div className="h-2 w-full rounded-full bg-[#EDE5D4] animate-pulse" />
+            <div className="h-3 w-48 rounded bg-[#EDE5D4] animate-pulse" />
+          </div>
+        </div>
       </div>
     );
   }

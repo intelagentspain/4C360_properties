@@ -2282,6 +2282,18 @@ function buildResidentConfirmationEmail(
             <tr><td style="padding:16px 24px;">
               <p style="margin:0 0 6px;color:#A0957A;font-size:10px;letter-spacing:2px;text-transform:uppercase;font-weight:700;">What you reported</p>
               <p style="margin:0;color:#5C4A2A;font-size:12px;line-height:1.7;">${escapeHtml(description.slice(0, 300))}${description.length > 300 ? "…" : ""}</p>
+            </td></tr>
+          </table>
+        </td>
+      </tr>`
+    : "";
+
+  const aiBlock = (aiSummary || aiRec)
+    ? `<tr>
+        <td style="background:#FDFAF6;padding:0 40px;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#F5EFE0;border:1px solid #EDE5D4;border-radius:12px;margin-bottom:20px;">
+            <tr><td style="padding:16px 24px;">
+              <p style="margin:0 0 6px;color:#A0957A;font-size:10px;letter-spacing:2px;text-transform:uppercase;font-weight:700;">AI Analysis</p>
               ${aiSummary}${aiRec}
             </td></tr>
           </table>
@@ -2327,6 +2339,7 @@ function buildResidentConfirmationEmail(
     </td>
   </tr>
   ${descBlock}
+  ${aiBlock}
   <tr>
     <td style="background:#FDFAF6;padding:0 40px;">
       <table width="100%" cellpadding="0" cellspacing="0" style="background:#fff;border:1px solid #EDE5D4;border-radius:12px;margin-bottom:24px;">
