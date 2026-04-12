@@ -8,6 +8,7 @@ import { mockPPMSchedule, mockAssets } from '@/data/mockData';
 import { scoreColor, type ToastFn } from '@/lib/ui';
 import { AnimatedBar } from '@/components/shared/AnimatedBar';
 import { TechAvatar } from '@/components/shared/TechAvatar';
+import { AssignTechModal } from '@/components/shared/AssignTechModal';
 
 type PPMItem = typeof mockPPMSchedule[0];
 
@@ -45,7 +46,7 @@ function DaysChip({ days }: { days: number }) {
   return <span className="text-[#7A94B4] text-[10px]">Due in {days}d</span>;
 }
 
-function PPMRow({ item, onToast }: { item: PPMItem; onToast: ToastFn }) {
+function PPMRow({ item, onToast, onAssignTech }: { item: PPMItem; onToast: ToastFn; onAssignTech: (item: PPMItem) => void }) {
   const [expanded, setExpanded] = useState(false);
   const cfg = RISK_CONFIG[item.riskLevel];
   const condColor = scoreColor(item.condition);
@@ -110,15 +111,21 @@ function PPMRow({ item, onToast }: { item: PPMItem; onToast: ToastFn }) {
                   <div className="text-[11px] text-[#EEF3FA]">{item.notes}</div>
                 </div>
               )}
-              {item.tech && (
-                <div className="flex items-center gap-2 p-2.5 bg-[#0A1628] rounded-xl border border-[rgba(46,127,255,0.15)] mb-3">
-                  <TechAvatar initials={TECH_INITIALS[item.tech] || item.tech.slice(0,2)} size={7} />
-                  <div className="flex-1">
-                    <div className="text-[11px] text-[#EEF3FA] font-semibold">{item.tech}</div>
-                    <div className="text-[9px] text-blue-400">Assigned technician · {item.skill}</div>
+              {item.tech ? (
+                <div className="mb-3">
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <CheckCircle size={10} className="text-emerald-400" />
+                    <span className="text-[9px] text-emerald-400 font-bold uppercase tracking-wide">Tech Assigned</span>
+                  </div>
+                  <div className="flex items-center gap-2 p-2.5 bg-emerald-500/5 rounded-xl border border-emerald-500/25">
+                    <TechAvatar initials={TECH_INITIALS[item.tech] || item.tech.slice(0,2)} size={7} />
+                    <div className="flex-1">
+                      <div className="text-[11px] text-[#EEF3FA] font-semibold">{item.tech}</div>
+                      <div className="text-[9px] text-emerald-400">Assigned · {item.skill}</div>
+                    </div>
                   </div>
                 </div>
-              )}
+              ) : null}
               <div className="flex gap-2">
                 <button
                   onClick={() => onToast(`PPM scheduled for ${item.asset}`, 'success')}
@@ -126,9 +133,16 @@ function PPMRow({ item, onToast }: { item: PPMItem; onToast: ToastFn }) {
                 >
                   <Calendar size={11} /> Schedule Now
                 </button>
-                {!item.tech && (
+                {item.tech ? (
                   <button
-                    onClick={() => onToast(`Assign technician to ${item.asset}`, 'info')}
+                    onClick={() => onAssignTech(item)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-[#7A94B4] text-[10px] hover:text-[#EEF3FA] hover:bg-white/10 transition-colors"
+                  >
+                    <User size={11} /> Reassign
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => onAssignTech(item)}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-[#EEF3FA] text-[10px] font-semibold hover:bg-white/10 transition-colors"
                   >
                     <User size={11} /> Assign Tech
@@ -153,6 +167,8 @@ interface Props { onToast: ToastFn }
 
 export function PPMSchedule({ onToast }: Props) {
   const [selectedAsset, setSelectedAsset] = useState<typeof mockAssets[0] | null>(null);
+  const [assignTarget, setAssignTarget] = useState<PPMItem | null>(null);
+  const [ppmTechOverrides, setPpmTechOverrides] = useState<Record<string, string>>({});
 
   const grouped = RISK_ORDER.reduce((acc, level) => {
     acc[level] = mockPPMSchedule.filter(p => p.riskLevel === level);
@@ -232,7 +248,20 @@ export function PPMSchedule({ onToast }: Props) {
                     <span className={`text-[9px] ${cfg.text} opacity-60`}>· {cfg.sublabel}</span>
                     <span className={`text-[9px] ${cfg.text} opacity-40 ml-auto`}>{items.length} task{items.length > 1 ? 's' : ''}</span>
                   </div>
-                  {items.map(item => <PPMRow key={item.id} item={item} onToast={onToast} />)}
+                  {items.map(item => {
+                  const overrideTech = ppmTechOverrides[item.id];
+                  const resolvedItem = overrideTech
+                    ? { ...item, tech: overrideTech, techId: TECH_INITIALS[overrideTech] ?? overrideTech.slice(0, 2) }
+                    : item;
+                  return (
+                    <PPMRow
+                      key={item.id}
+                      item={resolvedItem}
+                      onToast={onToast}
+                      onAssignTech={setAssignTarget}
+                    />
+                  );
+                })}
                 </div>
               );
             })}
@@ -333,6 +362,23 @@ export function PPMSchedule({ onToast }: Props) {
           )}
         </AnimatePresence>
       </div>
+
+      <AssignTechModal
+        open={assignTarget !== null}
+        workOrder={assignTarget ? {
+          id: assignTarget.id,
+          title: assignTarget.task,
+          skill: assignTarget.type,
+          location: assignTarget.location,
+        } : null}
+        onConfirm={techName => {
+          if (!assignTarget) return;
+          setPpmTechOverrides(prev => ({ ...prev, [assignTarget.id]: techName }));
+          setAssignTarget(null);
+          onToast(`${techName} assigned to ${assignTarget.id}`, 'success');
+        }}
+        onCancel={() => setAssignTarget(null)}
+      />
     </div>
   );
 }

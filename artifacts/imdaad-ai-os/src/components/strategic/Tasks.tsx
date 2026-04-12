@@ -10,6 +10,7 @@ import { AnimatedBar } from '@/components/shared/AnimatedBar';
 import { TechAvatar } from '@/components/shared/TechAvatar';
 import type { PPMRiskPayload } from './PPMRiskPanel';
 import { CreateWorkOrderModal } from './CreateWorkOrderModal';
+import { AssignTechModal } from '@/components/shared/AssignTechModal';
 
 type KTask = typeof mockKanbanTasks[0];
 type KTaskArr = KTask[];
@@ -129,6 +130,8 @@ export function Tasks({ onToast, prefilledTask, onPrefilledTaskConsumed }: Props
   const lastPrefilledId = useRef<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [extraTasks, setExtraTasks] = useState<KTaskArr>([]);
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [taskOverrides, setTaskOverrides] = useState<Record<string, Partial<KTask>>>({});
 
   useEffect(() => {
     if (!prefilledTask) return;
@@ -156,7 +159,11 @@ export function Tasks({ onToast, prefilledTask, onPrefilledTaskConsumed }: Props
     onPrefilledTaskConsumed?.();
   }, [prefilledTask]);
 
-  const allTasks = [...syntheticTasks, ...mockKanbanTasks, ...extraTasks];
+  const allTasks = [
+    ...syntheticTasks,
+    ...mockKanbanTasks.map(t => taskOverrides[t.id] ? { ...t, ...taskOverrides[t.id] } : t),
+    ...extraTasks,
+  ];
 
   const filtered = allTasks.filter(t => {
     if (status   !== 'All' && t.status   !== status)   return false;
@@ -259,7 +266,7 @@ export function Tasks({ onToast, prefilledTask, onPrefilledTaskConsumed }: Props
               return (
                 <motion.button
                   key={task.id}
-                  onClick={() => setSelected(isSelected ? null : task)}
+                  onClick={() => setSelected(isSelected ? null : (task as KTask))}
                   whileTap={{ scale: 0.995 }}
                   className={`w-full text-left px-5 py-3 border-b border-[rgba(46,127,255,0.08)] hover:bg-white/[0.02] transition-all ${isSelected ? 'bg-[rgba(46,127,255,0.08)]' : ''} ${isPPM ? 'border-l-2 border-l-amber-500/50' : ''}`}
                 >
@@ -288,7 +295,7 @@ export function Tasks({ onToast, prefilledTask, onPrefilledTaskConsumed }: Props
                       {task.status !== 'closed' ? (
                         <>
                           <AnimatedBar value={sla.percent} color={sla.barColor} height="h-1" />
-                          <SLAChip task={task} />
+                          <SLAChip task={task as KTask} />
                         </>
                       ) : (
                         <div className="flex items-center gap-1 text-emerald-400">
@@ -434,7 +441,13 @@ export function Tasks({ onToast, prefilledTask, onPrefilledTaskConsumed }: Props
                       {(DRAWER_ACTIONS[selected.status] || []).map((action, i) => (
                         <button
                           key={i}
-                          onClick={() => onToast(`${action.label} — ${selected.id}`, 'info')}
+                          onClick={() => {
+                            if (action.label === 'Assign Tech' || action.label === 'Reassign') {
+                              setShowAssignModal(true);
+                            } else {
+                              onToast(`${action.label} — ${selected.id}`, 'info');
+                            }
+                          }}
                           className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-xl border transition-colors hover:opacity-90 ${action.bg} ${action.color}`}
                         >
                           <Wrench size={12} />
@@ -472,6 +485,41 @@ export function Tasks({ onToast, prefilledTask, onPrefilledTaskConsumed }: Props
         onClose={() => setShowCreate(false)}
         onCreated={task => setExtraTasks(prev => [task, ...prev])}
         onToast={onToast}
+      />
+
+      <AssignTechModal
+        open={showAssignModal}
+        workOrder={selected ? {
+          id: selected.id,
+          title: selected.title,
+          skill: selected.skill,
+          location: selected.location,
+        } : null}
+        onConfirm={techName => {
+          if (!selected) return;
+          const newStatus = selected.status === 'new'
+            ? ('assigned' as KTask['status'])
+            : selected.status as KTask['status'];
+          const applyPatch = (t: KTask & { _dueLabel?: string }): KTask & { _dueLabel?: string } =>
+            t.id === selected.id
+              ? ({ ...t, tech: techName, status: newStatus } as KTask & { _dueLabel?: string })
+              : t;
+          const isSynthetic = syntheticTasks.some(t => t.id === selected.id);
+          const isExtra = extraTasks.some(t => t.id === selected.id);
+          const isMock = mockKanbanTasks.some(t => t.id === selected.id);
+          if (isSynthetic) setSyntheticTasks(prev => prev.map(applyPatch));
+          if (isExtra) setExtraTasks(prev => prev.map(applyPatch));
+          if (isMock) {
+            setTaskOverrides(prev => ({
+              ...prev,
+              [selected.id]: { ...(prev[selected.id] ?? {}), tech: techName, status: newStatus },
+            }));
+          }
+          setSelected(({ ...selected, tech: techName, status: newStatus } as KTask));
+          setShowAssignModal(false);
+          onToast(`${techName} assigned to ${selected.id}`, 'success');
+        }}
+        onCancel={() => setShowAssignModal(false)}
       />
     </div>
   );
