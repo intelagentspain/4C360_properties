@@ -262,6 +262,9 @@ interface SubmitOptions {
   aiMetadata?: SubmitAiMetadata;
   severity?: 'low' | 'medium' | 'high';
   title?: string;
+  slaMinutes?: number;
+  lat?: number;
+  lng?: number;
 }
 
 export async function submitIncident(opts: SubmitOptions): Promise<string> {
@@ -288,11 +291,11 @@ export async function submitIncident(opts: SubmitOptions): Promise<string> {
     description: opts.description ?? opts.analysis?.description ?? 'Incident reported via hospitality portal',
     source: opts.source,
     severity: priority,
-    slaMinutes: deriveSlaMinutes(priority),
+    slaMinutes: opts.slaMinutes ?? deriveSlaMinutes(priority),
     clientId: opts.clientId,
     siteId: opts.siteId,
-    lat: SILICON_OASIS_LAT,
-    lng: SILICON_OASIS_LNG,
+    lat: opts.lat ?? SILICON_OASIS_LAT,
+    lng: opts.lng ?? SILICON_OASIS_LNG,
     location: 'Silicon Oasis',
     reportedAt: now.toISOString(),
     activityLog: [

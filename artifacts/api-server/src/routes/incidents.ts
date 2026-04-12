@@ -1359,7 +1359,7 @@ router.get("/incidents/:id", async (req: Request, res: Response) => {
 });
 
 router.post("/incidents", async (req: Request, res: Response) => {
-  const body = req.body as Partial<IncidentPayload & { clientId?: string; activityLog?: unknown[] }>;
+  const body = req.body as Partial<IncidentPayload & { clientId?: string; activityLog?: unknown[]; reportedAt?: string }>;
 
   if (!body.id || !body.title) {
     res.status(400).json({ error: "id and title are required" });
@@ -1387,6 +1387,7 @@ router.post("/incidents", async (req: Request, res: Response) => {
       aiMetadata: body.aiMetadata ?? null,
       activityLog: body.activityLog ?? [],
       closureNotes: null,
+      reportedAt: body.reportedAt ? new Date(body.reportedAt) : null,
     };
 
     const [inserted] = await db.insert(incidentsTable).values(newIncident).onConflictDoNothing().returning();
