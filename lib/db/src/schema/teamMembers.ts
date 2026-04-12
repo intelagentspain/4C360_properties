@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, boolean } from "drizzle-orm/pg-core";
 
 export const teamMembersTable = pgTable("team_members", {
   id: text("id").primaryKey(),
@@ -19,6 +19,8 @@ export const teamMembersTable = pgTable("team_members", {
   commChannels: text("comm_channels").array().default([]),
   siteIds: text("site_ids").array().default([]),
   phone: text("phone"),
+  photo: text("photo"),
+  isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

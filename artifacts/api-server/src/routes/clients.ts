@@ -809,6 +809,8 @@ router.post("/team-members", async (req, res) => {
     siteIds?: string[];
     phone?: string;
     id?: string;
+    photo?: string;
+    isActive?: boolean;
   };
 
   if (!body.name?.trim() || !body.email?.trim() || !body.role?.trim()) {
@@ -837,6 +839,8 @@ router.post("/team-members", async (req, res) => {
       commChannels: body.commChannels ?? [],
       siteIds: body.siteIds ?? [],
       phone: body.phone ?? null,
+      photo: body.photo ?? null,
+      isActive: body.isActive !== undefined ? body.isActive : true,
     }).onConflictDoNothing().returning();
     if (!inserted) {
       res.status(409).json({ error: "Team member with this id or email already exists", id });
