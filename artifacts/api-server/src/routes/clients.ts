@@ -561,7 +561,7 @@ interface InviteBody {
   teamMembers: TeamMember[];
 }
 
-const TRUSTED_APP_BASE = process.env.APP_BASE_URL?.replace(/\/$/, '') ?? '';
+const TRUSTED_APP_BASE = (process.env.APP_BASE_URL ?? (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : '')).replace(/\/$/, '');
 
 function buildMemberDashboardUrl(memberId: string): string | undefined {
   if (!memberId || !TRUSTED_APP_BASE) return undefined;
