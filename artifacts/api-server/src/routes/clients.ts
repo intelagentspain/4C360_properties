@@ -561,7 +561,19 @@ interface InviteBody {
   teamMembers: TeamMember[];
 }
 
-const TRUSTED_APP_BASE = (process.env.APP_BASE_URL ?? (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : '')).replace(/\/$/, '');
+function deriveAppBase(): string {
+  if (process.env.APP_BASE_URL) return process.env.APP_BASE_URL.replace(/\/$/, '');
+  if (process.env.REPLIT_DOMAINS) {
+    // REPLIT_DOMAINS is comma-separated; first entry is the primary domain.
+    // In production (deployed) this is the .replit.app public URL.
+    // In development it equals REPLIT_DEV_DOMAIN, so we prefer it too.
+    const primary = process.env.REPLIT_DOMAINS.split(',')[0].trim();
+    if (primary) return `https://${primary}`;
+  }
+  if (process.env.REPLIT_DEV_DOMAIN) return `https://${process.env.REPLIT_DEV_DOMAIN}`;
+  return '';
+}
+const TRUSTED_APP_BASE = deriveAppBase();
 
 function buildMemberDashboardUrl(memberId: string): string | undefined {
   if (!memberId || !TRUSTED_APP_BASE) return undefined;
@@ -855,9 +867,7 @@ const END_CLIENT_TEST_CLIENT_NAME = "4CKSA Properties";
 const END_CLIENT_TEST_MEMBER_ID = "mbr-4cksa-gm-001";
 
 export async function sendEndClientTestEmail(): Promise<{ status: "sent" | "failed"; error?: string }> {
-  const reportUrl = TRUSTED_APP_BASE
-    ? `${TRUSTED_APP_BASE}?member=${encodeURIComponent(END_CLIENT_TEST_MEMBER_ID)}`
-    : `https://e0f441fc-0270-4880-be01-81df49eee9d1-00-2i7i1iifujpos-g1h59127.spock.replit.dev?member=${encodeURIComponent(END_CLIENT_TEST_MEMBER_ID)}`;
+  const reportUrl = `${TRUSTED_APP_BASE}?member=${encodeURIComponent(END_CLIENT_TEST_MEMBER_ID)}`;
 
   const html = buildEndClientInviteEmail(
     "General Manager",
