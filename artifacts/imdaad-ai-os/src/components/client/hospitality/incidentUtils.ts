@@ -79,6 +79,49 @@ export function mockAiImageAnalysis(): AiAnalysis {
   return ISSUE_POOL[Math.floor(Math.random() * ISSUE_POOL.length)];
 }
 
+function mapAnalysisResponse(a: {
+  title?: string;
+  description?: string;
+  issueType?: string;
+  category?: string;
+  severity?: string;
+  identifiedAsset?: string;
+  observations?: string[];
+  recommendedAction?: string;
+  confidence?: number;
+}, fallbackObservation: string): AiAnalysis {
+  const rawSeverity = (a.severity ?? 'medium').toLowerCase();
+  const priority = (['low', 'medium', 'high'].includes(rawSeverity)
+    ? rawSeverity
+    : rawSeverity === 'critical' ? 'high' : 'medium') as AiAnalysis['priority'];
+
+  return {
+    title: a.title ?? 'Issue Identified',
+    description: a.description ?? 'Issue identified via analysis.',
+    category: a.category ?? 'General Maintenance',
+    subCategory: a.issueType ?? 'Issue Reported',
+    identifiedAsset: a.identifiedAsset ?? 'Property Area',
+    observations: Array.isArray(a.observations) && a.observations.length > 0
+      ? a.observations
+      : [fallbackObservation],
+    recommendedAction: a.recommendedAction ?? 'Maintenance team will assess and action accordingly.',
+    priority,
+    confidence: typeof a.confidence === 'number' ? a.confidence : 75,
+  };
+}
+
+type ApiAnalysisPayload = {
+  title?: string;
+  description?: string;
+  issueType?: string;
+  category?: string;
+  severity?: string;
+  identifiedAsset?: string;
+  observations?: string[];
+  recommendedAction?: string;
+  confidence?: number;
+};
+
 export async function analyzeImage(imageDataUrl: string): Promise<AiAnalysis> {
   try {
     const blob = await (await fetch(imageDataUrl)).blob();
@@ -90,46 +133,38 @@ export async function analyzeImage(imageDataUrl: string): Promise<AiAnalysis> {
       body: form,
     });
 
-    if (!resp.ok) {
-      return mockAiImageAnalysis();
-    }
+    if (!resp.ok) return mockAiImageAnalysis();
 
-    const data = await resp.json() as {
-      success?: boolean;
-      analysis?: {
-        title?: string;
-        description?: string;
-        issueType?: string;
-        category?: string;
-        severity?: string;
-        identifiedAsset?: string;
-        observations?: string[];
-        recommendedAction?: string;
-        confidence?: number;
-      };
-    };
-
-    const a = data.analysis ?? {};
-    const rawSeverity = (a.severity ?? 'medium').toLowerCase();
-    const priority = (['low', 'medium', 'high'].includes(rawSeverity)
-      ? rawSeverity
-      : rawSeverity === 'critical' ? 'high' : 'medium') as AiAnalysis['priority'];
-
-    return {
-      title: a.title ?? 'Issue Identified',
-      description: a.description ?? 'Issue identified via image analysis.',
-      category: a.category ?? 'General Maintenance',
-      subCategory: a.issueType ?? 'Issue Reported',
-      identifiedAsset: a.identifiedAsset ?? 'Property Area',
-      observations: Array.isArray(a.observations) && a.observations.length > 0
-        ? a.observations
-        : ['Issue observed in the uploaded photo'],
-      recommendedAction: a.recommendedAction ?? 'Maintenance team will assess and action accordingly.',
-      priority,
-      confidence: typeof a.confidence === 'number' ? a.confidence : 80,
-    };
+    const data = await resp.json() as { success?: boolean; analysis?: ApiAnalysisPayload };
+    return mapAnalysisResponse(data.analysis ?? {}, 'Issue observed in the uploaded photo');
   } catch {
     return mockAiImageAnalysis();
+  }
+}
+
+export async function transcribeAndAnalyzeVoice(audioBlob: Blob): Promise<{ analysis: AiAnalysis; transcript: string }> {
+  try {
+    const form = new FormData();
+    form.append('audio', audioBlob, 'voice-note.webm');
+
+    const resp = await fetch(`${BASE_URL}/api/ai/transcribe-and-analyze-voice`, {
+      method: 'POST',
+      body: form,
+    });
+
+    if (!resp.ok) {
+      return { analysis: mockAiImageAnalysis(), transcript: '' };
+    }
+
+    const data = await resp.json() as { success?: boolean; transcript?: string; analysis?: ApiAnalysisPayload };
+    const transcript = data.transcript ?? '';
+    const analysis = mapAnalysisResponse(
+      data.analysis ?? {},
+      transcript.length > 0 ? transcript.slice(0, 120) : 'Issue reported via voice note',
+    );
+    return { analysis, transcript };
+  } catch {
+    return { analysis: mockAiImageAnalysis(), transcript: '' };
   }
 }
 

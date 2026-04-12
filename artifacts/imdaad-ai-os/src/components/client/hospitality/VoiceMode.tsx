@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, Square, Play, Pause, CheckCircle, Loader2 } from 'lucide-react';
+import { Mic, Square, Play, Pause, CheckCircle, Loader2, Brain } from 'lucide-react';
 import type { ToastFn } from '@/lib/ui';
-import { submitIncident } from './incidentUtils';
+import { submitIncident, transcribeAndAnalyzeVoice, type AiAnalysis } from './incidentUtils';
+import { AnalysisResultCard } from './AnalysisResultCard';
 
 interface Props {
   onSuccess: (ref: string) => void;
@@ -25,10 +26,11 @@ export function VoiceMode({ onSuccess, onToast }: Props) {
 
   const [recording, setRecording] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const [playing, setPlaying] = useState(false);
-  const [description, setDescription] = useState('Voice note recorded — our team will listen and respond');
+  const [analysing, setAnalysing] = useState(false);
+  const [analysis, setAnalysis] = useState<AiAnalysis | null>(null);
+  const [transcript, setTranscript] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [waveform, setWaveform] = useState<number[]>(Array(20).fill(8));
   const [micError, setMicError] = useState<string | null>(null);
@@ -44,6 +46,9 @@ export function VoiceMode({ onSuccess, onToast }: Props) {
   const startRecording = async () => {
     try {
       setMicError(null);
+      setAnalysis(null);
+      setTranscript('');
+      setAudioUrl(null);
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       chunksRef.current = [];
 
@@ -56,13 +61,18 @@ export function VoiceMode({ onSuccess, onToast }: Props) {
 
       const mr = new MediaRecorder(stream);
       mr.ondataavailable = (e) => chunksRef.current.push(e.data);
-      mr.onstop = () => {
+      mr.onstop = async () => {
         const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
         const url = URL.createObjectURL(blob);
-        setAudioBlob(blob);
         setAudioUrl(url);
         stream.getTracks().forEach(t => t.stop());
         audioCtx.close();
+
+        setAnalysing(true);
+        const result = await transcribeAndAnalyzeVoice(blob);
+        setAnalysis(result.analysis);
+        setTranscript(result.transcript);
+        setAnalysing(false);
       };
       mr.start();
       mediaRecorderRef.current = mr;
@@ -114,24 +124,7 @@ export function VoiceMode({ onSuccess, onToast }: Props) {
   const handleSubmit = async () => {
     setSubmitting(true);
     try {
-      const ref = await submitIncident({ source: 'voice', description });
-      if (audioBlob && audioBlob.size > 0) {
-        try {
-          const form = new FormData();
-          form.append('audio', audioBlob, `voice-note-${ref}.webm`);
-          form.append('incidentId', ref);
-          form.append('transcription', description || 'Voice note recorded — our team will listen and respond');
-          const voiceResp = await fetch(`${import.meta.env.BASE_URL?.replace(/\/$/, '') ?? ''}/api/incidents/${ref}/voice-note`, {
-            method: 'POST',
-            body: form,
-          });
-          if (!voiceResp.ok) {
-            onToast('Incident submitted — voice note could not be attached', 'warning');
-          }
-        } catch {
-          onToast('Incident submitted — voice note could not be attached', 'warning');
-        }
-      }
+      const ref = await submitIncident({ source: 'voice', analysis: analysis ?? undefined, description: transcript || undefined });
       onToast(`Incident ${ref} submitted — our team is on it`, 'success');
       onSuccess(ref);
     } catch (err) {
@@ -208,39 +201,61 @@ export function VoiceMode({ onSuccess, onToast }: Props) {
               <CheckCircle size={28} className="text-emerald-600" />
             </div>
             <div className="text-[13px] font-semibold text-[#2C1810]">Voice note recorded</div>
-            <div className="text-[11px] text-[#8B7355]">{formatTime(elapsed)} · ready to submit</div>
-            <button
-              onClick={togglePlayback}
-              className="flex items-center gap-2 px-4 py-2 rounded-full border border-[#E8DEC8] text-[#5C4A2A] text-[12px] font-medium hover:bg-[#F5EFE0] transition-colors"
-            >
-              {playing ? <Pause size={14} /> : <Play size={14} />}
-              {playing ? 'Pause playback' : 'Play back recording'}
-            </button>
+            <div className="text-[11px] text-[#8B7355]">{formatTime(elapsed)} · {analysing ? 'transcribing…' : 'ready to submit'}</div>
+            {!analysing && (
+              <button
+                onClick={togglePlayback}
+                className="flex items-center gap-2 px-4 py-2 rounded-full border border-[#E8DEC8] text-[#5C4A2A] text-[12px] font-medium hover:bg-[#F5EFE0] transition-colors"
+              >
+                {playing ? <Pause size={14} /> : <Play size={14} />}
+                {playing ? 'Pause playback' : 'Play back recording'}
+              </button>
+            )}
           </div>
         )}
       </div>
 
       <AnimatePresence>
-        {audioUrl && (
+        {analysing && (
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            className="space-y-2"
+            exit={{ opacity: 0 }}
+            className="flex items-center gap-3 p-3 rounded-xl bg-[#F0FDF4] border border-emerald-200"
           >
-            <label className="text-[11px] font-medium text-[#8B7355] uppercase tracking-widest">
-              Description (editable)
-            </label>
-            <textarea
-              value={description}
-              onChange={e => setDescription(e.target.value)}
-              rows={3}
-              className="w-full p-3 rounded-xl border border-[#E8DEC8] bg-white text-[#2C1810] text-[12px] resize-none focus:outline-none focus:border-[#1C3A35] transition-colors placeholder-[#A89070]"
-            />
+            <Brain size={16} className="text-emerald-600 animate-pulse flex-shrink-0" />
+            <div>
+              <div className="text-[12px] font-semibold text-emerald-800">Transcribing and analysing your voice note…</div>
+              <div className="text-[10px] text-emerald-600">Converting speech to an FM incident ticket</div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {audioUrl && (
+      <AnimatePresence>
+        {analysis && !analysing && (
+          <AnalysisResultCard analysis={analysis} />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {transcript && !analysing && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-1.5"
+          >
+            <label className="text-[10px] font-medium text-[#8B7355] uppercase tracking-widest">
+              What you said
+            </label>
+            <p className="w-full p-3 rounded-xl border border-[#E8DEC8] bg-white text-[#2C1810] text-[12px] leading-relaxed">
+              {transcript}
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {audioUrl && !analysing && (
         <button
           onClick={handleSubmit}
           disabled={submitting}
@@ -248,7 +263,7 @@ export function VoiceMode({ onSuccess, onToast }: Props) {
           style={{ background: 'linear-gradient(135deg, #1C3A35 0%, #2D5A50 100%)' }}
         >
           {submitting ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle size={16} />}
-          {submitting ? 'Submitting…' : 'Submit Voice Note'}
+          {submitting ? 'Submitting…' : 'Submit Incident Report'}
         </button>
       )}
     </div>
