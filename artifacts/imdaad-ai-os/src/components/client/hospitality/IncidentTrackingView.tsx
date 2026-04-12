@@ -18,10 +18,11 @@ interface IncidentRow {
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: typeof CheckCircle }> = {
-  open:        { label: 'Open',        color: '#B45309', bg: '#FEF3C7', icon: Clock       },
-  dispatched:  { label: 'Dispatched',  color: '#2563EB', bg: '#EFF6FF', icon: RefreshCw   },
-  'in-progress': { label: 'In Progress', color: '#7C3AED', bg: '#F5F3FF', icon: RefreshCw },
-  closed:      { label: 'Resolved',    color: '#059669', bg: '#ECFDF5', icon: CheckCircle  },
+  open:          { label: 'Open',        color: '#B45309', bg: '#FEF3C7', icon: Clock       },
+  dispatched:    { label: 'Dispatched',  color: '#2563EB', bg: '#EFF6FF', icon: RefreshCw   },
+  'in-progress': { label: 'In Progress', color: '#7C3AED', bg: '#F5F3FF', icon: RefreshCw   },
+  resolved:      { label: 'Resolved',    color: '#059669', bg: '#ECFDF5', icon: CheckCircle  },
+  closed:        { label: 'Resolved',    color: '#059669', bg: '#ECFDF5', icon: CheckCircle  },
 };
 
 function getStatusConfig(status = 'open') {
@@ -30,7 +31,7 @@ function getStatusConfig(status = 'open') {
 
 function getProgressPct(status = 'open', elapsed = 0, slaMinutes = 60): number {
   const s = status.toLowerCase();
-  if (s === 'closed') return 100;
+  if (s === 'closed' || s === 'resolved') return 100;
   if (s === 'in-progress') return 70;
   if (s === 'dispatched') return 40;
   const pct = slaMinutes > 0 ? Math.min(((elapsed ?? 0) / (slaMinutes * 60)) * 100, 90) : 10;
@@ -126,7 +127,7 @@ export function IncidentTrackingView({ incidentId }: Props) {
   const progressPct = getProgressPct(incident.status, incident.elapsed, incident.slaMinutes);
   const slaMinutes = incident.slaMinutes ?? 60;
   const slaText = slaMinutes <= 30 ? '30 min' : slaMinutes <= 60 ? '1 hour' : `${slaMinutes} min`;
-  const isClosed = (incident.status ?? '').toLowerCase() === 'closed';
+  const isClosed = ['closed', 'resolved'].includes((incident.status ?? '').toLowerCase());
 
   return (
     <div className="flex flex-col bg-[#FDFAF5]" style={{ minHeight: '100dvh' }}>
