@@ -108,7 +108,7 @@ interface AiMetadata {
   assetId?: string;
 }
 
-interface IncidentPayload {
+export interface IncidentPayload {
   id: string;
   title?: string;
   location?: string;
@@ -338,7 +338,7 @@ function buildIncidentEmailBody(
   return { aiBlock, imageBlock, locationBlock, sevColor, sevLabel };
 }
 
-function buildIncidentEmail(
+export function buildIncidentEmail(
   incident: IncidentPayload,
   recipientName: string,
   recipientEmail: string,
@@ -431,7 +431,7 @@ function buildIncidentEmail(
 </html>`;
 }
 
-function buildEndClientIncidentEmailForAM(
+export function buildEndClientIncidentEmailForAM(
   incident: IncidentPayload,
   recipientName: string,
   recipientEmail: string,
@@ -518,7 +518,7 @@ function buildEndClientIncidentEmailForAM(
 </html>`;
 }
 
-function buildEndClientIncidentEmailForSupervisor(
+export function buildEndClientIncidentEmailForSupervisor(
   incident: IncidentPayload,
   recipientName: string,
   recipientEmail: string,
@@ -1769,7 +1769,7 @@ function confirmedResolutionHtml(id: string): string {
 </head><body><div class="card"><div class="icon">✅</div><div class="badge">IMDAAD AI-OS</div><h1>Resolution Confirmed</h1><p>Incident <strong style="color:#EEF3FA;">${escapeHtml(id)}</strong> has been confirmed as resolved. The client has been notified with a full resolution report.</p></div></body></html>`;
 }
 
-function buildResolutionNotificationEmail(
+export function buildResolutionNotificationEmail(
   incident: IncidentPayload & {
     resolvedBy?: string;
     resolvedAt?: string;

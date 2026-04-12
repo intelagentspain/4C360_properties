@@ -10,6 +10,7 @@ import incidentChatRouter from "./incidentChat";
 import pushRouter from "./push";
 import copilotChatRouter from "./copilotChat";
 import shareReportRouter from "./shareReport";
+import devRouter from "./dev";
 
 const router: IRouter = Router();
 
@@ -24,5 +25,6 @@ router.use(incidentChatRouter);
 router.use(pushRouter);
 router.use(copilotChatRouter);
 router.use(shareReportRouter);
+router.use(devRouter);
 
 export default router;

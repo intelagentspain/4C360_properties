@@ -2,6 +2,7 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { checkEmailConfig } from "./lib/mailer";
 import { initDb } from "./lib/initDb";
+import { sendSampleEmails } from "./routes/dev";
 
 const rawPort = process.env["PORT"];
 
@@ -28,6 +29,14 @@ initDb()
       logger.info({ port }, "Server listening");
 
       checkEmailConfig().catch((e) => logger.warn({ err: e }, "Email config check failed"));
+
+      if (process.env.ENABLE_SAMPLE_EMAIL_DISPATCH === "true") {
+        sendSampleEmails()
+          .then(({ sent, failed }) => {
+            logger.info({ sent, failed }, "Sample emails dispatch complete");
+          })
+          .catch((e) => logger.warn({ err: e }, "Sample emails dispatch failed"));
+      }
     });
   })
   .catch((err) => {
