@@ -79,6 +79,60 @@ export function mockAiImageAnalysis(): AiAnalysis {
   return ISSUE_POOL[Math.floor(Math.random() * ISSUE_POOL.length)];
 }
 
+export function mockVoiceAnalysis(transcript: string): AiAnalysis {
+  const lower = transcript.toLowerCase();
+  if (lower.includes('ac') || lower.includes('air') || lower.includes('cool') || lower.includes('hvac') || lower.includes('cold')) {
+    return {
+      title: 'Air Conditioning Issue',
+      description: transcript.length > 10 ? transcript.slice(0, 250) : 'Resident reports air conditioning is not working correctly. Maintenance team to inspect and assess the unit.',
+      category: 'HVAC',
+      subCategory: 'Cooling Failure',
+      identifiedAsset: 'Air Conditioning Unit',
+      observations: ['Resident reports AC not functioning', 'Issue described via voice note', 'Maintenance team to verify on site'],
+      recommendedAction: 'Assign an HVAC technician to inspect the unit and assess refrigerant levels, thermostat, and fan motor.',
+      priority: 'high',
+      confidence: 55,
+    };
+  }
+  if (lower.includes('leak') || lower.includes('water') || lower.includes('drip') || lower.includes('flood') || lower.includes('pipe')) {
+    return {
+      title: 'Water Leak Reported',
+      description: transcript.length > 10 ? transcript.slice(0, 250) : 'Resident reports a water leak. Maintenance team to inspect source and assess damage.',
+      category: 'Plumbing',
+      subCategory: 'Water Leak',
+      identifiedAsset: 'Water Supply / Fixture',
+      observations: ['Active water leak described by resident', 'Exact source to be confirmed on site', 'Risk of water damage if not addressed promptly'],
+      recommendedAction: 'Dispatch a plumber to locate and isolate the leak. Assess surrounding areas for water damage.',
+      priority: 'high',
+      confidence: 55,
+    };
+  }
+  if (lower.includes('light') || lower.includes('electric') || lower.includes('power') || lower.includes('socket') || lower.includes('switch')) {
+    return {
+      title: 'Electrical Issue Reported',
+      description: transcript.length > 10 ? transcript.slice(0, 250) : 'Resident reports an electrical fault. Maintenance team to inspect and assess the affected circuit.',
+      category: 'Electrical',
+      subCategory: 'Electrical Fault',
+      identifiedAsset: 'Electrical Fixture / Circuit',
+      observations: ['Electrical fault described by resident', 'Could be MCB trip, failed fixture, or wiring issue', 'Safety inspection required'],
+      recommendedAction: 'Assign a licensed electrician to inspect the circuit, test affected outlets and fixtures, and check the MCB panel.',
+      priority: 'medium',
+      confidence: 50,
+    };
+  }
+  return {
+    title: transcript.length > 5 ? transcript.split(' ').slice(0, 5).join(' ') : 'General Maintenance Request',
+    description: transcript.length > 15 ? transcript.slice(0, 300) : 'Resident submitted a voice note reporting a facility issue. Maintenance team to review and assess.',
+    category: 'General Maintenance',
+    subCategory: 'General Issue',
+    identifiedAsset: 'Property Area',
+    observations: ['Issue reported via voice note', 'Details captured in resident description', 'Maintenance team to verify on site'],
+    recommendedAction: 'Dispatch appropriate maintenance technician to inspect and assess the reported issue.',
+    priority: 'low',
+    confidence: 35,
+  };
+}
+
 function mapAnalysisResponse(a: {
   title?: string;
   description?: string;
@@ -142,7 +196,7 @@ export async function analyzeImage(imageDataUrl: string): Promise<AiAnalysis> {
   }
 }
 
-export async function transcribeAndAnalyzeVoice(audioBlob: Blob): Promise<{ analysis: AiAnalysis; transcript: string }> {
+export async function transcribeAndAnalyzeVoice(audioBlob: Blob): Promise<{ analysis: AiAnalysis; transcript: string; failed: boolean }> {
   try {
     const form = new FormData();
     form.append('audio', audioBlob, 'voice-note.webm');
@@ -153,18 +207,23 @@ export async function transcribeAndAnalyzeVoice(audioBlob: Blob): Promise<{ anal
     });
 
     if (!resp.ok) {
-      return { analysis: mockAiImageAnalysis(), transcript: '' };
+      return { analysis: mockVoiceAnalysis(''), transcript: '', failed: true };
     }
 
     const data = await resp.json() as { success?: boolean; transcript?: string; analysis?: ApiAnalysisPayload };
     const transcript = data.transcript ?? '';
+
+    if (!data.analysis || !data.analysis.title) {
+      return { analysis: mockVoiceAnalysis(transcript), transcript, failed: true };
+    }
+
     const analysis = mapAnalysisResponse(
-      data.analysis ?? {},
+      data.analysis,
       transcript.length > 0 ? transcript.slice(0, 120) : 'Issue reported via voice note',
     );
-    return { analysis, transcript };
+    return { analysis, transcript, failed: false };
   } catch {
-    return { analysis: mockAiImageAnalysis(), transcript: '' };
+    return { analysis: mockVoiceAnalysis(''), transcript: '', failed: true };
   }
 }
 

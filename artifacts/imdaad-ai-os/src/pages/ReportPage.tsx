@@ -123,11 +123,15 @@ export function ReportPage({ memberToken }: ReportPageProps) {
       const ref = await submitIncident({
         source: 'upload',
         analysis: aiAnalysis ?? {
+          title: `${selectedCatLabel} Issue`,
+          description: fullDescription,
           category: selectedCatLabel,
           subCategory: urgency,
+          identifiedAsset: 'Property Area',
+          observations: [`Reported by resident: ${selectedCatLabel}`],
+          recommendedAction: 'Dispatch maintenance team to inspect and assess.',
           priority: urgency === 'emergency' ? 'high' : urgency === 'urgent' ? 'medium' : 'low',
           confidence: 80,
-          summary: fullDescription,
         },
         description: fullDescription,
       });

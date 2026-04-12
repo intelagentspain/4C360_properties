@@ -31,6 +31,8 @@ export function VoiceMode({ onSuccess, onToast }: Props) {
   const [analysing, setAnalysing] = useState(false);
   const [analysis, setAnalysis] = useState<AiAnalysis | null>(null);
   const [transcript, setTranscript] = useState('');
+  const [analyseFailed, setAnalyseFailed] = useState(false);
+  const [fallbackText, setFallbackText] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [waveform, setWaveform] = useState<number[]>(Array(20).fill(8));
   const [micError, setMicError] = useState<string | null>(null);
@@ -48,6 +50,8 @@ export function VoiceMode({ onSuccess, onToast }: Props) {
       setMicError(null);
       setAnalysis(null);
       setTranscript('');
+      setAnalyseFailed(false);
+      setFallbackText('');
       setAudioUrl(null);
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       chunksRef.current = [];
@@ -72,6 +76,10 @@ export function VoiceMode({ onSuccess, onToast }: Props) {
         const result = await transcribeAndAnalyzeVoice(blob);
         setAnalysis(result.analysis);
         setTranscript(result.transcript);
+        setAnalyseFailed(result.failed);
+        if (result.failed) {
+          setFallbackText(result.transcript || '');
+        }
         setAnalysing(false);
       };
       mr.start();
@@ -124,7 +132,11 @@ export function VoiceMode({ onSuccess, onToast }: Props) {
   const handleSubmit = async () => {
     setSubmitting(true);
     try {
-      const ref = await submitIncident({ source: 'voice', analysis: analysis ?? undefined, description: transcript || undefined });
+      const ref = await submitIncident({
+        source: 'voice',
+        analysis: analysis ?? undefined,
+        description: analyseFailed ? (fallbackText || undefined) : undefined,
+      });
       onToast(`Incident ${ref} submitted — our team is on it`, 'success');
       onSuccess(ref);
     } catch (err) {
@@ -201,7 +213,9 @@ export function VoiceMode({ onSuccess, onToast }: Props) {
               <CheckCircle size={28} className="text-emerald-600" />
             </div>
             <div className="text-[13px] font-semibold text-[#2C1810]">Voice note recorded</div>
-            <div className="text-[11px] text-[#8B7355]">{formatTime(elapsed)} · {analysing ? 'transcribing…' : 'ready to submit'}</div>
+            <div className="text-[11px] text-[#8B7355]">
+              {formatTime(elapsed)} · {analysing ? 'transcribing…' : 'ready to submit'}
+            </div>
             {!analysing && (
               <button
                 onClick={togglePlayback}
@@ -233,13 +247,13 @@ export function VoiceMode({ onSuccess, onToast }: Props) {
       </AnimatePresence>
 
       <AnimatePresence>
-        {analysis && !analysing && (
+        {analysis && !analysing && !analyseFailed && (
           <AnalysisResultCard analysis={analysis} />
         )}
       </AnimatePresence>
 
       <AnimatePresence>
-        {transcript && !analysing && (
+        {analysis && !analysing && !analyseFailed && transcript && (
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -255,10 +269,32 @@ export function VoiceMode({ onSuccess, onToast }: Props) {
         )}
       </AnimatePresence>
 
+      <AnimatePresence>
+        {audioUrl && !analysing && analyseFailed && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-2"
+          >
+            <label className="text-[11px] font-medium text-[#8B7355] uppercase tracking-widest">
+              Describe the issue
+            </label>
+            <textarea
+              value={fallbackText}
+              onChange={e => setFallbackText(e.target.value)}
+              rows={3}
+              placeholder="e.g. My air conditioning is not working, the unit turns on but doesn't produce cool air."
+              className="w-full p-3 rounded-xl border border-[#E8DEC8] bg-white text-[#2C1810] text-[12px] resize-none focus:outline-none focus:border-[#1C3A35] transition-colors placeholder-[#A89070]"
+            />
+            <p className="text-[10px] text-[#A89070]">AI transcription was unavailable. Please describe the issue above.</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {audioUrl && !analysing && (
         <button
           onClick={handleSubmit}
-          disabled={submitting}
+          disabled={submitting || (analyseFailed && !fallbackText.trim())}
           className="w-full py-3.5 rounded-2xl font-semibold text-white text-sm flex items-center justify-center gap-2 disabled:opacity-60"
           style={{ background: 'linear-gradient(135deg, #1C3A35 0%, #2D5A50 100%)' }}
         >
