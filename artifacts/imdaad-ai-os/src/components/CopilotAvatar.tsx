@@ -269,7 +269,7 @@ export function CopilotAvatar() {
 
       const conv = await Conversation.startSession({
         agentId: ELEVENLABS_AGENT_ID!,
-        connectionType: 'webrtc',
+        connectionType: 'websocket',
         onConnect: (props: { conversationId: string }) => {
           console.log('[CopilotAvatar] ElevenLabs connected — conversationId:', props.conversationId);
           setVoiceStatus('listening');
