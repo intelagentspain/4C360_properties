@@ -689,7 +689,7 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
       name: profile.name,
       email: profile.email,
       role: profile.role,
-      perspective: profile.perspective,
+      perspective: (profile.role === 'End Client' || profile.role === 'Client' || profile.role === 'Hotel Guest') ? 'Client' : (profile.perspective ?? 'Operational'),
       assignedClients: profile.assignedClients ?? [],
       zones: profile.zones ?? [],
       skills: Array.isArray(profile.skills)
@@ -719,6 +719,9 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
         const updated_m = { ...m, [field]: val };
         if (field === 'role' && val && ROLE_DEFAULT_PRIVILEGES[val]) {
           updated_m.privileges = [...ROLE_DEFAULT_PRIVILEGES[val]];
+        }
+        if (field === 'role' && val === 'End Client') {
+          updated_m.perspective = 'Client';
         }
         return updated_m;
       });

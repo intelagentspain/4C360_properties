@@ -607,7 +607,7 @@ router.post("/clients/invite", async (req, res) => {
   const results: { email: string; status: "sent" | "failed"; error?: string }[] = [];
 
   for (const member of teamMembers) {
-    const isEndClient = member.role.trim() === "End Client" || member.perspective === "Client";
+    const isEndClient = member.role.trim() === "End Client" || member.role.trim() === "Client" || member.role.trim() === "Hotel Guest" || member.perspective === "Client";
 
     const rawId = member.id?.trim();
     const effectiveId = rawId || (isEndClient ? `ec-${crypto.randomBytes(4).toString("hex")}` : undefined);
