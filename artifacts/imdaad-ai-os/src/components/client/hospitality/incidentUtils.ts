@@ -317,5 +317,11 @@ export async function submitIncident(opts: SubmitOptions): Promise<string> {
     throw new Error(`Failed to submit incident (${resp.status}): ${detail}`);
   }
 
+  fetch(`${BASE_URL}/api/incidents/notify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ incident: body, inviteList: [] }),
+  }).catch(() => {});
+
   return ref;
 }
