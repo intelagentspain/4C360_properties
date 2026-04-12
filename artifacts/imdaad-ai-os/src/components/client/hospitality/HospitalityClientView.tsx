@@ -10,6 +10,17 @@ import { SuccessScreen } from './SuccessScreen';
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, '') ?? '';
 
+async function fetchIncidentSla(ref: string): Promise<number> {
+  try {
+    const res = await fetch(`${BASE}/api/incidents/${encodeURIComponent(ref)}`);
+    if (!res.ok) return 30;
+    const data = await res.json();
+    return data.slaMinutes ?? 30;
+  } catch {
+    return 30;
+  }
+}
+
 export type ReportingMode = 'camera' | 'upload' | 'voice' | 'ai-chat';
 
 interface Props {
@@ -63,6 +74,7 @@ const MODES = [
 export function HospitalityClientView({ onToast, guestName = 'Resident', propertyName = 'Dubai Silicon Oasis', memberToken, clientId, siteId }: Props) {
   const [activeMode, setActiveMode] = useState<ReportingMode | null>(null);
   const [incidentRef, setIncidentRef] = useState<string | null>(null);
+  const [incidentSla, setIncidentSla] = useState<number>(30);
   const [linkCopied, setLinkCopied] = useState(false);
 
   const reportUrl = `${window.location.origin}${BASE}/report${memberToken ? `?member=${encodeURIComponent(memberToken)}` : ''}`;
@@ -79,6 +91,7 @@ export function HospitalityClientView({ onToast, guestName = 'Resident', propert
   const handleSuccess = (ref: string) => {
     setIncidentRef(ref);
     setActiveMode(null);
+    fetchIncidentSla(ref).then(sla => setIncidentSla(sla));
   };
 
   const handleBack = () => {
@@ -89,8 +102,8 @@ export function HospitalityClientView({ onToast, guestName = 'Resident', propert
     return (
       <SuccessScreen
         incidentRef={incidentRef}
-        incidentSla={30}
-        onDone={() => setIncidentRef(null)}
+        incidentSla={incidentSla}
+        onDone={() => { setIncidentRef(null); setIncidentSla(30); }}
       />
     );
   }

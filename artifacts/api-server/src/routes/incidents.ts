@@ -2374,7 +2374,11 @@ router.post("/incidents/:id/confirm-email", async (req: Request, res: Response) 
     }
 
     const incident = rows[0] as Record<string, unknown>;
-    const trackUrl = `https://resident.4cgrc.com?track=${encodeURIComponent(id)}`;
+    const isProduction = process.env.NODE_ENV === "production";
+    const basePortalUrl = isProduction
+      ? "https://resident.4cgrc.com"
+      : (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://resident.4cgrc.com");
+    const trackUrl = `${basePortalUrl}?track=${encodeURIComponent(id)}`;
     const html = buildResidentConfirmationEmail(incident, trackUrl);
 
     const result = await sendEmail({

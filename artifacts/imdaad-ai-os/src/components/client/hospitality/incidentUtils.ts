@@ -238,9 +238,9 @@ const SILICON_OASIS_LAT = 25.1174;
 const SILICON_OASIS_LNG = 55.3784;
 
 function deriveSlaMinutes(priority?: string): number {
-  if (priority === 'high') return 60;
-  if (priority === 'low') return 240;
-  return 120;
+  if (priority === 'high') return 30;
+  if (priority === 'low') return 120;
+  return 60;
 }
 
 export interface SubmitAiMetadata {
