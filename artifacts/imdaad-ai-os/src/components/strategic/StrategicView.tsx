@@ -20,6 +20,9 @@ import { AICapture } from './AICapture';
 import { DispatchAIRules } from './DispatchAIRules';
 import { initialDispatchSettings, type DispatchSettings } from '@/data/dispatchSettings';
 import { ManageClients } from './ManageClients';
+import { AssetsSettings } from './AssetsSettings';
+import { RolesSettings } from './RolesSettings';
+import { RulesSettings } from './RulesSettings';
 import { AllClients } from './AllClients';
 import { Team } from './Team';
 import type { StrategicPage } from '@/App';
@@ -81,7 +84,7 @@ function Dashboard({ onToast, selectedClientId, onNavigateToIncident, onNavigate
   );
 }
 
-type SettingsTab = 'dispatch' | 'clients';
+type SettingsTab = 'dispatch' | 'clients' | 'assets' | 'roles' | 'rules';
 
 function SettingsPage({ onToast, dispatchSettings, setDispatchSettings }: { onToast: ToastFn; dispatchSettings: DispatchSettings; setDispatchSettings: (s: DispatchSettings) => void }) {
   const [tab, setTab] = useState<SettingsTab>('dispatch');
@@ -92,6 +95,9 @@ function SettingsPage({ onToast, dispatchSettings, setDispatchSettings }: { onTo
           {([
             { id: 'dispatch', label: 'AI Dispatch Rules' },
             { id: 'clients',  label: 'Manage Clients'   },
+            { id: 'assets',   label: 'Assets'           },
+            { id: 'roles',    label: 'Roles'            },
+            { id: 'rules',    label: 'Rules'            },
           ] as { id: SettingsTab; label: string }[]).map(t => (
             <button
               key={t.id}
@@ -113,6 +119,15 @@ function SettingsPage({ onToast, dispatchSettings, setDispatchSettings }: { onTo
         )}
         {tab === 'clients' && (
           <ManageClients onToast={onToast} />
+        )}
+        {tab === 'assets' && (
+          <AssetsSettings onToast={onToast} />
+        )}
+        {tab === 'roles' && (
+          <RolesSettings onToast={onToast} />
+        )}
+        {tab === 'rules' && (
+          <RulesSettings onToast={onToast} />
         )}
       </div>
     </div>
