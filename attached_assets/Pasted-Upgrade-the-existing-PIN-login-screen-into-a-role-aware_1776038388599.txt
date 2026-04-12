@@ -1,0 +1,132 @@
+Upgrade the existing PIN login screen into a role-aware Field Engineer entry system.
+
+Do NOT redesign from scratch.
+Enhance what exists.
+
+==================================================
+1. POST-LOGIN ROUTING (CRITICAL)
+==================================================
+
+After successful PIN entry:
+
+Route user based on role:
+
+- Field Engineer → Field Engineer Mobile Workspace
+- Supervisor → Operational Dashboard
+- Admin → Strategic Dashboard
+
+For now, assume demo role = Field Engineer.
+
+==================================================
+2. ADD USER CONTEXT TO LOGIN SCREEN
+==================================================
+
+Enhance the current UI by adding:
+
+A. User identity preview above PIN:
+- Name: “Karim R.”
+- Role: “Field Engineer – HVAC”
+- Status: “On Duty”
+- Current Site: “JLT North Cluster”
+
+Style:
+- subtle card
+- fits current dark UI
+
+B. Add shift indicator:
+- “Shift started: 08:00”
+- or “Off Duty” state
+
+==================================================
+3. ADD PURPOSE TO LOGIN (THIS IS MISSING)
+==================================================
+
+Under “Sign in to your work session”, add:
+
+“Access your jobs, inspections, and AI copilot”
+
+This makes the system feel functional, not generic.
+
+==================================================
+4. ADD QUICK PREVIEW (VERY POWERFUL)
+==================================================
+
+Add a small preview strip below PIN pad:
+
+“Today’s workload”
+- 5 Work Orders
+- 2 Inspections
+- 1 SLA Risk
+
+This creates anticipation before login.
+
+==================================================
+5. ADD FAST ACTION OPTION (OPTIONAL BUT STRONG)
+==================================================
+
+Add a secondary button:
+
+“Scan & Report Issue”
+
+This allows:
+- direct access to QR / camera reporting
+- even without full login
+
+This ties your ecosystem together.
+
+==================================================
+6. PIN UX IMPROVEMENTS
+==================================================
+
+Improve interaction:
+
+- animate dots as PIN is entered
+- subtle haptic feedback (if supported)
+- error shake animation if wrong PIN
+- success glow before transition
+
+==================================================
+7. TRANSITION AFTER LOGIN
+==================================================
+
+After correct PIN:
+
+Show:
+- quick loading state (0.5–1s)
+- message:
+  “Loading your workspace…”
+
+Then route to:
+Field Engineer Workspace (mobile UI)
+
+==================================================
+8. COMPONENTS TO UPDATE
+==================================================
+
+Update:
+- PinLoginScreen.tsx
+
+Add:
+- UserContextCard
+- TodayWorkloadPreview
+- LoginTransitionState
+
+==================================================
+9. DESIGN RULES
+==================================================
+
+- keep same color system
+- keep same typography
+- keep same layout structure
+- do NOT overcrowd
+- keep it premium and minimal
+
+==================================================
+10. OUTPUT
+==================================================
+
+After implementing, show:
+1. updated login screen
+2. new components added
+3. routing logic after PIN
+4. how role-based navigation works
