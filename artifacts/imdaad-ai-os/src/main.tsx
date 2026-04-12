@@ -3,6 +3,7 @@ import App from "./App";
 import { ScanPage } from "./pages/ScanPage";
 import { ReportPage } from "./pages/ReportPage";
 import { FieldPortal } from "./pages/FieldPortal";
+import { FieldJobDeepLink } from "./pages/FieldJobDeepLink";
 import { IncidentProvider, useIncidents } from "./context/IncidentContext";
 import { NotificationProvider } from "./context/NotificationContext";
 import { MemberProfilesProvider } from "./context/MemberProfilesContext";
@@ -59,6 +60,32 @@ function Root() {
   }
 
   if (isField) {
+    // Deep link: /field/job/:jobId — direct entry into a specific job (no PIN required)
+    const jobMatch = path.match(/^\/field\/job\/([^/]+)/);
+    if (jobMatch) {
+      const jobId = jobMatch[1];
+      return (
+        <NotificationProvider>
+          <IncidentProvider>
+            <FieldJobDeepLink jobId={jobId} />
+          </IncidentProvider>
+        </NotificationProvider>
+      );
+    }
+
+    // Deep link: /field/copilot/:jobId — open job detail with copilot pre-opened
+    const copilotMatch = path.match(/^\/field\/copilot\/([^/]+)/);
+    if (copilotMatch) {
+      const jobId = copilotMatch[1];
+      return (
+        <NotificationProvider>
+          <IncidentProvider>
+            <FieldJobDeepLink jobId={jobId} openCopilotImmediately />
+          </IncidentProvider>
+        </NotificationProvider>
+      );
+    }
+
     const woMatch = path.match(/^\/field\/work-orders\/([^/]+)/);
     const initialWorkOrderId = woMatch?.[1] ?? undefined;
     return (
