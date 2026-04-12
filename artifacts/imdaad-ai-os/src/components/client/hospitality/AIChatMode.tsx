@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, CheckCircle, Loader2, Bot } from 'lucide-react';
 import type { ToastFn } from '@/lib/ui';
-import { submitIncident } from './incidentUtils';
+import { submitIncident, type SubmitAiMetadata } from './incidentUtils';
 
 interface Message {
   role: 'ai' | 'user';
@@ -52,6 +52,39 @@ async function sendChatMessage(
 
 function buildDescription(summary: IncidentSummary): string {
   return `Issue: ${summary.issue}\nLocation: ${summary.location}\nUrgency: ${summary.urgency}\nNotes: ${summary.notes}`;
+}
+
+function inferCategory(text: string): string {
+  const lower = text.toLowerCase();
+  if (/\bac\b|air.?con|hvac|cool|heat|ventilat/.test(lower)) return 'HVAC';
+  if (/leak|water|pipe|drip|flood|tap|plumb/.test(lower)) return 'Plumbing';
+  if (/light|electric|power|socket|switch|circuit|fuse/.test(lower)) return 'Electrical';
+  if (/lift|elevator/.test(lower)) return 'Lifts & Escalators';
+  return 'General Maintenance';
+}
+
+function inferSeverity(urgency: string): 'low' | 'medium' | 'high' {
+  const lower = urgency.toLowerCase();
+  if (/urgent|emergency|can't sleep|cannot sleep|dangerous|major|flood/.test(lower)) return 'high';
+  if (/inconvenient|significant|annoying|not working/.test(lower)) return 'medium';
+  return 'low';
+}
+
+function buildChatMetadata(summary: IncidentSummary): SubmitAiMetadata {
+  const category = inferCategory(summary.issue);
+  return {
+    confidence: 65,
+    issueType: 'Resident Chat Report',
+    category,
+    identifiedAsset: 'Property Area',
+    observations: [
+      `Issue: ${summary.issue}`,
+      `Location: ${summary.location}`,
+      `Urgency: ${summary.urgency}`,
+      summary.notes !== 'No additional details.' ? `Notes: ${summary.notes}` : 'No additional notes provided',
+    ],
+    recommendedAction: 'FM team to investigate and respond based on resident description.',
+  };
 }
 
 export function AIChatMode({ onSuccess, onToast, guestName = 'Guest', clientId, siteId }: Props) {
@@ -140,9 +173,13 @@ export function AIChatMode({ onSuccess, onToast, guestName = 'Guest', clientId, 
     if (!summary) return;
     setSubmitting(true);
     try {
+      const severity = inferSeverity(summary.urgency);
       const ref = await submitIncident({
         source: 'ai-chat',
+        title: summary.issue.length > 6 ? summary.issue.slice(0, 60) : 'Resident Chat Report',
         description: buildDescription(summary),
+        severity,
+        aiMetadata: buildChatMetadata(summary),
         clientId,
         siteId,
       });

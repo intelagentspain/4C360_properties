@@ -243,21 +243,34 @@ function deriveSlaMinutes(priority?: string): number {
   return 120;
 }
 
+export interface SubmitAiMetadata {
+  confidence: number;
+  issueType: string;
+  category: string;
+  identifiedAsset: string;
+  observations: string[];
+  recommendedAction: string;
+  siteId?: string;
+}
+
 interface SubmitOptions {
   source: 'camera' | 'upload' | 'voice' | 'ai-chat';
   analysis?: AiAnalysis | null;
   description?: string;
   clientId?: string;
   siteId?: string;
+  aiMetadata?: SubmitAiMetadata;
+  severity?: 'low' | 'medium' | 'high';
+  title?: string;
 }
 
 export async function submitIncident(opts: SubmitOptions): Promise<string> {
   const ref = generateIncidentRef();
   const now = new Date();
   const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-  const priority = opts.analysis?.priority ?? 'medium';
+  const priority = opts.severity ?? opts.analysis?.priority ?? 'medium';
 
-  const aiMetadata = opts.analysis ? {
+  const derivedMetadata: SubmitAiMetadata | undefined = opts.analysis ? {
     confidence: opts.analysis.confidence,
     issueType: opts.analysis.subCategory,
     category: opts.analysis.category,
@@ -267,9 +280,11 @@ export async function submitIncident(opts: SubmitOptions): Promise<string> {
     siteId: opts.siteId,
   } : undefined;
 
+  const aiMetadata = opts.aiMetadata ?? derivedMetadata;
+
   const body: Record<string, unknown> = {
     id: ref,
-    title: opts.analysis?.title ?? opts.analysis?.category ?? 'Hospitality Incident',
+    title: opts.title ?? opts.analysis?.title ?? opts.analysis?.category ?? 'Hospitality Incident',
     description: opts.description ?? opts.analysis?.description ?? 'Incident reported via hospitality portal',
     source: opts.source,
     severity: priority,
