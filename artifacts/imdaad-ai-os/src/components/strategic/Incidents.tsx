@@ -351,7 +351,7 @@ function PhotosTab({ incident }: { incident: Incident }) {
             {effectiveBeforeUrl ? (
               <div>
                 <div className="flex items-center gap-1 mb-1.5">
-                  <div className="w-2 h-2 rounded-full bg-red-500/80" />
+                  <div className="w-2 h-2 rounded-full bg-red-500/100" />
                   <span className="text-[9px] text-[#7A94B4] font-semibold uppercase tracking-wide">Before</span>
                 </div>
                 <div className="relative rounded-xl overflow-hidden ring-1 ring-red-500/30">
@@ -394,10 +394,16 @@ function PhotosTab({ incident }: { incident: Incident }) {
                   />
                 </div>
               </div>
+            ) : isClosed ? (
+              <div className="flex flex-col items-center justify-center py-6 rounded-xl border-2 border-red-500/50 bg-red-500/10 gap-1.5">
+                <AlertTriangle size={18} className="text-red-400" />
+                <span className="text-[9px] text-red-400 font-semibold">After photo required</span>
+                <span className="text-[8px] text-red-400/70">Evidence incomplete</span>
+              </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-6 rounded-xl border border-emerald-500/15 bg-emerald-500/5 gap-1.5">
                 <Camera size={18} className="text-emerald-400 opacity-30" />
-                <span className="text-[9px] text-emerald-400 opacity-50">{isClosed ? 'After photo missing' : 'Awaiting resolution'}</span>
+                <span className="text-[9px] text-emerald-400 opacity-50">Awaiting resolution</span>
               </div>
             )}
           </div>
@@ -407,10 +413,18 @@ function PhotosTab({ incident }: { incident: Incident }) {
               <Camera size={18} className="text-red-400 opacity-30" />
               <span className="text-[9px] text-red-400 opacity-50">Before photo pending</span>
             </div>
-            <div className="flex flex-col items-center justify-center py-6 rounded-xl border border-emerald-500/15 bg-emerald-500/5 gap-1.5">
-              <Camera size={18} className="text-emerald-400 opacity-30" />
-              <span className="text-[9px] text-emerald-400 opacity-50">{isClosed ? 'No after photo' : 'Awaiting resolution'}</span>
-            </div>
+            {isClosed ? (
+              <div className="flex flex-col items-center justify-center py-6 rounded-xl border-2 border-red-500/50 bg-red-500/10 gap-1.5">
+                <AlertTriangle size={18} className="text-red-400" />
+                <span className="text-[9px] text-red-400 font-semibold">After photo required</span>
+                <span className="text-[8px] text-red-400/70">Evidence incomplete</span>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-6 rounded-xl border border-emerald-500/15 bg-emerald-500/5 gap-1.5">
+                <Camera size={18} className="text-emerald-400 opacity-30" />
+                <span className="text-[9px] text-emerald-400 opacity-50">Awaiting resolution</span>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -792,11 +806,12 @@ function RejectReasonModal({ incidentId, onClose, onConfirm }: { incidentId: str
 }
 
 function ResolveIncidentModal({ incident, onClose, onConfirm }: { incident: Incident; onClose: () => void; onConfirm: (data: ResolveIncidentInput) => void }) {
+  const prefillBefore = incident.beforePhotoUrl || incident.imageUrl || '';
   const [notes, setNotes] = useState('');
-  const [beforeUrl, setBeforeUrl] = useState('');
+  const [beforeUrl, setBeforeUrl] = useState(prefillBefore);
   const [afterUrl, setAfterUrl] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const valid = notes.trim().length > 0;
+  const valid = notes.trim().length > 0 && beforeUrl.trim().length > 0 && afterUrl.trim().length > 0;
 
   const handleSubmit = async () => {
     if (!valid) return;
@@ -812,6 +827,8 @@ function ResolveIncidentModal({ incident, onClose, onConfirm }: { incident: Inci
       setSubmitting(false);
     }
   };
+
+  const missingPhotos = !beforeUrl.trim() || !afterUrl.trim();
 
   return (
     <AnimatePresence>
@@ -852,28 +869,44 @@ function ResolveIncidentModal({ incident, onClose, onConfirm }: { incident: Inci
               />
             </div>
             <div>
-              <label className="block text-[9px] text-[#7A94B4] uppercase tracking-wide mb-1">Before Photo URL (optional)</label>
+              <label className="block text-[9px] text-[#7A94B4] uppercase tracking-wide mb-1">
+                Before Photo URL <span className="text-red-400">*</span>
+              </label>
               <input
                 value={beforeUrl}
                 onChange={e => setBeforeUrl(e.target.value)}
                 placeholder="https://…"
-                className="w-full bg-[#112040] border border-[rgba(46,127,255,0.2)] rounded-lg px-3 py-2 text-[12px] text-[#EEF3FA] placeholder-[#7A94B4]/50 outline-none focus:border-[#2E7FFF] transition-colors"
+                className={`w-full bg-[#112040] border rounded-lg px-3 py-2 text-[12px] text-[#EEF3FA] placeholder-[#7A94B4]/50 outline-none transition-colors ${beforeUrl.trim() ? 'border-emerald-500/40 focus:border-emerald-400' : 'border-red-500/40 focus:border-red-400'}`}
               />
-              {incident.imageUrl && !beforeUrl && (
-                <button type="button" onClick={() => setBeforeUrl(incident.imageUrl ?? '')} className="text-[9px] text-blue-400 hover:text-blue-300 mt-1">
+              {!beforeUrl && (incident.imageUrl || incident.beforePhotoUrl) && (
+                <button type="button" onClick={() => setBeforeUrl(prefillBefore)} className="text-[9px] text-blue-400 hover:text-blue-300 mt-1">
                   Use incident photo as before photo
                 </button>
               )}
             </div>
             <div>
-              <label className="block text-[9px] text-[#7A94B4] uppercase tracking-wide mb-1">After Photo URL (optional)</label>
+              <label className="block text-[9px] text-[#7A94B4] uppercase tracking-wide mb-1">
+                After Photo URL <span className="text-red-400">*</span>
+              </label>
               <input
                 value={afterUrl}
                 onChange={e => setAfterUrl(e.target.value)}
                 placeholder="https://…"
-                className="w-full bg-[#112040] border border-[rgba(46,127,255,0.2)] rounded-lg px-3 py-2 text-[12px] text-[#EEF3FA] placeholder-[#7A94B4]/50 outline-none focus:border-[#2E7FFF] transition-colors"
+                className={`w-full bg-[#112040] border rounded-lg px-3 py-2 text-[12px] text-[#EEF3FA] placeholder-[#7A94B4]/50 outline-none transition-colors ${afterUrl.trim() ? 'border-emerald-500/40 focus:border-emerald-400' : 'border-red-500/40 focus:border-red-400'}`}
               />
             </div>
+            {missingPhotos && (
+              <div className="flex items-center gap-2 px-3 py-2 bg-red-500/10 border border-red-500/30 rounded-lg">
+                <AlertTriangle size={12} className="text-red-400 flex-shrink-0" />
+                <span className="text-[10px] text-red-400">
+                  {!beforeUrl.trim() && !afterUrl.trim()
+                    ? 'Before and after photos are required'
+                    : !beforeUrl.trim()
+                    ? 'Before photo URL is required'
+                    : 'After photo URL is required'}
+                </span>
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-2 px-5 pb-5">
             <button

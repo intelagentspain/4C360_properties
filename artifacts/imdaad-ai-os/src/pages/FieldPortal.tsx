@@ -303,6 +303,8 @@ export function FieldPortal({ initialWorkOrderId }: FieldPortalProps) {
   const handleSubmitResolution = async () => {
     if (!selectedWO) return;
     if (!resolutionNotes.trim()) { showToast('Please add resolution notes', 'error'); return; }
+    if (!beforePhoto) { showToast('Before photo is required to resolve', 'error'); return; }
+    if (!afterPhoto) { showToast('After photo is required to resolve', 'error'); return; }
     setResolutionSubmitting(true);
     try {
       let beforeUrl: string | undefined;
@@ -312,14 +314,28 @@ export function FieldPortal({ initialWorkOrderId }: FieldPortalProps) {
         try {
           const r = await api.workOrders.uploadEvidence(selectedWO.id, beforePhotoFile, 'Field Engineer');
           beforeUrl = String(r['url'] ?? '');
-        } catch { beforeUrl = undefined; }
+        } catch {
+          showToast('Before photo upload failed — please try again', 'error');
+          return;
+        }
+      }
+      if (!beforeUrl) {
+        showToast('Before photo upload returned no URL — please try again', 'error');
+        return;
       }
 
       if (afterPhotoFile) {
         try {
           const r = await api.workOrders.uploadEvidence(selectedWO.id, afterPhotoFile, 'Field Engineer');
           afterUrl = String(r['url'] ?? '');
-        } catch { afterUrl = undefined; }
+        } catch {
+          showToast('After photo upload failed — please try again', 'error');
+          return;
+        }
+      }
+      if (!afterUrl) {
+        showToast('After photo upload returned no URL — please try again', 'error');
+        return;
       }
 
       const incidentId = selectedWO.incidentId;
@@ -898,7 +914,7 @@ function ResolutionModal({ wo, resolutionNotes, onNotesChange, beforePhoto, afte
             <p className="text-[#7A94B4] text-xs uppercase tracking-widest font-bold mb-3">Photo Evidence</p>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <p className="text-[#7A94B4] text-xs mb-2">Before</p>
+                <p className="text-[#7A94B4] text-xs mb-2">Before <span className="text-red-400">*</span></p>
                 <input ref={beforeRef} type="file" accept="image/*" capture="environment" className="hidden"
                   onChange={e => { const f = e.target.files?.[0]; if (f) onPhotoSelect('before', f); }} />
                 {beforePhoto ? (
@@ -917,7 +933,7 @@ function ResolutionModal({ wo, resolutionNotes, onNotesChange, beforePhoto, afte
                 )}
               </div>
               <div>
-                <p className="text-[#7A94B4] text-xs mb-2">After</p>
+                <p className="text-[#7A94B4] text-xs mb-2">After <span className="text-red-400">*</span></p>
                 <input ref={afterRef} type="file" accept="image/*" capture="environment" className="hidden"
                   onChange={e => { const f = e.target.files?.[0]; if (f) onPhotoSelect('after', f); }} />
                 {afterPhoto ? (
@@ -938,8 +954,20 @@ function ResolutionModal({ wo, resolutionNotes, onNotesChange, beforePhoto, afte
             </div>
           </div>
 
-          <button onClick={onSubmit} disabled={submitting || !resolutionNotes.trim()}
-            className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold text-sm py-4 rounded-xl transition-colors active:scale-[0.99]">
+          {(!beforePhoto || !afterPhoto) && (
+            <div className="flex items-center gap-2 px-3 py-2.5 bg-red-500/10 border border-red-500/30 rounded-xl">
+              <AlertTriangle size={14} className="text-red-400 flex-shrink-0" />
+              <span className="text-xs text-red-400">
+                {!beforePhoto && !afterPhoto
+                  ? 'Before and after photos are required'
+                  : !beforePhoto
+                  ? 'Before photo is required'
+                  : 'After photo is required'}
+              </span>
+            </div>
+          )}
+          <button onClick={onSubmit} disabled={submitting || !resolutionNotes.trim() || !beforePhoto || !afterPhoto}
+            className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-sm py-4 rounded-xl transition-colors active:scale-[0.99]">
             {submitting ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <CheckCircle size={18} />}
             Submit Resolution
           </button>

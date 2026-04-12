@@ -111,9 +111,20 @@ export function TaskDetailSheet({ task, onClose, onToast, onStatusChange }: Prop
 
   const handleSubmitResolution = async () => {
     if (!resolutionNotes.trim() || !task) return;
+    const allUrls = [
+      ...task.evidence.map(f => f),
+      ...uploadedEvidence.map(e => e.url),
+    ].filter(Boolean);
+    if (allUrls.length === 0) {
+      onToast('A before photo (evidence upload) is required to submit resolution', 'error');
+      return;
+    }
+    if (!afterUrl.trim()) {
+      onToast('An after photo URL is required to submit resolution', 'error');
+      return;
+    }
     setSubmitting(true);
     try {
-      const allUrls = allEvidence.map(e => e.url).filter(Boolean);
       const data: ResolveIncidentInput = {
         resolvedBy: CURRENT_USER.name,
         resolutionNotes: resolutionNotes.trim(),
@@ -341,14 +352,28 @@ export function TaskDetailSheet({ task, onClose, onToast, onStatusChange }: Prop
                     />
                   </div>
                   <div>
-                    <label className="block text-[9px] text-[#7A94B4] uppercase tracking-wide mb-1">After Photo URL (optional)</label>
+                    <label className="block text-[9px] text-[#7A94B4] uppercase tracking-wide mb-1">
+                      After Photo URL <span className="text-red-400">*</span>
+                    </label>
                     <input
                       value={afterUrl}
                       onChange={e => setAfterUrl(e.target.value)}
                       placeholder="https://…"
-                      className="w-full bg-[#112040] border border-[rgba(46,127,255,0.2)] rounded-lg px-3 py-2 text-[12px] text-[#EEF3FA] placeholder-[#7A94B4]/50 outline-none focus:border-[#2E7FFF] transition-colors"
+                      className={`w-full bg-[#112040] border rounded-lg px-3 py-2 text-[12px] text-[#EEF3FA] placeholder-[#7A94B4]/50 outline-none transition-colors ${afterUrl.trim() ? 'border-emerald-500/40 focus:border-emerald-400' : 'border-red-500/40 focus:border-red-400'}`}
                     />
                   </div>
+                  {(allEvidence.length === 0 || !afterUrl.trim()) && (
+                    <div className="flex items-center gap-1.5 px-2.5 py-2 bg-red-500/10 border border-red-500/30 rounded-lg">
+                      <AlertTriangle size={11} className="text-red-400 flex-shrink-0" />
+                      <span className="text-[10px] text-red-400">
+                        {allEvidence.length === 0 && !afterUrl.trim()
+                          ? 'Upload a before photo and provide an after photo URL'
+                          : allEvidence.length === 0
+                          ? 'Upload at least one before photo (evidence) to proceed'
+                          : 'After photo URL is required to submit resolution'}
+                      </span>
+                    </div>
+                  )}
                   <div className="flex gap-2">
                     <button
                       onClick={() => setResolveMode(false)}
@@ -358,7 +383,7 @@ export function TaskDetailSheet({ task, onClose, onToast, onStatusChange }: Prop
                     </button>
                     <button
                       onClick={handleSubmitResolution}
-                      disabled={!resolutionNotes.trim() || submitting}
+                      disabled={!resolutionNotes.trim() || submitting || allEvidence.length === 0 || !afterUrl.trim()}
                       className="flex-1 py-2 rounded-lg bg-emerald-600 text-white text-[11px] font-semibold hover:bg-emerald-700 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {submitting ? (

@@ -435,14 +435,20 @@ function EvidenceTab({ incident, event }: { incident: Incident | null; event: Pu
         </div>
       )}
 
-      {afterUrl && (
+      {afterUrl ? (
         <div>
           <div className="text-[9px] text-[#7A94B4] mb-1.5 uppercase tracking-wide">After — Resolved</div>
           <div className="rounded-xl overflow-hidden border border-emerald-500/30">
             <img src={afterUrl} alt="After" className="w-full object-cover max-h-52" />
           </div>
         </div>
-      )}
+      ) : incident && (incident.status === 'resolved' || incident.status === 'closed') ? (
+        <div className="rounded-xl border-2 border-red-500/50 bg-red-500/10 flex flex-col items-center justify-center py-8 gap-2 text-center">
+          <AlertTriangle size={22} className="text-red-400" />
+          <div className="text-[11px] text-red-400 font-semibold">After photo required</div>
+          <div className="text-[10px] text-red-400/70">Resolution evidence is incomplete — after photo missing</div>
+        </div>
+      ) : null}
 
       {incident?.source && (
         <div className="text-[10px] text-[#7A94B4]">
