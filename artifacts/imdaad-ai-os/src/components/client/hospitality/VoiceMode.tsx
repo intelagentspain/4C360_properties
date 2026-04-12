@@ -136,7 +136,7 @@ export function VoiceMode({ onSuccess, onToast, clientId, siteId }: Props) {
     setSubmitting(true);
     try {
       const ref = await submitIncident({
-        source: 'voice',
+        source: 'Resident App',
         analysis: analysis ?? undefined,
         description: descOverride,
         clientId,

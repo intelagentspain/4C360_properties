@@ -12,6 +12,23 @@ interface Props {
   siteId?: string;
 }
 
+function compressThumbnail(dataUrl: string, maxWidth = 320, quality = 0.6): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxWidth / img.width);
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const cv = document.createElement('canvas');
+      cv.width = w;
+      cv.height = h;
+      cv.getContext('2d')?.drawImage(img, 0, 0, w, h);
+      resolve(cv.toDataURL('image/jpeg', quality));
+    };
+    img.src = dataUrl;
+  });
+}
+
 export function UploadMode({ onSuccess, onToast, clientId, siteId }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -59,7 +76,8 @@ export function UploadMode({ onSuccess, onToast, clientId, siteId }: Props) {
   const handleSubmit = async () => {
     setSubmitting(true);
     try {
-      const ref = await submitIncident({ source: 'upload', analysis, clientId, siteId });
+      const imageUrl = preview ? await compressThumbnail(preview) : undefined;
+      const ref = await submitIncident({ source: 'Resident App', analysis, imageUrl, clientId, siteId });
       onToast(`Incident ${ref} submitted — our team is on it`, 'success');
       onSuccess(ref);
     } catch (err) {

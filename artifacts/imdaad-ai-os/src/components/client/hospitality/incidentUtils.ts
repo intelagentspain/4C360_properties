@@ -254,7 +254,7 @@ export interface SubmitAiMetadata {
 }
 
 interface SubmitOptions {
-  source: 'camera' | 'upload' | 'voice' | 'ai-chat';
+  source: string;
   analysis?: AiAnalysis | null;
   description?: string;
   clientId?: string;
@@ -265,6 +265,7 @@ interface SubmitOptions {
   slaMinutes?: number;
   lat?: number;
   lng?: number;
+  imageUrl?: string;
 }
 
 export async function submitIncident(opts: SubmitOptions): Promise<string> {
@@ -302,6 +303,7 @@ export async function submitIncident(opts: SubmitOptions): Promise<string> {
       { time: timeStr, event: `Incident reported by resident via ${opts.source} — awaiting FM team review`, type: 'update' },
     ],
     ...(aiMetadata ? { aiMetadata } : {}),
+    ...(opts.imageUrl ? { imageUrl: opts.imageUrl } : {}),
   };
 
   const resp = await fetch(`${BASE_URL}/api/incidents`, {

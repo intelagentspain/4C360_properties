@@ -17,6 +17,15 @@ import type { PPMRiskPayload } from '@/components/strategic/PPMRiskPanel';
 export type Perspective = 'strategic' | 'operational' | 'client';
 export type StrategicPage = 'dashboard' | 'datasources' | 'benchmark' | 'replay' | 'incidents' | 'tasks' | 'ppmschedule' | 'aicapture' | 'settings' | 'allclients' | 'team';
 
+const CLIENT_SITE_MAP: Record<string, string> = {
+  'CLT-001': 'silicon-oasis',
+  'CLT-002': 'gate-avenue',
+  'CLT-003': 'business-bay',
+  'CLT-004': 'jlt-north',
+  'CLT-005': 'difc-tower',
+  'CLT-006': 'palm-jumeirah',
+};
+
 function getMemberIdFromUrl(): string | null {
   const params = new URLSearchParams(window.location.search);
   return params.get('member');
@@ -144,6 +153,8 @@ function App() {
           <HospitalityClientView
             onToast={addToast}
             propertyName={commandClientName ?? undefined}
+            clientId={commandClientId ?? undefined}
+            siteId={CLIENT_SITE_MAP[commandClientId ?? ''] ?? undefined}
           />
         </div>
         <ToastContainer toasts={toasts} removeToast={removeToast} />

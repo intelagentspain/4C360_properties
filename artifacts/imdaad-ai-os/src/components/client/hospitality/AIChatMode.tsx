@@ -175,7 +175,7 @@ export function AIChatMode({ onSuccess, onToast, guestName = 'Guest', clientId, 
     try {
       const severity = inferSeverity(summary.urgency);
       const ref = await submitIncident({
-        source: 'ai-chat',
+        source: 'Resident App',
         title: summary.issue.length > 6 ? summary.issue.slice(0, 60) : 'Resident Chat Report',
         description: buildDescription(summary),
         severity,
