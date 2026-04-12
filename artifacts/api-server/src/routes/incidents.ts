@@ -1499,12 +1499,17 @@ router.get("/workorders", async (_req: Request, res: Response) => {
 });
 
 router.post("/workorders", async (req: Request, res: Response) => {
-  const body = req.body as Partial<WorkOrderPayload & { status?: string }>;
+  const body = req.body as Partial<WorkOrderPayload & { status?: string; assignedTo?: string; assignedToId?: string }>;
   if (!body.id || !body.title) {
     res.status(400).json({ error: "id and title are required" });
     return;
   }
   try {
+    const hasValidTechId = typeof body.assignedToId === "string" && body.assignedToId.trim().length > 0;
+    const hasValidTechName = typeof body.assignedTo === "string" && body.assignedTo.trim().length > 0;
+    const hasTechnician = hasValidTechId && hasValidTechName;
+    const rawStatus = body.status ?? "open";
+    const status = rawStatus === "assigned" && !hasTechnician ? "open" : rawStatus;
     const [inserted] = await db.insert(workOrdersTable).values({
       id: body.id,
       incidentId: body.incidentId ?? null,
@@ -1515,7 +1520,9 @@ router.post("/workorders", async (req: Request, res: Response) => {
       skill: body.skill ?? null,
       siteId: body.siteId ?? null,
       description: body.description ?? null,
-      status: body.status ?? "open",
+      status,
+      assignedTo: hasTechnician ? body.assignedTo : null,
+      assignedToId: hasTechnician ? body.assignedToId : null,
     }).onConflictDoNothing().returning();
     if (!inserted) {
       res.status(409).json({ error: "Work order with this id already exists", id: body.id });
@@ -1555,6 +1562,51 @@ router.patch("/workorders/:id", async (req: Request, res: Response) => {
       res.status(400).json({ error: "No valid fields to update" });
       return;
     }
+
+    const hasValidAssignedTo = (v: unknown): boolean =>
+      typeof v === "string" && v.trim().length > 0;
+
+    const hasValidAssignedToId = (v: unknown): boolean =>
+      typeof v === "string" && v.trim().length > 0;
+
+    const assignedToBeingCleared =
+      "assignedTo" in allowed && !hasValidAssignedTo(allowed["assignedTo"]);
+
+    const assignedToIdBeingCleared =
+      "assignedToId" in allowed && !hasValidAssignedToId(allowed["assignedToId"]);
+
+    const techBeingSet =
+      hasValidAssignedTo(allowed["assignedTo"]) &&
+      hasValidAssignedToId(allowed["assignedToId"]);
+
+    if (assignedToBeingCleared || assignedToIdBeingCleared) {
+      allowed["assignedTo"] = null;
+      allowed["assignedToId"] = null;
+      if (allowed["status"] === "assigned") {
+        allowed["status"] = "open";
+      } else if (!("status" in allowed)) {
+        const [existing] = await db
+          .select({ status: workOrdersTable.status })
+          .from(workOrdersTable)
+          .where(eq(workOrdersTable.id, id));
+        if (existing?.status === "assigned") {
+          allowed["status"] = "open";
+        }
+      }
+    }
+
+    if (allowed["status"] === "assigned" && !techBeingSet && !assignedToBeingCleared && !assignedToIdBeingCleared) {
+      const [existing] = await db
+        .select({ assignedTo: workOrdersTable.assignedTo, assignedToId: workOrdersTable.assignedToId })
+        .from(workOrdersTable)
+        .where(eq(workOrdersTable.id, id));
+      const effectiveAssignedTo = hasValidAssignedTo(allowed["assignedTo"]) ? allowed["assignedTo"] : existing?.assignedTo;
+      const effectiveAssignedToId = hasValidAssignedToId(allowed["assignedToId"]) ? allowed["assignedToId"] : existing?.assignedToId;
+      if (!effectiveAssignedTo || !effectiveAssignedToId) {
+        allowed["status"] = "open";
+      }
+    }
+
     const [updated] = await db.update(workOrdersTable).set(allowed).where(eq(workOrdersTable.id, id)).returning();
     if (!updated) { res.status(404).json({ error: "Work order not found" }); return; }
     logger.info({ id, status: allowed["status"] }, "Work order updated");

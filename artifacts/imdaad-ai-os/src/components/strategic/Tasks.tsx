@@ -351,8 +351,8 @@ export function Tasks({ onToast, prefilledTask, onPrefilledTaskConsumed }: Props
                         </div>
                       )}
                     </div>
-                    <div className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[9px] font-semibold w-fit ${STATUS_BG[task.status]} ${TASK_STATUS_COLOR[task.status]}`}>
-                      {STATUS_LABEL[task.status]}
+                    <div className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[9px] font-semibold w-fit ${STATUS_BG[task.status === 'assigned' && !task.tech ? 'new' : task.status]} ${TASK_STATUS_COLOR[task.status === 'assigned' && !task.tech ? 'new' : task.status]}`}>
+                      {STATUS_LABEL[task.status === 'assigned' && !task.tech ? 'new' : task.status]}
                     </div>
                     <div className="flex items-center gap-1.5">
                       {task.tech ? (

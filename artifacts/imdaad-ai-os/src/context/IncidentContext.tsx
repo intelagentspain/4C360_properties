@@ -205,22 +205,27 @@ function IncidentProviderInner({ children }: { children: ReactNode }) {
     return api.workOrders.list()
       .then(data => {
         if (data.length > 0) {
-          const loaded = data.map(d => ({
-            id: String(d['id'] ?? ''),
-            title: String(d['title'] ?? ''),
-            asset: String(d['asset'] ?? ''),
-            location: String(d['location'] ?? ''),
-            skill: String(d['skill'] ?? ''),
-            priority: String(d['priority'] ?? 'medium'),
-            status: String(d['status'] ?? 'new'),
-            tech: null as null,
-            slaMinutes: 120,
-            elapsed: 0,
-            reportedBy: String(d['incidentId'] ?? ''),
-            evidence: [] as string[],
-            fromIncidentId: d['incidentId'] != null ? String(d['incidentId']) : undefined,
-            siteId: d['siteId'] != null ? String(d['siteId']) : undefined,
-          }));
+          const loaded = data.map(d => {
+            const assignedTo = d['assignedTo'] != null && String(d['assignedTo']).trim() !== '' ? String(d['assignedTo']) : null;
+            const rawStatus = String(d['status'] ?? 'new');
+            const status = rawStatus === 'assigned' && !assignedTo ? 'new' : rawStatus;
+            return {
+              id: String(d['id'] ?? ''),
+              title: String(d['title'] ?? ''),
+              asset: String(d['asset'] ?? ''),
+              location: String(d['location'] ?? ''),
+              skill: String(d['skill'] ?? ''),
+              priority: String(d['priority'] ?? 'medium'),
+              status,
+              tech: assignedTo,
+              slaMinutes: 120,
+              elapsed: 0,
+              reportedBy: String(d['incidentId'] ?? ''),
+              evidence: [] as string[],
+              fromIncidentId: d['incidentId'] != null ? String(d['incidentId']) : undefined,
+              siteId: d['siteId'] != null ? String(d['siteId']) : undefined,
+            };
+          });
           setWorkOrders(loaded);
         }
       })
