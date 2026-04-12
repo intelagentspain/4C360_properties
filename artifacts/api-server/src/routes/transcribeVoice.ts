@@ -3,7 +3,7 @@ import multer from "multer";
 import path from "node:path";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
-import OpenAI from "openai";
+import OpenAI, { toFile } from "openai";
 import { z } from "zod";
 import { logger } from "../lib/logger";
 
@@ -186,11 +186,15 @@ function getMockVoiceAnalysis(transcript: string): Analysis {
   };
 }
 
-async function transcribeAudio(filePath: string, originalName: string): Promise<string> {
-  const apiKey = process.env["OPENAI_API_KEY"];
-  if (!apiKey) throw new Error("OPENAI_API_KEY not configured");
+function createOpenAIClient(): OpenAI {
+  const baseURL = process.env["AI_INTEGRATIONS_OPENAI_BASE_URL"];
+  const apiKey = process.env["AI_INTEGRATIONS_OPENAI_API_KEY"] || process.env["OPENAI_API_KEY"];
+  if (!apiKey) throw new Error("OpenAI API key not configured");
+  return new OpenAI({ apiKey, ...(baseURL ? { baseURL } : {}) });
+}
 
-  const openai = new OpenAI({ apiKey });
+async function transcribeAudio(filePath: string, originalName: string): Promise<string> {
+  const openai = createOpenAIClient();
 
   const originalExt = path.extname(originalName).toLowerCase();
   const uploadedExt = path.extname(filePath).toLowerCase();
@@ -203,14 +207,14 @@ async function transcribeAudio(filePath: string, originalName: string): Promise<
 
   let transcription: string;
   try {
-    const fileStream = fs.createReadStream(renamedPath);
+    const audioBuffer = fs.readFileSync(renamedPath);
+    const ext = (path.extname(renamedPath).replace(".", "") || "webm") as "webm" | "wav" | "mp3" | "mp4" | "ogg";
+    const file = await toFile(audioBuffer, `audio.${ext}`);
     const result = await openai.audio.transcriptions.create({
-      file: fileStream,
-      model: "whisper-1",
-      language: "en",
-      response_format: "text",
+      file,
+      model: "gpt-4o-mini-transcribe",
     });
-    transcription = typeof result === "string" ? result.trim() : String(result).trim();
+    transcription = (result.text ?? "").trim();
   } finally {
     try { fs.unlinkSync(renamedPath); } catch { /* ignore */ }
   }
@@ -219,10 +223,7 @@ async function transcribeAudio(filePath: string, originalName: string): Promise<
 }
 
 async function classifyTranscript(transcript: string): Promise<Analysis> {
-  const apiKey = process.env["OPENAI_API_KEY"];
-  if (!apiKey) throw new Error("OPENAI_API_KEY not configured");
-
-  const openai = new OpenAI({ apiKey });
+  const openai = createOpenAIClient();
 
   const prompt = `${FM_VOICE_PROMPT}\n\nResident transcript: "${transcript}"`;
 
