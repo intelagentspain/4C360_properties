@@ -1,0 +1,351 @@
+Add a new feature to the existing 4C360 FM app called:
+
+“Asset Expert Voice Copilot” for the PPM page
+
+Important:
+- Do NOT rebuild the app
+- Extend the existing PPM / technician workflow already built
+- Reuse the current dark enterprise UI, mobile technician experience, AI-OS branding, and component system
+- This feature should feel native to the current product
+- This is intended to work as a real, intelligent in-workflow assistant for field engineers during preventive maintenance
+
+==================================================
+1. FEATURE PURPOSE
+==================================================
+
+On the PPM page, each asset class should have its own expert AI agent that can guide the field engineer by voice and text while working on the asset.
+
+Examples:
+- HVAC Expert Agent
+- Lift Expert Agent
+- Fire Safety Expert Agent
+- Plumbing Expert Agent
+- Electrical Expert Agent
+- Generator / Power Expert Agent
+- Chiller Expert Agent
+
+The agent should:
+- understand the asset class
+- understand the current PPM checklist
+- guide the engineer step by step
+- answer practical troubleshooting questions
+- explain what readings mean
+- highlight risk / abnormal observations
+- recommend next best action
+- help the engineer decide whether to continue, escalate, or raise a corrective incident
+- support voice interaction inside the PPM workflow
+
+This should feel like:
+“A senior technical expert is on the job with the engineer”
+
+==================================================
+2. WHERE THIS APPEARS
+==================================================
+
+Integrate this feature into the existing PPM / technician workflow.
+
+Places to add it:
+1. PPM task detail page
+2. Checklist execution view
+3. Asset scan / diagnostics screen
+4. Technician mobile flow
+
+Add a visible panel / button:
+- “Expert Copilot”
+- or “Talk to Asset Expert”
+
+When opened, it should launch a right-side drawer on desktop or bottom sheet on mobile.
+
+==================================================
+3. AGENT ROUTING LOGIC
+==================================================
+
+The system must automatically choose the correct expert agent based on:
+- asset class
+- asset subtype
+- current PPM template
+- service category
+
+Examples:
+- asset_type = HVAC + subtype = Chiller → Chiller Expert
+- asset_type = Lift → Lift Expert
+- asset_type = Fire Safety → Fire Safety Expert
+- asset_type = Plumbing → Plumbing Expert
+
+If exact subtype is not available, route to broader asset-class expert.
+
+Show clearly:
+- selected expert name
+- specialty
+- confidence / context source
+
+Example:
+“Chiller Expert active”
+“Guiding based on Chiller PPM v2.1 and current asset context”
+
+==================================================
+4. COPILOT UI
+==================================================
+
+Create a reusable component:
+AssetExpertCopilot.tsx
+
+Main UI sections:
+A. Header
+- agent name
+- asset type
+- current task / checklist name
+- voice active indicator
+
+B. Conversation area
+- voice + text chat thread
+- system guidance bubbles
+- engineer messages / questions
+- quick reply chips
+
+C. Context panel
+- asset name / ID
+- site / zone
+- current checklist step
+- current readings / observations if available
+- linked manuals / SOP summary
+
+D. Action footer
+- microphone button
+- text input
+- quick prompts
+- buttons:
+  - “Ask Expert”
+  - “Next Step”
+  - “Explain Reading”
+  - “Report Issue”
+  - “Escalate”
+
+On mobile:
+- large buttons
+- voice-first UX
+- compact context card
+
+==================================================
+5. VOICE INTERACTION
+==================================================
+
+Integrate voice interaction so the engineer can speak to the expert agent while performing PPM.
+
+Support:
+- push-to-talk or tap-to-speak
+- transcribed user speech
+- spoken AI response
+- visible text transcript of both sides
+
+The interaction should be optimized for noisy field work:
+- simple controls
+- clear listening / speaking states
+- persistent transcript
+
+If existing ElevenLabs voice agent infrastructure already exists, reuse it.
+If not, create a modular voice interface layer that can later connect to ElevenLabs.
+
+==================================================
+6. AGENT KNOWLEDGE / BEHAVIOR
+==================================================
+
+Each asset expert must behave like a specialist field engineer / senior technician.
+
+General behavior rules:
+- be concise and operational
+- give practical instructions, not theory unless asked
+- prioritize safety first
+- distinguish between normal vs abnormal conditions
+- explain what to check next
+- never skip mandatory checklist steps
+- if something is unsafe, say so directly
+- if uncertainty exists, recommend escalation
+- if issue indicates corrective maintenance, recommend raising incident
+
+The agent must use the current job context:
+- asset type
+- current checklist item
+- known readings
+- prior issues if available
+- parts status if available
+
+Examples of useful answers:
+- “That pressure is below expected range for this asset. Recheck the reading, inspect for refrigerant loss, and do not close the PPM as normal.”
+- “The coil blockage level suggests cleaning is required before restart.”
+- “This observation should trigger a corrective incident, not only a PPM note.”
+- “Before moving on, upload the required evidence photo for this step.”
+
+==================================================
+7. CONTEXT INJECTION
+==================================================
+
+The expert agent should receive structured context from the PPM page.
+
+Pass to the agent:
+- asset_type
+- asset_subtype
+- asset_name
+- asset_id
+- site_name
+- zone_name
+- ppm_template_name
+- current_checklist_step
+- checklist_items
+- current readings
+- technician notes
+- prior incidents on same asset if available
+- open parts constraints if available
+
+The more context the system has, the better the answers should be.
+
+==================================================
+8. QUICK ACTIONS / FIELD-FIRST UX
+==================================================
+
+Add quick action prompts in the copilot UI such as:
+- “Guide me through this step”
+- “What does this reading mean?”
+- “Is this normal?”
+- “Should I escalate this?”
+- “What evidence do I need here?”
+- “Summarize the next 3 steps”
+- “Create corrective incident”
+- “Recommend parts to check”
+
+These should reduce typing and make the agent easier to demo.
+
+==================================================
+9. PPM-SPECIFIC INTELLIGENCE
+==================================================
+
+The agent must be tightly linked to the checklist, not a generic chatbot.
+
+Required capabilities:
+1. Step guidance
+- explain current checklist step in plain language
+- tell engineer what to inspect and why
+
+2. Reading interpretation
+- explain pressure, temperature, noise, vibration, etc. where relevant
+- say whether value seems normal or abnormal
+
+3. Evidence coaching
+- remind user when photos, signatures, or readings are required
+- warn if a mandatory item is incomplete
+
+4. Escalation recommendation
+- if abnormal condition is detected, recommend:
+  - add note
+  - raise corrective incident
+  - do not close PPM as passed
+
+5. End-of-job summary
+- summarize work completed
+- highlight abnormalities
+- suggest whether asset should remain under observation
+
+==================================================
+10. ASSET EXPERT DEFINITIONS
+==================================================
+
+Create an expert config structure such as:
+
+assetExpertAgents = {
+  hvac: {
+    name: "HVAC Expert",
+    specialties: ["AHU", "FCU", "VRF", "Split AC"]
+  },
+  chiller: {
+    name: "Chiller Expert",
+    specialties: ["Water-cooled", "Air-cooled chillers"]
+  },
+  lift: {
+    name: "Lift Expert",
+    specialties: ["Passenger lifts", "Service lifts"]
+  },
+  fireSafety: {
+    name: "Fire Safety Expert",
+    specialties: ["Extinguishers", "Suppression", "Detection"]
+  },
+  plumbing: {
+    name: "Plumbing Expert",
+    specialties: ["Leak detection", "Pumps", "Valves", "Drainage"]
+  },
+  electrical: {
+    name: "Electrical Expert",
+    specialties: ["Panels", "Breakers", "Cabling", "Lighting"]
+  }
+}
+
+Use this for routing and UI display.
+
+==================================================
+11. AI PROMPTING REQUIREMENT
+==================================================
+
+Create a strong system prompt for the agent so it behaves like a real technical expert.
+
+The prompt must instruct the model to:
+- act as a specialist for the asset class
+- guide a field engineer through PPM safely and efficiently
+- use checklist context
+- interpret readings conservatively
+- identify out-of-tolerance observations
+- recommend incident creation when needed
+- keep answers concise and field-usable
+- never allow unsafe shortcuts
+
+Implement the prompt in a reusable server-side or agent configuration layer so different asset-class experts can be instantiated with the right specialty.
+
+==================================================
+12. OUTPUT EXAMPLES
+==================================================
+
+The agent should be able to answer things like:
+- “Walk me through this chiller inspection step”
+- “Is 180 PSI normal here?”
+- “Do I need to create an incident for this?”
+- “What photo evidence should I upload?”
+- “Why is this marked mandatory?”
+- “Summarize what’s left before I can submit”
+
+==================================================
+13. INCIDENT / TASK INTEGRATION
+==================================================
+
+If the expert determines an abnormal condition:
+- allow user to click “Create Corrective Incident”
+- prefill incident fields using the conversation context:
+  - asset
+  - site
+  - probable issue type
+  - severity
+  - recommended action
+  - relevant technician note
+
+This should connect to the existing incidents flow.
+
+==================================================
+14. DEMO-READY BUT REAL
+==================================================
+
+This feature should feel real and useful, not gimmicky.
+
+Even if some responses are initially powered by prompt logic plus existing data rather than deep asset telemetry, the experience must feel:
+- specialized
+- trustworthy
+- operational
+- valuable in the field
+
+==================================================
+15. IMPLEMENTATION OUTPUT
+==================================================
+
+After implementing, show:
+1. files created / changed
+2. how asset expert routing works
+3. where the agent prompt is defined
+4. how voice interaction is handled
+5. how current PPM context is passed into the agent
+6. how corrective incident creation is triggered from the copilot
