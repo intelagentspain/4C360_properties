@@ -903,7 +903,6 @@ function ActionsTab({ incident, onToast, onCreateWorkOrder }: { incident: Incide
   const techWhatsapp = incident.assignedTech ? TECH_WHATSAPP[incident.assignedTech] : null;
   const ticketState = incident.ticketState;
   const isPendingApproval = ticketState === 'pending_approval';
-  const isApproved = ticketState === 'approved';
   const isRejected = ticketState === 'rejected';
   const isWorkOrderCreated = ticketState === 'work_order_created';
 
@@ -915,7 +914,7 @@ function ActionsTab({ incident, onToast, onCreateWorkOrder }: { incident: Incide
     setApprovingTicket(true);
     try {
       await approveTicket(incident.id, CURRENT_USER.name);
-      onToast(`Ticket ${incident.id} approved — work order ready to create`, 'success');
+      onToast(`Work Order created — engineer dispatched`, 'success');
     } catch {
       onToast('Failed to approve ticket', 'error');
     } finally {
@@ -1033,25 +1032,6 @@ function ActionsTab({ incident, onToast, onCreateWorkOrder }: { incident: Incide
           {incident.rejectedBy && (
             <p className="text-[10px] text-[#7A94B4] mt-0.5">Rejected by: {incident.rejectedBy}</p>
           )}
-        </div>
-      )}
-
-      {isApproved && canCreateWorkOrder && !hasWorkOrder && (
-        <div className="space-y-2">
-          <div className="flex items-center gap-1.5 px-3 py-2 bg-emerald-500/5 border border-emerald-500/20 rounded-xl">
-            <ThumbsUp size={12} className="text-emerald-400" />
-            <span className="text-[11px] text-emerald-400 font-semibold">Ticket Approved — Ready for Work Order</span>
-          </div>
-          <button
-            onClick={onCreateWorkOrder}
-            className="w-full flex items-center gap-2.5 p-3 rounded-xl bg-emerald-600/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-600/20 transition-colors"
-          >
-            <Briefcase size={14} />
-            <div className="text-left">
-              <div className="text-[12px] font-bold">Create Work Order</div>
-              <div className="text-[10px] opacity-80">Promote to formal work order · notifies stakeholders</div>
-            </div>
-          </button>
         </div>
       )}
 

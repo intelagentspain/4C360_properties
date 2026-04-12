@@ -283,37 +283,87 @@ function IncidentProviderInner({ children }: { children: ReactNode }) {
   }, [addIncidentNotification]);
 
   const approveTicket = useCallback(async (incidentId: string, approvedBy?: string) => {
-    try {
-      const res = await fetch(`${apiBase}/tickets/${encodeURIComponent(incidentId)}/approve`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ approvedBy: approvedBy ?? 'app-user' }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({})) as { error?: string };
-        throw new Error(err.error ?? 'Approval failed');
-      }
-    } catch {
+    let backendWorkOrderId: string | undefined;
+
+    const res = await fetch(`${apiBase}/tickets/${encodeURIComponent(incidentId)}/approve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ approvedBy: approvedBy ?? 'app-user' }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({})) as { error?: string };
+      throw new Error(err.error ?? 'Approval failed');
     }
+    const body = await res.json().catch(() => ({})) as { workOrderId?: string };
+    backendWorkOrderId = body.workOrderId;
 
     const now = new Date();
     const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+
+    const incident = incidentsRef.current.find(inc => inc.id === incidentId);
+    if (!incident) return;
+
+    const priority = incident.severity === 'critical' ? 'critical' : incident.severity === 'high' ? 'high' : incident.severity === 'medium' ? 'medium' : 'low';
+    const slaMinutes = priority === 'critical' ? 45 : priority === 'high' ? 60 : priority === 'medium' ? 120 : 240;
+    const asset = incident.aiMetadata?.identifiedAsset ?? incident.title;
+    const skill = incident.aiMetadata?.category?.split(' ')[0] ?? 'General';
+    const siteId = incident.siteId ?? incident.aiMetadata?.siteId;
+    const clientId = incident.clientId;
+
+    const woId = backendWorkOrderId ?? generateWorkOrderId();
+
+    const wo: WorkOrderTask = {
+      id: woId,
+      title: incident.title,
+      asset,
+      location: incident.location,
+      skill,
+      priority,
+      status: 'new',
+      tech: null,
+      slaMinutes,
+      elapsed: 0,
+      reportedBy: incidentId,
+      evidence: [],
+      fromIncidentId: incidentId,
+      siteId,
+    };
+
+    if (!backendWorkOrderId) {
+      api.workOrders.create({
+        id: woId,
+        title: incident.title,
+        location: incident.location,
+        priority,
+        asset,
+        skill,
+        siteId,
+        incidentId,
+        description: incident.description,
+      }).catch(err => console.warn('[IncidentContext] Failed to persist auto work order to API:', err));
+    }
 
     incidentsRef.current = incidentsRef.current.map(inc =>
       inc.id === incidentId
         ? {
             ...inc,
-            ticketState: 'approved' as TicketState,
+            status: 'dispatched',
+            ticketState: 'work_order_created' as TicketState,
+            workOrderId: woId,
             approvedBy: approvedBy ?? 'Supervisor',
             activityLog: [
               ...inc.activityLog,
-              { time: timeStr, event: `Ticket approved by ${approvedBy ?? 'supervisor'} — work order will be created`, type: 'dispatch' },
+              { time: timeStr, event: `Ticket approved by ${approvedBy ?? 'supervisor'}`, type: 'dispatch' },
+              { time: timeStr, event: `Work Order ${woId} raised automatically on approval`, type: 'dispatch' },
             ],
           }
         : inc,
     );
     setIncidents([...incidentsRef.current]);
-  }, []);
+
+    setWorkOrders(wos => [wo, ...wos]);
+    addWorkOrderNotification(wo, incidentId, siteId, deriveInviteList(clientId));
+  }, [addWorkOrderNotification]);
 
   const rejectTicket = useCallback(async (incidentId: string, reason: string, rejectedBy?: string) => {
     try {
