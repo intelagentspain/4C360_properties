@@ -115,8 +115,8 @@ function App() {
   };
 
   const handleNavigateToCommand = (clientId: string, clientName?: string) => {
-    setCommandClientId(clientId);
-    setCommandClientName(clientName ?? null);
+    setSelectedClientId(clientId);
+    setStrategicPage('dashboard');
   };
 
   const handleNavigateToTasks = (risk: PPMRiskPayload) => {
