@@ -376,17 +376,38 @@ export function CopilotAvatar() {
               </div>
 
               <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0" style={{ maxHeight: '340px' }}>
-                {messages.map(msg => (
-                  <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div
-                      className={`max-w-[85%] px-3 py-2 rounded-2xl text-sm leading-relaxed ${
-                        msg.role === 'user'
-                          ? 'bg-cyan-500/20 text-cyan-100 border border-cyan-500/30 rounded-br-sm'
-                          : 'bg-white/8 text-white/90 border border-white/10 rounded-bl-sm'
-                      }`}
-                    >
-                      {msg.content}
+                {messages.map((msg, idx) => (
+                  <div key={msg.id}>
+                    <div className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                      <div
+                        className={`max-w-[85%] px-3 py-2 rounded-2xl text-sm leading-relaxed ${
+                          msg.role === 'user'
+                            ? 'bg-cyan-500/20 text-cyan-100 border border-cyan-500/30 rounded-br-sm'
+                            : 'bg-white/8 text-white/90 border border-white/10 rounded-bl-sm'
+                        }`}
+                      >
+                        {msg.content}
+                      </div>
                     </div>
+                    {idx === 0 && messages.length === 1 && (
+                      <div className="flex gap-2 mt-3 overflow-x-auto pb-1 scrollbar-none">
+                        {[
+                          'Show open incidents',
+                          'Summarise work orders',
+                          'List unassigned tickets',
+                          'Active client issues',
+                          'KPI overview',
+                        ].map(chip => (
+                          <button
+                            key={chip}
+                            onClick={() => sendMessage(chip)}
+                            className="shrink-0 px-3 py-1.5 rounded-full text-xs bg-white/5 border border-white/15 text-white/70 hover:border-cyan-500/60 hover:text-cyan-300 hover:bg-cyan-500/10 transition-colors cursor-pointer"
+                          >
+                            {chip}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
                 {loading && (
