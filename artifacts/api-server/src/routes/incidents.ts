@@ -1026,51 +1026,63 @@ function buildWorkOrderEmail(
   isFmEngineer: boolean = false,
   appUrl?: string,
   incidentDetails?: IncidentPayload,
+  assignedEngineerName?: string,
 ): string {
   const pri      = wo.priority ?? "medium";
   const priColor = priorityColor(pri);
   const priLabel = pri.charAt(0).toUpperCase() + pri.slice(1);
 
   const baseUrl = appUrl ?? "";
-  const workOrderDetailUrl = baseUrl ? `${baseUrl}/work-orders/${encodeURIComponent(wo.id)}` : "#";
+  const fieldPortalUrl = baseUrl ? `${baseUrl}/field/work-orders/${encodeURIComponent(wo.id)}` : "#";
   const mapUrl = incidentDetails?.lat != null && incidentDetails?.lng != null
     ? `https://www.google.com/maps?q=${incidentDetails.lat},${incidentDetails.lng}`
     : (wo.location ? `https://www.google.com/maps/search/${encodeURIComponent(wo.location)}` : "#");
-  const messagingUrl = baseUrl ? `${baseUrl}/messages?incident=${encodeURIComponent(incidentId ?? wo.id)}` : "#";
-  const knowledgeUrl = baseUrl ? `${baseUrl}/assets?id=${encodeURIComponent(wo.asset ?? "")}` : "#";
+
+  const engineerInfoBlock = assignedEngineerName ? `
+        <p style="color:#7A94B4;font-size:10px;text-transform:uppercase;letter-spacing:2px;margin:20px 0 10px;font-weight:700;">Assigned Engineer</p>
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.2);border-radius:10px;margin-bottom:20px;">
+          <tr><td style="padding:14px 20px;">
+            <p style="color:#38D98A;font-size:14px;font-weight:700;margin:0;">${escapeHtml(assignedEngineerName)}</p>
+            <p style="color:#7A94B4;font-size:12px;margin:4px 0 0;">FM Engineer — dispatched to site</p>
+          </td></tr>
+        </table>` : "";
 
   const fmActionButtons = isFmEngineer ? `
         <p style="color:#7A94B4;font-size:10px;text-transform:uppercase;letter-spacing:2px;margin:24px 0 12px;font-weight:700;">Actions</p>
         <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
           <tr>
-            <td style="padding:0 6px 0 0;" width="50%">
-              <a href="${escapeHtml(mapUrl)}" style="display:block;text-align:center;background:rgba(46,127,255,0.15);border:1px solid rgba(46,127,255,0.4);color:#2E7FFF;text-decoration:none;font-size:12px;font-weight:700;padding:14px 8px;border-radius:10px;letter-spacing:0.3px;">
-                📍 Locate Issue
-              </a>
-            </td>
-            <td style="padding:0 0 0 6px;" width="50%">
-              <a href="${escapeHtml(workOrderDetailUrl)}" style="display:block;text-align:center;background:linear-gradient(135deg,#10B981,#059669);color:#ffffff;text-decoration:none;font-size:12px;font-weight:700;padding:14px 8px;border-radius:10px;letter-spacing:0.3px;">
-                🔧 Start Resolution
+            <td colspan="2" style="padding:0 0 10px 0;">
+              <a href="${escapeHtml(fieldPortalUrl)}" style="display:block;text-align:center;background:linear-gradient(135deg,#10B981,#059669);color:#ffffff;text-decoration:none;font-size:14px;font-weight:800;padding:18px 20px;border-radius:12px;letter-spacing:0.5px;">
+                🔧 Open Work Order &mdash; Start Resolution
               </a>
             </td>
           </tr>
           <tr>
-            <td style="padding:8px 6px 0 0;" width="50%">
-              <a href="${escapeHtml(messagingUrl)}" style="display:block;text-align:center;background:rgba(139,92,246,0.15);border:1px solid rgba(139,92,246,0.4);color:#A78BFA;text-decoration:none;font-size:12px;font-weight:700;padding:14px 8px;border-radius:10px;letter-spacing:0.3px;">
-                💬 Ask Questions
+            <td style="padding:0 6px 0 0;" width="50%">
+              <a href="${escapeHtml(mapUrl)}" style="display:block;text-align:center;background:rgba(46,127,255,0.15);border:1px solid rgba(46,127,255,0.4);color:#2E7FFF;text-decoration:none;font-size:12px;font-weight:700;padding:13px 8px;border-radius:10px;letter-spacing:0.3px;">
+                📍 Locate Issue
               </a>
             </td>
-            <td style="padding:8px 0 0 6px;" width="50%">
-              <a href="${escapeHtml(knowledgeUrl)}" style="display:block;text-align:center;background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.4);color:#F59E0B;text-decoration:none;font-size:12px;font-weight:700;padding:14px 8px;border-radius:10px;letter-spacing:0.3px;">
-                📚 Research
+            <td style="padding:0 0 0 6px;" width="50%">
+              <a href="${escapeHtml(fieldPortalUrl)}#comms" style="display:block;text-align:center;background:rgba(139,92,246,0.15);border:1px solid rgba(139,92,246,0.4);color:#A78BFA;text-decoration:none;font-size:12px;font-weight:700;padding:13px 8px;border-radius:10px;letter-spacing:0.3px;">
+                💬 Comms Thread
               </a>
             </td>
           </tr>
         </table>
         <div style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.2);border-radius:10px;padding:16px 20px;margin-bottom:16px;">
           <p style="color:#38D98A;font-size:12px;font-weight:700;margin:0 0 6px;">You have been assigned this work order.</p>
-          <p style="color:#7A94B4;font-size:12px;margin:0;">Please report to the site location, mark the job as In Progress, then upload photo evidence when complete.</p>
-        </div>` : "";
+          <p style="color:#7A94B4;font-size:12px;margin:0;">Click <strong style="color:#EEF3FA;">Open Work Order</strong> to access the Field Operations Portal — update status, upload photo evidence, and message the back-office team.</p>
+        </div>` : `
+        ${engineerInfoBlock}
+        <p style="color:#7A94B4;font-size:10px;text-transform:uppercase;letter-spacing:2px;margin:24px 0 12px;font-weight:700;">Work Order Created</p>
+        <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
+          <tr><td>
+            <a href="${escapeHtml(fieldPortalUrl)}" style="display:block;text-align:center;background:linear-gradient(135deg,#2E7FFF,#1a6ae8);color:#ffffff;text-decoration:none;font-size:14px;font-weight:800;padding:18px 20px;border-radius:12px;letter-spacing:0.5px;">
+              📋 Open Work Order
+            </a>
+          </td></tr>
+        </table>`;
 
   const incidentBlock = incidentDetails ? `
         <p style="color:#7A94B4;font-size:10px;text-transform:uppercase;letter-spacing:2px;margin:20px 0 12px;font-weight:700;">Originating Incident</p>
@@ -1256,7 +1268,7 @@ router.post("/workorders/notify", async (req: Request, res: Response) => {
   for (const member of recipients) {
     if (fmEngineer && member.email === fmEngineer.email) continue;
 
-    const html = buildWorkOrderEmail(wo, incidentId, member.name, member.email, false, undefined);
+    const html = buildWorkOrderEmail(wo, incidentId, member.name, member.email, false, appUrl || undefined, incidentDetails, fmEngineer?.name);
 
     const emailResult = await sendEmail({
       to: member.email,
@@ -1545,6 +1557,64 @@ router.post(
     }
   },
 );
+
+router.get("/workorders/:id/messages", async (req: Request, res: Response) => {
+  const workOrderId = String(req.params["id"]);
+  try {
+    const [wo] = await db.select().from(workOrdersTable).where(eq(workOrdersTable.id, workOrderId));
+    if (!wo) { res.status(404).json({ error: "Work order not found" }); return; }
+
+    let messages: unknown[] = [];
+    if (wo.incidentId) {
+      const [incident] = await db.select({ activityLog: incidentsTable.activityLog }).from(incidentsTable).where(eq(incidentsTable.id, wo.incidentId));
+      if (incident?.activityLog && Array.isArray(incident.activityLog)) {
+        messages = incident.activityLog;
+      }
+    }
+    res.json({ workOrderId, incidentId: wo.incidentId ?? null, messages });
+  } catch (err) {
+    logger.error({ err, workOrderId }, "Failed to fetch work order messages");
+    res.status(500).json({ error: "Failed to fetch messages" });
+  }
+});
+
+router.post("/workorders/:id/messages", async (req: Request, res: Response) => {
+  const workOrderId = String(req.params["id"]);
+  const body = req.body as { text?: string; author?: string; authorId?: string };
+  if (!body.text?.trim()) { res.status(400).json({ error: "text is required" }); return; }
+
+  try {
+    const [wo] = await db.select().from(workOrdersTable).where(eq(workOrdersTable.id, workOrderId));
+    if (!wo) { res.status(404).json({ error: "Work order not found" }); return; }
+    if (!wo.incidentId) {
+      res.status(422).json({ error: "Work order has no linked incident — cannot post message" });
+      return;
+    }
+
+    const [incident] = await db.select({ activityLog: incidentsTable.activityLog }).from(incidentsTable).where(eq(incidentsTable.id, wo.incidentId));
+    const currentLog: unknown[] = Array.isArray(incident?.activityLog) ? (incident.activityLog as unknown[]) : [];
+
+    const now = new Date();
+    const timeStr = now.toLocaleString("en-GB", { timeZone: "Asia/Dubai", hour12: false });
+    const newMessage = {
+      id: crypto.randomUUID(),
+      time: timeStr,
+      event: body.text.trim(),
+      type: "field_message",
+      author: body.author ?? "Field Staff",
+      authorId: body.authorId ?? null,
+      postedAt: now.toISOString(),
+    };
+
+    const updatedLog = [...currentLog, newMessage];
+    await db.update(incidentsTable).set({ activityLog: updatedLog }).where(eq(incidentsTable.id, wo.incidentId));
+    logger.info({ workOrderId, incidentId: wo.incidentId, messageId: newMessage.id }, "Field message posted");
+    res.status(201).json(newMessage);
+  } catch (err) {
+    logger.error({ err, workOrderId }, "Failed to post work order message");
+    res.status(500).json({ error: "Failed to post message" });
+  }
+});
 
 router.post("/incidents/notify", async (req: Request, res: Response) => {
   const body = req.body as Partial<NotifyBody>;

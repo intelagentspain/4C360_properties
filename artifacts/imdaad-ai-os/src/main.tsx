@@ -2,6 +2,7 @@ import { createRoot } from "react-dom/client";
 import App from "./App";
 import { ScanPage } from "./pages/ScanPage";
 import { ReportPage } from "./pages/ReportPage";
+import { FieldPortal } from "./pages/FieldPortal";
 import { IncidentProvider, useIncidents } from "./context/IncidentContext";
 import { NotificationProvider } from "./context/NotificationContext";
 import { MemberProfilesProvider } from "./context/MemberProfilesContext";
@@ -39,6 +40,7 @@ function Root() {
   const path = window.location.pathname.replace(base.replace(/\/$/, ''), '');
   const isScan = path.startsWith('/scan/');
   const isReport = path === '/report' || path === '/report/';
+  const isField = path === '/field' || path === '/field/' || path.startsWith('/field/');
 
   if (isScan) {
     return (
@@ -54,6 +56,18 @@ function Root() {
     const params = new URLSearchParams(window.location.search);
     const memberToken = params.get('member') ?? undefined;
     return <ReportPage memberToken={memberToken} />;
+  }
+
+  if (isField) {
+    const woMatch = path.match(/^\/field\/work-orders\/([^/]+)/);
+    const initialWorkOrderId = woMatch?.[1] ?? undefined;
+    return (
+      <NotificationProvider>
+        <IncidentProvider>
+          <FieldPortal initialWorkOrderId={initialWorkOrderId} />
+        </IncidentProvider>
+      </NotificationProvider>
+    );
   }
 
   return (
