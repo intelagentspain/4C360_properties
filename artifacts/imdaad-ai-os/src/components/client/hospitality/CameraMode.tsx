@@ -5,6 +5,8 @@ import type { ToastFn } from '@/lib/ui';
 import { submitIncident, analyzeImage, type AiAnalysis } from './incidentUtils';
 import { AnalysisResultCard } from './AnalysisResultCard';
 
+const BASE_URL = import.meta.env.BASE_URL?.replace(/\/$/, '') ?? '';
+
 interface Props {
   onSuccess: (ref: string) => void;
   onToast: ToastFn;
@@ -88,7 +90,23 @@ export function CameraMode({ onSuccess, onToast, clientId, siteId }: Props) {
   const handleSubmit = async () => {
     setSubmitting(true);
     try {
-      const imageUrl = photo ? await compressThumbnail(photo) : undefined;
+      let imageUrl: string | undefined;
+      if (photo) {
+        const compressed = await compressThumbnail(photo);
+        try {
+          const uploadResp = await fetch(`${BASE_URL}/api/uploads/incident-image`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ imageData: compressed }),
+          });
+          if (uploadResp.ok) {
+            const { url } = await uploadResp.json() as { url: string };
+            imageUrl = url;
+          }
+        } catch {
+          // If upload fails, skip the image — don't block submission
+        }
+      }
       const ref = await submitIncident({ source: 'Resident App', analysis, imageUrl, clientId, siteId });
       onToast(`Incident ${ref} submitted — our team is on it`, 'success');
       onSuccess(ref);

@@ -41,7 +41,31 @@ const RESOLUTION_CONFIRM_SECRET =
     return s;
   })();
 
+const resolvedAppUrl: string =
+  process.env.APP_URL ??
+  process.env.API_BASE_URL?.replace(/\/api$/, "") ??
+  (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "") ??
+  "";
+
 const router = Router();
+
+router.post("/uploads/incident-image", (req: Request, res: Response) => {
+  const { imageData } = req.body as { imageData?: string };
+  if (!imageData || typeof imageData !== "string") {
+    res.status(400).json({ error: "imageData (base64 data URL) is required" });
+    return;
+  }
+  try {
+    const base64Data = imageData.replace(/^data:[^;]+;base64,/, "");
+    const filename = `incident-${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
+    const filepath = path.join(evidenceUploadsDir, filename);
+    fs.writeFileSync(filepath, Buffer.from(base64Data, "base64"));
+    res.json({ url: `/api/uploads/evidence/${filename}` });
+  } catch (err) {
+    logger.error({ err }, "Failed to save incident image");
+    res.status(500).json({ error: "Failed to save image" });
+  }
+});
 
 const APP_SECRET =
   process.env.INCIDENT_MUTE_SECRET ??
@@ -347,10 +371,14 @@ function buildIncidentEmailBody(
     </table>`
     : "";
 
-  const imageBlock = incident.imageUrl
+  const rawImgUrl = incident.imageUrl ?? "";
+  const absImgUrl = rawImgUrl && !rawImgUrl.startsWith("data:")
+    ? (rawImgUrl.startsWith("/") ? `${resolvedAppUrl}${rawImgUrl}` : rawImgUrl)
+    : "";
+  const imageBlock = absImgUrl
     ? `<p style="color:#7A94B4;font-size:10px;text-transform:uppercase;letter-spacing:2px;margin:24px 0 12px;font-weight:700;">Incident Image</p>
        <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
-         <tr><td align="center"><img src="${escapeHtml(incident.imageUrl)}" alt="Incident" style="max-width:100%;border-radius:8px;border:1px solid rgba(46,127,255,0.2);" /></td></tr>
+         <tr><td align="center"><img src="${escapeHtml(absImgUrl)}" alt="Incident" style="max-width:100%;border-radius:8px;border:1px solid rgba(46,127,255,0.2);" /></td></tr>
        </table>`
     : "";
 
@@ -745,6 +773,83 @@ router.get("/incidents/:id/mute-status", (req: Request, res: Response) => {
   res.json({ incidentId: id, email, muted: isEmailMuted(id, email) });
 });
 
+async function createAndDispatchWorkOrder(
+  id: string,
+  ticket: TicketRecord,
+  incident: IncidentPayload,
+  approverEmail: string,
+): Promise<void> {
+  logger.info({ incidentId: id, approverEmail }, "AM confirmed end-client incident — auto-dispatching Work Order");
+
+  const workOrderId = `WO-${Date.now().toString(36).toUpperCase()}`;
+  const ai = incident.aiMetadata;
+
+  const wo: WorkOrderPayload = {
+    id: workOrderId,
+    title: incident.title ?? "Work Order",
+    location: incident.location,
+    priority: incident.severity ?? "medium",
+    asset: ai?.identifiedAsset ?? "General Asset",
+    skill: ai?.issueType ?? "General Maintenance",
+    siteId: incident.siteId ?? resolveSiteId(incident),
+    incidentId: incident.id,
+    description: [
+      incident.description,
+      ai?.recommendedAction ? `Recommended Action: ${ai.recommendedAction}` : null,
+    ].filter(Boolean).join("\n\n") || undefined,
+  };
+
+  try {
+    await db.insert(workOrdersTable).values({
+      id: wo.id,
+      incidentId: wo.incidentId ?? null,
+      title: wo.title,
+      location: wo.location ?? null,
+      priority: wo.priority ?? "medium",
+      asset: wo.asset ?? null,
+      skill: wo.skill ?? null,
+      siteId: wo.siteId ?? null,
+      description: wo.description ?? null,
+      status: "open",
+    }).onConflictDoNothing();
+  } catch (err) {
+    logger.warn({ err, workOrderId }, "Failed to persist auto-dispatched work order to DB");
+  }
+
+  ticket.state = "work_order_created";
+  ticket.workOrderId = workOrderId;
+  ticket.updatedAt = new Date().toISOString();
+  ticketStore.set(id, ticket);
+
+  try {
+    await db.update(incidentsTable)
+      .set({ status: "dispatched" })
+      .where(eq(incidentsTable.id, id));
+  } catch (err) {
+    logger.warn({ err, incidentId: id }, "Failed to update incident status after AM confirmation");
+  }
+
+  const fmEngineer = await autoAssignFmEngineer(wo);
+
+  if (fmEngineer) {
+    await db.update(workOrdersTable)
+      .set({ assignedTo: fmEngineer.name, assignedToId: fmEngineer.id, status: "assigned" })
+      .where(eq(workOrdersTable.id, wo.id))
+      .catch(err => logger.warn({ err }, "Failed to update work order assignment in DB"));
+
+    const fmHtml = buildWorkOrderEmail(wo, id, fmEngineer.name, fmEngineer.email, true, resolvedAppUrl || undefined, incident);
+    await sendEmail({
+      to: fmEngineer.email,
+      subject: `[JOB ASSIGNED] ${wo.title} — ${wo.id} · Report to Site`,
+      html: fmHtml,
+    }).catch(err => logger.error({ err }, "Failed to send FM work order email (AM auto-dispatch)"));
+
+    logger.info({ workOrderId, fmEngineer: fmEngineer.email }, "FM engineer notified of auto-dispatched work order");
+  } else {
+    logger.warn({ workOrderId, siteId: wo.siteId }, "No FM engineer found for auto-dispatch");
+  }
+}
+
 router.get("/tickets/:id/approve", async (req: Request, res: Response) => {
   const id = String(req.params["id"]);
   const { token, email } = req.query as { token?: string; email?: string };
@@ -785,76 +890,7 @@ router.get("/tickets/:id/approve", async (req: Request, res: Response) => {
           .catch(() => false);
 
     if (isAM) {
-      logger.info({ incidentId: id, approverEmail: email }, "AM confirmed end-client incident — auto-dispatching Work Order");
-
-      const appUrl = process.env.APP_URL ?? process.env.API_BASE_URL?.replace("/api", "") ?? "";
-      const workOrderId = `WO-${Date.now().toString(36).toUpperCase()}`;
-      const ai = incident.aiMetadata;
-
-      const wo: WorkOrderPayload = {
-        id: workOrderId,
-        title: incident.title ?? "Work Order",
-        location: incident.location,
-        priority: incident.severity ?? "medium",
-        asset: ai?.identifiedAsset ?? "General Asset",
-        skill: ai?.issueType ?? "General Maintenance",
-        siteId: incident.siteId ?? resolveSiteId(incident),
-        incidentId: incident.id,
-        description: [
-          incident.description,
-          ai?.recommendedAction ? `Recommended Action: ${ai.recommendedAction}` : null,
-        ].filter(Boolean).join("\n\n") || undefined,
-      };
-
-      try {
-        await db.insert(workOrdersTable).values({
-          id: wo.id,
-          incidentId: wo.incidentId ?? null,
-          title: wo.title,
-          location: wo.location ?? null,
-          priority: wo.priority ?? "medium",
-          asset: wo.asset ?? null,
-          skill: wo.skill ?? null,
-          siteId: wo.siteId ?? null,
-          description: wo.description ?? null,
-          status: "open",
-        }).onConflictDoNothing();
-      } catch (err) {
-        logger.warn({ err, workOrderId }, "Failed to persist auto-dispatched work order to DB");
-      }
-
-      ticket.state = "work_order_created";
-      ticket.workOrderId = workOrderId;
-      ticket.updatedAt = new Date().toISOString();
-      ticketStore.set(id, ticket);
-
-      try {
-        await db.update(incidentsTable)
-          .set({ status: "dispatched" })
-          .where(eq(incidentsTable.id, id));
-      } catch (err) {
-        logger.warn({ err, incidentId: id }, "Failed to update incident status after AM confirmation");
-      }
-
-      const fmEngineer = await autoAssignFmEngineer(wo);
-
-      if (fmEngineer) {
-        await db.update(workOrdersTable)
-          .set({ assignedTo: fmEngineer.name, assignedToId: fmEngineer.id, status: "assigned" })
-          .where(eq(workOrdersTable.id, wo.id))
-          .catch(err => logger.warn({ err }, "Failed to update work order assignment in DB"));
-
-        const fmHtml = buildWorkOrderEmail(wo, id, fmEngineer.name, fmEngineer.email, true, appUrl || undefined, incident);
-        await sendEmail({
-          to: fmEngineer.email,
-          subject: `[JOB ASSIGNED] ${wo.title} — ${wo.id} · Report to Site`,
-          html: fmHtml,
-        }).catch(err => logger.error({ err }, "Failed to send FM work order email (AM auto-dispatch)"));
-
-        logger.info({ workOrderId, fmEngineer: fmEngineer.email }, "FM engineer notified of auto-dispatched work order");
-      } else {
-        logger.warn({ workOrderId, siteId: wo.siteId }, "No FM engineer found for auto-dispatch");
-      }
+      await createAndDispatchWorkOrder(id, ticket, incident, email);
     }
   }
 
@@ -879,7 +915,13 @@ router.post("/tickets/:id/approve", async (req: Request, res: Response) => {
   ticketStore.set(id, ticket);
 
   logger.info({ incidentId: id, approvedBy: ticket.approvedBy }, "Ticket approved via API");
-  res.json({ ok: true, incidentId: id, state: ticket.state, approvedBy: ticket.approvedBy });
+
+  const incident = ticket.incident;
+  if (incident && isEndClientSource(incident.source)) {
+    await createAndDispatchWorkOrder(id, ticket, incident, ticket.approvedBy);
+  }
+
+  res.json({ ok: true, incidentId: id, state: ticket.state, approvedBy: ticket.approvedBy, workOrderId: ticket.workOrderId });
 });
 
 router.get("/tickets/:id/reject", (req: Request, res: Response) => {
