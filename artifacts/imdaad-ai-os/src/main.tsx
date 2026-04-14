@@ -8,6 +8,7 @@ import { IncidentProvider, useIncidents } from "./context/IncidentContext";
 import { NotificationProvider } from "./context/NotificationContext";
 import { MemberProfilesProvider } from "./context/MemberProfilesContext";
 import { ClientsProvider } from "./context/ClientsContext";
+import { VendorsProvider } from "./context/VendorsContext";
 import "./index.css";
 
 function ScanRoute() {
@@ -98,15 +99,17 @@ function Root() {
   }
 
   return (
-    <ClientsProvider>
-      <MemberProfilesProvider>
-        <NotificationProvider>
-          <IncidentProvider>
-            <App />
-          </IncidentProvider>
-        </NotificationProvider>
-      </MemberProfilesProvider>
-    </ClientsProvider>
+    <VendorsProvider>
+      <ClientsProvider>
+        <MemberProfilesProvider>
+          <NotificationProvider>
+            <IncidentProvider>
+              <App />
+            </IncidentProvider>
+          </NotificationProvider>
+        </MemberProfilesProvider>
+      </ClientsProvider>
+    </VendorsProvider>
   );
 }
 

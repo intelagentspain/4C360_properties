@@ -24,6 +24,7 @@ import { ManageClients } from './ManageClients';
 import { AssetsSettings } from './AssetsSettings';
 import { RolesSettings } from './RolesSettings';
 import { RulesSettings } from './RulesSettings';
+import { VendorsSettings } from './VendorsSettings';
 import { AllClients } from './AllClients';
 import { Team } from './Team';
 import type { StrategicPage } from '@/App';
@@ -85,7 +86,7 @@ function Dashboard({ onToast, selectedClientId, onNavigateToIncident, onNavigate
   );
 }
 
-type SettingsTab = 'dispatch' | 'clients' | 'assets' | 'roles' | 'rules';
+type SettingsTab = 'dispatch' | 'clients' | 'assets' | 'roles' | 'rules' | 'vendors';
 
 function SettingsPage({ onToast, dispatchSettings, setDispatchSettings }: { onToast: ToastFn; dispatchSettings: DispatchSettings; setDispatchSettings: (s: DispatchSettings) => void }) {
   const [tab, setTab] = useState<SettingsTab>('dispatch');
@@ -99,6 +100,7 @@ function SettingsPage({ onToast, dispatchSettings, setDispatchSettings }: { onTo
             { id: 'assets',   label: 'Assets'           },
             { id: 'roles',    label: 'Roles'            },
             { id: 'rules',    label: 'Rules'            },
+            { id: 'vendors',  label: 'Vendors'          },
           ] as { id: SettingsTab; label: string }[]).map(t => (
             <button
               key={t.id}
@@ -129,6 +131,9 @@ function SettingsPage({ onToast, dispatchSettings, setDispatchSettings }: { onTo
         )}
         {tab === 'rules' && (
           <RulesSettings onToast={onToast} />
+        )}
+        {tab === 'vendors' && (
+          <VendorsSettings onToast={onToast} />
         )}
       </div>
     </div>

@@ -7,13 +7,13 @@ import {
   Users, Building2, Star,
 } from 'lucide-react';
 import {
-  mockVendorIntelligence,
   computeVendorScore,
   classifyVendorRisk,
   type VendorIntelData,
   type VendorRiskLevel,
   type VendorTrend,
 } from '@/data/mockData';
+import { useVendors } from '@/context/VendorsContext';
 import type { ToastFn } from '@/lib/ui';
 
 type FilterTab = 'all' | 'top' | 'atrisk' | 'cost';
@@ -157,20 +157,27 @@ function MiniChart({ data, field, color }: { data: { month: string; [key: string
   );
 }
 
-const PEER_AVG_SLA = Math.round(mockVendorIntelligence.reduce((s, v) => s + v.slaCompliance, 0) / mockVendorIntelligence.length);
-const PEER_AVG_FTF = Math.round(mockVendorIntelligence.reduce((s, v) => s + v.firstTimeFixRate, 0) / mockVendorIntelligence.length);
-const PEER_AVG_EVC = Math.round(mockVendorIntelligence.reduce((s, v) => s + v.evidenceCompliance, 0) / mockVendorIntelligence.length);
+function computePeerAvgs(vendors: VendorIntelData[]) {
+  if (vendors.length === 0) return { sla: 85, ftf: 80, evc: 85 };
+  return {
+    sla: Math.round(vendors.reduce((s, v) => s + v.slaCompliance, 0) / vendors.length),
+    ftf: Math.round(vendors.reduce((s, v) => s + v.firstTimeFixRate, 0) / vendors.length),
+    evc: Math.round(vendors.reduce((s, v) => s + v.evidenceCompliance, 0) / vendors.length),
+  };
+}
 
 function VendorDetailPage({ vendor, onBack, onToast }: { vendor: VendorIntelData; onBack: () => void; onToast: ToastFn }) {
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [showReassignModal, setShowReassignModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
+  const { vendors: allVendors } = useVendors();
 
   const score = computeVendorScore(vendor);
   const riskLevel = classifyVendorRisk(score);
   const projectedScore = computeVendorScore({ ...vendor, slaCompliance: vendor.projectedTrend === 'up' ? Math.min(100, vendor.slaCompliance + 3) : vendor.projectedTrend === 'down' ? Math.max(0, vendor.slaCompliance - 5) : vendor.slaCompliance });
 
-  const rankedVendors = [...mockVendorIntelligence].sort((a, b) => computeVendorScore(b) - computeVendorScore(a));
+  const peerAvgs = computePeerAvgs(allVendors);
+  const rankedVendors = [...allVendors].sort((a, b) => computeVendorScore(b) - computeVendorScore(a));
   const benchmarkRank = rankedVendors.findIndex(v => v.id === vendor.id) + 1;
 
   const sections = ['Overview', 'AI Insights', 'Contract Compliance', 'Cost vs Performance', 'Benchmarking', 'Predictive Risk', 'Recommendations', 'Dependency Risk'];
@@ -423,9 +430,9 @@ function VendorDetailPage({ vendor, onBack, onToast }: { vendor: VendorIntelData
             </div>
             <div className="grid grid-cols-3 gap-2">
               {[
-                { label: 'SLA Compliance', value: vendor.slaCompliance, peerAvg: PEER_AVG_SLA },
-                { label: 'First-Time Fix', value: vendor.firstTimeFixRate, peerAvg: PEER_AVG_FTF },
-                { label: 'Evidence Rate', value: vendor.evidenceCompliance, peerAvg: PEER_AVG_EVC },
+                { label: 'SLA Compliance', value: vendor.slaCompliance, peerAvg: peerAvgs.sla },
+                { label: 'First-Time Fix', value: vendor.firstTimeFixRate, peerAvg: peerAvgs.ftf },
+                { label: 'Evidence Rate', value: vendor.evidenceCompliance, peerAvg: peerAvgs.evc },
               ].map(k => (
                 <div key={k.label} className="bg-[#0A1628] rounded-lg p-2.5">
                   <div className="text-[9px] text-[#7A94B4] mb-1">{k.label}</div>
@@ -611,8 +618,9 @@ interface Props { onToast: ToastFn }
 export function VendorIntelligence({ onToast }: Props) {
   const [filterTab, setFilterTab] = useState<FilterTab>('all');
   const [selectedVendor, setSelectedVendor] = useState<VendorIntelData | null>(null);
+  const { vendors: allVendors } = useVendors();
 
-  const vendorsWithScores = mockVendorIntelligence.map(v => ({
+  const vendorsWithScores = allVendors.map(v => ({
     vendor: v,
     score: computeVendorScore(v),
     riskLevel: classifyVendorRisk(computeVendorScore(v)),
@@ -675,7 +683,7 @@ export function VendorIntelligence({ onToast }: Props) {
           </div>
         ))}
         <div className="h-4 w-px bg-[rgba(46,127,255,0.2)] mx-1" />
-        <span className="text-[11px] text-[#7A94B4]">{mockVendorIntelligence.length} vendors · {mockVendorIntelligence.reduce((s, v) => s + v.activeContracts, 0)} active contracts</span>
+        <span className="text-[11px] text-[#7A94B4]">{allVendors.length} vendors · {allVendors.reduce((s, v) => s + v.activeContracts, 0)} active contracts</span>
       </div>
 
       <div className="flex items-center gap-1 px-5 py-2 border-b border-[rgba(46,127,255,0.08)] flex-shrink-0 overflow-x-auto no-scrollbar">
