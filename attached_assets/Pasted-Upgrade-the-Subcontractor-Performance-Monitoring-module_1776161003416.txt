@@ -1,0 +1,117 @@
+Upgrade the Subcontractor Performance Monitoring module into an AI-powered Vendor Intelligence & Contract Optimization system.
+
+Do NOT rebuild UI from scratch.
+Enhance current structure with intelligence and decision-making features.
+
+==================================================
+1. RENAME MODULE
+==================================================
+
+Update naming:
+“Vendor Intelligence & Contract Optimization”
+
+==================================================
+2. VENDOR LIST VIEW
+==================================================
+
+Add:
+
+- Vendor score (0–100)
+- Trend indicator
+- Risk level (Preferred / Watchlist / At Risk)
+- SLA compliance %
+- Avg cost per job
+
+==================================================
+3. VENDOR DETAIL PAGE
+==================================================
+
+Create/enhance with:
+
+A. Overview
+- score
+- trend
+- SLA
+- cost metrics
+- workload
+
+B. AI Insights
+- performance anomalies
+- behavior patterns
+- site-specific issues
+
+C. Contract Compliance
+- SLA breaches
+- missing evidence
+- response violations
+
+D. Cost vs Performance
+- cost/job
+- cost vs SLA
+- efficiency ranking
+
+E. Benchmarking
+- vs other vendors
+- ranking table
+
+F. Predictive Risk
+- SLA trend forecast
+- contract risk level
+
+G. Recommendations
+- reassign work
+- limit scope
+- renegotiate
+- trigger review
+
+H. Dependency Risk
+- % workload handled
+- concentration risk
+
+==================================================
+4. AI LOGIC (SIMULATED BUT CONSISTENT)
+==================================================
+
+Vendor score influenced by:
+- SLA compliance
+- first-time fix rate
+- response time
+- evidence compliance
+- cost efficiency
+
+Risk increases if:
+- SLA dropping
+- repeated violations
+- high cost with low performance
+
+==================================================
+5. VISUAL DESIGN
+==================================================
+
+- clean cards
+- color-coded risk
+- charts for benchmarking
+- maintain premium dark UI
+
+==================================================
+6. ADVANCED FEATURES
+==================================================
+
+Add:
+
+- “Top Vendors”
+- “At Risk Vendors”
+- “Cost Efficiency Ranking”
+- “Reassign Work” action
+- “Trigger Vendor Review” button
+
+==================================================
+7. OUTPUT
+==================================================
+
+Show:
+1. updated vendor list
+2. vendor detail page
+3. AI insights examples
+4. contract violation detection
+5. recommendation examples
