@@ -1,0 +1,128 @@
+Upgrade the existing Assets module into an AI-powered Asset Intelligence System.
+
+Do NOT rebuild the UI.
+Enhance the current Assets table and asset detail experience.
+
+==================================================
+1. ASSET TABLE UPGRADE
+==================================================
+
+Enhance each asset row with:
+
+- Health Score (0–100)
+- Risk Level badge (Low / Medium / High / Critical)
+- Failure Probability (%)
+- Last Activity (last maintenance / incident)
+
+Keep layout clean and aligned with current design.
+
+==================================================
+2. ASSET DETAIL PAGE (NEW OR UPGRADE)
+==================================================
+
+When clicking an asset, open a full Asset Intelligence view.
+
+Sections:
+
+A. Asset Overview
+- name
+- type
+- location
+- status
+- health score
+- risk level
+
+B. AI Insight Panel
+- key observations
+- anomalies
+- predicted issues
+- operational interpretation
+
+C. Timeline
+- work orders
+- incidents
+- inspections
+- maintenance history
+
+D. Parts & Inventory
+- required parts
+- stock status
+- low stock warnings
+- lead times
+
+E. Predictive Risk
+- failure likelihood
+- degradation signals
+- recommended intervention window
+
+F. Actions
+- Generate maintenance plan
+- Recommend parts
+- Open Expert Copilot
+- Create work order
+- Raise incident
+
+==================================================
+3. AI LOGIC LAYER (SIMULATED BUT STRUCTURED)
+==================================================
+
+Create mock AI logic for demo:
+
+- health score decreases with:
+  - repeated incidents
+  - overdue PPM
+- risk increases with:
+  - SLA breaches
+  - parts shortage
+- failure probability based on:
+  - recent anomalies
+  - maintenance gaps
+
+Do not hardcode random values.
+Make them logically consistent.
+
+==================================================
+4. PARTS INTELLIGENCE
+==================================================
+
+Add a parts layer per asset:
+
+- part name
+- stock level
+- threshold
+- lead time
+
+Highlight:
+- low stock
+- critical dependency
+
+==================================================
+5. VISUAL HIERARCHY
+==================================================
+
+Use:
+- color coding (green / amber / red)
+- clean cards
+- strong section separation
+
+Keep the premium dark UI style.
+
+==================================================
+6. OPTIONAL (HIGH VALUE)
+==================================================
+
+Add:
+- “Compare similar assets”
+- “Cluster insights”
+- “Top 5 at-risk assets”
+
+==================================================
+7. OUTPUT
+==================================================
+
+After implementation, show:
+1. updated asset table
+2. new asset detail page
+3. AI insight examples
+4. parts intelligence layer
+5. how health score is calculated
