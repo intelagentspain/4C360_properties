@@ -1,7 +1,7 @@
 import {
   Map, AlertTriangle, CheckSquare, Calendar,
   Camera, BarChart2, Settings, ClipboardList, Scan, ListChecks,
-  Package, Image, Home, Clock, History, Database, PlayCircle, Users, LayoutGrid,
+  Package, Image, Home, Clock, History, Database, PlayCircle, Users, LayoutGrid, ShieldCheck,
 } from 'lucide-react';
 import type { Perspective, StrategicPage } from '@/App';
 
@@ -22,6 +22,7 @@ const strategicItems: NavItem[] = [
   { icon: Calendar,        label: 'PPM Schedule',       page: 'ppmschedule' },
   { icon: Camera,          label: 'AI Capture',         page: 'aicapture' },
   { icon: Database,        label: 'Data Sources',       page: 'datasources' },
+  { icon: ShieldCheck,     label: 'Vendor Intelligence', page: 'vendorintelligence' },
   { icon: BarChart2,       label: 'Benchmark',          page: 'benchmark' },
   { icon: PlayCircle,      label: 'Operational Replay', page: 'replay' },
   { icon: Settings,        label: 'Settings', page: 'settings' },

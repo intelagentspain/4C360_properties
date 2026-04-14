@@ -16,7 +16,7 @@ import type { MockMemberProfile } from '@/data/mockData';
 import type { PPMRiskPayload } from '@/components/strategic/PPMRiskPanel';
 
 export type Perspective = 'strategic' | 'operational' | 'client';
-export type StrategicPage = 'dashboard' | 'datasources' | 'benchmark' | 'replay' | 'incidents' | 'tasks' | 'ppmschedule' | 'aicapture' | 'settings' | 'allclients' | 'team';
+export type StrategicPage = 'dashboard' | 'datasources' | 'benchmark' | 'replay' | 'incidents' | 'tasks' | 'ppmschedule' | 'aicapture' | 'settings' | 'allclients' | 'team' | 'vendorintelligence';
 
 const CLIENT_SITE_MAP: Record<string, string> = {
   'CLT-001': 'silicon-oasis',

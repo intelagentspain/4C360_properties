@@ -663,6 +663,412 @@ export const mockDataSources = [
   },
 ];
 
+export type VendorRiskLevel = 'Preferred' | 'Watchlist' | 'At Risk';
+export type VendorTrend = 'up' | 'flat' | 'down';
+
+/**
+ * Raw input metrics for vendor scoring. `score` and `riskLevel` are NOT stored
+ * here — they are derived by `computeVendorScore` / `classifyVendorRisk`.
+ *
+ * Scoring formula (5 dimensions, weights sum to 1.00):
+ *   resolutionScore  = max(0, 100 - (avgResolutionMin - 30) * 2)
+ *   costEfficiency   = max(0, min(100, 100 - (avgCostPerJob / VENDOR_PEER_AVG_COST - 1) * 200))
+ *   score = round(
+ *     0.35 * slaCompliance    +   // SLA compliance
+ *     0.25 * firstTimeFixRate +   // first-time fix rate
+ *     0.20 * resolutionScore  +   // response / resolution time
+ *     0.12 * evidenceCompliance + // evidence / documentation compliance
+ *     0.08 * costEfficiency       // cost efficiency vs peer average
+ *   )
+ *
+ * Risk classification bands:
+ *   Preferred  : score >= 78
+ *   Watchlist  : score >= 58
+ *   At Risk    : score <  58
+ */
+export interface VendorIntelData {
+  id: string;
+  name: string;
+  category: string;
+  trend: VendorTrend;
+  slaCompliance: number;
+  firstTimeFixRate: number;
+  avgResolutionMin: number;
+  evidenceCompliance: number;
+  repeatFailureRate: number;
+  avgCostPerJob: number;
+  activeContracts: number;
+  contractExpiry: string;
+  sites: string[];
+  jobsLast30d: number;
+  insights: string[];
+  anomaly: string | null;
+  contractFlags: { type: 'breach' | 'missing' | 'warning'; description: string }[];
+  predictedRisk30d: number;
+  projectedTrend: VendorTrend;
+  recommendations: { title: string; detail: string; action: 'reassign' | 'renegotiate' | 'review' | 'limit' }[];
+  dependencyRisk: 'Low' | 'Medium' | 'High' | 'Critical';
+  dependencyNote: string;
+  costTrend: { month: string; cost: number; peerAvg: number }[];
+  scoreTrend: { month: string; score: number }[];
+}
+
+/**
+ * Peer-average cost per job (AED) across the 6-vendor portfolio.
+ * Used to normalise the cost-efficiency dimension in `computeVendorScore`.
+ * Value: (420 + 385 + 465 + 530 + 512 + 498) / 6 = 468.
+ */
+const VENDOR_PEER_AVG_COST = 468;
+
+/**
+ * Compute a vendor's composite performance score (0–100) from five raw input
+ * dimensions: SLA compliance, first-time fix rate, response time, evidence
+ * compliance, and cost efficiency relative to the peer average.
+ *
+ *   resolutionScore = max(0, 100 - (avgResolutionMin - 30) × 2)
+ *   costEfficiency  = max(0, min(100, 100 − (avgCostPerJob / PEER_AVG − 1) × 200))
+ *
+ * A vendor at peer-average cost scores 100 on cost efficiency; one 50 % above
+ * peer average scores 0; vendors below peer average are capped at 100.
+ */
+export function computeVendorScore(
+  v: Pick<VendorIntelData, 'slaCompliance' | 'firstTimeFixRate' | 'avgResolutionMin' | 'evidenceCompliance' | 'avgCostPerJob'>,
+): number {
+  const resolutionScore = Math.max(0, 100 - (v.avgResolutionMin - 30) * 2);
+  const costEfficiency = Math.max(0, Math.min(100, 100 - (v.avgCostPerJob / VENDOR_PEER_AVG_COST - 1) * 200));
+  return Math.round(
+    0.35 * v.slaCompliance +
+    0.25 * v.firstTimeFixRate +
+    0.20 * resolutionScore +
+    0.12 * v.evidenceCompliance +
+    0.08 * costEfficiency,
+  );
+}
+
+/**
+ * Classify a vendor into a risk tier based on their computed score.
+ *   Preferred : score >= 78
+ *   Watchlist : score >= 58
+ *   At Risk   : score <  58
+ */
+export function classifyVendorRisk(score: number): VendorRiskLevel {
+  if (score >= 78) return 'Preferred';
+  if (score >= 58) return 'Watchlist';
+  return 'At Risk';
+}
+
+export const mockVendorIntelligence: VendorIntelData[] = [
+  {
+    id: 'VND-001',
+    name: 'Imdaad Core',
+    category: 'FM & HVAC',
+    trend: 'up',
+    slaCompliance: 96,
+    firstTimeFixRate: 91,
+    avgResolutionMin: 38,
+    evidenceCompliance: 95,
+    repeatFailureRate: 4,
+    avgCostPerJob: 420,
+    activeContracts: 3,
+    contractExpiry: 'Dec 2026',
+    sites: ['Silicon Oasis', 'Gate Avenue', 'DIFC Tower'],
+    jobsLast30d: 187,
+    insights: [
+      'SLA compliance at 96% is the highest across all active vendors — consistent delivery on critical and high-severity jobs.',
+      'First-time fix rate of 91% reflects strong diagnostic capability; repeat visits are rare and concentrated in complex HVAC faults.',
+      'Evidence compliance at 95% indicates reliable documentation; before/after photos submitted on 95% of closed jobs.',
+      'Average cost per job of AED 420 is 18% below peer average — strong cost efficiency without compromising quality.',
+    ],
+    anomaly: null,
+    contractFlags: [],
+    predictedRisk30d: 8,
+    projectedTrend: 'up',
+    recommendations: [
+      { title: 'Expand scope to Business Bay', detail: 'Performance data supports extending Imdaad Core\'s HVAC scope to Business Bay cluster — projected to reduce response time by 22%.', action: 'renegotiate' },
+      { title: 'Maintain current SLA terms', detail: 'No renegotiation required — vendor is consistently outperforming SLA targets across all three managed sites.', action: 'review' },
+    ],
+    dependencyRisk: 'Medium',
+    dependencyNote: '3 sites depend on this vendor — a performance drop would impact 58% of managed properties.',
+    costTrend: [
+      { month: 'Nov', cost: 435, peerAvg: 510 },
+      { month: 'Dec', cost: 428, peerAvg: 508 },
+      { month: 'Jan', cost: 422, peerAvg: 505 },
+      { month: 'Feb', cost: 418, peerAvg: 502 },
+      { month: 'Mar', cost: 420, peerAvg: 500 },
+      { month: 'Apr', cost: 415, peerAvg: 498 },
+    ],
+    scoreTrend: [
+      { month: 'Nov', score: 82 },
+      { month: 'Dec', score: 84 },
+      { month: 'Jan', score: 85 },
+      { month: 'Feb', score: 86 },
+      { month: 'Mar', score: 87 },
+      { month: 'Apr', score: 88 },
+    ],
+  },
+  {
+    id: 'VND-002',
+    name: 'Muscat FM',
+    category: 'General & Safety',
+    trend: 'up',
+    slaCompliance: 88,
+    firstTimeFixRate: 84,
+    avgResolutionMin: 44,
+    evidenceCompliance: 91,
+    repeatFailureRate: 6,
+    avgCostPerJob: 385,
+    activeContracts: 2,
+    contractExpiry: 'Mar 2027',
+    sites: ['JLT North', 'Business Bay'],
+    jobsLast30d: 94,
+    insights: [
+      'Score has improved 8 points over 6 months — driven by targeted improvements in evidence compliance and response time.',
+      'SLA compliance at 88% is above vendor average but trails the top performer by 8 percentage points.',
+      'Cost per job of AED 385 is the most competitive across all preferred vendors — consistent cost efficiency.',
+      'Evidence compliance improved from 81% to 91% following a corrective action plan introduced in Q1.',
+    ],
+    anomaly: null,
+    contractFlags: [
+      { type: 'warning', description: 'Contract renewal due in 11 months — initiate renegotiation review by Q3 to secure current rate.' },
+    ],
+    predictedRisk30d: 12,
+    projectedTrend: 'up',
+    recommendations: [
+      { title: 'Lock in multi-year renewal', detail: 'Current rate of AED 385/job is the most competitive in portfolio. A 2-year renewal agreement would protect against market rate increases.', action: 'renegotiate' },
+      { title: 'Extend scope to safety inspections', detail: 'Muscat FM\'s safety compliance track record supports taking on additional fire panel and safety walk scope.', action: 'review' },
+    ],
+    dependencyRisk: 'Low',
+    dependencyNote: '2 sites covered — moderate dependency. Alternate vendors available for both sites if needed.',
+    costTrend: [
+      { month: 'Nov', cost: 400, peerAvg: 510 },
+      { month: 'Dec', cost: 395, peerAvg: 508 },
+      { month: 'Jan', cost: 392, peerAvg: 505 },
+      { month: 'Feb', cost: 388, peerAvg: 502 },
+      { month: 'Mar', cost: 385, peerAvg: 500 },
+      { month: 'Apr', cost: 385, peerAvg: 498 },
+    ],
+    scoreTrend: [
+      { month: 'Nov', score: 74 },
+      { month: 'Dec', score: 76 },
+      { month: 'Jan', score: 78 },
+      { month: 'Feb', score: 79 },
+      { month: 'Mar', score: 81 },
+      { month: 'Apr', score: 82 },
+    ],
+  },
+  {
+    id: 'VND-003',
+    name: 'Emrill FM',
+    category: 'FM & Electrical',
+    trend: 'flat',
+    slaCompliance: 85,
+    firstTimeFixRate: 80,
+    avgResolutionMin: 47,
+    evidenceCompliance: 88,
+    repeatFailureRate: 7,
+    avgCostPerJob: 465,
+    activeContracts: 2,
+    contractExpiry: 'Jun 2026',
+    sites: ['Silicon Oasis', 'Dubai Marina'],
+    jobsLast30d: 112,
+    insights: [
+      'Performance score of 76 has been stable for 4 consecutive months — no significant improvement or decline.',
+      'SLA compliance at 85% is adequate but 11 points below the top vendor; performance plateau may indicate resource ceiling.',
+      'Cost per job of AED 465 is 7% above peer average — marginal premium without proportional performance advantage.',
+      'Evidence compliance at 88% is consistent; electrical safety jobs maintain 100% photo evidence rate.',
+    ],
+    anomaly: null,
+    contractFlags: [
+      { type: 'warning', description: 'Contract expires in 2 months — renewal or replacement decision required urgently.' },
+      { type: 'missing', description: 'Q4 2025 performance review report not submitted per contract clause 8.3.' },
+    ],
+    predictedRisk30d: 18,
+    projectedTrend: 'flat',
+    recommendations: [
+      { title: 'Renegotiate cost rate at renewal', detail: 'AED 465/job is above market rate for the services delivered. Benchmark shows Muscat FM delivers comparable quality at 17% lower cost.', action: 'renegotiate' },
+      { title: 'Request missing performance report', detail: 'Q4 2025 performance report is contractually required per clause 8.3. Issue formal notice and request submission within 14 days.', action: 'review' },
+    ],
+    dependencyRisk: 'Medium',
+    dependencyNote: 'Silicon Oasis electrical scope primarily covered by this vendor — dependency risk if contract lapses.',
+    costTrend: [
+      { month: 'Nov', cost: 462, peerAvg: 510 },
+      { month: 'Dec', cost: 465, peerAvg: 508 },
+      { month: 'Jan', cost: 468, peerAvg: 505 },
+      { month: 'Feb', cost: 465, peerAvg: 502 },
+      { month: 'Mar', cost: 466, peerAvg: 500 },
+      { month: 'Apr', cost: 465, peerAvg: 498 },
+    ],
+    scoreTrend: [
+      { month: 'Nov', score: 77 },
+      { month: 'Dec', score: 76 },
+      { month: 'Jan', score: 75 },
+      { month: 'Feb', score: 76 },
+      { month: 'Mar', score: 76 },
+      { month: 'Apr', score: 76 },
+    ],
+  },
+  {
+    id: 'VND-004',
+    name: 'Belhasa Eng.',
+    category: 'Engineering & Civil',
+    trend: 'up',
+    slaCompliance: 80,
+    firstTimeFixRate: 75,
+    avgResolutionMin: 52,
+    evidenceCompliance: 82,
+    repeatFailureRate: 9,
+    avgCostPerJob: 530,
+    activeContracts: 1,
+    contractExpiry: 'Sep 2026',
+    sites: ['Business Bay'],
+    jobsLast30d: 58,
+    insights: [
+      'Score improved from 63 to 70 over 3 months — upward trend driven by response time improvements after a coaching intervention.',
+      'SLA compliance at 80% is below the preferred threshold — 3 SLA breaches recorded in the last 30 days.',
+      'Cost per job of AED 530 is the highest in the vendor portfolio — performance does not currently justify the premium.',
+      'Evidence compliance at 82% leaves a notable gap; 18% of engineering jobs closed without complete documentation.',
+    ],
+    anomaly: '3 SLA breaches in last 30 days — elevated breach rate for Engineering scope. Monitor trend.',
+    contractFlags: [
+      { type: 'breach', description: '3 SLA breaches recorded in March — triggers performance improvement clause (Clause 11.2).' },
+      { type: 'missing', description: 'Monthly progress report for February not submitted — now 6 weeks overdue.' },
+    ],
+    predictedRisk30d: 28,
+    projectedTrend: 'up',
+    recommendations: [
+      { title: 'Issue performance improvement notice', detail: '3 SLA breaches triggers Clause 11.2 — formal notice must be issued within 30 days. Set 60-day improvement window with measurable KPI targets.', action: 'review' },
+      { title: 'Limit scope to civil works only', detail: 'Redirect M&E tasks to Emrill FM or Imdaad Core. Engineering-only scope better aligns with Belhasa\'s demonstrated competency.', action: 'limit' },
+      { title: 'Renegotiate day rate at next review', detail: 'AED 530/job is not justified by current performance. Benchmark shows Emrill FM delivers comparable engineering services at AED 465.', action: 'renegotiate' },
+    ],
+    dependencyRisk: 'Low',
+    dependencyNote: 'Single site coverage — Business Bay. Alternate engineering vendor available if required.',
+    costTrend: [
+      { month: 'Nov', cost: 545, peerAvg: 510 },
+      { month: 'Dec', cost: 540, peerAvg: 508 },
+      { month: 'Jan', cost: 535, peerAvg: 505 },
+      { month: 'Feb', cost: 532, peerAvg: 502 },
+      { month: 'Mar', cost: 530, peerAvg: 500 },
+      { month: 'Apr', cost: 530, peerAvg: 498 },
+    ],
+    scoreTrend: [
+      { month: 'Nov', score: 63 },
+      { month: 'Dec', score: 65 },
+      { month: 'Jan', score: 67 },
+      { month: 'Feb', score: 68 },
+      { month: 'Mar', score: 69 },
+      { month: 'Apr', score: 70 },
+    ],
+  },
+  {
+    id: 'VND-005',
+    name: 'TechServ ME',
+    category: 'MEP & Systems',
+    trend: 'down',
+    slaCompliance: 72,
+    firstTimeFixRate: 70,
+    avgResolutionMin: 62,
+    evidenceCompliance: 78,
+    repeatFailureRate: 12,
+    avgCostPerJob: 488,
+    activeContracts: 1,
+    contractExpiry: 'Nov 2026',
+    sites: ['JLT North'],
+    jobsLast30d: 43,
+    insights: [
+      'Score has declined 9 points over 3 months — persistent SLA breaches and rising repeat failure rate driving the decline.',
+      'SLA compliance at 72% means 1 in 4 jobs is delivered late; the breach rate has worsened month-on-month for 3 consecutive periods.',
+      'Repeat failure rate of 12% is the second highest in the portfolio — root cause analysis not yet submitted.',
+      'Response time averaging 62 minutes is 64% above the preferred 38-minute benchmark.',
+    ],
+    anomaly: 'Score declining 3 consecutive months — SLA breaches increasing. Escalation recommended.',
+    contractFlags: [
+      { type: 'breach', description: '8 SLA breaches in last period — threshold for contract review clause triggered (Clause 9.1).' },
+      { type: 'breach', description: 'Root cause analysis for repeat failures not submitted per Clause 10.4 requirement.' },
+      { type: 'warning', description: 'Cost per job has risen 8% in 6 months without performance improvement.' },
+    ],
+    predictedRisk30d: 38,
+    projectedTrend: 'down',
+    recommendations: [
+      { title: 'Trigger formal vendor review', detail: 'Declining score over 3 consecutive periods triggers the mandatory vendor review clause. Schedule formal review meeting within 21 days with clear KPI targets.', action: 'review' },
+      { title: 'Reassign MEP scope to Emrill FM', detail: 'Consider transitioning 50% of JLT North MEP jobs to Emrill FM as a risk mitigation measure while the review is underway.', action: 'reassign' },
+      { title: 'Request root cause analysis immediately', detail: '12% repeat failure rate with no root cause report is a contract breach. Issue 7-day notice for submission — failure to respond escalates to contract termination proceedings.', action: 'review' },
+    ],
+    dependencyRisk: 'Medium',
+    dependencyNote: 'Primary MEP vendor for JLT North — transition to alternate vendor would take 4–6 weeks.',
+    costTrend: [
+      { month: 'Nov', cost: 452, peerAvg: 510 },
+      { month: 'Dec', cost: 460, peerAvg: 508 },
+      { month: 'Jan', cost: 468, peerAvg: 505 },
+      { month: 'Feb', cost: 474, peerAvg: 502 },
+      { month: 'Mar', cost: 482, peerAvg: 500 },
+      { month: 'Apr', cost: 488, peerAvg: 498 },
+    ],
+    scoreTrend: [
+      { month: 'Nov', score: 70 },
+      { month: 'Dec', score: 68 },
+      { month: 'Jan', score: 66 },
+      { month: 'Feb', score: 64 },
+      { month: 'Mar', score: 62 },
+      { month: 'Apr', score: 61 },
+    ],
+  },
+  {
+    id: 'VND-006',
+    name: 'Farnek Serv.',
+    category: 'Cleaning & Soft FM',
+    trend: 'down',
+    slaCompliance: 63,
+    firstTimeFixRate: 62,
+    avgResolutionMin: 71,
+    evidenceCompliance: 68,
+    repeatFailureRate: 15,
+    avgCostPerJob: 310,
+    activeContracts: 2,
+    contractExpiry: 'Aug 2026',
+    sites: ['Gate Avenue', 'Downtown'],
+    jobsLast30d: 76,
+    insights: [
+      'Score of 52 is critically below the Watchlist threshold — this vendor is At Risk and requires immediate intervention.',
+      'SLA compliance at 63% means over one-third of all jobs are delivered late — the worst performance in the active vendor portfolio.',
+      'Evidence compliance at 68% is the lowest across all vendors; nearly 1 in 3 jobs closed without required documentation.',
+      'Repeat failure rate of 15% indicates systematic quality issues — the same faults are recurring without permanent resolution.',
+    ],
+    anomaly: 'CRITICAL: Score below 55 for 2 consecutive months. 11 SLA breaches in last period. Immediate contract review required.',
+    contractFlags: [
+      { type: 'breach', description: '11 SLA breaches in last period — far exceeds the 5-breach contract threshold (Clause 9.1).' },
+      { type: 'breach', description: 'Evidence compliance below 70% for 3 consecutive months — breach of Clause 12.1 documentation requirements.' },
+      { type: 'missing', description: 'Q1 2026 self-assessment report not submitted — overdue by 8 weeks.' },
+      { type: 'warning', description: 'Contract expiry in 4 months — replacement vendor sourcing should begin immediately given risk level.' },
+    ],
+    predictedRisk30d: 58,
+    projectedTrend: 'down',
+    recommendations: [
+      { title: 'Trigger immediate contract review', detail: 'Multiple contract clauses in breach. Issue formal notice under Clause 9.1 and schedule a review meeting within 14 days with executive attendance.', action: 'review' },
+      { title: 'Reassign Gate Avenue scope', detail: 'Transition Gate Avenue soft FM scope to Muscat FM within 30 days. Gate Avenue represents higher-visibility client — risk of client satisfaction impact is significant.', action: 'reassign' },
+      { title: 'Begin replacement vendor sourcing', detail: 'With contract expiry in 4 months and At Risk status, begin RFP for replacement vendor immediately. Shortlist at least 2 alternates.', action: 'renegotiate' },
+      { title: 'Limit active job allocation', detail: 'Cap new job assignments to Farnek to essential soft FM only while review proceeds. Do not assign any hard FM or compliance-critical tasks.', action: 'limit' },
+    ],
+    dependencyRisk: 'High',
+    dependencyNote: 'Covers 2 sites for soft FM. No ready alternate for full-scope replacement — transition risk is significant without 60-day notice.',
+    costTrend: [
+      { month: 'Nov', cost: 298, peerAvg: 510 },
+      { month: 'Dec', cost: 302, peerAvg: 508 },
+      { month: 'Jan', cost: 305, peerAvg: 505 },
+      { month: 'Feb', cost: 308, peerAvg: 502 },
+      { month: 'Mar', cost: 310, peerAvg: 500 },
+      { month: 'Apr', cost: 310, peerAvg: 498 },
+    ],
+    scoreTrend: [
+      { month: 'Nov', score: 62 },
+      { month: 'Dec', score: 59 },
+      { month: 'Jan', score: 57 },
+      { month: 'Feb', score: 55 },
+      { month: 'Mar', score: 53 },
+      { month: 'Apr', score: 52 },
+    ],
+  },
+];
+
 export const mockBenchmarkData = {
   sites: [
     { name: 'Silicon Oasis', sla: 94, incidents: 47, compliance: 94 },

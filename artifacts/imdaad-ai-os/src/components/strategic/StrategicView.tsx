@@ -12,6 +12,7 @@ import { AIInsightsPanel } from './AIInsightsPanel';
 import { SmartDispatchPanel } from './SmartDispatchPanel';
 import { DataSources } from './DataSources';
 import { Benchmark } from './Benchmark';
+import { VendorIntelligence } from './VendorIntelligence';
 import { Replay } from './Replay';
 import { Incidents } from './Incidents';
 import { Tasks } from './Tasks';
@@ -151,6 +152,7 @@ export function StrategicView({ onToast, page, onClientSelect, selectedClientId,
       >
         {page === 'dashboard'   && <Dashboard     onToast={onToast} selectedClientId={selectedClientId} onNavigateToIncident={onNavigateToIncident} onNavigateToTasks={onNavigateToTasks} onMarkPPMCreated={onMarkPPMCreated} ppmCreatedTasks={ppmCreatedTasks} />}
         {page === 'datasources' && <DataSources   onToast={onToast} />}
+        {page === 'vendorintelligence' && <VendorIntelligence onToast={onToast} />}
         {page === 'benchmark'   && <Benchmark     onToast={onToast} />}
         {page === 'replay'      && <Replay        onToast={onToast} />}
         {page === 'incidents'   && <Incidents     onToast={onToast} initialClientId={incidentsClientId} initialIncidentId={initialIncidentId} onInitialIncidentHandled={onInitialIncidentHandled} />}
