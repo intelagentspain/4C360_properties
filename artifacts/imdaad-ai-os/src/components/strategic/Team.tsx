@@ -3,12 +3,16 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, Mail, MapPin, Wrench, ClipboardList, UserPlus, X,
   MessageSquare, Building2, FileText, User, Shield, Search, Phone, Camera, Pencil,
+  Star, AlertTriangle, Activity,
 } from 'lucide-react';
 import { useMemberProfiles } from '@/context/MemberProfilesContext';
 import { useClients } from '@/context/ClientsContext';
 import { WhatsAppModal } from '@/components/shared/WhatsAppModal';
 import type { ToastFn } from '@/lib/ui';
 import type { MockMemberProfile } from '@/data/mockData';
+import {
+  TechIntelligenceDetail, getTechIntel, scoreColor, riskBadgeCls, TrendIcon,
+} from './TechIntelligenceDetail';
 
 function resolvePhoto(photo: string | undefined): string | undefined {
   if (!photo) return undefined;
@@ -955,6 +959,7 @@ export function Team({ onToast }: Props) {
   const [showModal, setShowModal] = useState(false);
   const [selectedMember, setSelectedMember] = useState<MockMemberProfile | null>(null);
   const [editingMember, setEditingMember] = useState<MockMemberProfile | null>(null);
+  const [selectedTechId, setSelectedTechId] = useState<string | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPerspective, setFilterPerspective] = useState('All');
@@ -1002,13 +1007,68 @@ export function Team({ onToast }: Props) {
 
   const selectCls = `px-2.5 py-1.5 bg-[#0A1628] border border-[rgba(46,127,255,0.22)] rounded-lg text-[11px] text-[#EEF3FA] focus:outline-none focus:border-[#2E7FFF] transition-colors appearance-none cursor-pointer`;
 
+  const selectedTechMember = useMemo(
+    () => selectedTechId ? (profiles.find(p => p.id === selectedTechId) ?? null) : null,
+    [selectedTechId, profiles],
+  );
+  const selectedTechIntel = useMemo(
+    () => selectedTechMember ? getTechIntel(selectedTechMember.name) : null,
+    [selectedTechMember],
+  );
+
+  const operationalMembers = useMemo(
+    () => filteredMembers.filter(m => m.perspective === 'Operational'),
+    [filteredMembers],
+  );
+  const topPerformers = useMemo(
+    () => operationalMembers.filter(m => (getTechIntel(m.name)?.performanceScore ?? 0) >= 85)
+      .sort((a, b) => (getTechIntel(b.name)?.performanceScore ?? 0) - (getTechIntel(a.name)?.performanceScore ?? 0)),
+    [operationalMembers],
+  );
+  const atRiskMembers = useMemo(
+    () => operationalMembers.filter(m => (getTechIntel(m.name)?.performanceScore ?? 100) < 65)
+      .sort((a, b) => (getTechIntel(a.name)?.performanceScore ?? 100) - (getTechIntel(b.name)?.performanceScore ?? 100)),
+    [operationalMembers],
+  );
+
+  if (selectedTechId && selectedTechMember && selectedTechIntel) {
+    return (
+      <>
+        <div className="h-full flex flex-col overflow-hidden">
+          <TechIntelligenceDetail
+            member={selectedTechMember}
+            intel={selectedTechIntel}
+            onBack={() => setSelectedTechId(null)}
+            onEditProfile={() => {
+              const m = profiles.find(p => p.id === selectedTechMember.id) ?? selectedTechMember;
+              setSelectedTechId(null);
+              setEditingMember(m);
+            }}
+            onToast={onToast}
+            avatarGradient={AVATAR_COLORS[selectedTechMember.id.charCodeAt(0) % AVATAR_COLORS.length]}
+          />
+        </div>
+        <AnimatePresence>
+          {(showModal || editingMember) && (
+            <AddStaffModal
+              onClose={() => { setShowModal(false); setEditingMember(null); }}
+              onToast={onToast}
+              clientNames={clientNames}
+              editMember={editingMember ?? undefined}
+            />
+          )}
+        </AnimatePresence>
+      </>
+    );
+  }
+
   return (
     <>
       <div className="h-full flex flex-col overflow-hidden">
         <div className="flex items-center justify-between px-5 py-3 border-b border-[rgba(46,127,255,0.15)] flex-shrink-0">
           <div>
             <h2 className="text-[#EEF3FA] font-bold text-base" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-              Team
+              Technician Intelligence &amp; Performance Control
             </h2>
             <p className="text-[11px] text-[#7A94B4]">
               Internal staff &amp; technicians · {teamMembers.length} members
@@ -1122,112 +1182,244 @@ export function Team({ onToast }: Props) {
               )}
             </div>
           ) : (
-            <div className="grid grid-cols-3 gap-3">
-              {filteredMembers.map((member, idx) => {
-                const avatarGradient = AVATAR_COLORS[idx % AVATAR_COLORS.length];
-                const badgeCls = PERSPECTIVE_BADGE[member.perspective] ?? 'bg-[#112040] text-[#7A94B4] border-[rgba(46,127,255,0.2)]';
-                const isActive = member.isActive !== false;
-                const photoSrc = resolvePhoto(member.photo);
-                return (
-                  <motion.div
-                    key={member.id}
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.18, delay: idx * 0.04 }}
-                    className={`flex flex-col rounded-xl border overflow-hidden transition-opacity ${
-                      isActive
-                        ? 'border-[rgba(46,127,255,0.2)] bg-[rgba(17,32,64,0.7)]'
-                        : 'border-[rgba(100,100,120,0.2)] bg-[rgba(17,20,32,0.6)] opacity-70'
-                    }`}
-                  >
-                    <div className="p-4 flex items-start gap-3">
-                      <div className={`w-10 h-10 rounded-full flex-shrink-0 overflow-hidden bg-gradient-to-br ${avatarGradient} flex items-center justify-center`}>
-                        {photoSrc ? (
-                          <img src={photoSrc} alt={member.name} className="w-full h-full object-cover" onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
-                        ) : (
-                          <span className="text-white text-[13px] font-bold">{getInitials(member.name)}</span>
+            <div className="space-y-5">
+              {topPerformers.length > 0 && (filterPerspective === 'All' || filterPerspective === 'Operational') && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Star size={12} className="text-emerald-400" />
+                    <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">Top Performers</span>
+                    <div className="flex-1 h-px bg-emerald-500/15" />
+                  </div>
+                  <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+                    {topPerformers.map(m => {
+                      const intel = getTechIntel(m.name);
+                      if (!intel) return null;
+                      const sc = scoreColor(intel.performanceScore);
+                      return (
+                        <button
+                          key={m.id}
+                          onClick={() => setSelectedTechId(m.id)}
+                          className="flex-shrink-0 flex items-center gap-2.5 px-3 py-2 rounded-xl bg-emerald-500/8 border border-emerald-500/25 hover:border-emerald-500/50 hover:bg-emerald-500/12 transition-all"
+                        >
+                          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-600 to-emerald-800 flex items-center justify-center flex-shrink-0">
+                            <span className="text-white text-[9px] font-bold">{getInitials(m.name)}</span>
+                          </div>
+                          <div className="text-left">
+                            <div className="text-[11px] font-bold text-[#EEF3FA]">{m.name}</div>
+                            <div className="text-[9px] text-[#7A94B4]">{m.role}</div>
+                          </div>
+                          <div className="ml-2 text-center">
+                            <div className="text-[15px] font-extrabold" style={{ color: sc, fontFamily: 'Space Grotesk, sans-serif' }}>{intel.performanceScore}</div>
+                            <TrendIcon trend={intel.trend} size={10} />
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {atRiskMembers.length > 0 && (filterPerspective === 'All' || filterPerspective === 'Operational') && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <AlertTriangle size={12} className="text-red-400" />
+                    <span className="text-[10px] font-bold text-red-400 uppercase tracking-widest">At-Risk Technicians</span>
+                    <div className="flex-1 h-px bg-red-500/15" />
+                  </div>
+                  <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+                    {atRiskMembers.map(m => {
+                      const intel = getTechIntel(m.name);
+                      if (!intel) return null;
+                      const sc = scoreColor(intel.performanceScore);
+                      return (
+                        <button
+                          key={m.id}
+                          onClick={() => setSelectedTechId(m.id)}
+                          className="flex-shrink-0 flex items-center gap-2.5 px-3 py-2 rounded-xl bg-red-500/8 border border-red-500/25 hover:border-red-500/50 hover:bg-red-500/12 transition-all"
+                        >
+                          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-red-700 to-red-900 flex items-center justify-center flex-shrink-0">
+                            <span className="text-white text-[9px] font-bold">{getInitials(m.name)}</span>
+                          </div>
+                          <div className="text-left">
+                            <div className="text-[11px] font-bold text-[#EEF3FA]">{m.name}</div>
+                            <div className="text-[9px] text-red-400 font-semibold">{intel.primaryConcern}</div>
+                          </div>
+                          <div className="ml-2 text-center">
+                            <div className="text-[15px] font-extrabold" style={{ color: sc, fontFamily: 'Space Grotesk, sans-serif' }}>{intel.performanceScore}</div>
+                            <TrendIcon trend={intel.trend} size={10} />
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-3 gap-3">
+                {filteredMembers.map((member, idx) => {
+                  const avatarGradient = AVATAR_COLORS[idx % AVATAR_COLORS.length];
+                  const badgeCls = PERSPECTIVE_BADGE[member.perspective] ?? 'bg-[#112040] text-[#7A94B4] border-[rgba(46,127,255,0.2)]';
+                  const isActive = member.isActive !== false;
+                  const photoSrc = resolvePhoto(member.photo);
+                  const intel = member.perspective === 'Operational' ? getTechIntel(member.name) : null;
+
+                  return (
+                    <motion.div
+                      key={member.id}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.18, delay: idx * 0.04 }}
+                      className={`flex flex-col rounded-xl border overflow-hidden transition-opacity ${
+                        isActive
+                          ? 'border-[rgba(46,127,255,0.2)] bg-[rgba(17,32,64,0.7)]'
+                          : 'border-[rgba(100,100,120,0.2)] bg-[rgba(17,20,32,0.6)] opacity-70'
+                      }`}
+                    >
+                      <div className="p-4 flex items-start gap-3">
+                        <div className={`w-10 h-10 rounded-full flex-shrink-0 overflow-hidden bg-gradient-to-br ${avatarGradient} flex items-center justify-center`}>
+                          {photoSrc ? (
+                            <img src={photoSrc} alt={member.name} className="w-full h-full object-cover" onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+                          ) : (
+                            <span className="text-white text-[13px] font-bold">{getInitials(member.name)}</span>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[13px] text-[#EEF3FA] font-bold leading-tight truncate">{member.name}</div>
+                          <div className="text-[10px] text-[#7A94B4] mt-0.5 truncate">{member.role}</div>
+                          <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                            <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9px] font-semibold ${badgeCls}`}>
+                              {member.perspective}
+                            </div>
+                            {isActive ? (
+                              <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9px] font-semibold bg-emerald-500/10 border-emerald-500/25 text-emerald-400">
+                                <span className="w-1 h-1 rounded-full bg-emerald-400 inline-block" />
+                                Active
+                              </div>
+                            ) : (
+                              <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9px] font-semibold bg-[rgba(100,100,120,0.15)] border-[rgba(100,100,120,0.3)] text-[#6B7A8D]">
+                                <span className="w-1 h-1 rounded-full bg-[#6B7A8D] inline-block" />
+                                Inactive
+                              </div>
+                            )}
+                            {intel && (
+                              <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9px] font-semibold ${riskBadgeCls(intel.riskLevel)}`}>
+                                {intel.riskLevel === 'High Performer' && <Star size={8} />}
+                                {intel.riskLevel === 'At Risk' && <AlertTriangle size={8} />}
+                                {intel.riskLevel}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        {intel && (
+                          <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                            <div className="flex items-center gap-1">
+                              <span className="text-[16px] font-extrabold" style={{ color: scoreColor(intel.performanceScore), fontFamily: 'Space Grotesk, sans-serif' }}>
+                                {intel.performanceScore}
+                              </span>
+                              <TrendIcon trend={intel.trend} size={12} />
+                            </div>
+                            <span className="text-[8px] text-[#4A6080] uppercase tracking-wide">Score</span>
+                          </div>
                         )}
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="text-[13px] text-[#EEF3FA] font-bold leading-tight truncate">{member.name}</div>
-                        <div className="text-[10px] text-[#7A94B4] mt-0.5 truncate">{member.role}</div>
-                        <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                          <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9px] font-semibold ${badgeCls}`}>
-                            {member.perspective}
-                          </div>
-                          {isActive ? (
-                            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9px] font-semibold bg-emerald-500/10 border-emerald-500/25 text-emerald-400">
-                              <span className="w-1 h-1 rounded-full bg-emerald-400 inline-block" />
-                              Active
+
+                      {intel && (
+                        <div className="px-4 pb-2">
+                          <div className="flex items-center gap-2 mb-1">
+                            <div className="flex-1 h-1 rounded-full bg-[rgba(46,127,255,0.1)]">
+                              <div
+                                className="h-full rounded-full"
+                                style={{ width: `${intel.performanceScore}%`, backgroundColor: scoreColor(intel.performanceScore) }}
+                              />
                             </div>
-                          ) : (
-                            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9px] font-semibold bg-[rgba(100,100,120,0.15)] border-[rgba(100,100,120,0.3)] text-[#6B7A8D]">
-                              <span className="w-1 h-1 rounded-full bg-[#6B7A8D] inline-block" />
-                              Inactive
+                          </div>
+                          <div className="grid grid-cols-3 gap-1 text-center">
+                            <div>
+                              <div className="text-[10px] font-bold text-[#EEF3FA]">{intel.slaCompliance}%</div>
+                              <div className="text-[8px] text-[#4A6080]">SLA</div>
+                            </div>
+                            <div>
+                              <div className="text-[10px] font-bold text-[#EEF3FA]">{intel.firstTimeFixRate}%</div>
+                              <div className="text-[8px] text-[#4A6080]">First-Fix</div>
+                            </div>
+                            <div>
+                              <div className="flex items-center justify-center gap-0.5">
+                                <Activity size={9} className="text-[#4A6080]" />
+                                <span className="text-[10px] font-bold text-[#EEF3FA]">{intel.workload.active}/{intel.workload.max}</span>
+                              </div>
+                              <div className="text-[8px] text-[#4A6080]">Load</div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {!intel && (
+                        <div className="px-4 pb-3 space-y-1.5">
+                          {member.email && (
+                            <div className="flex items-center gap-2 text-[10px] text-[#7A94B4]">
+                              <Mail size={11} className="flex-shrink-0 text-[#4A6490]" />
+                              <span className="truncate">{member.email}</span>
+                            </div>
+                          )}
+                          {member.zones.length > 0 && (
+                            <div className="flex items-start gap-2 text-[10px] text-[#7A94B4]">
+                              <MapPin size={11} className="flex-shrink-0 mt-0.5 text-[#4A6490]" />
+                              <span className="line-clamp-1">{member.zones.join(', ')}</span>
+                            </div>
+                          )}
+                          {member.skills && (
+                            <div className="flex items-start gap-2 text-[10px] text-[#7A94B4]">
+                              <Wrench size={11} className="flex-shrink-0 mt-0.5 text-[#4A6490]" />
+                              <span className="line-clamp-1">{member.skills}</span>
+                            </div>
+                          )}
+                          {member.assignedClients.length > 0 && (
+                            <div className="flex items-start gap-2 text-[10px] text-[#7A94B4]">
+                              <ClipboardList size={11} className="flex-shrink-0 mt-0.5 text-[#4A6490]" />
+                              <span className="line-clamp-1">{member.assignedClients.join(', ')}</span>
                             </div>
                           )}
                         </div>
+                      )}
+
+                      <div className="px-4 pb-4 flex items-center gap-2 mt-auto">
+                        {intel ? (
+                          <button
+                            onClick={() => setSelectedTechId(member.id)}
+                            className="flex-1 py-1.5 text-[10px] font-semibold rounded-lg bg-[rgba(46,127,255,0.12)] border border-[#2E7FFF]/40 text-[#2E7FFF] hover:bg-[rgba(46,127,255,0.22)] transition-colors"
+                          >
+                            View Intelligence
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => setSelectedMember(member)}
+                            className="flex-1 py-1.5 text-[10px] font-semibold rounded-lg border border-[rgba(46,127,255,0.35)] text-[#2E7FFF] hover:bg-[rgba(46,127,255,0.12)] transition-colors"
+                          >
+                            View
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setEditingMember(profiles.find(p => p.id === member.id) ?? member)}
+                          className="flex-1 py-1.5 text-[10px] font-semibold rounded-lg border border-[rgba(46,127,255,0.35)] text-[#2E7FFF] hover:bg-[rgba(46,127,255,0.12)] transition-colors flex items-center justify-center gap-1"
+                        >
+                          <Pencil size={10} />
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => updateProfile(member.id, { isActive: !isActive })}
+                          title={isActive ? 'Mark as Inactive' : 'Mark as Active'}
+                          className="flex items-center gap-1.5 flex-shrink-0"
+                          aria-label={isActive ? 'Deactivate' : 'Activate'}
+                        >
+                          <div className={`relative w-7 h-4 rounded-full transition-colors ${isActive ? 'bg-emerald-500/60' : 'bg-[rgba(100,100,120,0.35)]'}`}>
+                            <span className={`absolute top-0.5 w-3 h-3 rounded-full shadow transition-all ${isActive ? 'left-3.5 bg-emerald-300' : 'left-0.5 bg-[#6B7A8D]'}`} />
+                          </div>
+                        </button>
                       </div>
-                    </div>
-
-                    <div className="px-4 pb-3 space-y-1.5">
-                      {member.email && (
-                        <div className="flex items-center gap-2 text-[10px] text-[#7A94B4]">
-                          <Mail size={11} className="flex-shrink-0 text-[#4A6490]" />
-                          <span className="truncate">{member.email}</span>
-                        </div>
-                      )}
-                      {member.zones.length > 0 && (
-                        <div className="flex items-start gap-2 text-[10px] text-[#7A94B4]">
-                          <MapPin size={11} className="flex-shrink-0 mt-0.5 text-[#4A6490]" />
-                          <span className="line-clamp-1">{member.zones.join(', ')}</span>
-                        </div>
-                      )}
-                      {member.skills && (
-                        <div className="flex items-start gap-2 text-[10px] text-[#7A94B4]">
-                          <Wrench size={11} className="flex-shrink-0 mt-0.5 text-[#4A6490]" />
-                          <span className="line-clamp-1">{member.skills}</span>
-                        </div>
-                      )}
-                      {member.assignedClients.length > 0 && (
-                        <div className="flex items-start gap-2 text-[10px] text-[#7A94B4]">
-                          <ClipboardList size={11} className="flex-shrink-0 mt-0.5 text-[#4A6490]" />
-                          <span className="line-clamp-1">{member.assignedClients.join(', ')}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="px-4 pb-4 flex items-center gap-2">
-                      <button
-                        onClick={() => setSelectedMember(member)}
-                        className="flex-1 py-1.5 text-[10px] font-semibold rounded-lg border border-[rgba(46,127,255,0.35)] text-[#2E7FFF] hover:bg-[rgba(46,127,255,0.12)] transition-colors"
-                      >
-                        View
-                      </button>
-                      <button
-                        onClick={() => setEditingMember(profiles.find(p => p.id === member.id) ?? member)}
-                        className="flex-1 py-1.5 text-[10px] font-semibold rounded-lg border border-[rgba(46,127,255,0.35)] text-[#2E7FFF] hover:bg-[rgba(46,127,255,0.12)] transition-colors flex items-center justify-center gap-1"
-                      >
-                        <Pencil size={10} />
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => updateProfile(member.id, { isActive: !isActive })}
-                        title={isActive ? 'Mark as Inactive' : 'Mark as Active'}
-                        className="flex items-center gap-1.5 flex-shrink-0"
-                        aria-label={isActive ? 'Deactivate' : 'Activate'}
-                      >
-                        <span className={`text-[9px] font-semibold transition-colors ${isActive ? 'text-emerald-400' : 'text-[#6B7A8D]'}`}>
-                          {isActive ? 'Active' : 'Inactive'}
-                        </span>
-                        <div className={`relative w-7 h-4 rounded-full transition-colors ${isActive ? 'bg-emerald-500/60' : 'bg-[rgba(100,100,120,0.35)]'}`}>
-                          <span className={`absolute top-0.5 w-3 h-3 rounded-full shadow transition-all ${isActive ? 'left-3.5 bg-emerald-300' : 'left-0.5 bg-[#6B7A8D]'}`} />
-                        </div>
-                      </button>
-                    </div>
-                  </motion.div>
-                );
-              })}
+                    </motion.div>
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>
