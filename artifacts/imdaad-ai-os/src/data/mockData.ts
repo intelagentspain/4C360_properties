@@ -711,6 +711,8 @@ export interface VendorIntelData {
   dependencyNote: string;
   costTrend: { month: string; cost: number; peerAvg: number }[];
   scoreTrend: { month: string; score: number }[];
+  address: { street: string; city: string; country: string };
+  poc: { name: string; title: string; phone: string; email: string };
 }
 
 /**
@@ -789,6 +791,8 @@ export const mockVendorIntelligence: VendorIntelData[] = [
     ],
     dependencyRisk: 'Medium',
     dependencyNote: '3 sites depend on this vendor — a performance drop would impact 58% of managed properties.',
+    address: { street: 'Building 7, Dubai Silicon Oasis', city: 'Dubai', country: 'UAE' },
+    poc: { name: 'Khalid Al Mansoori', title: 'Operations Director', phone: '+971 50 111 2233', email: 'k.mansoori@imdaadcore.ae' },
     costTrend: [
       { month: 'Nov', cost: 435, peerAvg: 510 },
       { month: 'Dec', cost: 428, peerAvg: 508 },
@@ -839,6 +843,8 @@ export const mockVendorIntelligence: VendorIntelData[] = [
     ],
     dependencyRisk: 'Low',
     dependencyNote: '2 sites covered — moderate dependency. Alternate vendors available for both sites if needed.',
+    address: { street: 'Office 204, Al Moosa Tower 2, Sheikh Zayed Road', city: 'Dubai', country: 'UAE' },
+    poc: { name: 'Fatima Al Rashidi', title: 'Account Manager', phone: '+971 55 344 7821', email: 'f.rashidi@muscatfm.ae' },
     costTrend: [
       { month: 'Nov', cost: 400, peerAvg: 510 },
       { month: 'Dec', cost: 395, peerAvg: 508 },
@@ -890,6 +896,8 @@ export const mockVendorIntelligence: VendorIntelData[] = [
     ],
     dependencyRisk: 'Medium',
     dependencyNote: 'Silicon Oasis electrical scope primarily covered by this vendor — dependency risk if contract lapses.',
+    address: { street: 'Unit 3, Al Quoz Industrial Area 2', city: 'Dubai', country: 'UAE' },
+    poc: { name: 'Mohammed Saeed', title: 'Senior Contracts Manager', phone: '+971 52 908 6641', email: 'm.saeed@emrillfm.ae' },
     costTrend: [
       { month: 'Nov', cost: 462, peerAvg: 510 },
       { month: 'Dec', cost: 465, peerAvg: 508 },
@@ -942,6 +950,8 @@ export const mockVendorIntelligence: VendorIntelData[] = [
     ],
     dependencyRisk: 'Low',
     dependencyNote: 'Single site coverage — Business Bay. Alternate engineering vendor available if required.',
+    address: { street: 'Warehouse 12, Ras Al Khor Industrial Area', city: 'Dubai', country: 'UAE' },
+    poc: { name: 'Ahmed Belhasa', title: 'Project Director', phone: '+971 50 782 3394', email: 'a.belhasa@belhasa-eng.ae' },
     costTrend: [
       { month: 'Nov', cost: 545, peerAvg: 510 },
       { month: 'Dec', cost: 540, peerAvg: 508 },
@@ -995,6 +1005,8 @@ export const mockVendorIntelligence: VendorIntelData[] = [
     ],
     dependencyRisk: 'Medium',
     dependencyNote: 'Primary MEP vendor for JLT North — transition to alternate vendor would take 4–6 weeks.',
+    address: { street: 'Office 18B, Latifa Tower, Sheikh Zayed Road', city: 'Dubai', country: 'UAE' },
+    poc: { name: 'Tariq Hassan', title: 'Service Delivery Manager', phone: '+971 56 221 4477', email: 't.hassan@techservme.ae' },
     costTrend: [
       { month: 'Nov', cost: 452, peerAvg: 510 },
       { month: 'Dec', cost: 460, peerAvg: 508 },
@@ -1050,6 +1062,8 @@ export const mockVendorIntelligence: VendorIntelData[] = [
     ],
     dependencyRisk: 'High',
     dependencyNote: 'Covers 2 sites for soft FM. No ready alternate for full-scope replacement — transition risk is significant without 60-day notice.',
+    address: { street: 'P.O. Box 37848, Al Garhoud', city: 'Dubai', country: 'UAE' },
+    poc: { name: 'Layla Al Farsi', title: 'Client Relations Manager', phone: '+971 50 663 9102', email: 'l.alfarsi@farnekserv.ae' },
     costTrend: [
       { month: 'Nov', cost: 298, peerAvg: 510 },
       { month: 'Dec', cost: 302, peerAvg: 508 },

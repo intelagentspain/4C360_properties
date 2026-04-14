@@ -72,6 +72,8 @@ export function buildDefaultVendor(overrides: Partial<VendorIntelData> & { id: s
     ],
     dependencyRisk: overrides.dependencyRisk ?? 'Low',
     dependencyNote: overrides.dependencyNote ?? '',
+    address: overrides.address ?? { street: '', city: '', country: '' },
+    poc: overrides.poc ?? { name: '', title: '', phone: '', email: '' },
     costTrend: overrides.costTrend ?? months.map((month, i) => ({
       month,
       cost: Math.round(baseCost * (0.95 + i * 0.01)),

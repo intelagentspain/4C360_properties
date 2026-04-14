@@ -52,6 +52,13 @@ interface FormState {
   dependencyRisk: 'Low' | 'Medium' | 'High' | 'Critical';
   dependencyNote: string;
   contractFlags: string;
+  addrStreet: string;
+  addrCity: string;
+  addrCountry: string;
+  pocName: string;
+  pocTitle: string;
+  pocPhone: string;
+  pocEmail: string;
 }
 
 const EMPTY_FORM: FormState = {
@@ -70,6 +77,13 @@ const EMPTY_FORM: FormState = {
   dependencyRisk: 'Low',
   dependencyNote: '',
   contractFlags: '',
+  addrStreet: '',
+  addrCity: '',
+  addrCountry: '',
+  pocName: '',
+  pocTitle: '',
+  pocPhone: '',
+  pocEmail: '',
 };
 
 function vendorToForm(v: VendorIntelData): FormState {
@@ -89,6 +103,13 @@ function vendorToForm(v: VendorIntelData): FormState {
     dependencyRisk: v.dependencyRisk as 'Low' | 'Medium' | 'High' | 'Critical',
     dependencyNote: v.dependencyNote,
     contractFlags: v.contractFlags.map(f => f.description).join('; '),
+    addrStreet: v.address?.street ?? '',
+    addrCity: v.address?.city ?? '',
+    addrCountry: v.address?.country ?? '',
+    pocName: v.poc?.name ?? '',
+    pocTitle: v.poc?.title ?? '',
+    pocPhone: v.poc?.phone ?? '',
+    pocEmail: v.poc?.email ?? '',
   };
 }
 
@@ -138,6 +159,64 @@ function SectionHeading({ icon, title }: SectionHeadingProps) {
       </div>
       <span className="text-[9px] font-bold text-[#2E7FFF] uppercase tracking-widest">{title}</span>
       <div className="flex-1 h-px bg-[rgba(46,127,255,0.12)]" />
+    </div>
+  );
+}
+
+interface SiteTagsInputProps {
+  tags: string[];
+  onChange: (tags: string[]) => void;
+}
+
+function SiteTagsInput({ tags, onChange }: SiteTagsInputProps) {
+  const [input, setInput] = useState('');
+
+  function commit() {
+    const trimmed = input.trim();
+    if (trimmed && !tags.includes(trimmed)) {
+      onChange([...tags, trimmed]);
+    }
+    setInput('');
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      commit();
+    } else if (e.key === 'Backspace' && input === '' && tags.length > 0) {
+      onChange(tags.slice(0, -1));
+    }
+  }
+
+  function removeTag(idx: number) {
+    onChange(tags.filter((_, i) => i !== idx));
+  }
+
+  return (
+    <div
+      className="min-h-[36px] flex flex-wrap gap-1.5 items-center bg-[#0A1628] border border-[rgba(46,127,255,0.2)] rounded-lg px-2.5 py-1.5 focus-within:border-[#2E7FFF] transition-colors cursor-text"
+      onClick={e => (e.currentTarget.querySelector('input') as HTMLInputElement | null)?.focus()}
+    >
+      {tags.map((tag, i) => (
+        <span key={i} className="flex items-center gap-1 bg-[#2E7FFF]/15 border border-[#2E7FFF]/30 text-[#2E7FFF] text-[10px] font-semibold rounded-md px-2 py-0.5">
+          {tag}
+          <button
+            type="button"
+            onClick={e => { e.stopPropagation(); removeTag(i); }}
+            className="text-[#2E7FFF]/60 hover:text-[#2E7FFF] transition-colors"
+          >
+            <X size={9} />
+          </button>
+        </span>
+      ))}
+      <input
+        className="flex-1 min-w-[100px] bg-transparent text-[11px] text-[#EEF3FA] placeholder:text-[#4A6480] focus:outline-none"
+        placeholder={tags.length === 0 ? 'Type a site and press Enter…' : 'Add another…'}
+        value={input}
+        onChange={e => setInput(e.target.value)}
+        onKeyDown={handleKeyDown}
+        onBlur={commit}
+      />
     </div>
   );
 }
@@ -196,6 +275,8 @@ function VendorModal({ mode, initial, onClose, onSave }: VendorModalProps) {
       dependencyRisk: form.dependencyRisk,
       dependencyNote: form.dependencyNote,
       contractFlags: parseFlags(form.contractFlags),
+      address: { street: form.addrStreet, city: form.addrCity, country: form.addrCountry },
+      poc: { name: form.pocName, title: form.pocTitle, phone: form.pocPhone, email: form.pocEmail },
     };
 
     if (initial) {
@@ -251,12 +332,10 @@ function VendorModal({ mode, initial, onClose, onSave }: VendorModalProps) {
                 <ChevronDown size={11} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#7A94B4] pointer-events-none" />
               </div>
             </Field>
-            <Field label="Sites Assigned" hint="comma-separated">
-              <input
-                className={inputCls}
-                placeholder="e.g. Silicon Oasis, Gate Avenue"
-                value={form.sites}
-                onChange={e => set('sites', e.target.value)}
+            <Field label="Sites Assigned">
+              <SiteTagsInput
+                tags={form.sites.split(',').map(s => s.trim()).filter(Boolean)}
+                onChange={tags => set('sites', tags.join(', '))}
               />
             </Field>
             <Field label="Active Contracts">
@@ -337,6 +416,49 @@ function VendorModal({ mode, initial, onClose, onSave }: VendorModalProps) {
               <input className={inputCls}
                 placeholder="e.g. SLA breach in March; Missing evidence April"
                 value={form.contractFlags} onChange={e => set('contractFlags', e.target.value)} />
+            </Field>
+          </div>
+
+          <SectionHeading icon={<ShieldCheck size={10} className="text-[#2E7FFF]" />} title="Address" />
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Street / Building">
+              <input className={inputCls}
+                placeholder="e.g. Building 7, Dubai Silicon Oasis"
+                value={form.addrStreet} onChange={e => set('addrStreet', e.target.value)} />
+            </Field>
+            <Field label="City">
+              <input className={inputCls}
+                placeholder="e.g. Dubai"
+                value={form.addrCity} onChange={e => set('addrCity', e.target.value)} />
+            </Field>
+            <Field label="Country">
+              <input className={inputCls}
+                placeholder="e.g. UAE"
+                value={form.addrCountry} onChange={e => set('addrCountry', e.target.value)} />
+            </Field>
+          </div>
+
+          <SectionHeading icon={<CheckCircle size={10} className="text-[#2E7FFF]" />} title="Point of Contact" />
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Full Name">
+              <input className={inputCls}
+                placeholder="e.g. Khalid Al Mansoori"
+                value={form.pocName} onChange={e => set('pocName', e.target.value)} />
+            </Field>
+            <Field label="Job Title">
+              <input className={inputCls}
+                placeholder="e.g. Operations Director"
+                value={form.pocTitle} onChange={e => set('pocTitle', e.target.value)} />
+            </Field>
+            <Field label="Phone Number">
+              <input className={inputCls}
+                placeholder="e.g. +971 50 111 2233"
+                value={form.pocPhone} onChange={e => set('pocPhone', e.target.value)} />
+            </Field>
+            <Field label="Email">
+              <input className={inputCls}
+                placeholder="e.g. contact@vendor.ae"
+                value={form.pocEmail} onChange={e => set('pocEmail', e.target.value)} />
             </Field>
           </div>
         </div>
@@ -463,10 +585,10 @@ export function VendorsSettings({ onToast }: Props) {
 
         <div className="bg-[rgba(17,32,64,0.85)] border border-[rgba(46,127,255,0.2)] rounded-xl overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left min-w-[780px]">
+            <table className="w-full text-left min-w-[1000px]">
               <thead>
                 <tr className="border-b border-[rgba(46,127,255,0.12)]">
-                  {['Vendor', 'Category', 'Sites', 'Contracts', 'Expiry', 'Risk Tier', 'Dep. Risk', ''].map(h => (
+                  {['Vendor', 'Category', 'Sites', 'Contracts', 'Expiry', 'Risk Tier', 'Dep. Risk', 'Point of Contact', ''].map(h => (
                     <th key={h} className="text-[9px] text-[#7A94B4] uppercase tracking-wide px-4 py-3 font-semibold whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -474,7 +596,7 @@ export function VendorsSettings({ onToast }: Props) {
               <tbody>
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="px-4 py-10 text-center text-[#7A94B4] text-[11px]">
+                    <td colSpan={9} className="px-4 py-10 text-center text-[#7A94B4] text-[11px]">
                       {search ? 'No vendors match your search.' : 'No vendors registered yet.'}
                     </td>
                   </tr>
@@ -507,6 +629,16 @@ export function VendorsSettings({ onToast }: Props) {
                       </td>
                       <td className="px-4 py-3">
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${depRiskColor(v.dependencyRisk)}`}>{v.dependencyRisk}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        {v.poc?.name ? (
+                          <div>
+                            <div className="text-[11px] text-[#EEF3FA] font-medium whitespace-nowrap">{v.poc.name}</div>
+                            {v.poc.email && <div className="text-[9px] text-[#4A6480] mt-0.5 whitespace-nowrap">{v.poc.email}</div>}
+                          </div>
+                        ) : (
+                          <span className="text-[11px] text-[#4A6480]">—</span>
+                        )}
                       </td>
                       <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center gap-1.5 justify-end">
