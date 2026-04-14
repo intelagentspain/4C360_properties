@@ -1,0 +1,116 @@
+Upgrade the Technician Productivity Tracking module into an AI-powered Technician Intelligence system.
+
+Do NOT rebuild the entire UI.
+Enhance the current structure and metrics.
+
+==================================================
+1. RENAME MODULE
+==================================================
+
+Update naming:
+“Technician Intelligence & Performance Control”
+
+==================================================
+2. TECHNICIAN LIST VIEW
+==================================================
+
+Add for each technician:
+
+- Performance Score (0–100)
+- Trend indicator (up/down/flat)
+- Risk badge (At Risk / Stable / High Performer)
+- Current workload
+- SLA compliance %
+
+Keep layout clean and aligned with design system.
+
+==================================================
+3. TECHNICIAN DETAIL PAGE
+==================================================
+
+Create or enhance detail view with:
+
+A. Overview
+- score
+- trend
+- risk level
+- workload
+- key metrics
+
+B. AI Insights
+- performance observations
+- anomalies
+- behavioral patterns
+
+C. Root Cause Analysis
+- breakdown of performance drivers
+- visual distribution (e.g. % factors)
+
+D. Benchmarking
+- vs team
+- vs site
+- vs top performers
+
+E. Skill Profile
+- strengths
+- weaknesses
+- specialization alignment
+
+F. Predictive Risk
+- likelihood of SLA drop
+- performance trend projection
+
+G. Recommendations
+- actionable improvements
+- workload adjustments
+- dispatch optimization
+
+==================================================
+4. AI LOGIC (SIMULATED BUT CONSISTENT)
+==================================================
+
+Define logic:
+
+Performance score influenced by:
+- SLA compliance
+- response time
+- first-time fix rate
+- evidence compliance
+
+Risk increases if:
+- SLA dropping
+- idle time increasing
+- repeat visits increasing
+
+Insights should be generated from actual metric combinations.
+
+==================================================
+5. VISUAL DESIGN
+==================================================
+
+- use cards
+- strong hierarchy
+- color-coded indicators
+- charts where useful
+- keep dark premium style
+
+==================================================
+6. OPTIONAL ADVANCED FEATURES
+==================================================
+
+Add:
+- “Top performers”
+- “At-risk technicians”
+- “Reassign workload” action
+- “Simulate dispatch optimization”
+
+==================================================
+7. OUTPUT
+==================================================
+
+After implementation, show:
+1. updated technician list
+2. technician detail page
+3. AI insights examples
+4. performance score logic
+5. recommendation examples
