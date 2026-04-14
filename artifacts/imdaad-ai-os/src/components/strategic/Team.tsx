@@ -1386,28 +1386,28 @@ export function Team({ onToast }: Props) {
                       <div className="px-4 pb-4 flex items-center gap-2 mt-auto">
                         {intel ? (
                           <button
-                            onClick={() => setSelectedTechId(member.id)}
+                            onClick={e => { e.stopPropagation(); setSelectedTechId(member.id); }}
                             className="flex-1 py-1.5 text-[10px] font-semibold rounded-lg bg-[rgba(46,127,255,0.12)] border border-[#2E7FFF]/40 text-[#2E7FFF] hover:bg-[rgba(46,127,255,0.22)] transition-colors"
                           >
                             View Intelligence
                           </button>
                         ) : (
                           <button
-                            onClick={() => setSelectedMember(member)}
+                            onClick={e => { e.stopPropagation(); setSelectedMember(member); }}
                             className="flex-1 py-1.5 text-[10px] font-semibold rounded-lg border border-[rgba(46,127,255,0.35)] text-[#2E7FFF] hover:bg-[rgba(46,127,255,0.12)] transition-colors"
                           >
                             View
                           </button>
                         )}
                         <button
-                          onClick={() => setEditingMember(profiles.find(p => p.id === member.id) ?? member)}
+                          onClick={e => { e.stopPropagation(); setEditingMember(profiles.find(p => p.id === member.id) ?? member); }}
                           className="flex-1 py-1.5 text-[10px] font-semibold rounded-lg border border-[rgba(46,127,255,0.35)] text-[#2E7FFF] hover:bg-[rgba(46,127,255,0.12)] transition-colors flex items-center justify-center gap-1"
                         >
                           <Pencil size={10} />
                           Edit
                         </button>
                         <button
-                          onClick={() => updateProfile(member.id, { isActive: !isActive })}
+                          onClick={e => { e.stopPropagation(); updateProfile(member.id, { isActive: !isActive }); }}
                           title={isActive ? 'Mark as Inactive' : 'Mark as Active'}
                           className="flex items-center gap-1.5 flex-shrink-0"
                           aria-label={isActive ? 'Deactivate' : 'Activate'}

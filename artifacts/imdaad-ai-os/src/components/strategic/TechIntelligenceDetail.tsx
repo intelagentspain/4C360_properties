@@ -549,7 +549,7 @@ export function TechIntelligenceDetail({ member, intel, onBack, onEditProfile, o
             className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[rgba(46,127,255,0.12)] border border-[rgba(46,127,255,0.3)] text-[#2E7FFF] hover:bg-[rgba(46,127,255,0.22)] transition-colors text-[10px] font-semibold"
           >
             <Zap size={11} />
-            Simulate Dispatch
+            Simulate Dispatch Optimization
           </button>
           <button
             onClick={onEditProfile}
