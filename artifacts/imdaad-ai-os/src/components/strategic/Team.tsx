@@ -1206,7 +1206,7 @@ export function Team({ onToast }: Props) {
                           </div>
                           <div className="text-left">
                             <div className="text-[11px] font-bold text-[#EEF3FA]">{m.name}</div>
-                            <div className="text-[9px] text-[#7A94B4]">{m.role}</div>
+                            <div className="text-[9px] text-emerald-400">{intel.primaryConcern}</div>
                           </div>
                           <div className="ml-2 text-center">
                             <div className="text-[15px] font-extrabold" style={{ color: sc, fontFamily: 'Space Grotesk, sans-serif' }}>{intel.performanceScore}</div>
@@ -1269,11 +1269,12 @@ export function Team({ onToast }: Props) {
                       initial={{ opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.18, delay: idx * 0.04 }}
-                      className={`flex flex-col rounded-xl border overflow-hidden transition-opacity ${
+                      onClick={() => { if (intel) setSelectedTechId(member.id); }}
+                      className={`flex flex-col rounded-xl border overflow-hidden transition-all ${
                         isActive
                           ? 'border-[rgba(46,127,255,0.2)] bg-[rgba(17,32,64,0.7)]'
                           : 'border-[rgba(100,100,120,0.2)] bg-[rgba(17,20,32,0.6)] opacity-70'
-                      }`}
+                      } ${intel ? 'cursor-pointer hover:border-[rgba(46,127,255,0.45)] hover:bg-[rgba(17,32,64,0.9)]' : ''}`}
                     >
                       <div className="p-4 flex items-start gap-3">
                         <div className={`w-10 h-10 rounded-full flex-shrink-0 overflow-hidden bg-gradient-to-br ${avatarGradient} flex items-center justify-center`}>
