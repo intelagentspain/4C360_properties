@@ -1045,7 +1045,6 @@ export function Team({ onToast }: Props) {
               setSelectedMember(m);
             }}
             onToast={onToast}
-            avatarGradient={AVATAR_COLORS[selectedTechMember.id.charCodeAt(0) % AVATAR_COLORS.length]}
           />
         </div>
         <AnimatePresence>

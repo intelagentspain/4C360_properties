@@ -232,6 +232,60 @@ export const TECH_INTELLIGENCE: Record<string, TechIntelData> = {
     ],
   },
 
+  'Tariq Mansour': {
+    performanceScore: 82,
+    trend: 'flat',
+    riskLevel: 'Stable',
+    workload: { active: 3, max: 6 },
+    slaCompliance: 83,
+    firstTimeFixRate: 81,
+    avgResponseTime: 11,
+    evidenceCompliance: 91,
+    repeatVisitRate: 7,
+    jobsCompleted: 119,
+    jobsThisMonth: 13,
+    categoryBreakdown: [
+      { label: 'HVAC', pct: 38, color: '#38D98A' },
+      { label: 'Electrical', pct: 33, color: '#FACC15' },
+      { label: 'General', pct: 29, color: '#A78BFA' },
+    ],
+    benchmarks: { teamAvg: 75, siteAvg: 72, topPerformer: 91 },
+    recentHistory: [
+      { id: 'SI-2244', title: 'HVAC Inspection — Cluster B', status: 'in-progress', sla: 'On Track', date: 'Today' },
+      { id: 'SI-2237', title: 'Electrical Panel Check — Block C', status: 'closed', sla: 'Met', date: 'Yesterday' },
+      { id: 'SI-2228', title: 'Permit to Work Review — Cluster A', status: 'closed', sla: 'Met', date: '3 days ago' },
+      { id: 'SI-2219', title: 'General Safety Walk — All Zones', status: 'closed', sla: 'Met', date: '5 days ago' },
+    ],
+    primaryConcern: 'Score plateau at 82 — 3pts below Top Performer threshold',
+    specialization: 'HVAC & Electrical',
+    insights: [
+      'Performance score of 82 is consistently above team average but has not progressed past 83 in the last 6 weeks.',
+      'SLA compliance at 83% and 11-minute average response time reflect reliable on-site delivery across HVAC and electrical.',
+      'Evidence compliance of 91% is the strongest on the team — Tariq consistently uploads before+after photos on all jobs.',
+      'First-time fix rate of 81% is solid; the 7% repeat visit rate is among the lowest, mainly isolated to HVAC refrigerant cases.',
+    ],
+    anomaly: null,
+    strengths: ['Evidence compliance (top)', 'Response time', 'Multi-skill coverage', 'Low repeat-visit rate'],
+    weaknesses: ['Score plateau — no upward momentum', 'SLA ceiling at 83%'],
+    slaDrop30d: 10,
+    projectedScore: 82,
+    projectedTrend: 'flat',
+    recommendations: [
+      {
+        title: 'Unlock the top-performer threshold',
+        detail: 'Tariq needs SLA compliance to move from 83% to 88% to cross into High Performer territory. Focus on one zone where SLA is tightest and run a 30-day improvement sprint.',
+      },
+      {
+        title: 'Resolve HVAC repeat-visit pattern',
+        detail: 'The 7% repeat-visit rate is driven by refrigerant top-up jobs. Escalate persistent refrigerant cases for a specialist review rather than repeat interventions.',
+      },
+      {
+        title: 'Leverage supervisory experience',
+        detail: 'Pair Tariq with At-Risk technicians (Omar T., Faisal N.) for 2 joint jobs per week. Evidence shows knowledge transfer boosts junior tech scores by ~6 points in 30 days.',
+      },
+    ],
+  },
+
   'Ahmed K.': {
     performanceScore: 74,
     trend: 'flat',
@@ -500,7 +554,6 @@ interface Props {
   onBack: () => void;
   onEditProfile: () => void;
   onToast: (msg: string, type: 'success' | 'error' | 'info') => void;
-  avatarGradient: string;
 }
 
 export function TechIntelligenceDetail({ member, intel, onBack, onEditProfile, onToast }: Props) {
