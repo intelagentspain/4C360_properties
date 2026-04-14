@@ -1042,7 +1042,7 @@ export function Team({ onToast }: Props) {
             onEditProfile={() => {
               const m = profiles.find(p => p.id === selectedTechMember.id) ?? selectedTechMember;
               setSelectedTechId(null);
-              setEditingMember(m);
+              setSelectedMember(m);
             }}
             onToast={onToast}
             avatarGradient={AVATAR_COLORS[selectedTechMember.id.charCodeAt(0) % AVATAR_COLORS.length]}

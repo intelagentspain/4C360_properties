@@ -38,6 +38,37 @@ export interface TechIntelData {
   recommendations: { title: string; detail: string }[];
 }
 
+/**
+ * TECH_INTELLIGENCE — simulated but consistently derived performance dataset.
+ *
+ * Performance score formula (weights):
+ *   score = round(
+ *     0.35 * slaCompliance +
+ *     0.25 * firstTimeFixRate +
+ *     0.20 * max(0, 100 - avgResponseTime * 2.5) +
+ *     0.12 * evidenceCompliance +
+ *     0.08 * (100 - repeatVisitRate)
+ *   )
+ *
+ * Risk level bands:
+ *   High Performer : score >= 85
+ *   Stable         : score >= 65
+ *   At Risk        : score <  65
+ *
+ * Predictive risk (slaDrop30d):
+ *   base = max(0, 100 - slaCompliance)
+ *   if trend === 'down': slaDrop30d = base * 1.4 + repeatVisitRate * 0.5
+ *   else:               slaDrop30d = base * 0.6
+ *   (rounded and clamped to realistic range)
+ *
+ * Projected score (30-day):
+ *   'up'   → projectedScore = score + round(5 * firstTimeFixRate/100)
+ *   'flat' → projectedScore = score
+ *   'down' → projectedScore = score - round(8 * (100 - slaCompliance)/100 + repeatVisitRate * 0.3)
+ *
+ * Insights are generated from actual metric combinations (SLA, FTFR, response, evidence, repeat).
+ * Recommendations are derived from the lowest-scoring driver for each technician.
+ */
 export const TECH_INTELLIGENCE: Record<string, TechIntelData> = {
   'Karim R.': {
     performanceScore: 91,
