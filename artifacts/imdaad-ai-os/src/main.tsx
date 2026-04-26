@@ -4,6 +4,7 @@ import { ScanPage } from "./pages/ScanPage";
 import { ReportPage } from "./pages/ReportPage";
 import { FieldPortal } from "./pages/FieldPortal";
 import { FieldJobDeepLink } from "./pages/FieldJobDeepLink";
+import { LoginPage } from "./components/auth/LoginPage";
 import { IncidentProvider, useIncidents } from "./context/IncidentContext";
 import { NotificationProvider } from "./context/NotificationContext";
 import { MemberProfilesProvider } from "./context/MemberProfilesContext";
@@ -43,6 +44,11 @@ function Root() {
   const isScan = path.startsWith('/scan/');
   const isReport = path === '/report' || path === '/report/';
   const isField = path === '/field' || path === '/field/' || path.startsWith('/field/');
+  const isLogin = path === '/login' || path === '/login/';
+
+  if (isLogin) {
+    return <LoginPage />;
+  }
 
   if (isScan) {
     return (
