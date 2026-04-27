@@ -1027,13 +1027,249 @@ function TemplateSurveyDetails({
   );
 }
 
-function QRPreview() {
+const QR_VERSION = 6;
+const QR_SIZE = 41;
+const QR_DATA_CODEWORDS = 136;
+const QR_EC_CODEWORDS_PER_BLOCK = 18;
+const QR_BLOCKS = 2;
+
+function initGaloisTables() {
+  const exp = new Array<number>(512).fill(0);
+  const log = new Array<number>(256).fill(0);
+  let x = 1;
+  for (let i = 0; i < 255; i += 1) {
+    exp[i] = x;
+    log[x] = i;
+    x <<= 1;
+    if (x & 0x100) x ^= 0x11d;
+  }
+  for (let i = 255; i < 512; i += 1) exp[i] = exp[i - 255];
+  return { exp, log };
+}
+
+const GF = initGaloisTables();
+
+function gfMul(left: number, right: number) {
+  if (left === 0 || right === 0) return 0;
+  return GF.exp[GF.log[left] + GF.log[right]];
+}
+
+function reedSolomonRemainder(data: number[], degree: number) {
+  let generator = [1];
+  for (let i = 0; i < degree; i += 1) {
+    const next = new Array(generator.length + 1).fill(0);
+    generator.forEach((coefficient, index) => {
+      next[index] ^= coefficient;
+      next[index + 1] ^= gfMul(coefficient, GF.exp[i]);
+    });
+    generator = next;
+  }
+  const result = new Array(degree).fill(0);
+  data.forEach(byte => {
+    const factor = byte ^ result.shift()!;
+    result.push(0);
+    generator.slice(1).forEach((coefficient, index) => {
+      result[index] ^= gfMul(coefficient, factor);
+    });
+  });
+  return result;
+}
+
+function pushBits(bits: number[], value: number, length: number) {
+  for (let i = length - 1; i >= 0; i -= 1) bits.push((value >>> i) & 1);
+}
+
+function bytesToCodewords(text: string) {
+  const bytes = Array.from(new TextEncoder().encode(text));
+  if (bytes.length > QR_DATA_CODEWORDS - 2) throw new Error('Survey link is too long for QR code');
+  const bits: number[] = [];
+  pushBits(bits, 0b0100, 4);
+  pushBits(bits, bytes.length, 8);
+  bytes.forEach(byte => pushBits(bits, byte, 8));
+  pushBits(bits, 0, Math.min(4, QR_DATA_CODEWORDS * 8 - bits.length));
+  while (bits.length % 8) bits.push(0);
+  const codewords: number[] = [];
+  for (let i = 0; i < bits.length; i += 8) {
+    codewords.push(bits.slice(i, i + 8).reduce((value, bit) => (value << 1) | bit, 0));
+  }
+  for (let pad = 0; codewords.length < QR_DATA_CODEWORDS; pad += 1) {
+    codewords.push(pad % 2 === 0 ? 0xec : 0x11);
+  }
+  return codewords;
+}
+
+function drawFinder(matrix: boolean[][], reserved: boolean[][], x: number, y: number) {
+  for (let dy = -1; dy <= 7; dy += 1) {
+    for (let dx = -1; dx <= 7; dx += 1) {
+      const xx = x + dx;
+      const yy = y + dy;
+      if (xx < 0 || yy < 0 || xx >= QR_SIZE || yy >= QR_SIZE) continue;
+      const isBorder = dx === 0 || dx === 6 || dy === 0 || dy === 6;
+      const isCenter = dx >= 2 && dx <= 4 && dy >= 2 && dy <= 4;
+      matrix[yy][xx] = isBorder || isCenter;
+      reserved[yy][xx] = true;
+    }
+  }
+}
+
+function drawAlignment(matrix: boolean[][], reserved: boolean[][], centerX: number, centerY: number) {
+  for (let dy = -2; dy <= 2; dy += 1) {
+    for (let dx = -2; dx <= 2; dx += 1) {
+      const xx = centerX + dx;
+      const yy = centerY + dy;
+      matrix[yy][xx] = Math.max(Math.abs(dx), Math.abs(dy)) !== 1;
+      reserved[yy][xx] = true;
+    }
+  }
+}
+
+function maskBit(mask: number, x: number, y: number) {
+  switch (mask) {
+    case 0: return (x + y) % 2 === 0;
+    case 1: return y % 2 === 0;
+    case 2: return x % 3 === 0;
+    case 3: return (x + y) % 3 === 0;
+    case 4: return (Math.floor(y / 2) + Math.floor(x / 3)) % 2 === 0;
+    case 5: return ((x * y) % 2) + ((x * y) % 3) === 0;
+    case 6: return (((x * y) % 2) + ((x * y) % 3)) % 2 === 0;
+    default: return (((x + y) % 2) + ((x * y) % 3)) % 2 === 0;
+  }
+}
+
+function formatBits(mask: number) {
+  const data = (1 << 3) | mask; // error correction level L
+  let value = data << 10;
+  const generator = 0x537;
+  for (let i = 14; i >= 10; i -= 1) {
+    if ((value >>> i) & 1) value ^= generator << (i - 10);
+  }
+  return ((data << 10) | value) ^ 0x5412;
+}
+
+function drawFormat(matrix: boolean[][], reserved: boolean[][], mask: number) {
+  const bits = formatBits(mask);
+  const bit = (index: number) => ((bits >>> index) & 1) === 1;
+  for (let i = 0; i <= 5; i += 1) matrix[i][8] = bit(i);
+  matrix[7][8] = bit(6);
+  matrix[8][8] = bit(7);
+  matrix[8][7] = bit(8);
+  for (let i = 9; i < 15; i += 1) matrix[8][14 - i] = bit(i);
+  for (let i = 0; i < 8; i += 1) matrix[8][QR_SIZE - 1 - i] = bit(i);
+  for (let i = 8; i < 15; i += 1) matrix[QR_SIZE - 15 + i][8] = bit(i);
+  for (let y = 0; y < QR_SIZE; y += 1) reserved[y][8] = true;
+  for (let x = 0; x < QR_SIZE; x += 1) reserved[8][x] = true;
+}
+
+function penalty(matrix: boolean[][]) {
+  let score = 0;
+  for (let y = 0; y < QR_SIZE; y += 1) {
+    let runColor = matrix[y][0];
+    let runLength = 1;
+    for (let x = 1; x < QR_SIZE; x += 1) {
+      if (matrix[y][x] === runColor) runLength += 1;
+      else {
+        if (runLength >= 5) score += 3 + runLength - 5;
+        runColor = matrix[y][x];
+        runLength = 1;
+      }
+    }
+    if (runLength >= 5) score += 3 + runLength - 5;
+  }
+  for (let x = 0; x < QR_SIZE; x += 1) {
+    let runColor = matrix[0][x];
+    let runLength = 1;
+    for (let y = 1; y < QR_SIZE; y += 1) {
+      if (matrix[y][x] === runColor) runLength += 1;
+      else {
+        if (runLength >= 5) score += 3 + runLength - 5;
+        runColor = matrix[y][x];
+        runLength = 1;
+      }
+    }
+    if (runLength >= 5) score += 3 + runLength - 5;
+  }
+  for (let y = 0; y < QR_SIZE - 1; y += 1) {
+    for (let x = 0; x < QR_SIZE - 1; x += 1) {
+      const color = matrix[y][x];
+      if (matrix[y][x + 1] === color && matrix[y + 1][x] === color && matrix[y + 1][x + 1] === color) score += 3;
+    }
+  }
+  const dark = matrix.flat().filter(Boolean).length;
+  score += Math.floor(Math.abs((dark * 100) / (QR_SIZE * QR_SIZE) - 50) / 5) * 10;
+  return score;
+}
+
+function createQrMatrix(text: string) {
+  const data = bytesToCodewords(text);
+  const dataBlocks = Array.from({ length: QR_BLOCKS }, (_, index) => data.slice(index * 68, index * 68 + 68));
+  const ecBlocks = dataBlocks.map(block => reedSolomonRemainder(block, QR_EC_CODEWORDS_PER_BLOCK));
+  const interleaved: number[] = [];
+  for (let i = 0; i < 68; i += 1) dataBlocks.forEach(block => interleaved.push(block[i]));
+  for (let i = 0; i < QR_EC_CODEWORDS_PER_BLOCK; i += 1) ecBlocks.forEach(block => interleaved.push(block[i]));
+  const bits = interleaved.flatMap(byte => Array.from({ length: 8 }, (_, i) => (byte >>> (7 - i)) & 1));
+
+  const base = Array.from({ length: QR_SIZE }, () => Array.from({ length: QR_SIZE }, () => false));
+  const reserved = Array.from({ length: QR_SIZE }, () => Array.from({ length: QR_SIZE }, () => false));
+  drawFinder(base, reserved, 0, 0);
+  drawFinder(base, reserved, QR_SIZE - 7, 0);
+  drawFinder(base, reserved, 0, QR_SIZE - 7);
+  drawAlignment(base, reserved, 34, 34);
+  for (let i = 8; i < QR_SIZE - 8; i += 1) {
+    base[6][i] = i % 2 === 0;
+    base[i][6] = i % 2 === 0;
+    reserved[6][i] = true;
+    reserved[i][6] = true;
+  }
+  base[4 * QR_VERSION + 9][8] = true;
+  reserved[4 * QR_VERSION + 9][8] = true;
+  drawFormat(base, reserved, 0);
+
+  let bitIndex = 0;
+  for (let right = QR_SIZE - 1; right >= 1; right -= 2) {
+    if (right === 6) right -= 1;
+    for (let vert = 0; vert < QR_SIZE; vert += 1) {
+      const y = ((right + 1) & 2) === 0 ? QR_SIZE - 1 - vert : vert;
+      for (let x = right; x >= right - 1; x -= 1) {
+        if (!reserved[y][x]) base[y][x] = bits[bitIndex++] === 1;
+      }
+    }
+  }
+
+  let bestMatrix = base;
+  let bestScore = Number.POSITIVE_INFINITY;
+  for (let mask = 0; mask < 8; mask += 1) {
+    const matrix = base.map(row => [...row]);
+    for (let y = 0; y < QR_SIZE; y += 1) {
+      for (let x = 0; x < QR_SIZE; x += 1) {
+        if (!reserved[y][x] && maskBit(mask, x, y)) matrix[y][x] = !matrix[y][x];
+      }
+    }
+    drawFormat(matrix, reserved, mask);
+    const score = penalty(matrix);
+    if (score < bestScore) {
+      bestScore = score;
+      bestMatrix = matrix;
+    }
+  }
+  return bestMatrix;
+}
+
+function qrSvg(matrix: boolean[][], pixels = 256) {
+  const quiet = 4;
+  const moduleCount = matrix.length + quiet * 2;
+  const cell = pixels / moduleCount;
+  const rects = matrix.flatMap((row, y) => row.map((dark, x) => dark ? `<rect x="${(x + quiet) * cell}" y="${(y + quiet) * cell}" width="${cell}" height="${cell}"/>` : '').filter(Boolean)).join('');
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${pixels}" height="${pixels}" viewBox="0 0 ${pixels} ${pixels}"><rect width="100%" height="100%" fill="#fff"/><g fill="#07111F">${rects}</g></svg>`;
+}
+
+function QRPreview({ value }: { value: string }) {
+  const matrix = useMemo(() => createQrMatrix(value), [value]);
   return (
-    <div className="grid h-36 w-36 grid-cols-7 gap-1 rounded-2xl border border-slate-200 bg-white p-3 shadow-inner">
-      {Array.from({ length: 49 }).map((_, i) => {
-        const dark = [0, 1, 2, 7, 14, 35, 42, 43, 44, 6, 13, 20, 27, 34, 41, 28, 29, 30, 32, 36, 39, 45, 48, 9, 11, 16, 22, 24, 31, 38].includes(i);
-        return <span key={i} className={dark ? 'rounded-sm bg-[#07111F]' : 'rounded-sm bg-slate-100'} />;
-      })}
+    <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-inner">
+      <svg viewBox={`0 0 ${matrix.length + 8} ${matrix.length + 8}`} className="h-36 w-36" aria-label="Scannable survey QR code" role="img">
+        <rect width={matrix.length + 8} height={matrix.length + 8} fill="#fff" />
+        {matrix.map((row, y) => row.map((dark, x) => dark ? <rect key={`${x}-${y}`} x={x + 4} y={y + 4} width={1} height={1} fill="#07111F" /> : null))}
+      </svg>
     </div>
   );
 }
@@ -1746,6 +1982,20 @@ function ShareSurveyPanel({ survey, onToast }: { survey: Survey; onToast: Props[
     setShareDialog(null);
   };
 
+  const downloadQr = () => {
+    const svg = qrSvg(createQrMatrix(surveyLink), 512);
+    const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${survey.id}-survey-qr.svg`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    onToast('QR code downloaded', 'success');
+  };
+
   const shareActions: Array<{ label: string; icon: typeof QrCode; onClick: () => void }> = [
     { label: 'Generate QR Code', icon: QrCode, onClick: () => { setQrGenerated(true); setShareDialog('qr'); } },
     { label: 'Copy Link', icon: Copy, onClick: copyLink },
@@ -1769,7 +2019,7 @@ function ShareSurveyPanel({ survey, onToast }: { survey: Survey; onToast: Props[
     <div className="space-y-5">
       <div className="grid gap-5 lg:grid-cols-[170px_1fr]">
         <div className="space-y-3">
-          <QRPreview />
+          <QRPreview value={surveyLink} />
           <div className={`rounded-xl border px-3 py-2 text-center text-[10px] font-black uppercase tracking-widest ${qrGenerated ? 'border-emerald-400/25 bg-emerald-400/10 text-emerald-200' : 'border-amber-400/25 bg-amber-400/10 text-amber-200'}`}>
             {qrGenerated ? 'QR ready' : 'QR pending'}
           </div>
@@ -1835,12 +2085,12 @@ function ShareSurveyPanel({ survey, onToast }: { survey: Survey; onToast: Props[
               <div className="space-y-4 p-5">
                 {shareDialog === 'qr' && (
                   <div className="space-y-4">
-                    <div className="flex justify-center"><QRPreview /></div>
+                    <div className="flex justify-center"><QRPreview value={surveyLink} /></div>
                     <div className="rounded-xl border border-emerald-400/25 bg-emerald-400/10 px-3 py-2 text-center text-[11px] font-bold text-emerald-200">
                       QR is ready for {survey.name}
                     </div>
                     <div className="grid grid-cols-2 gap-2">
-                      <button onClick={() => onToast('QR image download prepared', 'success')} className="rounded-lg border border-[rgba(46,127,255,0.22)] px-3 py-2 text-[11px] font-bold text-[#B8C7DB] hover:text-white">Download QR</button>
+                      <button onClick={downloadQr} className="rounded-lg border border-[rgba(46,127,255,0.22)] px-3 py-2 text-[11px] font-bold text-[#B8C7DB] hover:text-white">Download QR</button>
                       <button onClick={() => { setQrGenerated(true); onToast('QR code refreshed', 'success'); }} className="rounded-lg bg-[#E11D2E] px-3 py-2 text-[11px] font-bold text-white">Regenerate</button>
                     </div>
                   </div>
