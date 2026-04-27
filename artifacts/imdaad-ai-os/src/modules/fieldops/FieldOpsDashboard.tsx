@@ -99,6 +99,7 @@ type AiDraftProfile = {
   frequency: string;
   focus: string;
   evidence: string;
+  questionSections: Array<{ title: string; questions: string[] }>;
 };
 const aiDraftProfiles: Record<string, AiDraftProfile> = {
   'HVAC PPM': {
@@ -108,6 +109,11 @@ const aiDraftProfiles: Record<string, AiDraftProfile> = {
     frequency: 'Monthly',
     focus: 'safety isolation, chiller condition, operating readings, cleaning, and sign-off',
     evidence: 'photos, pressure readings, temperature differential, GPS proof, and supervisor signature',
+    questionSections: [
+      { title: 'Safety & Isolation', questions: ['Confirm lockout/tagout is in place', 'Verify safe access and PPE before opening the chiller panel', 'Confirm no active alarms before inspection'] },
+      { title: 'Operational Readings', questions: ['Record chilled water pressure', 'Record entering and leaving water temperatures', 'Capture compressor running status'] },
+      { title: 'Condition & Evidence', questions: ['Inspect insulation, valves, and visible leaks', 'Upload panel and asset condition photos', 'Supervisor sign-off for abnormal readings'] },
+    ],
   },
   'Lift Safety Inspection': {
     sections: 4,
@@ -116,6 +122,11 @@ const aiDraftProfiles: Record<string, AiDraftProfile> = {
     frequency: 'Weekly',
     focus: 'landing doors, cabin safety, alarms, machine-room checks, and emergency response',
     evidence: 'photos, safety pass/fail checks, technician notes, and signature',
+    questionSections: [
+      { title: 'Cabin & Landing Checks', questions: ['Inspect cabin lighting, buttons, and emergency phone', 'Confirm landing doors close cleanly on sampled floors', 'Check lift levelling at each tested landing'] },
+      { title: 'Safety Systems', questions: ['Test alarm and intercom response', 'Confirm overload warning is operational', 'Verify emergency stop and signage condition'] },
+      { title: 'Evidence & Sign-off', questions: ['Upload photo of any failed safety item', 'Record technician notes for defects', 'Collect supervisor signature before submission'] },
+    ],
   },
   'Cleaning Audit': {
     sections: 4,
@@ -124,6 +135,11 @@ const aiDraftProfiles: Record<string, AiDraftProfile> = {
     frequency: 'Daily',
     focus: 'lobbies, corridors, washrooms, amenities, consumables, and quality scoring',
     evidence: 'optional photos for failed areas, score notes, and supervisor review',
+    questionSections: [
+      { title: 'Area Quality', questions: ['Score lobby cleanliness', 'Score corridor and lift lobby condition', 'Confirm washrooms meet hygiene standard'] },
+      { title: 'Consumables & Odour', questions: ['Confirm consumables are stocked', 'Check bins and waste areas', 'Record any odour or pest concern'] },
+      { title: 'Exceptions', questions: ['Upload photo for failed area', 'Add corrective action note', 'Flag repeated vendor failure if applicable'] },
+    ],
   },
   'Fire System Check': {
     sections: 6,
@@ -132,6 +148,11 @@ const aiDraftProfiles: Record<string, AiDraftProfile> = {
     frequency: 'Weekly',
     focus: 'fire pumps, alarms, extinguishers, fire doors, escape routes, and compliance evidence',
     evidence: 'mandatory photos, GPS capture, fail-to-incident rules, and contractor signature',
+    questionSections: [
+      { title: 'Fire Assets', questions: ['Check extinguishers and hose reels are present and accessible', 'Confirm fire pump panel status', 'Inspect fire alarm panel for active faults'] },
+      { title: 'Escape Routes', questions: ['Verify exits are clear', 'Confirm fire doors close properly', 'Upload evidence for blocked or damaged route'] },
+      { title: 'Compliance Sign-off', questions: ['Capture GPS at inspection location', 'Record contractor notes', 'Create critical incident for failed life-safety item'] },
+    ],
   },
   'Asset Condition Survey': {
     sections: 5,
@@ -140,6 +161,11 @@ const aiDraftProfiles: Record<string, AiDraftProfile> = {
     frequency: 'Monthly',
     focus: 'safety, inspection, readings, condition, and sign-off',
     evidence: 'condition photos, severity rating, lifecycle notes, and GPS proof',
+    questionSections: [
+      { title: 'Asset Identity', questions: ['Scan asset QR or confirm asset ID', 'Confirm location and access condition', 'Capture GPS proof'] },
+      { title: 'Condition Assessment', questions: ['Rate visible asset condition', 'Record wear, corrosion, leaks, or abnormal noise', 'Assign severity rating'] },
+      { title: 'Lifecycle Evidence', questions: ['Upload condition photos', 'Recommend repair, monitor, or replacement action', 'Add supervisor review note'] },
+    ],
   },
   'Handover Inspection': {
     sections: 6,
@@ -148,6 +174,11 @@ const aiDraftProfiles: Record<string, AiDraftProfile> = {
     frequency: 'Per handover batch',
     focus: 'unit readiness, finishes, MEP function, snags, resident-facing evidence, and approval',
     evidence: 'snag photos, QR/unit scan, handover checklist, and QA sign-off',
+    questionSections: [
+      { title: 'Unit Readiness', questions: ['Scan unit QR and confirm unit number', 'Check walls, flooring, doors, and joinery', 'Confirm cleaning and access readiness'] },
+      { title: 'MEP Function', questions: ['Test lighting, sockets, AC, and plumbing fixtures', 'Record failed fixture details', 'Upload photo for every snag'] },
+      { title: 'Approval', questions: ['Capture resident-facing handover notes', 'Confirm all critical snags are logged', 'Collect QA sign-off'] },
+    ],
   },
   'Defect Capture': {
     sections: 3,
@@ -156,6 +187,11 @@ const aiDraftProfiles: Record<string, AiDraftProfile> = {
     frequency: 'As needed',
     focus: 'defect location, category, severity, before/after evidence, and incident creation',
     evidence: 'photos, notes, QR/asset scan, and automatic issue trigger',
+    questionSections: [
+      { title: 'Defect Context', questions: ['Select defect category', 'Scan asset or location QR', 'Describe the defect in plain language'] },
+      { title: 'Evidence', questions: ['Upload before photo', 'Add voice note if needed', 'Rate severity and resident impact'] },
+      { title: 'Action Trigger', questions: ['Assign corrective action owner', 'Create incident when severity is high', 'Set follow-up date'] },
+    ],
   },
   'Site Safety Walkthrough': {
     sections: 5,
@@ -164,12 +200,23 @@ const aiDraftProfiles: Record<string, AiDraftProfile> = {
     frequency: 'Daily',
     focus: 'PPE, access control, permits, work-at-height, housekeeping, and hazard closure',
     evidence: 'mandatory photos for unsafe observations, GPS proof, and HSE reviewer sign-off',
+    questionSections: [
+      { title: 'Access & PPE', questions: ['Confirm workers are wearing required PPE', 'Check site access routes are controlled', 'Verify permit-to-work is displayed where required'] },
+      { title: 'Hazard Checks', questions: ['Inspect work-at-height controls', 'Check housekeeping and trip hazards', 'Confirm emergency access remains clear'] },
+      { title: 'Closure', questions: ['Upload photo for unsafe observation', 'Assign corrective action owner', 'Escalate critical safety failure to HSE lead'] },
+    ],
   },
 };
 const assignableAssignees = ['MEP Team', 'Fire Safety Vendor', 'Soft Services Team', 'QA/QC Team', 'Handover Team', 'Arabian FM Contractor', 'Mariam Saleh', 'Ahmed Farouk'];
-const assignmentRoles = ['FM Engineer', 'Contractor', 'Supervisor', 'QA/QC Lead', 'HSE Lead', 'Site Engineer', 'Property Manager'];
 const supervisorReviewers = ['Mariam Saleh', 'Sarah Khan', 'Omar Haddad', 'Nadia Karim', 'James Miller'];
 const recurrenceOptions = ['one-time', 'daily', 'weekly', 'monthly', 'quarterly', 'custom'];
+const siteAssetCatalog: Record<string, string[]> = {
+  'Lawnz Residences': ['CH-01 Chiller', 'CH-02 Chiller', 'L08-L12 Handover Floors', 'Tower A Lobby', 'Basement Pump Room', 'Podium Common Areas'],
+  'Business Bay Tower Complex': ['FSP-03 Fire Pump', 'Basement Fire Doors', 'Tower B Alarm Panel', 'Emergency Exit Route B1', 'Sprinkler Zone 04'],
+  'JLT North Cluster': ['Cluster B Lobby', 'Washroom Core A', 'Lift Lobby Level 4', 'Amenity Deck', 'Waste Room'],
+  'Cluster B': ['Cluster B Lobby', 'Corridor Spine', 'Washroom Core A', 'Amenity Deck'],
+  'All sites and common areas': ['Common Areas', 'MEP Plant Rooms', 'Fire Safety Assets', 'Lifts and Lobbies', 'External Areas'],
+};
 
 function formatDateInput(date: Date) {
   return date.toISOString().slice(0, 10);
@@ -186,6 +233,13 @@ function getPropertyScopes(property?: PortfolioClient) {
   const sites = property.topSites.map(site => site.name);
   const assets = property.resources.equipment.slice(0, 3).map(asset => `${asset.name} assets`);
   return [...sites, ...assets, 'All sites and common areas'];
+}
+
+function getAssetsForSite(site: string, survey: Survey) {
+  const catalogAssets = siteAssetCatalog[site];
+  if (catalogAssets?.length) return catalogAssets;
+  if (survey.assetIds.length) return survey.assetIds;
+  return ['Common Areas', 'General Equipment', 'Site Infrastructure'];
 }
 
 function buildAiDescription(type: SurveyType, property?: PortfolioClient, scope = 'selected scope', priority: SurveyPriority = 'High') {
@@ -355,6 +409,45 @@ function TemplateSurveyDetails({
   onUseTemplate?: () => void;
 }) {
   const preview = getTemplatePreview(template);
+  const [sections, setSections] = useState(preview.sections);
+  const [responsibleRole, setResponsibleRole] = useState(preview.responsibleRole);
+  const [triggers, setTriggers] = useState(preview.triggers);
+
+  useEffect(() => {
+    const nextPreview = getTemplatePreview(template);
+    setSections(nextPreview.sections);
+    setResponsibleRole(nextPreview.responsibleRole);
+    setTriggers(nextPreview.triggers);
+  }, [template]);
+
+  const updateSectionTitle = (sectionIndex: number, title: string) => {
+    setSections(current => current.map((section, index) => index === sectionIndex ? { ...section, title } : section));
+  };
+
+  const updateQuestion = (sectionIndex: number, questionIndex: number, value: string) => {
+    setSections(current => current.map((section, index) => {
+      if (index !== sectionIndex) return section;
+      return { ...section, checks: section.checks.map((check, checkIndex) => checkIndex === questionIndex ? value : check) };
+    }));
+  };
+
+  const addQuestion = (sectionIndex: number) => {
+    setSections(current => current.map((section, index) => index === sectionIndex ? { ...section, checks: [...section.checks, 'New checklist question'] } : section));
+  };
+
+  const removeQuestion = (sectionIndex: number, questionIndex: number) => {
+    setSections(current => current.map((section, index) => {
+      if (index !== sectionIndex) return section;
+      return { ...section, checks: section.checks.filter((_, checkIndex) => checkIndex !== questionIndex) };
+    }));
+  };
+
+  const addTrigger = () => {
+    setTriggers(current => [...current, 'New automation rule']);
+  };
+
+  const totalChecks = sections.reduce((sum, section) => sum + section.checks.length, 0);
+
   return (
     <div className="space-y-4">
       <div className="rounded-2xl border border-[#E11D2E]/25 bg-[linear-gradient(135deg,rgba(225,29,46,0.13),rgba(46,127,255,0.06))] p-4">
@@ -364,7 +457,7 @@ function TemplateSurveyDetails({
             <h4 className="mt-1 text-xl font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{template.name}</h4>
             <p className="mt-1 text-[12px] text-[#7A94B4]">{template.type}</p>
           </div>
-          <Badge tone="Completed">{template.questions} checks</Badge>
+          <Badge tone="Completed">{totalChecks} checks</Badge>
         </div>
         <div className="mt-4 grid gap-2 sm:grid-cols-3">
           <div className="rounded-xl bg-[#07111F] p-3">
@@ -383,18 +476,50 @@ function TemplateSurveyDetails({
       </div>
 
       <div className="rounded-2xl border border-[rgba(46,127,255,0.18)] bg-[#07111F] p-4">
-        <h5 className="text-sm font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Survey structure</h5>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h5 className="text-sm font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Survey questions</h5>
+            <p className="mt-1 text-[11px] text-[#7A94B4]">Edit section names and questions before using this template.</p>
+          </div>
+          <Badge>{sections.length} sections</Badge>
+        </div>
         <div className="mt-3 space-y-3">
-          {preview.sections.map(section => (
-            <div key={section.title} className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#0A1628] p-3">
-              <div className="text-[12px] font-bold text-white">{section.title}</div>
+          {sections.map((section, sectionIndex) => (
+            <div key={`${section.title}-${sectionIndex}`} className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#0A1628] p-3">
+              <label className="block">
+                <span className="text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">Section</span>
+                <input
+                  value={section.title}
+                  onChange={event => updateSectionTitle(sectionIndex, event.target.value)}
+                  className="mt-1 h-9 w-full rounded-lg border border-[rgba(46,127,255,0.18)] bg-[#07111F] px-3 text-[12px] font-bold text-white outline-none focus:border-[#E11D2E]"
+                />
+              </label>
               <div className="mt-2 space-y-2">
-                {section.checks.map(check => (
-                  <div key={check} className="flex gap-2 text-[11px] leading-4 text-[#B8C7DB]">
+                {section.checks.map((check, questionIndex) => (
+                  <div key={`${check}-${questionIndex}`} className="flex items-center gap-2">
                     <CheckCircle2 size={13} className="mt-0.5 shrink-0 text-emerald-300" />
-                    <span>{check}</span>
+                    <input
+                      value={check}
+                      onChange={event => updateQuestion(sectionIndex, questionIndex, event.target.value)}
+                      className="h-9 min-w-0 flex-1 rounded-lg border border-[rgba(46,127,255,0.14)] bg-[#102040] px-3 text-[11px] text-[#DDE6F8] outline-none focus:border-[#E11D2E]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeQuestion(sectionIndex, questionIndex)}
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-red-400/20 bg-red-400/8 text-red-200 hover:bg-red-400/14"
+                      aria-label="Remove question"
+                    >
+                      <X size={13} />
+                    </button>
                   </div>
                 ))}
+                <button
+                  type="button"
+                  onClick={() => addQuestion(sectionIndex)}
+                  className="mt-2 inline-flex items-center gap-2 rounded-lg border border-[rgba(46,127,255,0.22)] bg-[#07111F] px-3 py-2 text-[11px] font-bold text-[#B8C7DB] hover:border-[#7EB8F7]/45 hover:text-white"
+                >
+                  <Plus size={13} /> Add question
+                </button>
               </div>
             </div>
           ))}
@@ -403,16 +528,44 @@ function TemplateSurveyDetails({
 
       <div className="rounded-2xl border border-[rgba(46,127,255,0.18)] bg-[#07111F] p-4">
         <h5 className="text-sm font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Automation and review</h5>
-        <p className="mt-1 text-[12px] text-[#7A94B4]">Responsible role: {preview.responsibleRole}</p>
+        <label className="mt-3 block">
+          <span className="text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">Responsible role</span>
+          <input
+            value={responsibleRole}
+            onChange={event => setResponsibleRole(event.target.value)}
+            className="mt-1 h-9 w-full rounded-lg border border-[rgba(46,127,255,0.18)] bg-[#0A1628] px-3 text-[12px] text-[#EEF3FA] outline-none focus:border-[#E11D2E]"
+          />
+        </label>
         <div className="mt-3 space-y-2">
-          {preview.triggers.map(trigger => (
-            <div key={trigger} className="rounded-xl border border-[#E11D2E]/20 bg-[#E11D2E]/8 px-3 py-2 text-[11px] font-semibold text-red-100">{trigger}</div>
+          {triggers.map((trigger, index) => (
+            <div key={`${trigger}-${index}`} className="flex items-center gap-2">
+              <input
+                value={trigger}
+                onChange={event => setTriggers(current => current.map((item, itemIndex) => itemIndex === index ? event.target.value : item))}
+                className="h-9 min-w-0 flex-1 rounded-xl border border-[#E11D2E]/20 bg-[#E11D2E]/8 px-3 text-[11px] font-semibold text-red-100 outline-none focus:border-[#E11D2E]"
+              />
+              <button
+                type="button"
+                onClick={() => setTriggers(current => current.filter((_, itemIndex) => itemIndex !== index))}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-red-400/20 bg-red-400/8 text-red-200 hover:bg-red-400/14"
+                aria-label="Remove automation rule"
+              >
+                <X size={13} />
+              </button>
+            </div>
           ))}
+          <button
+            type="button"
+            onClick={addTrigger}
+            className="inline-flex items-center gap-2 rounded-lg border border-[#E11D2E]/25 bg-[#E11D2E]/8 px-3 py-2 text-[11px] font-bold text-red-100 hover:bg-[#E11D2E]/14"
+          >
+            <Plus size={13} /> Add rule
+          </button>
         </div>
       </div>
 
       {onUseTemplate && (
-        <button onClick={onUseTemplate} className="h-10 w-full rounded-xl bg-[#E11D2E] text-[12px] font-bold text-white shadow-lg shadow-red-950/25">Use this template</button>
+        <button onClick={onUseTemplate} className="h-10 w-full rounded-xl bg-[#E11D2E] text-[12px] font-bold text-white shadow-lg shadow-red-950/25">Use edited template</button>
       )}
     </div>
   );
@@ -640,7 +793,7 @@ function CreateSurveyModal({
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <h4 className="text-sm font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>AI draft preview</h4>
-                    <p className="mt-1 text-[11px] text-[#7A94B4]">Structured and ready for the survey basics step.</p>
+                    <p className="mt-1 text-[11px] text-[#7A94B4]">{aiGeneratedPreview ? 'Generated questions for the selected survey type.' : 'Structured and ready for the survey basics step.'}</p>
                   </div>
                   <Badge tone={aiGeneratedPreview ? 'Completed' : 'default'}>{aiGeneratedPreview ? 'Draft generated' : 'Ready to generate'}</Badge>
                 </div>
@@ -650,6 +803,26 @@ function CreateSurveyModal({
                   <div className="rounded-xl bg-[#102040] p-3"><b className="text-white">{aiDraftProfile.duration}</b> estimated field completion time.</div>
                   <div className="rounded-xl bg-[#102040] p-3"><b className="text-white">{aiDraftProfile.frequency}</b> recommended frequency with {aiDraftProfile.evidence}.</div>
                 </div>
+                {aiGeneratedPreview && (
+                  <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mt-4 max-h-64 space-y-3 overflow-y-auto pr-1 custom-scrollbar">
+                    {aiDraftProfile.questionSections.map(section => (
+                      <div key={section.title} className="rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#0A1628] p-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <h5 className="text-[12px] font-black text-[#EEF3FA]">{section.title}</h5>
+                          <span className="rounded-full border border-[#E11D2E]/25 bg-[#E11D2E]/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-red-100">{section.questions.length} checks</span>
+                        </div>
+                        <div className="mt-2 space-y-2">
+                          {section.questions.map(question => (
+                            <div key={question} className="flex gap-2 rounded-lg bg-[#102040] px-3 py-2 text-[11px] leading-4 text-[#B8C7DB]">
+                              <CheckCircle2 size={13} className="mt-0.5 shrink-0 text-emerald-300" />
+                              <span>{question}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </motion.div>
+                )}
               </div>
             </div>
           )}
@@ -784,7 +957,7 @@ function CreateSurveyModal({
             {wizardStep === 'ai' && (
               <>
                 <button onClick={() => setWizardStep('start')} className="rounded-lg border border-[rgba(46,127,255,0.22)] px-4 py-2 text-[12px] font-bold text-[#B8C7DB] hover:bg-white/5">Back</button>
-                <button onClick={() => setAiGeneratedPreview(true)} className="rounded-lg border border-[#E11D2E]/35 bg-[#E11D2E]/10 px-4 py-2 text-[12px] font-bold text-red-100 hover:bg-[#E11D2E]/16">Preview AI Draft</button>
+                <button onClick={() => setAiGeneratedPreview(current => !current)} className="rounded-lg border border-[#E11D2E]/35 bg-[#E11D2E]/10 px-4 py-2 text-[12px] font-bold text-red-100 hover:bg-[#E11D2E]/16">{aiGeneratedPreview ? 'Hide AI Preview' : 'Preview AI Draft'}</button>
                 <button onClick={applyAiDraft} className="rounded-lg bg-[#E11D2E] px-4 py-2 text-[12px] font-bold text-white shadow-lg shadow-red-950/25">Generate Survey</button>
               </>
             )}
@@ -842,8 +1015,8 @@ function SideDrawer({ title, onClose, children }: { title: string; onClose: () =
 function AssignSurveyPanel({ survey, onToast }: { survey: Survey; onToast: Props['onToast'] }) {
   const assignment = assignments.find(item => item.surveyId === survey.id) ?? assignments[0];
   const [assignees, setAssignees] = useState(() => assignment.assignee.split(',').map(item => item.trim()).filter(Boolean));
-  const [role, setRole] = useState(assignment.role);
   const [site, setSite] = useState(assignment.site);
+  const [assetSelectOpen, setAssetSelectOpen] = useState(false);
   const [startDate, setStartDate] = useState(formatDateInput(new Date()));
   const [dueDate, setDueDate] = useState(assignment.dueDate);
   const [recurrence, setRecurrence] = useState(assignment.recurrence);
@@ -855,22 +1028,38 @@ function AssignSurveyPanel({ survey, onToast }: { survey: Survey; onToast: Props
     const scopes = [...survey.siteIds, ...survey.assetIds];
     return scopes.length ? scopes : ['All sites and common areas'];
   }, [survey.assetIds, survey.siteIds]);
+  const assetOptions = useMemo(() => getAssetsForSite(site, survey), [site, survey]);
+  const [selectedAssets, setSelectedAssets] = useState(() => getAssetsForSite(assignment.site, survey).slice(0, 1));
+
+  useEffect(() => {
+    const nextOptions = getAssetsForSite(site, survey);
+    setSelectedAssets(current => {
+      const retained = current.filter(asset => nextOptions.includes(asset));
+      return retained.length ? retained : nextOptions.slice(0, 1);
+    });
+    setAssetSelectOpen(false);
+  }, [site, survey]);
 
   const toggleAssignee = (assignee: string) => {
     setAssignees(current => current.includes(assignee) ? current.filter(item => item !== assignee) : [...current, assignee]);
   };
 
+  const toggleAsset = (asset: string) => {
+    setSelectedAssets(current => current.includes(asset) ? current.filter(item => item !== asset) : [...current, asset]);
+  };
+
   const generateInstructions = (mode: 'draft' | 'safety' | 'short') => {
     const selected = assignees.length ? assignees.join(', ') : 'selected assignees';
+    const assetText = selectedAssets.length ? selectedAssets.join(', ') : 'selected assets';
     if (mode === 'short') {
-      setInstructions(`Complete ${survey.name}, attach required evidence, and escalate failed critical checks before ${dueDate}.`);
+      setInstructions(`Complete ${survey.name} for ${assetText}, attach required evidence, and escalate failed critical checks before ${dueDate}.`);
       return;
     }
     if (mode === 'safety') {
-      setInstructions(`Before starting ${survey.name}, confirm safe access, PPE, isolation requirements, and site permissions. Capture photo evidence for failed checks, add notes for abnormal readings, and escalate any high-risk finding to ${reviewer}.`);
+      setInstructions(`Before starting ${survey.name} for ${assetText}, confirm safe access, PPE, isolation requirements, and site permissions. Capture photo evidence for failed checks, add notes for abnormal readings, and escalate any high-risk finding to ${reviewer}.`);
       return;
     }
-    setInstructions(`Assign ${survey.name} to ${selected}. Complete the survey within the selected validity window, capture mandatory photos/readings/GPS evidence, document failed items clearly, and route high-priority findings to ${reviewer} for review.`);
+    setInstructions(`Assign ${survey.name} to ${selected} for ${assetText}. Complete the survey within the selected validity window, capture mandatory photos/readings/GPS evidence, document failed items clearly, and route high-priority findings to ${reviewer} for review.`);
   };
 
   return (
@@ -904,17 +1093,37 @@ function AssignSurveyPanel({ survey, onToast }: { survey: Survey; onToast: Props
         </div>
 
         <label className="space-y-1.5">
-          <span className="text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">Role</span>
-          <select className={`${fieldInput} w-full`} value={role} onChange={event => setRole(event.target.value)}>
-            {assignmentRoles.map(option => <option key={option}>{option}</option>)}
-          </select>
-        </label>
-        <label className="space-y-1.5">
           <span className="text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">Site / Scope</span>
           <select className={`${fieldInput} w-full`} value={site} onChange={event => setSite(event.target.value)}>
             {scopeOptions.map(option => <option key={option}>{option}</option>)}
           </select>
         </label>
+        <div className="relative space-y-1.5">
+          <span className="text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">Asset</span>
+          <button
+            type="button"
+            onClick={() => setAssetSelectOpen(current => !current)}
+            className="flex h-9 w-full items-center justify-between gap-3 rounded-lg border border-[rgba(46,127,255,0.22)] bg-[#0A1628] px-3 text-left text-[12px] text-[#EEF3FA] outline-none hover:border-[#7EB8F7]/45"
+          >
+            <span className="min-w-0 truncate">{selectedAssets.length ? selectedAssets.join(', ') : 'Select assets'}</span>
+            <span className="shrink-0 text-[#7A94B4]">v</span>
+          </button>
+          {assetSelectOpen && (
+            <div className="absolute left-0 right-0 top-[58px] z-40 max-h-56 overflow-y-auto rounded-xl border border-[rgba(46,127,255,0.24)] bg-[#07111F] p-2 shadow-2xl">
+              {assetOptions.map(asset => (
+                <label key={asset} className={`mb-1 flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-[11px] font-bold transition last:mb-0 ${selectedAssets.includes(asset) ? 'bg-[#E11D2E]/12 text-red-100' : 'text-[#B8C7DB] hover:bg-white/5 hover:text-white'}`}>
+                  <input type="checkbox" checked={selectedAssets.includes(asset)} onChange={() => toggleAsset(asset)} className="accent-[#E11D2E]" />
+                  {asset}
+                </label>
+              ))}
+            </div>
+          )}
+          <div className="flex flex-wrap gap-1.5">
+            {selectedAssets.map(asset => (
+              <span key={asset} className="rounded-full border border-[rgba(46,127,255,0.2)] bg-[#07111F] px-2 py-0.5 text-[9px] font-bold text-[#B8C7DB]">{asset}</span>
+            ))}
+          </div>
+        </div>
         <label className="space-y-1.5">
           <span className="text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">Start date</span>
           <input type="date" className={`${fieldInput} w-full`} value={startDate} onChange={event => { setStartDate(event.target.value); if (dueDate < event.target.value) setDueDate(event.target.value); }} />
@@ -969,7 +1178,13 @@ function AssignSurveyPanel({ survey, onToast }: { survey: Survey; onToast: Props
 
 function ShareSurveyPanel({ survey, onToast }: { survey: Survey; onToast: Props['onToast'] }) {
   const surveyLink = `https://4c360.properties/fieldops/survey/${survey.id}/capture`;
+  const embedCode = `<iframe src="${surveyLink}" title="${survey.name}" width="100%" height="720" style="border:0;border-radius:12px;"></iframe>`;
   const [qrGenerated, setQrGenerated] = useState(true);
+  const [shareDialog, setShareDialog] = useState<'qr' | 'email' | 'whatsapp' | 'embed' | null>(null);
+  const [emailTo, setEmailTo] = useState('');
+  const [emailMessage, setEmailMessage] = useState(`Please complete the ${survey.name} survey using the secure link below.`);
+  const [whatsAppNumber, setWhatsAppNumber] = useState('');
+  const [whatsAppMessage, setWhatsAppMessage] = useState(`FieldOps survey: ${survey.name}. Open here: ${surveyLink}`);
   const [rules, setRules] = useState<Record<string, boolean>>({
     requireLogin: true,
     anonymousSubmission: false,
@@ -994,12 +1209,39 @@ function ShareSurveyPanel({ survey, onToast }: { survey: Survey; onToast: Props[
     }
   };
 
+  const copyText = async (text: string, success: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      onToast(success, 'success');
+    } catch {
+      onToast('Copy blocked by browser. Content is visible in the dialog.', 'warning');
+    }
+  };
+
+  const sendEmail = () => {
+    if (!emailTo.trim()) {
+      onToast('Add an email recipient first', 'warning');
+      return;
+    }
+    onToast(`Email share prepared for ${emailTo}`, 'success');
+    setShareDialog(null);
+  };
+
+  const sendWhatsApp = () => {
+    if (!whatsAppNumber.trim()) {
+      onToast('Add a WhatsApp number first', 'warning');
+      return;
+    }
+    onToast(`WhatsApp share prepared for ${whatsAppNumber}`, 'success');
+    setShareDialog(null);
+  };
+
   const shareActions: Array<{ label: string; icon: typeof QrCode; onClick: () => void }> = [
-    { label: 'Generate QR Code', icon: QrCode, onClick: () => { setQrGenerated(true); onToast('QR code generated', 'success'); } },
+    { label: 'Generate QR Code', icon: QrCode, onClick: () => { setQrGenerated(true); setShareDialog('qr'); } },
     { label: 'Copy Link', icon: Copy, onClick: copyLink },
-    { label: 'Send by Email', icon: Mail, onClick: () => onToast('Email share draft prepared', 'success') },
-    { label: 'Send by WhatsApp', icon: MessageCircle, onClick: () => onToast('WhatsApp share link prepared', 'success') },
-    { label: 'Embed Link', icon: Link2, onClick: () => onToast('Embed link copied for portal use', 'success') },
+    { label: 'Send by Email', icon: Mail, onClick: () => setShareDialog('email') },
+    { label: 'Send by WhatsApp', icon: MessageCircle, onClick: () => setShareDialog('whatsapp') },
+    { label: 'Embed Link', icon: Link2, onClick: () => setShareDialog('embed') },
   ];
 
   const accessRules = [
@@ -1057,6 +1299,84 @@ function ShareSurveyPanel({ survey, onToast }: { survey: Survey; onToast: Props[
           </div>
         )}
       </div>
+
+      <AnimatePresence>
+        {shareDialog && (
+          <div className="fixed inset-0 z-[2800] flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, y: 12, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 12, scale: 0.96 }}
+              className="w-full max-w-md rounded-2xl border border-[rgba(46,127,255,0.25)] bg-[#0A1628] shadow-2xl"
+            >
+              <div className="flex items-start justify-between border-b border-[rgba(46,127,255,0.14)] px-5 py-4">
+                <div>
+                  <div className="text-[10px] font-black uppercase tracking-widest text-[#E11D2E]">Share Survey</div>
+                  <h4 className="mt-1 text-base font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+                    {shareDialog === 'qr' && 'QR code'}
+                    {shareDialog === 'email' && 'Send by email'}
+                    {shareDialog === 'whatsapp' && 'Send by WhatsApp'}
+                    {shareDialog === 'embed' && 'Embed link'}
+                  </h4>
+                </div>
+                <button onClick={() => setShareDialog(null)} className="rounded-lg p-2 text-[#7A94B4] hover:bg-white/5 hover:text-white"><X size={17} /></button>
+              </div>
+
+              <div className="space-y-4 p-5">
+                {shareDialog === 'qr' && (
+                  <div className="space-y-4">
+                    <div className="flex justify-center"><QRPreview /></div>
+                    <div className="rounded-xl border border-emerald-400/25 bg-emerald-400/10 px-3 py-2 text-center text-[11px] font-bold text-emerald-200">
+                      QR is ready for {survey.name}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button onClick={() => onToast('QR image download prepared', 'success')} className="rounded-lg border border-[rgba(46,127,255,0.22)] px-3 py-2 text-[11px] font-bold text-[#B8C7DB] hover:text-white">Download QR</button>
+                      <button onClick={() => { setQrGenerated(true); onToast('QR code refreshed', 'success'); }} className="rounded-lg bg-[#E11D2E] px-3 py-2 text-[11px] font-bold text-white">Regenerate</button>
+                    </div>
+                  </div>
+                )}
+
+                {shareDialog === 'email' && (
+                  <div className="space-y-3">
+                    <label className="block">
+                      <span className="text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">Recipient email</span>
+                      <input type="email" value={emailTo} onChange={event => setEmailTo(event.target.value)} placeholder="engineer@example.com" className={`${fieldInput} mt-1 w-full`} />
+                    </label>
+                    <label className="block">
+                      <span className="text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">Message</span>
+                      <textarea value={emailMessage} onChange={event => setEmailMessage(event.target.value)} className="mt-1 min-h-24 w-full rounded-lg border border-[rgba(46,127,255,0.22)] bg-[#07111F] px-3 py-2 text-[12px] leading-5 text-[#EEF3FA] outline-none focus:border-[#E11D2E]" />
+                    </label>
+                    <div className="rounded-xl bg-[#07111F] p-3 font-mono text-[11px] text-[#B8C7DB]">{surveyLink}</div>
+                    <button onClick={sendEmail} className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-[#E11D2E] text-[12px] font-bold text-white"><Send size={14} /> Send email</button>
+                  </div>
+                )}
+
+                {shareDialog === 'whatsapp' && (
+                  <div className="space-y-3">
+                    <label className="block">
+                      <span className="text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">WhatsApp number</span>
+                      <input value={whatsAppNumber} onChange={event => setWhatsAppNumber(event.target.value)} placeholder="+971 50 000 0000" className={`${fieldInput} mt-1 w-full`} />
+                    </label>
+                    <label className="block">
+                      <span className="text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">Message</span>
+                      <textarea value={whatsAppMessage} onChange={event => setWhatsAppMessage(event.target.value)} className="mt-1 min-h-24 w-full rounded-lg border border-[rgba(46,127,255,0.22)] bg-[#07111F] px-3 py-2 text-[12px] leading-5 text-[#EEF3FA] outline-none focus:border-[#E11D2E]" />
+                    </label>
+                    <button onClick={sendWhatsApp} className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-[#E11D2E] text-[12px] font-bold text-white"><MessageCircle size={14} /> Prepare WhatsApp</button>
+                  </div>
+                )}
+
+                {shareDialog === 'embed' && (
+                  <div className="space-y-3">
+                    <p className="text-[12px] leading-5 text-[#B8C7DB]">Use this snippet to embed the mobile survey inside an internal portal or property page.</p>
+                    <textarea readOnly value={embedCode} className="min-h-28 w-full rounded-lg border border-[rgba(46,127,255,0.22)] bg-[#07111F] px-3 py-2 font-mono text-[11px] leading-5 text-[#DDE6F8] outline-none" />
+                    <button onClick={() => copyText(embedCode, 'Embed code copied')} className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-[#E11D2E] text-[12px] font-bold text-white"><Copy size={14} /> Copy embed code</button>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
