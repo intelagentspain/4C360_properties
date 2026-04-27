@@ -7,16 +7,37 @@ export function FieldOpsCapture({ surveyId }: { surveyId: string }) {
   const survey = useMemo(() => surveys.find(item => item.id === surveyId) ?? surveys[0], [surveyId]);
   const assignment = useMemo(() => assignments.find(item => item.surveyId === survey.id) ?? assignments[0], [survey.id]);
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [photoUploads, setPhotoUploads] = useState<Record<string, string[]>>({});
   const [submitted, setSubmitted] = useState(false);
   const [submissionId, setSubmissionId] = useState('');
   const [blocked, setBlocked] = useState('');
 
   const required = survey.questions.filter(question => question.required);
-  const completeCount = required.filter(question => (answers[question.id] ?? '').trim().length > 0).length;
+  const isQuestionComplete = (question: SurveyQuestion) => {
+    if (question.type === 'section' || !question.required) return true;
+    if (question.type === 'photo' || question.evidenceRequired) return (photoUploads[question.id] ?? []).length > 0;
+    return (answers[question.id] ?? '').trim().length > 0;
+  };
+  const completeCount = required.filter(isQuestionComplete).length;
   const progress = required.length ? Math.round((completeCount / required.length) * 100) : 100;
 
   const updateAnswer = (questionId: string, value: string) => {
     setAnswers(current => ({ ...current, [questionId]: value }));
+    setBlocked('');
+  };
+
+  const handlePhotoUpload = (questionId: string, fileList: FileList | null) => {
+    const fileNames = Array.from(fileList ?? []).map(file => file.name);
+    if (!fileNames.length) return;
+
+    setPhotoUploads(current => {
+      const nextFiles = [...(current[questionId] ?? []), ...fileNames];
+      setAnswers(answerCurrent => ({
+        ...answerCurrent,
+        [questionId]: `${nextFiles.length} photo${nextFiles.length === 1 ? '' : 's'} uploaded`,
+      }));
+      return { ...current, [questionId]: nextFiles };
+    });
     setBlocked('');
   };
 
@@ -44,12 +65,20 @@ export function FieldOpsCapture({ surveyId }: { surveyId: string }) {
         answer: answers[question.id] || getDefaultAnswer(question),
       }));
     const issueCount = answerRows.filter(row => /fail|no|blocked|abnormal|issue|defect/i.test(row.answer)).length;
-    const evidence = survey.questions
-      .filter(question => question.evidenceRequired || question.type === 'photo' || question.type === 'signature' || question.type === 'voice')
+    const uploadedPhotoEvidence = Object.entries(photoUploads).flatMap(([questionId, fileNames]) => {
+      const question = survey.questions.find(item => item.id === questionId);
+      return fileNames.map(fileName => ({
+        type: 'photo' as const,
+        label: `${question?.label ?? 'Photo evidence'} - ${fileName}`,
+      }));
+    });
+    const nonPhotoEvidence = survey.questions
+      .filter(question => question.type === 'signature' || question.type === 'voice')
       .map(question => ({
         type: question.type === 'signature' ? 'signature' as const : question.type === 'voice' ? 'voice' as const : 'photo' as const,
         label: question.label,
       }));
+    const evidence = [...uploadedPhotoEvidence, ...nonPhotoEvidence];
     const submission: SurveySubmission = {
       id: newSubmissionId,
       surveyId: survey.id,
@@ -118,7 +147,9 @@ export function FieldOpsCapture({ surveyId }: { surveyId: string }) {
         <div className="space-y-3 p-4">
           {survey.questions.map(question => {
             const value = answers[question.id] ?? '';
-            const isDone = value.trim().length > 0 || !question.required;
+            const uploadedPhotos = photoUploads[question.id] ?? [];
+            const requiresPhoto = question.type === 'photo' || question.evidenceRequired;
+            const isDone = isQuestionComplete(question);
             const isSection = question.type === 'section';
             if (isSection) {
               return <h2 key={question.id} className="pt-2 text-[11px] font-black uppercase tracking-widest text-[#E11D2E]">{question.label}</h2>;
@@ -165,17 +196,46 @@ export function FieldOpsCapture({ surveyId }: { surveyId: string }) {
                   </div>
                 )}
                 <div className="mt-3 flex flex-wrap gap-2">
-                  {(question.type === 'photo' || question.evidenceRequired) && <button onClick={() => updateAnswer(question.id, 'Photo uploaded')} className="rounded-lg border border-[rgba(46,127,255,0.18)] px-3 py-2 text-[11px] font-bold text-[#B8C7DB]"><Camera size={13} className="mr-1 inline" />Photo</button>}
+                  {requiresPhoto && (
+                    <label className="cursor-pointer rounded-lg border border-[rgba(46,127,255,0.18)] px-3 py-2 text-[11px] font-bold text-[#B8C7DB] transition hover:border-[#E11D2E]/55 hover:text-white">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        multiple
+                        className="sr-only"
+                        onChange={event => handlePhotoUpload(question.id, event.target.files)}
+                      />
+                      <Camera size={13} className="mr-1 inline" />
+                      {uploadedPhotos.length ? `${uploadedPhotos.length} photo${uploadedPhotos.length === 1 ? '' : 's'}` : 'Upload photo'}
+                    </label>
+                  )}
                   {question.type === 'voice' && <button onClick={() => updateAnswer(question.id, 'Voice note uploaded')} className="rounded-lg border border-[rgba(46,127,255,0.18)] px-3 py-2 text-[11px] font-bold text-[#B8C7DB]"><Mic size={13} className="mr-1 inline" />Voice</button>}
                   {question.type === 'signature' && <button onClick={() => updateAnswer(question.id, 'Signature captured')} className="rounded-lg border border-[rgba(46,127,255,0.18)] px-3 py-2 text-[11px] font-bold text-[#B8C7DB]"><FileSignature size={13} className="mr-1 inline" />Sign</button>}
                   {question.type === 'qr_scan' && <button onClick={() => updateAnswer(question.id, 'QR scanned')} className="rounded-lg border border-[rgba(46,127,255,0.18)] px-3 py-2 text-[11px] font-bold text-[#B8C7DB]"><QrCode size={13} className="mr-1 inline" />Scan</button>}
                   <button
-                    onClick={() => updateAnswer(question.id, isDone ? '' : getDefaultAnswer(question))}
+                    onClick={() => {
+                      if (requiresPhoto && !uploadedPhotos.length) {
+                        setBlocked('Upload photo evidence for this required check first.');
+                        return;
+                      }
+                      updateAnswer(question.id, isDone ? '' : getDefaultAnswer(question));
+                    }}
                     className={`rounded-lg px-3 py-2 text-[11px] font-bold ${isDone ? 'bg-emerald-400/12 text-emerald-300' : 'bg-[#E11D2E]/12 text-red-200'}`}
                   >
-                    {isDone ? 'Completed' : 'Mark complete'}
+                    {isDone ? 'Completed' : requiresPhoto ? 'Photo required' : 'Mark complete'}
                   </button>
                 </div>
+                {uploadedPhotos.length > 0 && (
+                  <div className="mt-3 space-y-1 rounded-lg border border-emerald-400/15 bg-emerald-400/5 p-2">
+                    {uploadedPhotos.map(fileName => (
+                      <p key={fileName} className="truncate text-[10px] font-semibold text-emerald-200">
+                        <Camera size={11} className="mr-1 inline" />
+                        {fileName}
+                      </p>
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })}
