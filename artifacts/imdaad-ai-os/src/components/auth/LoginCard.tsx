@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Building2, Eye, EyeOff, LockKeyhole, Mail, ShieldCheck, UserRound } from 'lucide-react';
+import { Building2, CheckCircle2, Eye, EyeOff, LockKeyhole, Mail, ShieldCheck, UserRound, X } from 'lucide-react';
 import { SocialLoginButton } from './SocialLoginButton';
 import { UserTypeTags } from './UserTypeTags';
 
@@ -26,9 +26,13 @@ function MicrosoftMark() {
 
 export function LoginCard() {
   const [identifier, setIdentifier] = useState('');
+  const [magicEmail, setMagicEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [magicOpen, setMagicOpen] = useState(false);
+  const [magicSent, setMagicSent] = useState(false);
+  const [magicError, setMagicError] = useState('');
   const [errors, setErrors] = useState<LoginErrors>({});
   const [notice, setNotice] = useState('');
 
@@ -74,11 +78,26 @@ export function LoginCard() {
 
   const requestMagicLink = () => {
     setErrors({});
-    if (!identifier.trim()) {
-      setErrors({ identifier: 'Enter your email or username first.' });
+    setNotice('');
+    setMagicError('');
+    setMagicSent(false);
+    setMagicEmail(identifier.includes('@') ? identifier.trim() : '');
+    setMagicOpen(true);
+  };
+
+  const submitMagicLink = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const email = magicEmail.trim();
+    const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+    if (!valid) {
+      setMagicError('Enter a valid email address.');
       return;
     }
-    setNotice('Magic link request captured. Connect an auth provider to send real links.');
+
+    setMagicError('');
+    setMagicSent(true);
+    setIdentifier(email);
   };
 
   const providerPlaceholder = (provider: string) => {
@@ -92,6 +111,7 @@ export function LoginCard() {
     }`;
 
   return (
+    <>
     <section className="auth-card-enter w-full max-w-[560px] rounded-[1.75rem] border border-white/80 bg-white/96 px-5 py-6 text-slate-950 shadow-[0_34px_95px_rgba(8,19,38,0.24)] backdrop-blur-xl sm:px-8 sm:py-8 lg:px-10">
       <div className="mx-auto mb-6 flex flex-col items-center text-center">
         <div className="mb-4 flex items-center justify-center gap-3">
@@ -246,5 +266,86 @@ export function LoginCard() {
         </div>
       </div>
     </section>
+    {magicOpen && (
+      <div className="fixed inset-0 z-[3000] flex items-center justify-center px-4 py-6">
+        <button
+          type="button"
+          className="absolute inset-0 bg-slate-950/55 backdrop-blur-sm"
+          onClick={() => setMagicOpen(false)}
+          aria-label="Close magic link request"
+        />
+        <div className="relative w-full max-w-md overflow-hidden rounded-3xl border border-white/80 bg-white shadow-[0_34px_90px_rgba(8,19,38,0.28)]">
+          <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-5">
+            <div>
+              <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-[#081b3a] text-white shadow-lg shadow-slate-900/15">
+                {magicSent ? <CheckCircle2 size={22} /> : <Mail size={22} />}
+              </div>
+              <h3 className="text-xl font-bold text-[#081326]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+                {magicSent ? 'Check your email' : 'Send a magic link'}
+              </h3>
+              <p className="mt-2 text-sm leading-6 text-slate-500">
+                {magicSent
+                  ? 'If an account exists for this email, we will send a secure sign-in link to it.'
+                  : 'Enter your email address. If an account exists, we will send a secure sign-in link to it.'}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setMagicOpen(false)}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+              aria-label="Close"
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          {!magicSent ? (
+            <form onSubmit={submitMagicLink} className="px-6 py-5">
+              <label htmlFor="magic-email" className="mb-2 block text-sm font-semibold text-slate-800">
+                Email address
+              </label>
+              <div className="relative">
+                <Mail className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+                <input
+                  id="magic-email"
+                  type="email"
+                  autoComplete="email"
+                  value={magicEmail}
+                  onChange={event => {
+                    setMagicEmail(event.target.value);
+                    if (magicError) setMagicError('');
+                  }}
+                  className={`h-12 w-full rounded-xl border bg-white pl-11 pr-4 text-[15px] text-slate-950 shadow-sm transition-all placeholder:text-slate-400 focus:border-[#df1f2d] focus:outline-none focus:ring-4 focus:ring-red-500/10 ${
+                    magicError ? 'border-red-300 ring-4 ring-red-500/10' : 'border-slate-200 hover:border-slate-300'
+                  }`}
+                  placeholder="name@company.com"
+                />
+              </div>
+              {magicError && <p className="mt-2 text-sm font-medium text-red-600">{magicError}</p>}
+              <button
+                type="submit"
+                className="mt-5 flex h-12 w-full items-center justify-center rounded-xl bg-[#081b3a] px-5 text-sm font-bold text-white shadow-[0_14px_30px_rgba(8,27,58,0.2)] transition-colors hover:bg-[#0d254f]"
+              >
+                Send secure link
+              </button>
+            </form>
+          ) : (
+            <div className="px-6 py-5">
+              <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-4 text-sm leading-6 text-blue-800">
+                We will send a link to <span className="font-bold">{magicEmail.trim()}</span> if that email is registered with 4C360 Properties.
+              </div>
+              <button
+                type="button"
+                onClick={() => setMagicOpen(false)}
+                className="mt-5 flex h-12 w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50"
+              >
+                Done
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    )}
+    </>
   );
 }

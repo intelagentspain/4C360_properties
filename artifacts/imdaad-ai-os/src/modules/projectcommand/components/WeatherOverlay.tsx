@@ -1,4 +1,4 @@
-import { aiContent } from '../data/ai-responses';
+import { useSelectedProjectCommandData } from '../useProjectCommandData';
 
 const riskClass: Record<string, string> = {
   high: 'border-[#D92B1C]/35 bg-[#D92B1C]/14 text-red-200',
@@ -7,6 +7,7 @@ const riskClass: Record<string, string> = {
 };
 
 export function WeatherOverlay() {
+  const { aiContent } = useSelectedProjectCommandData();
   return (
     <div className="mt-3 grid grid-cols-4 gap-2">
       {aiContent.programmeInsights.weatherRisk.map(item => (

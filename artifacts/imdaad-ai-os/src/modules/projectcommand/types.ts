@@ -1,1 +1,1 @@
-export type ProjectCommandScreen = 'overview' | 'programme' | 'cost' | 'risk' | 'forecast';
+export type ProjectCommandScreen = 'overview' | 'programme' | 'stagegates' | 'cost' | 'risk' | 'obligations' | 'evidence' | 'forecast';

@@ -1,30 +1,48 @@
 import { useMemo, useState } from 'react';
 import type { ComponentType } from 'react';
-import { BarChart3, BrainCircuit, Building2, CalendarRange, ShieldAlert, Sparkles } from 'lucide-react';
-import { project } from './data/project';
+import { AnimatePresence } from 'framer-motion';
+import { BarChart3, BrainCircuit, Building2, CalendarRange, FileText, FolderOpen, Plus, ShieldAlert, Target } from 'lucide-react';
+import type { ProjectCommandProjectId } from './data/portfolio';
+import { AddProjectModal } from './components/AddProjectModal';
 import { CommandCenter } from './screens/CommandCenter';
 import { Programme } from './screens/Programme';
+import { StageGates } from './screens/StageGates';
 import { CostIntelligence } from './screens/CostIntelligence';
 import { RiskCommand } from './screens/RiskCommand';
+import { ObligationsRegister } from './screens/ObligationsRegister';
+import { EvidenceRepository } from './screens/EvidenceRepository';
 import { AIForecast } from './screens/AIForecast';
+import { addProjectCommandDataset, setProjectCommandState } from './state/projectCommandStore';
 import type { ProjectCommandScreen } from './types';
+import { useProjectCommandProjectOptions, useSelectedProjectCommandData } from './useProjectCommandData';
 
 const tabs: { id: ProjectCommandScreen; label: string; icon: ComponentType<{ size?: number }> }[] = [
   { id: 'overview', label: 'Overview', icon: Building2 },
   { id: 'programme', label: 'Programme', icon: CalendarRange },
+  { id: 'stagegates', label: 'Stage Gates', icon: Target },
   { id: 'cost', label: 'Cost', icon: BarChart3 },
   { id: 'risk', label: 'Risk', icon: ShieldAlert },
+  { id: 'obligations', label: 'Obligations', icon: FileText },
+  { id: 'evidence', label: 'Evidence', icon: FolderOpen },
   { id: 'forecast', label: 'AI Forecast', icon: BrainCircuit },
 ];
 
 function screenFromPath(): ProjectCommandScreen {
   const match = window.location.pathname.match(/\/projectcommand\/([^/]+)/);
   const value = match?.[1] as ProjectCommandScreen | undefined;
-  return tabs.find(tab => tab.id === value)?.id ?? 'overview';
+  const resolved = tabs.find(tab => tab.id === value)?.id;
+  if (!resolved && window.location.pathname !== '/projectcommand/overview') {
+    window.history.replaceState({}, '', '/projectcommand/overview');
+  }
+  return resolved ?? 'overview';
 }
 
-export function ProjectCommand() {
+export function ProjectCommand({ onToast }: { onToast?: (message: string, type?: 'success' | 'warning' | 'error' | 'info') => void }) {
   const [screen, setScreen] = useState<ProjectCommandScreen>(screenFromPath);
+  const [addProjectOpen, setAddProjectOpen] = useState(false);
+  const selectedDataset = useSelectedProjectCommandData();
+  const projectOptions = useProjectCommandProjectOptions();
+  const { project } = selectedDataset;
 
   const goTo = (next: ProjectCommandScreen) => {
     setScreen(next);
@@ -35,6 +53,10 @@ export function ProjectCommand() {
   };
 
   const activeTitle = useMemo(() => tabs.find(tab => tab.id === screen)?.label ?? 'Overview', [screen]);
+
+  const switchProject = (projectId: ProjectCommandProjectId) => {
+    setProjectCommandState({ selectedProjectId: projectId, activeScenario: 'base', selectedRisk: null, selectedPhaseId: null });
+  };
 
   return (
     <div className="flex h-full flex-col overflow-hidden text-[#EEF3FA]">
@@ -54,16 +76,16 @@ export function ProjectCommand() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <span className="flex items-center gap-1.5 rounded-full border border-violet-400/25 bg-violet-400/10 px-3 py-1.5 text-[10px] font-bold text-violet-200">
-              <Sparkles size={13} /> AI Forecast Ready
-            </span>
-            <select className="h-8 rounded-lg border border-[rgba(46,127,255,0.22)] bg-[#0A1628] px-3 text-[11px] font-semibold text-[#B8C7DB] outline-none transition-colors focus:border-[#7C3AED]">
-              <option>Danube Properties - Lawnz Residences</option>
-              <option>Danube Properties - Bayz 102</option>
-              <option>Reportage - Verdana Tower</option>
+            <select
+              value={selectedDataset.id}
+              onChange={event => switchProject(event.target.value as ProjectCommandProjectId)}
+              className="h-8 rounded-lg border border-[rgba(46,127,255,0.22)] bg-[#0A1628] px-3 text-[11px] font-semibold text-[#B8C7DB] outline-none transition-colors focus:border-[#7C3AED]"
+            >
+              {projectOptions.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
             </select>
-            <button className="h-8 rounded-lg border border-[#7C3AED]/45 bg-[#7C3AED] px-3 text-[11px] font-bold text-white shadow-lg shadow-violet-900/20 transition-colors hover:bg-[#6D28D9]">
-              Run AI Forecast
+            <button onClick={() => setAddProjectOpen(true)} className="flex h-8 items-center gap-1.5 rounded-lg border border-[#7C3AED]/45 bg-[#7C3AED] px-3 text-[11px] font-bold text-white shadow-lg shadow-violet-900/20 transition-colors hover:bg-[#6D28D9]">
+              <Plus size={13} />
+              Add Project
             </button>
           </div>
         </div>
@@ -93,10 +115,26 @@ export function ProjectCommand() {
       <div className="min-h-0 flex-1 overflow-hidden">
         {screen === 'overview' && <CommandCenter goTo={goTo} />}
         {screen === 'programme' && <Programme />}
+        {screen === 'stagegates' && <StageGates onToast={onToast} />}
         {screen === 'cost' && <CostIntelligence />}
         {screen === 'risk' && <RiskCommand />}
+        {screen === 'obligations' && <ObligationsRegister onToast={onToast} />}
+        {screen === 'evidence' && <EvidenceRepository onToast={onToast} />}
         {screen === 'forecast' && <AIForecast />}
       </div>
+
+      <AnimatePresence>
+        {addProjectOpen && (
+          <AddProjectModal
+            onClose={() => setAddProjectOpen(false)}
+            onToast={onToast}
+            onCreate={dataset => {
+              addProjectCommandDataset(dataset);
+              goTo('overview');
+            }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

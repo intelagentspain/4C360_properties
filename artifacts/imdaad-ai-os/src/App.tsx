@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { TopBar } from '@/components/layout/TopBar';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { StrategicView } from '@/components/strategic/StrategicView';
@@ -102,6 +102,10 @@ function App() {
 
   const handleSetPerspective = (p: Perspective) => {
     setPerspective(p);
+    if (window.location.pathname.startsWith('/projectcommand')) {
+      window.history.pushState({}, '', '/');
+      setPathVersion(current => current + 1);
+    }
     if (p === 'strategic') setStrategicPage('allclients');
   };
 
@@ -231,20 +235,17 @@ function App() {
               onToast={msg => addToast(msg, 'info')}
             />
             <main className="flex-1 overflow-hidden relative">
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={perspective}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.2, ease: 'easeInOut' }}
-                  className="absolute inset-0 flex flex-col"
-                >
-                  {perspective === 'strategic'  && <StrategicView key={pathVersion} onToast={addToast} page={effectiveStrategicPage} onClientSelect={handleClientSelect} selectedClientId={selectedClientId} onNavigateToIncidents={handleNavigateToIncidents} onNavigateToCommand={handleNavigateToCommand} incidentsClientId={incidentsClientId} onNavigateToIncident={handleNavigateToIncident} initialIncidentId={initialIncidentId} onInitialIncidentHandled={() => setInitialIncidentId(undefined)} onNavigateToTasks={handleNavigateToTasks} onMarkPPMCreated={handleMarkPPMCreated} ppmCreatedTasks={ppmCreatedTasks} prefilledTask={prefilledTask} onPrefilledTaskConsumed={() => setPrefilledTask(null)} />}
-                  {perspective === 'operational' && <OperationalView onToast={addToast} />}
-                  {perspective === 'client'      && <ClientView onToast={addToast} />}
-                </motion.div>
-              </AnimatePresence>
+              <motion.div
+                key={perspective}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.18, ease: 'easeInOut' }}
+                className="absolute inset-0 flex flex-col"
+              >
+                {perspective === 'strategic'  && <StrategicView key={pathVersion} onToast={addToast} page={effectiveStrategicPage} onClientSelect={handleClientSelect} selectedClientId={selectedClientId} onNavigateToIncidents={handleNavigateToIncidents} onNavigateToCommand={handleNavigateToCommand} incidentsClientId={incidentsClientId} onNavigateToIncident={handleNavigateToIncident} initialIncidentId={initialIncidentId} onInitialIncidentHandled={() => setInitialIncidentId(undefined)} onNavigateToTasks={handleNavigateToTasks} onMarkPPMCreated={handleMarkPPMCreated} ppmCreatedTasks={ppmCreatedTasks} prefilledTask={prefilledTask} onPrefilledTaskConsumed={() => setPrefilledTask(null)} />}
+                {perspective === 'operational' && <OperationalView onToast={addToast} />}
+                {perspective === 'client'      && <ClientView onToast={addToast} />}
+              </motion.div>
             </main>
           </>
         )}

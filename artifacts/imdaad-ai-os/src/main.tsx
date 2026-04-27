@@ -5,6 +5,7 @@ import { ReportPage } from "./pages/ReportPage";
 import { FieldPortal } from "./pages/FieldPortal";
 import { FieldJobDeepLink } from "./pages/FieldJobDeepLink";
 import { LoginPage } from "./components/auth/LoginPage";
+import { FieldOpsCapture } from "./modules/fieldops/FieldOpsCapture";
 import { IncidentProvider, useIncidents } from "./context/IncidentContext";
 import { NotificationProvider } from "./context/NotificationContext";
 import { MemberProfilesProvider } from "./context/MemberProfilesContext";
@@ -44,6 +45,7 @@ function Root() {
   const isScan = path.startsWith('/scan/');
   const isReport = path === '/report' || path === '/report/';
   const isField = path === '/field' || path === '/field/' || path.startsWith('/field/');
+  const fieldOpsCaptureMatch = path.match(/^\/fieldops\/survey\/([^/]+)\/capture/);
   const isLogin = path === '/login' || path === '/login/';
 
   if (isLogin) {
@@ -64,6 +66,10 @@ function Root() {
     const params = new URLSearchParams(window.location.search);
     const memberToken = params.get('member') ?? undefined;
     return <ReportPage memberToken={memberToken} />;
+  }
+
+  if (fieldOpsCaptureMatch) {
+    return <FieldOpsCapture surveyId={fieldOpsCaptureMatch[1]} />;
   }
 
   if (isField) {

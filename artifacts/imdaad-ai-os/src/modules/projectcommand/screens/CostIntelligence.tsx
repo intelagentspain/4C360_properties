@@ -1,22 +1,7 @@
-import { Area, Bar, BarChart, CartesianGrid, Cell, ComposedChart, Line, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { evmSummary } from '../data/costs';
-import { aiContent } from '../data/ai-responses';
-import { EVMCards } from '../components/EVMCards';
-import { SCurveChart } from '../components/SCurveChart';
+import { Bar, CartesianGrid, Cell, ComposedChart, Line, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { AIPanel } from '../components/AIPanel';
-
-const derived = [
-  { label: 'CPI', value: evmSummary.cpi.toFixed(2), color: '#D97706' },
-  { label: 'SPI', value: evmSummary.spi.toFixed(2), color: '#D97706' },
-  { label: 'EAC AI', value: `AED ${evmSummary.eac}M`, color: '#7C3AED' },
-  { label: 'TCPI', value: evmSummary.tcpi.toFixed(2), color: '#00B894' },
-];
-
-const cashflow = aiContent.costInsights.cashflowForecast.labels.map((month, index) => {
-  const income = aiContent.costInsights.cashflowForecast.income[index];
-  const outflow = aiContent.costInsights.cashflowForecast.outflow[index];
-  return { month, income, outflow, net: income - outflow };
-});
+import { CostIntelligenceFrame } from '../components/CostIntelligenceFrame';
+import { useSelectedProjectCommandData } from '../useProjectCommandData';
 
 const breakdown = [
   { name: 'Substructure', value: 45, color: '#C8A020' },
@@ -27,14 +12,25 @@ const breakdown = [
 ];
 
 export function CostIntelligence() {
+  const { aiContent, evmSummary } = useSelectedProjectCommandData();
+  const derived = [
+    { label: 'CPI', value: evmSummary.cpi.toFixed(2), color: evmSummary.cpi < 1 ? '#D97706' : '#00B894' },
+    { label: 'SPI', value: evmSummary.spi.toFixed(2), color: evmSummary.spi < 1 ? '#D97706' : '#00B894' },
+    { label: 'EAC AI', value: `AED ${evmSummary.eac}M`, color: '#7C3AED' },
+    { label: 'TCPI', value: evmSummary.tcpi.toFixed(2), color: evmSummary.tcpi > 1 ? '#D97706' : '#00B894' },
+  ];
+  const cashflow = aiContent.costInsights.cashflowForecast.labels.map((month, index) => {
+    const income = aiContent.costInsights.cashflowForecast.income[index];
+    const outflow = aiContent.costInsights.cashflowForecast.outflow[index];
+    return { month, income, outflow, net: income - outflow };
+  });
   const pending = aiContent.costInsights.changeOrders
     .filter(order => order.status === 'pending')
     .reduce((total, order) => total + order.value, 0);
 
   return (
     <div className="custom-scrollbar h-full overflow-x-hidden overflow-y-auto px-5 py-4 text-[#EEF3FA]">
-      <EVMCards />
-      <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {derived.map(item => (
           <div key={item.label} className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-3">
             <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#7A94B4]">{item.label}</div>
@@ -43,13 +39,9 @@ export function CostIntelligence() {
         ))}
       </div>
 
-      <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_360px]">
+      <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
         <div className="space-y-4">
-          <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
-            <h2 className="mb-3 text-lg font-black" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>S-curve and Earned Value</h2>
-            <SCurveChart height={280} detailed />
-            <div className="mt-3 rounded-xl border border-[#D92B1C]/30 bg-[#D92B1C]/10 p-3 text-[12px] font-bold text-red-200">Overrun band: +6.4% · EAC AED 298M · VAC -AED 18M</div>
-          </section>
+          <CostIntelligenceFrame />
           <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
             <h2 className="mb-3 text-lg font-black" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Cashflow Forecast</h2>
             <div className="h-[250px]">
@@ -77,6 +69,17 @@ export function CostIntelligence() {
               ))}
             </div>
           </AIPanel>
+          <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
+            <h3 className="mb-3 text-sm font-black" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Top Cost Drivers</h3>
+            <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+              {aiContent.costInsights.topCostDrivers.map(driver => (
+                <div key={driver.item} className="rounded-lg border border-[rgba(46,127,255,0.12)] bg-[#0A1628] px-3 py-3">
+                  <span className="block text-[12px] leading-4 text-[#B8C7DB]">{driver.item}</span>
+                  <span className="mt-2 block font-mono text-[12px] font-bold text-[#EEF3FA]">AED {driver.value}M</span>
+                </div>
+              ))}
+            </div>
+          </section>
         </div>
         <aside className="space-y-4">
           <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
@@ -110,17 +113,6 @@ export function CostIntelligence() {
               ))}
             </div>
             <div className="mt-3 rounded-lg border border-[#D97706]/30 bg-[#D97706]/12 p-3 text-[12px] font-bold text-amber-200">Pending exposure: AED {(pending / 1_000_000).toFixed(2)}M</div>
-          </section>
-          <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
-            <h3 className="mb-3 text-sm font-black" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Top Cost Drivers</h3>
-            <div className="space-y-2">
-              {aiContent.costInsights.topCostDrivers.map(driver => (
-                <div key={driver.item} className="flex items-center justify-between gap-3 rounded-lg bg-[#0A1628] px-3 py-2">
-                  <span className="text-[12px] text-[#B8C7DB]">{driver.item}</span>
-                  <span className="font-mono text-[11px] font-bold text-[#EEF3FA]">AED {driver.value}M</span>
-                </div>
-              ))}
-            </div>
           </section>
         </aside>
       </div>

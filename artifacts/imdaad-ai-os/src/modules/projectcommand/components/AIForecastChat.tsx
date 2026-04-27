@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Send, Sparkles } from 'lucide-react';
 import { streamText } from '@/lib/aiSimulator';
-import { aiContent } from '../data/ai-responses';
+import type { ProjectCommandAIContent, ProjectCommandProject } from '../data/portfolio';
+import { useSelectedProjectCommandData } from '../useProjectCommandData';
 
 type ChatMessage = {
   id: string;
@@ -21,18 +22,19 @@ function id() {
   return Math.random().toString(36).slice(2, 9);
 }
 
-function matchResponse(query: string) {
+function matchResponse(query: string, aiContent: ProjectCommandAIContent, project: ProjectCommandProject) {
   const lower = query.toLowerCase();
   const match = intentMap.find(intent => intent.keywords.some(keyword => lower.includes(keyword)));
   if (match) return aiContent.askAI.queries[match.responseIndex];
   return {
     question: query,
-    answer: "Based on the current programme, cost, and risk data for Lawnz Residences, I don't have a pre-computed answer for that specific question. In the full platform, this query would draw on live data from all connected modules. Key context: completion is 43%, CPI is 0.91, and the critical path has 21 days of float.",
+    answer: `Based on the current programme, cost, and risk data for ${project.name}, I don't have a pre-computed answer for that specific question. In the full platform, this query would draw on live data from all connected modules. Key context: completion is ${project.completion}%, CPI is ${project.cpi.toFixed(2)}, and the critical path has ${project.floatRemaining} days of float.`,
     sources: ['ProjectCommand demo model'],
   };
 }
 
 export function AIForecastChat() {
+  const { aiContent, project } = useSelectedProjectCommandData();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
@@ -56,6 +58,8 @@ export function AIForecastChat() {
   useEffect(() => {
     let cancelled = false;
     let delay = 250;
+    setMessages([]);
+    cleanupRef.current?.();
     aiContent.askAI.queries.forEach(query => {
       window.setTimeout(() => {
         if (cancelled) return;
@@ -68,12 +72,12 @@ export function AIForecastChat() {
       cancelled = true;
       cleanupRef.current?.();
     };
-  }, []);
+  }, [aiContent]);
 
   const send = () => {
     const trimmed = input.trim();
     if (!trimmed || busy) return;
-    const response = matchResponse(trimmed);
+    const response = matchResponse(trimmed, aiContent, project);
     setMessages(current => [...current, { id: id(), role: 'user', content: trimmed }]);
     setInput('');
     appendStreamedAnswer(response.answer, response.sources);

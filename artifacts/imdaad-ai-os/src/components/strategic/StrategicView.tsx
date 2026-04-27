@@ -179,7 +179,7 @@ export function StrategicView({ onToast, page, onClientSelect, selectedClientId,
         )}
         {page === 'allclients'  && <AllClients    onToast={onToast} onClientSelect={onClientSelect} onNavigateToIncidents={onNavigateToIncidents} onNavigateToCommand={onNavigateToCommand} />}
         {page === 'team'        && <Team          onToast={onToast} />}
-        {page === 'projectcommand' && <ProjectCommand />}
+        {page === 'projectcommand' && <ProjectCommand onToast={onToast} />}
       </motion.div>
     </AnimatePresence>
   );

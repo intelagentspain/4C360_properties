@@ -2,7 +2,7 @@ import {
   Map, AlertTriangle, CheckSquare, Calendar,
   Camera, BarChart2, Settings, ClipboardList, Scan, ListChecks,
   Package, Image, Home, Clock, History, Database, PlayCircle, Users, LayoutGrid, ShieldCheck,
-  BriefcaseBusiness,
+  BriefcaseBusiness, Bot, ClipboardCheck, Smartphone,
 } from 'lucide-react';
 import type { Perspective, StrategicPage } from '@/App';
 
@@ -31,12 +31,14 @@ const strategicItems: NavItem[] = [
 ];
 
 const operationalItems: NavItem[] = [
-  { icon: ClipboardList, label: 'My Task',     active: true },
-  { icon: Scan,          label: 'Smart Scan',  active: true, scanLink: true },
-  { icon: ListChecks,    label: 'Checklist',   active: true },
-  { icon: Package,       label: 'Parts & PO',  active: true },
-  { icon: Image,         label: 'Evidence' },
-  { icon: Settings,      label: 'Settings' },
+  { icon: Smartphone,     label: 'FieldOps',    active: true },
+  { icon: ClipboardList,  label: 'Surveys',     active: true },
+  { icon: Users,          label: 'Assignments', active: true },
+  { icon: ClipboardCheck, label: 'Tracking',    active: true },
+  { icon: ListChecks,     label: 'Templates',   active: true },
+  { icon: Bot,            label: 'AI Assist',   active: true },
+  { icon: Scan,           label: 'Smart Scan',  active: true, scanLink: true },
+  { icon: Settings,       label: 'Settings' },
 ];
 
 const clientItems: NavItem[] = [
@@ -90,6 +92,7 @@ export function Sidebar({ perspective, strategicPage, onStrategicPageChange, onT
         const hasPage  = perspective === 'strategic' && !!item.page;
         const clickable = hasPage || item.active;
         const projectActive = active && item.page === 'projectcommand';
+        const fieldOpsActive = active && perspective === 'operational';
 
         return (
           <div key={i} className="relative group">
@@ -101,6 +104,8 @@ export function Sidebar({ perspective, strategicPage, onStrategicPageChange, onT
                 active
                   ? projectActive
                     ? 'bg-[#7C3AED] text-white shadow-lg shadow-violet-500/30'
+                    : fieldOpsActive
+                    ? 'bg-[#E11D2E] text-white shadow-lg shadow-red-500/25'
                     : 'bg-[#2E7FFF] text-white shadow-lg shadow-blue-500/30'
                   : clickable
                   ? 'text-[#7A94B4] hover:bg-white/5 hover:text-[#EEF3FA] cursor-pointer'

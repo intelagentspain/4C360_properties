@@ -27,10 +27,46 @@ const profileActions = [
   { label: 'Preferences', sub: 'Theme, language, timezone and notifications', icon: SlidersHorizontal },
 ];
 
+function ToggleSwitch({
+  checked,
+  onChange,
+  label,
+}: {
+  checked: boolean;
+  onChange: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onChange}
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      className={`relative flex h-6 w-11 shrink-0 items-center rounded-full border p-0.5 transition-colors ${
+        checked ? 'border-emerald-400/45 bg-emerald-400/22' : 'border-slate-500/35 bg-slate-700/45'
+      }`}
+    >
+      <span
+        className={`h-5 w-5 rounded-full shadow-sm transition-transform ${
+          checked ? 'translate-x-5 bg-white' : 'translate-x-0 bg-[#8BA1BD]'
+        }`}
+      />
+    </button>
+  );
+}
+
 export function ProfileMenu({ open, onClose }: Props) {
   const [available, setAvailable] = useState(true);
   const [mfaEnabled, setMfaEnabled] = useState(true);
   const [compactMode, setCompactMode] = useState(false);
+
+  const handleSignOut = () => {
+    sessionStorage.removeItem('4c360-auth-status');
+    localStorage.removeItem('4c360-auth-status');
+    const base = (import.meta.env.BASE_URL ?? '/').replace(/\/$/, '');
+    window.location.assign(`${base}/login`);
+  };
 
   return (
     <AnimatePresence>
@@ -120,15 +156,7 @@ export function ProfileMenu({ open, onClose }: Props) {
                 ].map(row => (
                   <div key={row.label} className="flex items-center justify-between border-t border-white/5 py-2 first:border-t-0">
                     <span className="text-[12px] text-[#B8C7DB]">{row.label}</span>
-                    <button
-                      onClick={() => row.setter(!row.value)}
-                      className={`relative h-6 w-11 rounded-full border transition-colors ${
-                        row.value ? 'border-emerald-400/35 bg-emerald-400/20' : 'border-slate-500/30 bg-slate-600/20'
-                      }`}
-                      aria-pressed={row.value}
-                    >
-                      <span className={`absolute top-0.5 h-4.5 w-4.5 rounded-full bg-white transition-transform ${row.value ? 'translate-x-5' : 'translate-x-0.5'}`} />
-                    </button>
+                    <ToggleSwitch checked={row.value} onChange={() => row.setter(!row.value)} label={row.label} />
                   </div>
                 ))}
               </div>
@@ -149,7 +177,11 @@ export function ProfileMenu({ open, onClose }: Props) {
               <button className="text-[11px] font-bold text-[#2E7FFF] transition-colors hover:text-blue-300">
                 Open full profile
               </button>
-              <button className="flex items-center gap-2 text-[11px] font-bold text-red-300 transition-colors hover:text-red-200">
+              <button
+                type="button"
+                onClick={handleSignOut}
+                className="flex items-center gap-2 text-[11px] font-bold text-red-300 transition-colors hover:text-red-200"
+              >
                 <LogOut size={14} />
                 Sign out
               </button>

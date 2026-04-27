@@ -1,20 +1,21 @@
 import { CalendarDays } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, ReferenceLine, ResponsiveContainer, XAxis, YAxis } from 'recharts';
-import { aiContent, type ScenarioKey } from '../data/ai-responses';
+import type { ScenarioKey } from '../data/ai-responses';
 import { ScenarioCard } from '../components/ScenarioCard';
 import { AIForecastChat } from '../components/AIForecastChat';
 import { setProjectCommandState, useProjectCommandStore } from '../state/projectCommandStore';
-
-const timeline = [
-  { label: 'Today', days: 0 },
-  { label: 'Optimistic', days: 275 },
-  { label: 'Base', days: 324 },
-  { label: 'Pessimistic', days: 412 },
-];
+import { useSelectedProjectCommandData } from '../useProjectCommandData';
 
 export function AIForecast() {
+  const { aiContent, project } = useSelectedProjectCommandData();
   const { activeScenario } = useProjectCommandStore();
   const scenario = aiContent.scenarios[activeScenario];
+  const timeline = [
+    { label: 'Today', days: 0 },
+    { label: 'Optimistic', days: project.daysToHandover + aiContent.scenarios.optimistic.programmeSlip },
+    { label: 'Base', days: project.daysToHandover + aiContent.scenarios.base.programmeSlip },
+    { label: 'Pessimistic', days: project.daysToHandover + aiContent.scenarios.pessimistic.programmeSlip },
+  ];
 
   return (
     <div className="custom-scrollbar h-full overflow-x-hidden overflow-y-auto px-5 py-4 text-[#EEF3FA]">
@@ -43,7 +44,7 @@ export function AIForecast() {
                   <CartesianGrid stroke="rgba(46,127,255,0.18)" strokeDasharray="3 5" />
                   <XAxis type="number" tick={{ fill: '#7A94B4', fontSize: 10 }} />
                   <YAxis type="category" dataKey="label" tick={{ fill: '#B8C7DB', fontSize: 11 }} width={92} />
-                  <ReferenceLine x={284} stroke="#C8A020" strokeDasharray="4 4" label={{ value: 'Original handover', fill: '#C8A020', fontSize: 10 }} />
+                  <ReferenceLine x={project.daysToHandover} stroke="#C8A020" strokeDasharray="4 4" label={{ value: 'Original handover', fill: '#C8A020', fontSize: 10 }} />
                   <Bar dataKey="days" fill="#7C3AED" radius={[0, 8, 8, 0]} />
                 </BarChart>
               </ResponsiveContainer>

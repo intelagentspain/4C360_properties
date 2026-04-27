@@ -1,19 +1,12 @@
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { risks, type Risk } from '../data/risks';
-import { aiContent } from '../data/ai-responses';
+import type { Risk } from '../data/risks';
 import { RiskMatrix } from '../components/RiskMatrix';
 import { MonteCarlo } from '../components/MonteCarlo';
 import { AIPanel } from '../components/AIPanel';
 import { setProjectCommandState, useProjectCommandStore } from '../state/projectCommandStore';
+import { useSelectedProjectCommandData } from '../useProjectCommandData';
 
 const severities: Risk['severity'][] = ['critical', 'high', 'medium', 'low'];
-const trend = aiContent.riskInsights.riskTrend.labels.map((month, index) => ({
-  month,
-  critical: aiContent.riskInsights.riskTrend.critical[index],
-  high: aiContent.riskInsights.riskTrend.high[index],
-  medium: aiContent.riskInsights.riskTrend.medium[index],
-  low: aiContent.riskInsights.riskTrend.low[index],
-}));
 
 const severityClass: Record<Risk['severity'], string> = {
   critical: 'bg-[#D92B1C]/15 text-red-200 border-[#D92B1C]/35',
@@ -23,7 +16,15 @@ const severityClass: Record<Risk['severity'], string> = {
 };
 
 export function RiskCommand() {
+  const { aiContent, risks } = useSelectedProjectCommandData();
   const { selectedRisk } = useProjectCommandStore();
+  const trend = aiContent.riskInsights.riskTrend.labels.map((month, index) => ({
+    month,
+    critical: aiContent.riskInsights.riskTrend.critical[index],
+    high: aiContent.riskInsights.riskTrend.high[index],
+    medium: aiContent.riskInsights.riskTrend.medium[index],
+    low: aiContent.riskInsights.riskTrend.low[index],
+  }));
 
   return (
     <div className="custom-scrollbar h-full overflow-x-hidden overflow-y-auto px-5 py-4 text-[#EEF3FA]">
@@ -38,13 +39,13 @@ export function RiskCommand() {
           );
         })}
       </div>
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_380px]">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px] 2xl:grid-cols-[minmax(0,1fr)_380px]">
         <div className="space-y-4">
           <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
             <h2 className="mb-3 text-lg font-black" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Probability x Impact Matrix</h2>
             <RiskMatrix risks={risks} />
           </section>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid gap-4 2xl:grid-cols-2">
             <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
               <h3 className="mb-3 text-sm font-black" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Risk Trend</h3>
               <div className="h-[240px]">
@@ -76,7 +77,7 @@ export function RiskCommand() {
         <aside className="space-y-4">
           <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
             <h3 className="mb-3 text-sm font-black" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Risk Register</h3>
-            <div className="custom-scrollbar max-h-[520px] space-y-2 overflow-y-auto pr-1">
+            <div className="custom-scrollbar max-h-[470px] space-y-2 overflow-y-auto pr-1">
               {risks.map(risk => (
                 <button key={risk.id} onClick={() => setProjectCommandState({ selectedRisk: risk })} className="w-full rounded-lg border border-[rgba(46,127,255,0.18)] bg-[#0A1628] p-3 text-left transition-colors hover:border-[rgba(46,127,255,0.35)]">
                   <div className="mb-2 flex items-center justify-between gap-2">
@@ -84,7 +85,7 @@ export function RiskCommand() {
                     <span className="font-mono text-[11px] text-[#B8C7DB]">{risk.probability} x {risk.impact} = {risk.score}</span>
                   </div>
                   <div className="text-[12px] font-bold text-[#EEF3FA]">{risk.title}</div>
-                  <div className="mt-1 text-[11px] text-[#7A94B4]">{risk.owner} · {risk.status}</div>
+                  <div className="mt-1 text-[11px] text-[#7A94B4]">{risk.owner} - {risk.status}</div>
                   {selectedRisk?.id === risk.id && (
                     <div className="mt-3 border-t border-[rgba(46,127,255,0.18)] pt-3 text-[11px] leading-5 text-[#B8C7DB]">
                       {risk.mitigation}

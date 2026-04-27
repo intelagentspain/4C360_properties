@@ -1,42 +1,142 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { Check, ChevronDown } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
-import { phases } from '../data/phases';
-import { aiContent } from '../data/ai-responses';
 import { GanttChart } from '../components/GanttChart';
 import { AIPanel } from '../components/AIPanel';
+import { useSelectedProjectCommandData } from '../useProjectCommandData';
 
-const delayData = Object.entries(aiContent.programmeInsights.delayProbabilities).map(([phase, probability]) => ({ phase, probability }));
-const resourceData = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug'].map((month, index) => ({ month, workers: [72, 96, 128, 164, 210, 246, 292, 318][index] }));
+function formatMonthRange(startDate: string, endDate: string) {
+  const formatter = new Intl.DateTimeFormat('en-GB', { month: 'short', year: 'numeric' });
+  return `${formatter.format(new Date(startDate))} - ${formatter.format(new Date(endDate))}`;
+}
+
+function formatShortDate(value: string) {
+  return new Date(value).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+}
 
 export function Programme() {
+  const { aiContent, phases, project } = useSelectedProjectCommandData();
   const [zoom, setZoom] = useState<'Week' | 'Month' | 'Quarter'>('Month');
   const [baseline, setBaseline] = useState(true);
   const [critical, setCritical] = useState(true);
+  const [contractorOpen, setContractorOpen] = useState(false);
+  const [selectedContractors, setSelectedContractors] = useState<string[]>(['All contractors']);
   const [whatIfOpen, setWhatIfOpen] = useState(false);
   const [delayDays, setDelayDays] = useState(14);
+  const contractorOptions = useMemo(() => ['All contractors', project.mainContractor, 'MEP Contractor', 'Facade Vendor', 'Specialist Subcontractor'], [project.mainContractor]);
+  const allContractorsSelected = selectedContractors.includes('All contractors') || selectedContractors.length === 0;
+  const activeContractors = allContractorsSelected ? [] : selectedContractors.filter(contractor => contractor !== 'All contractors');
+  const contractorLabel = allContractorsSelected ? 'All contractors' : activeContractors.length === 1 ? activeContractors[0] : `${activeContractors.length} contractors selected`;
+  const delayData = Object.entries(aiContent.programmeInsights.delayProbabilities).map(([phase, probability]) => ({ phase, probability }));
+  const resourceData = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug'].map((month, index) => ({ month, workers: Math.round((project.floors * 2.2) + [72, 96, 128, 164, 210, 246, 292, 318][index] * (project.completion / 62)) }));
+
+  useEffect(() => {
+    setSelectedContractors(['All contractors']);
+    setContractorOpen(false);
+  }, [project.id]);
+
+  const toggleContractor = (contractor: string) => {
+    if (contractor === 'All contractors') {
+      setSelectedContractors(['All contractors']);
+      return;
+    }
+
+    setSelectedContractors(current => {
+      const currentSpecific = current.filter(item => item !== 'All contractors');
+      const next = currentSpecific.includes(contractor)
+        ? currentSpecific.filter(item => item !== contractor)
+        : [...currentSpecific, contractor];
+
+      return next.length ? next : ['All contractors'];
+    });
+  };
 
   return (
     <div className="custom-scrollbar h-full overflow-x-hidden overflow-y-auto px-5 py-4 text-[#EEF3FA]">
       <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-3">
-        <div className="rounded-lg border border-[rgba(46,127,255,0.18)] bg-[#0A1628] px-3 py-2 text-[12px] font-bold text-[#B8C7DB]">Jan 2024 - Apr 2025</div>
+        <div className="rounded-lg border border-[rgba(46,127,255,0.18)] bg-[#0A1628] px-3 py-2 text-[12px] font-bold text-[#B8C7DB]">{formatMonthRange(project.startDate, project.targetHandover)}</div>
         <div className="flex rounded-lg border border-[rgba(46,127,255,0.18)] bg-[#0A1628] p-1">
           {(['Week', 'Month', 'Quarter'] as const).map(item => <button key={item} onClick={() => setZoom(item)} className={`rounded-md px-3 py-1.5 text-[11px] font-bold ${zoom === item ? 'bg-[#7C3AED]/25 text-[#C4B5FD]' : 'text-[#7A94B4]'}`}>{item}</button>)}
         </div>
         <button onClick={() => setBaseline(current => !current)} className={`rounded-lg border px-3 py-2 text-[11px] font-bold ${baseline ? 'border-[#7C3AED]/40 bg-[#7C3AED]/15 text-[#C4B5FD]' : 'border-[rgba(46,127,255,0.18)] text-[#7A94B4]'}`}>Baseline {baseline ? 'ON' : 'OFF'}</button>
         <button onClick={() => setCritical(current => !current)} className={`rounded-lg border px-3 py-2 text-[11px] font-bold ${critical ? 'border-[#D92B1C]/40 bg-[#D92B1C]/15 text-red-200' : 'border-[rgba(46,127,255,0.18)] text-[#7A94B4]'}`}>Critical Path {critical ? 'ON' : 'OFF'}</button>
-        <select className="rounded-lg border border-[rgba(46,127,255,0.18)] bg-[#0A1628] px-3 py-2 text-[12px] font-bold text-[#B8C7DB] outline-none">
-          {['All contractors', 'Al Habtoor', 'Voltas', 'Arabian WP', 'Emirates Glass'].map(item => <option key={item}>{item}</option>)}
-        </select>
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setContractorOpen(current => !current)}
+            className="flex h-10 min-w-[240px] items-center justify-between gap-3 rounded-lg border border-[rgba(46,127,255,0.18)] bg-[#0A1628] px-3 text-left text-[12px] font-bold text-[#B8C7DB] outline-none transition-colors hover:border-[rgba(46,127,255,0.32)]"
+            aria-haspopup="listbox"
+            aria-expanded={contractorOpen}
+          >
+            <span className="truncate">{contractorLabel}</span>
+            <ChevronDown size={15} className={`shrink-0 transition-transform ${contractorOpen ? 'rotate-180' : ''}`} />
+          </button>
+          <AnimatePresence>
+            {contractorOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.16 }}
+                className="absolute left-0 top-[calc(100%+6px)] z-50 w-[280px] overflow-hidden rounded-xl border border-[rgba(46,127,255,0.24)] bg-[#07111F] p-1 shadow-2xl shadow-black/40"
+                role="listbox"
+                aria-label="Filter by contractors"
+              >
+                {contractorOptions.map(contractor => {
+                  const checked = contractor === 'All contractors'
+                    ? allContractorsSelected
+                    : activeContractors.includes(contractor);
+
+                  return (
+                    <button
+                      key={contractor}
+                      type="button"
+                      onClick={() => toggleContractor(contractor)}
+                      className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-[12px] font-bold transition-colors ${
+                        checked ? 'bg-[#1D7CFF]/18 text-[#DDE6F8]' : 'text-[#9EB2CE] hover:bg-white/5 hover:text-[#EEF3FA]'
+                      }`}
+                      role="option"
+                      aria-selected={checked}
+                    >
+                      <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${checked ? 'border-[#7C3AED] bg-[#7C3AED] text-white' : 'border-[#264468] bg-[#0A1628]'}`}>
+                        {checked && <Check size={11} />}
+                      </span>
+                      <span className="truncate">{contractor}</span>
+                    </button>
+                  );
+                })}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.65fr)_minmax(340px,0.9fr)]">
-        <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-lg font-black" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Construction Programme</h2>
-            <span className="rounded-full border border-[rgba(46,127,255,0.35)] bg-[#0A1628] px-3 py-1 text-[11px] font-bold text-[#B8C7DB]">Zoom: {zoom}</span>
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(340px,0.9fr)]">
+        <div className="space-y-4">
+          <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-lg font-black" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Construction Programme</h2>
+              <span className="rounded-full border border-[rgba(46,127,255,0.35)] bg-[#0A1628] px-3 py-1 text-[11px] font-bold text-[#B8C7DB]">Zoom: {zoom}</span>
+            </div>
+            <GanttChart phases={phases} mode="full" showBaseline={baseline} showCriticalPath={critical} showWeather />
+          </section>
+          <div className="grid gap-4 2xl:grid-cols-2">
+            <AIPanel title="Recovery Suggestion">
+              <p className="text-[12px] leading-5 text-[#DDE6F8]">{aiContent.programmeInsights.rescheduleSuggestion}</p>
+            </AIPanel>
+            <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
+              <h3 className="mb-3 text-sm font-black" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Critical Path Focus</h3>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {Object.entries(aiContent.programmeInsights.baselineVariance).map(([phase, days]) => (
+                  <div key={phase} className="rounded-lg border border-[rgba(46,127,255,0.12)] bg-[#0A1628] px-3 py-2">
+                    <div className="text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">{phase}</div>
+                    <div className={`mt-1 font-mono text-[15px] font-black ${days < 0 ? 'text-red-300' : 'text-emerald-300'}`}>{days}d</div>
+                  </div>
+                ))}
+              </div>
+            </section>
           </div>
-          <GanttChart phases={phases} mode="full" showBaseline={baseline} showCriticalPath={critical} showWeather />
-        </section>
+        </div>
         <aside className="sticky top-0 space-y-4 self-start">
           <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
             <h3 className="mb-3 text-sm font-black" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>AI Delay Probability</h3>
@@ -53,17 +153,6 @@ export function Programme() {
             </div>
           </section>
           <AIPanel title="Critical Path Narrative"><p className="text-[12px] leading-5 text-[#DDE6F8]">{aiContent.programmeInsights.criticalPathNarrative}</p></AIPanel>
-          <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
-            <h3 className="mb-3 text-sm font-black" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Baseline Variance</h3>
-            <div className="space-y-2">
-              {Object.entries(aiContent.programmeInsights.baselineVariance).map(([phase, days]) => (
-                <div key={phase} className="flex items-center justify-between rounded-lg bg-[#0A1628] px-3 py-2 text-[12px]">
-                  <span className="capitalize text-[#B8C7DB]">{phase}</span>
-                  <span className={days < 0 ? 'font-mono font-bold text-red-300' : 'font-mono font-bold text-emerald-300'}>{days}d</span>
-                </div>
-              ))}
-            </div>
-          </section>
           <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
             <h3 className="mb-3 text-sm font-black" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Resource Histogram</h3>
             <div className="h-[150px]">
@@ -84,7 +173,7 @@ export function Programme() {
             <input type="range" min={0} max={60} value={delayDays} onChange={event => setDelayDays(Number(event.target.value))} className="mt-6 w-full accent-[#7C3AED]" />
             <div className="mt-5 rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
               <div className="text-[11px] font-bold uppercase text-[#7A94B4]">New handover date</div>
-              <div className="mt-2 text-2xl font-black text-[#D92B1C]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>18 Jun + {delayDays}d</div>
+              <div className="mt-2 text-2xl font-black text-[#D92B1C]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{formatShortDate(project.forecastCompletion)} + {delayDays}d</div>
               <div className="mt-3 text-[12px] text-[#B8C7DB]">Estimated cost impact: AED {(delayDays * 0.11).toFixed(1)}M</div>
             </div>
             <AIPanel title="AI Recovery Suggestion"><p className="text-[12px] leading-5 text-[#DDE6F8]">{aiContent.programmeInsights.rescheduleSuggestion}</p></AIPanel>

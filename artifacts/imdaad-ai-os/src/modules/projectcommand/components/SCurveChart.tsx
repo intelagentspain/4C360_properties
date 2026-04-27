@@ -1,6 +1,6 @@
 import { CartesianGrid, ComposedChart, Legend, Line, ReferenceDot, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { NameType, ValueType } from 'recharts/types/component/DefaultTooltipContent';
-import { costSeries } from '../data/costs';
+import { useSelectedProjectCommandData } from '../useProjectCommandData';
 
 type ChartDatum = {
   month: string;
@@ -10,15 +10,17 @@ type ChartDatum = {
   forecast: number | null;
 };
 
-const data: ChartDatum[] = costSeries.labels.map((month, index) => ({
-  month,
-  planned: costSeries.planned[index],
-  actual: costSeries.actual[index],
-  earnedValue: costSeries.earnedValue[index],
-  forecast: costSeries.forecast[index],
-}));
-
 export function SCurveChart({ height = 210, detailed = false }: { height?: number; detailed?: boolean }) {
+  const { costSeries, evmSummary } = useSelectedProjectCommandData();
+  const data: ChartDatum[] = costSeries.labels.map((month, index) => ({
+    month,
+    planned: costSeries.planned[index],
+    actual: costSeries.actual[index],
+    earnedValue: costSeries.earnedValue[index],
+    forecast: costSeries.forecast[index],
+  }));
+  const forecastPoint = [...data].reverse().find(item => item.forecast !== null);
+
   return (
     <div className="h-full min-h-[180px] w-full">
       <ResponsiveContainer width="100%" height={height}>
@@ -35,7 +37,7 @@ export function SCurveChart({ height = 210, detailed = false }: { height?: numbe
           />
           {detailed && <Legend wrapperStyle={{ color: '#B8C7DB', fontSize: 11 }} />}
           <ReferenceLine x={costSeries.labels[costSeries.todayIndex]} stroke="#C8A020" strokeDasharray="4 4" label={{ value: 'Today', fill: '#C8A020', fontSize: 10 }} />
-          <ReferenceDot x="Feb" y={298} r={4} fill="#D92B1C" stroke="#EEF3FA" label={{ value: 'AED 298M', fill: '#EEF3FA', fontSize: 10 }} />
+          {forecastPoint && <ReferenceDot x={forecastPoint.month} y={evmSummary.eac} r={4} fill="#D92B1C" stroke="#EEF3FA" label={{ value: `AED ${evmSummary.eac}M`, fill: '#EEF3FA', fontSize: 10 }} />}
           <Line type="monotone" dataKey="planned" name="Planned" stroke="#C8A020" strokeDasharray="6 4" strokeWidth={2} dot={false} />
           <Line type="monotone" dataKey="actual" name="Actual Spend" stroke="#00B894" strokeWidth={2.4} dot={false} connectNulls={false} />
           <Line type="monotone" dataKey="earnedValue" name="Earned Value" stroke="#7C3AED" strokeWidth={2.4} dot={false} connectNulls={false} />

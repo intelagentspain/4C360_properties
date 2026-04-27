@@ -1,11 +1,16 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { setProjectCommandState } from '../state/projectCommandStore';
+import { useSelectedProjectCommandData } from '../useProjectCommandData';
 
 const layers = ['Progress', 'Tasks', 'Defects'] as const;
 
 export function SiteMapSVG() {
+  const { project } = useSelectedProjectCommandData();
   const [layer, setLayer] = useState<(typeof layers)[number]>('Progress');
+  const secondaryProgress = Math.max(8, Math.round(project.completion * 0.42));
+  const podiumProgress = Math.max(6, Math.round(project.completion * 0.3));
+  const riskLabel = project.healthStatus === 'good' ? 'Watch' : 'Risk';
 
   const setZone = (zone: string) => {
     setProjectCommandState({ selectedZone: zone });
@@ -47,10 +52,10 @@ export function SiteMapSVG() {
       </svg>
       <div className="mt-3 grid grid-cols-4 gap-2">
         {[
-          ['A', '43%', '#00B894'],
-          ['B', '18%', '#C8A020'],
-          ['Podium', '12%', '#7C3AED'],
-          ['B1-B3', 'Risk', '#D92B1C'],
+          ['A', `${project.completion}%`, '#00B894'],
+          ['B', `${secondaryProgress}%`, '#C8A020'],
+          ['Podium', `${podiumProgress}%`, '#7C3AED'],
+          ['Critical', riskLabel, project.healthStatus === 'good' ? '#D97706' : '#D92B1C'],
         ].map(([label, value, color]) => (
           <div key={label} className="rounded-lg border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-2">
             <div className="text-[9px] font-bold uppercase text-[#7A94B4]">{label}</div>

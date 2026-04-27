@@ -5,6 +5,11 @@ import { ProfileMenu } from './ProfileMenu';
 import { useNotifications } from '@/context/NotificationContext';
 
 type Perspective = 'strategic' | 'operational' | 'client';
+const perspectiveLabels: Record<Perspective, string> = {
+  strategic: 'Strategic',
+  operational: 'FieldOps',
+  client: 'Client',
+};
 
 interface Props {
   perspective: Perspective;
@@ -35,12 +40,14 @@ export function TopBar({ perspective, setPerspective }: Props) {
             onClick={() => setPerspective(p)}
             className={`px-4 py-1 rounded-full text-xs font-semibold transition-all duration-150 ${
               perspective === p
-                ? 'bg-[#2E7FFF] text-white shadow-lg shadow-blue-500/30'
+                ? p === 'operational'
+                  ? 'bg-[#E11D2E] text-white shadow-lg shadow-red-500/25'
+                  : 'bg-[#2E7FFF] text-white shadow-lg shadow-blue-500/30'
                 : 'text-[#7A94B4] hover:text-[#EEF3FA]'
             }`}
             style={{ fontFamily: 'DM Sans, sans-serif' }}
           >
-            {p.charAt(0).toUpperCase() + p.slice(1)}
+            {perspectiveLabels[p]}
           </button>
         ))}
       </div>

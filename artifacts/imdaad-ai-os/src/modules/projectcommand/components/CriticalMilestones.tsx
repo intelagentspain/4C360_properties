@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { milestones } from '../data/milestones';
+import { useSelectedProjectCommandData } from '../useProjectCommandData';
 
 export function CriticalMilestones() {
+  const { milestones } = useSelectedProjectCommandData();
   const [expanded, setExpanded] = useState(false);
   const visible = expanded ? milestones : milestones.slice(0, 5);
 

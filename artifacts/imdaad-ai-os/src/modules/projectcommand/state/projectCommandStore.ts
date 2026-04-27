@@ -1,15 +1,20 @@
 import { useSyncExternalStore } from 'react';
 import type { Risk } from '../data/risks';
 import type { ScenarioKey } from '../data/ai-responses';
+import type { ProjectCommandDataset, ProjectCommandProjectId } from '../data/portfolio';
 
 export interface ProjectCommandState {
+  selectedProjectId: ProjectCommandProjectId;
+  createdProjectDatasets: ProjectCommandDataset[];
   activeScenario: ScenarioKey;
   selectedPhaseId: string | null;
   selectedRisk: Risk | null;
   selectedZone: string;
 }
 
-const state: ProjectCommandState = {
+let state: ProjectCommandState = {
+  selectedProjectId: 'lawnz-residences',
+  createdProjectDatasets: [],
   activeScenario: 'base',
   selectedPhaseId: null,
   selectedRisk: null,
@@ -23,7 +28,22 @@ function emit() {
 }
 
 export function setProjectCommandState(patch: Partial<ProjectCommandState>) {
-  Object.assign(state, patch);
+  state = { ...state, ...patch };
+  emit();
+}
+
+export function addProjectCommandDataset(dataset: ProjectCommandDataset) {
+  state = {
+    ...state,
+    selectedProjectId: dataset.id,
+    createdProjectDatasets: [
+      ...state.createdProjectDatasets.filter(existing => existing.id !== dataset.id),
+      dataset,
+    ],
+    activeScenario: 'base',
+    selectedRisk: null,
+    selectedPhaseId: null,
+  };
   emit();
 }
 
