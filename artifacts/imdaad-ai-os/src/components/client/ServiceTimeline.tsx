@@ -145,7 +145,7 @@ export function ServiceTimeline() {
                             <TechAvatar initials="KR" size={9} />
                             <div className="flex-1">
                               <div className="text-[12px] text-[#EEF3FA] font-bold">Karim R.</div>
-                              <div className="text-[10px] text-[#7A94B4]">HVAC Specialist · Imdaad</div>
+                              <div className="text-[10px] text-[#7A94B4]">HVAC Specialist · DevelopmentX</div>
                               <div className="flex items-center gap-1">
                                 {[1,2,3,4,5].map(s => (
                                   <Star key={s} size={9} className="text-amber-400 fill-amber-400" />

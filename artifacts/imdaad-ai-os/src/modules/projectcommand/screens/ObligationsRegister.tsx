@@ -36,7 +36,7 @@ function InfoPair({ label, value }: { label: string; value: string }) {
 function LinkCard({ label, code, title, status }: { label: string; code: string; title: string; status: string }) {
   const high = status === 'High' || status === 'Failed';
   return (
-    <div className="rounded-xl border border-cyan-400/24 bg-[#111318] p-4">
+    <div className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#0A1628] p-4">
       <div className="flex items-center justify-between gap-4">
         <p className="font-mono text-[11px] font-bold text-cyan-300">{code}</p>
         <span className={`text-[11px] font-bold ${high ? 'text-amber-300' : 'text-emerald-300'}`}>{status}</span>
@@ -49,7 +49,7 @@ function LinkCard({ label, code, title, status }: { label: string; code: string;
 
 function ObligationDetail({ obligation, onClose }: { obligation: ProjectObligation; onClose?: () => void }) {
   return (
-    <aside className="custom-scrollbar h-full overflow-y-auto border-l border-[rgba(46,127,255,0.14)] bg-[#0B0D11] p-6">
+    <aside className="custom-scrollbar h-full overflow-y-auto rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#07111F] p-6">
       <div className="mb-5 flex items-start justify-between gap-4">
         <div className="flex flex-wrap items-center gap-2">
           <span className="font-mono text-[12px] font-bold text-cyan-300">{obligation.code}</span>
@@ -152,9 +152,9 @@ export function ObligationsRegister({ onToast }: { onToast?: (message: string, t
   const closeDetail = () => setSelectedCode(null);
 
   return (
-    <div className={`grid h-full min-h-0 bg-[#080A0E] text-[#EEF3FA] ${selected ? 'xl:grid-cols-[minmax(0,1fr)_600px]' : 'xl:grid-cols-1'}`}>
-      <div className="custom-scrollbar min-h-0 overflow-y-auto">
-        <div className="border-b border-[rgba(46,127,255,0.14)] px-6 py-6">
+    <div className={`grid h-full min-h-0 gap-4 text-[#EEF3FA] ${selected ? 'xl:grid-cols-[minmax(0,1fr)_600px]' : 'xl:grid-cols-1'}`}>
+      <div className="custom-scrollbar min-h-0 overflow-y-auto px-5 py-4">
+        <div className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <div className="flex items-center gap-3">
@@ -177,7 +177,7 @@ export function ObligationsRegister({ onToast }: { onToast?: (message: string, t
           </div>
         </div>
 
-        <div className="border-b border-[rgba(46,127,255,0.14)] p-6">
+        <div className="mt-4 rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
           <div className="grid gap-3 lg:grid-cols-[minmax(260px,1fr)_180px_220px]">
             <label className="relative">
               <Search size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#7A94B4]" />
@@ -188,7 +188,7 @@ export function ObligationsRegister({ onToast }: { onToast?: (message: string, t
                   closeDetail();
                 }}
                 placeholder="Search obligations..."
-                className="h-11 w-full rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#111318] pl-11 pr-4 text-[13px] text-[#EEF3FA] outline-none placeholder:text-[#5A6E88] focus:border-cyan-300/70"
+                className="h-11 w-full rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#0A1628] pl-11 pr-4 text-[13px] text-[#EEF3FA] outline-none placeholder:text-[#5A6E88] focus:border-cyan-300/70"
               />
             </label>
             <select
@@ -197,7 +197,7 @@ export function ObligationsRegister({ onToast }: { onToast?: (message: string, t
                 setStatus(event.target.value as 'All Status' | ObligationStatus);
                 closeDetail();
               }}
-              className="h-11 rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#111318] px-4 text-[13px] text-[#DDE6F8] outline-none focus:border-cyan-300/70"
+              className="h-11 rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#0A1628] px-4 text-[13px] text-[#DDE6F8] outline-none focus:border-cyan-300/70"
             >
               {['All Status', 'Overdue', 'Pending', 'Met'].map(item => <option key={item}>{item}</option>)}
             </select>
@@ -207,17 +207,17 @@ export function ObligationsRegister({ onToast }: { onToast?: (message: string, t
                 setProject(event.target.value);
                 closeDetail();
               }}
-              className="h-11 rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#111318] px-4 text-[13px] text-[#DDE6F8] outline-none focus:border-cyan-300/70"
+              className="h-11 rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#0A1628] px-4 text-[13px] text-[#DDE6F8] outline-none focus:border-cyan-300/70"
             >
               {projects.map(item => <option key={item}>{item}</option>)}
             </select>
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="mt-4 overflow-x-auto rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)]">
           <table className="w-full min-w-[1080px] text-left">
             <thead>
-              <tr className="border-b border-[rgba(46,127,255,0.14)] text-[11px] font-black uppercase tracking-wide text-[#5A6E88]">
+              <tr className="border-b border-[rgba(46,127,255,0.14)] bg-[#0A1628]/85 text-[11px] font-black uppercase tracking-wide text-[#5A6E88]">
                 <th className="px-6 py-4">Code</th>
                 <th className="px-4 py-4">Obligation</th>
                 <th className="px-4 py-4">Authority</th>
@@ -235,7 +235,7 @@ export function ObligationsRegister({ onToast }: { onToast?: (message: string, t
                   <tr
                     key={item.code}
                     onClick={() => setSelectedCode(item.code)}
-                    className={`cursor-pointer border-b border-[rgba(46,127,255,0.08)] transition-colors ${active ? 'bg-cyan-400/10' : 'hover:bg-white/[0.035]'}`}
+                    className={`cursor-pointer border-b border-[rgba(46,127,255,0.08)] transition-colors ${active ? 'bg-cyan-400/10' : 'bg-[#0A1628]/55 hover:bg-white/[0.035]'}`}
                   >
                     <td className="px-6 py-5 align-top font-mono text-[13px] font-black text-cyan-300">{item.code}</td>
                     <td className="px-4 py-5 align-top">
@@ -260,7 +260,7 @@ export function ObligationsRegister({ onToast }: { onToast?: (message: string, t
       </div>
 
       {selected && (
-        <div className="min-h-0">
+        <div className="min-h-0 py-4 pr-5">
           <ObligationDetail obligation={selected} onClose={closeDetail} />
         </div>
       )}

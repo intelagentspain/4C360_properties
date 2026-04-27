@@ -421,7 +421,7 @@ function AddStaffModal({ onClose, onToast, clientNames, editMember }: AddStaffMo
                     <input
                       type="email"
                       className={inputCls(!!errors.email)}
-                      placeholder="e.g. ahmed@imdaad.ae"
+                      placeholder="e.g. ahmed@developmentx.ae"
                       value={form.email}
                       onChange={e => setField('email', e.target.value)}
                     />
@@ -586,7 +586,7 @@ function AddStaffModal({ onClose, onToast, clientNames, editMember }: AddStaffMo
                           onClick={() => setWhatsappTarget({
                             recipientName: form.name || 'New Staff Member',
                             recipientPhone: form.whatsapp.trim(),
-                            defaultMessage: `Hi ${form.name || 'there'}, welcome to Imdaad AI-OS! You have been added as ${form.role || 'a team member'}. Please check your email for login credentials.`,
+                            defaultMessage: `Hi ${form.name || 'there'}, welcome to DevelopmentX AI-OS! You have been added as ${form.role || 'a team member'}. Please check your email for login credentials.`,
                           })}
                           className="flex-shrink-0 p-1.5 rounded-lg border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 transition-all"
                         >

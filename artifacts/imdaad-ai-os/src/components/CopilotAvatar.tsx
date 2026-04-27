@@ -641,7 +641,7 @@ export function CopilotAvatar({ perspective, strategicPage, memberMode = false }
                   <AvatarOrb size={32} voiceStatus={voiceStatus} />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm font-semibold text-white leading-none">Imdaad Copilot</p>
+                  <p className="text-sm font-semibold text-white leading-none">DevelopmentX Copilot</p>
                   <p className="text-[11px] text-red-200/85 mt-0.5">
                     {isConnecting ? 'Connecting…' : isSpeaking ? 'Speaking…' : isListening ? 'Listening…' : 'AI Assistant'}
                   </p>
@@ -824,7 +824,7 @@ export function CopilotAvatar({ perspective, strategicPage, memberMode = false }
 
         <motion.button
           onClick={() => setOpen(prev => !prev)}
-          aria-label="Open Imdaad Copilot"
+          aria-label="Open DevelopmentX Copilot"
           whileHover={{ scale: 1.06 }}
           whileTap={{ scale: 0.94 }}
           className="focus:outline-none"

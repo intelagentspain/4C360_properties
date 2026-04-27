@@ -65,7 +65,7 @@ export function LoginScreen({ onLogin, onScanWithoutLogin }: Props) {
         AI
       </div>
       <h1 className="text-[#EEF3FA] text-lg font-bold mb-0.5" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-        Imdaad AI-OS
+        DevelopmentX AI-OS
       </h1>
       <p className="text-[#7A94B4] text-xs mb-4 text-center">Access your jobs, inspections, and AI copilot</p>
 

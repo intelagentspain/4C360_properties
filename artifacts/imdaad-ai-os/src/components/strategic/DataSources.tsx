@@ -142,7 +142,7 @@ function DrawerContent({ source, tab }: { source: DataSource; tab: string }) {
       <div className="space-y-3">
         {[
           { label: 'Environment', value: 'Production' },
-          { label: 'Endpoint', value: source.type === 'API' || source.type === 'External System' ? 'https://api.imdaad.ae/v2/...' : 'N/A — device-based' },
+          { label: 'Endpoint', value: source.type === 'API' || source.type === 'External System' ? 'https://api.developmentx.ae/v2/...' : 'N/A — device-based' },
           { label: 'Auth Method', value: source.type === 'API' ? 'OAuth 2.0 Bearer Token' : source.type === 'IoT' ? 'MQTT + TLS certificate' : 'Webhook signature' },
           { label: 'Protocol', value: source.type === 'IoT' ? 'MQTT v5' : 'HTTPS REST' },
           { label: 'Timeout', value: '30 seconds' },

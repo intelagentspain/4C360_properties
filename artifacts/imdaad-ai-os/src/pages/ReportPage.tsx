@@ -178,10 +178,10 @@ export function ReportPage({ memberToken }: ReportPageProps) {
             </div>
             <div>
               <div className="font-bold text-white text-sm" style={{ fontFamily: 'Georgia, serif' }}>
-                Imdaad
+                DevelopmentX
               </div>
               <div className="text-[10px]" style={{ color: 'rgba(255,255,255,0.45)' }}>
-                Facility Management
+                Property Operations
               </div>
             </div>
           </div>
@@ -641,8 +641,8 @@ function SuccessView({ incidentRef, onAnother }: { incidentRef: string; onAnothe
             <AlertTriangle size={15} style={{ color: '#C9A96E' }} />
           </div>
           <div>
-            <div className="font-bold text-white text-sm" style={{ fontFamily: 'Georgia, serif' }}>Imdaad</div>
-            <div className="text-[10px]" style={{ color: 'rgba(255,255,255,0.45)' }}>Facility Management</div>
+            <div className="font-bold text-white text-sm" style={{ fontFamily: 'Georgia, serif' }}>DevelopmentX</div>
+            <div className="text-[10px]" style={{ color: 'rgba(255,255,255,0.45)' }}>Property Operations</div>
           </div>
         </div>
 

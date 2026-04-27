@@ -8,9 +8,13 @@ import {
   Eye,
   FileText,
   FolderOpen,
+  Brain,
+  Lightbulb,
+  ListChecks,
   Search,
   ShieldCheck,
   Shield,
+  Sparkles,
   Upload,
   X,
 } from 'lucide-react';
@@ -58,7 +62,7 @@ function KpiCard({
   delta?: string;
 }) {
   return (
-    <div className="rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#15171B] p-4">
+    <div className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
       <div className="flex items-start justify-between gap-3">
         <span className="grid h-8 w-8 place-items-center rounded-lg border" style={{ borderColor: `${accent}55`, background: `${accent}18`, color: accent }}>
           <Icon size={17} />
@@ -84,7 +88,7 @@ function MiniDonut({
   let offset = 25;
 
   return (
-    <div className="rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#15171B] p-4">
+    <div className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
       <h3 className="text-[13px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{title}</h3>
       <div className="mt-3 flex items-center justify-center gap-7">
         <svg viewBox="0 0 42 42" className="h-20 w-20 -rotate-90">
@@ -129,7 +133,7 @@ function ProjectBars({ documents }: { documents: EvidenceDocument[] }) {
   const max = Math.max(...evidenceProjectBuckets.map(project => documents.filter(item => item.project.startsWith(project)).length), 1);
 
   return (
-    <div className="rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#15171B] p-4">
+    <div className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
       <h3 className="text-[13px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>By Project</h3>
       <div className="mt-4 flex h-[86px] items-end gap-4 border-b border-l border-[#3B4658] px-4">
         {evidenceProjectBuckets.map(project => {
@@ -158,7 +162,10 @@ function ActionButton({
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={event => {
+        event.stopPropagation();
+        onClick();
+      }}
       title={label}
       aria-label={label}
       className="grid h-8 w-8 place-items-center rounded-lg text-[#7A94B4] transition-colors hover:bg-white/5 hover:text-cyan-300"
@@ -170,10 +177,179 @@ function ActionButton({
 
 function DetailCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#15171B] p-4">
+    <div className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#0A1628] p-4">
       <p className="text-[12px] text-[#7A94B4]">{label}</p>
       <p className="mt-3 text-[15px] font-black leading-5 text-[#EEF3FA]">{value}</p>
     </div>
+  );
+}
+
+function buildEvidenceAiSummary(document: EvidenceDocument) {
+  const evidenceCoverage = document.preview.sections.flatMap(section => section.lines).slice(0, 4);
+  const riskTone = document.status === 'Expired' ? 'critical' : document.blockchainVerified ? 'positive' : 'monitor';
+
+  return {
+    tone: riskTone,
+    headline: document.status === 'Expired'
+      ? 'This evidence is expired and needs replacement before it can support gate or obligation closure.'
+      : `This ${document.type.toLowerCase()} is usable evidence for ${document.linkedObligation} and matches the selected project stage.`,
+    signals: [
+      `${document.preview.pages} pages reviewed from ${document.preview.issuer}.`,
+      `Linked to ${document.linkedObligation} for ${document.project}.`,
+      document.blockchainVerified ? 'Integrity check is verified against the stored hash.' : 'Integrity verification is pending for the latest file version.',
+      ...evidenceCoverage,
+    ].slice(0, 6),
+    recommendation: document.status === 'Expired'
+      ? 'Request a renewed certificate, upload the replacement version, then re-run the obligation evidence check.'
+      : 'Keep this file attached to the linked obligation and use it as supporting evidence for the next compliance or stage gate review.',
+  };
+}
+
+function EvidenceAiSummaryModal({ document, onClose }: { document: EvidenceDocument; onClose: () => void }) {
+  const summary = buildEvidenceAiSummary(document);
+  const toneClasses = {
+    positive: 'border-emerald-300/35 bg-emerald-300/10 text-emerald-100',
+    monitor: 'border-amber-300/35 bg-amber-300/10 text-amber-100',
+    critical: 'border-red-300/35 bg-red-300/10 text-red-100',
+  };
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm">
+      <button type="button" aria-label="Close AI summary" className="absolute inset-0 cursor-default" onClick={onClose} />
+      <section className="relative z-10 w-full max-w-[620px] rounded-2xl border border-violet-300/25 bg-[#07111F] p-5 shadow-2xl shadow-black/60">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <span className="inline-flex items-center gap-2 rounded-full border border-violet-300/30 bg-violet-300/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-violet-200">
+              <Sparkles size={13} />
+              AI Summary
+            </span>
+            <h3 className="mt-4 text-xl font-black leading-6 text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{document.title}</h3>
+            <p className="mt-2 font-mono text-[12px] text-cyan-300">{document.code} · {document.version}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close AI summary"
+            className="rounded-lg p-2 text-[#7A94B4] transition-colors hover:bg-white/5 hover:text-white"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className={`mt-5 rounded-2xl border p-4 ${toneClasses[summary.tone]}`}>
+          <div className="flex items-center gap-2 text-[13px] font-black">
+            <Brain size={16} />
+            What AI sees
+          </div>
+          <p className="mt-3 text-[14px] leading-6">{summary.headline}</p>
+        </div>
+
+        <section className="mt-4 rounded-2xl border border-[rgba(46,127,255,0.18)] bg-[#0A1628] p-4">
+          <div className="flex items-center gap-2 text-[13px] font-black text-[#EEF3FA]">
+            <ListChecks size={16} className="text-cyan-300" />
+            Key signals
+          </div>
+          <ul className="mt-3 space-y-2">
+            {summary.signals.map(signal => (
+              <li key={signal} className="flex gap-2 text-[13px] leading-6 text-[#BCC8DC]">
+                <span className="mt-2 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-cyan-300" />
+                {signal}
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section className="mt-4 rounded-2xl border border-violet-300/20 bg-violet-300/10 p-4">
+          <div className="flex items-center gap-2 text-[13px] font-black text-violet-100">
+            <Lightbulb size={16} />
+            Recommended action
+          </div>
+          <p className="mt-3 text-[14px] leading-6 text-[#E5D9FF]">{summary.recommendation}</p>
+        </section>
+      </section>
+    </div>
+  );
+}
+
+function DocumentPreview({ document, onView }: { document: EvidenceDocument; onView: () => void }) {
+  const [showAiSummary, setShowAiSummary] = useState(false);
+
+  return (
+    <section className="overflow-hidden rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#0A1628]">
+      <div className="border-b border-[rgba(46,127,255,0.14)] bg-[#0F2038] px-5 py-4">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="font-mono text-[11px] font-black uppercase tracking-widest text-cyan-300">{document.preview.documentNo}</p>
+            <h3 className="mt-2 text-lg font-black leading-6 text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{document.title}</h3>
+            <p className="mt-1 text-[13px] text-[#8FA6C3]">{document.preview.issuer}</p>
+          </div>
+          <div className="rounded-lg border border-cyan-300/20 bg-cyan-300/10 px-3 py-2 text-right">
+            <p className="text-[10px] uppercase tracking-widest text-[#7A94B4]">Preview</p>
+            <p className="font-mono text-[12px] font-black text-cyan-200">{document.preview.pages} pages</p>
+          </div>
+        </div>
+        <p className="mt-4 max-w-2xl text-[13px] leading-6 text-[#BCC8DC]">{document.preview.summary}</p>
+      </div>
+
+      <div className="grid gap-4 p-5 lg:grid-cols-[0.9fr_1.1fr]">
+        <div className="space-y-3">
+          <h4 className="text-[12px] font-black uppercase tracking-widest text-[#7A94B4]">Key fields</h4>
+          {document.preview.keyFields.map(field => (
+            <div key={field.label} className="rounded-lg border border-[rgba(46,127,255,0.12)] bg-[#07111F] p-3">
+              <p className="text-[11px] text-[#7A94B4]">{field.label}</p>
+              <p className="mt-1 text-[13px] font-black text-[#EEF3FA]">{field.value}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#F7FAFF] p-5 text-[#101827] shadow-inner shadow-black/10">
+          <div className="mb-4 flex items-center justify-between gap-3 border-b border-slate-200 pb-3">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">{document.type}</p>
+              <p className="mt-1 text-base font-black text-slate-950">{document.title}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowAiSummary(true)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-violet-200 bg-[linear-gradient(135deg,#2563EB,#7C3AED)] px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-white shadow-[0_10px_24px_rgba(124,58,237,0.18)] transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-violet-300"
+            >
+              <Sparkles size={12} />
+              AI Summary
+            </button>
+          </div>
+          <div className="space-y-4">
+            {document.preview.sections.map(section => (
+              <div key={section.title}>
+                <p className="text-[12px] font-black uppercase tracking-wide text-slate-600">{section.title}</p>
+                <ul className="mt-2 space-y-1.5">
+                  {section.lines.map(line => (
+                    <li key={line} className="flex gap-2 text-[12px] leading-5 text-slate-700">
+                      <span className="mt-2 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-cyan-500" />
+                      {line}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+          <div className="mt-5 flex items-end justify-between gap-4 border-t border-slate-200 pt-4">
+            <div>
+              <p className="text-[10px] uppercase tracking-widest text-slate-500">Signatory</p>
+              <p className="mt-1 text-[12px] font-black text-slate-900">{document.preview.signatory}</p>
+            </div>
+            <button
+              type="button"
+              onClick={onView}
+              className="inline-flex items-center gap-1.5 rounded-full border-2 border-cyan-500/70 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-cyan-700 transition-colors hover:bg-cyan-50"
+            >
+              <Eye size={13} />
+              View
+            </button>
+          </div>
+        </div>
+      </div>
+      {showAiSummary && <EvidenceAiSummaryModal document={document} onClose={() => setShowAiSummary(false)} />}
+    </section>
   );
 }
 
@@ -189,8 +365,8 @@ function EvidenceDetailDrawer({
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/55 backdrop-blur-sm">
       <button type="button" aria-label="Dismiss evidence overlay" className="absolute inset-0 cursor-default" onClick={onClose} />
-      <aside className="custom-scrollbar relative z-10 h-full w-full max-w-[760px] overflow-y-auto border-l border-[rgba(46,127,255,0.18)] bg-[#0B0D11] shadow-2xl shadow-black/60">
-        <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-[rgba(46,127,255,0.12)] bg-[#0B0D11]/96 px-6 py-5 backdrop-blur">
+      <aside className="custom-scrollbar relative z-10 h-full w-full max-w-[760px] overflow-y-auto border-l border-[rgba(46,127,255,0.18)] bg-[#07111F] shadow-2xl shadow-black/60">
+        <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-[rgba(46,127,255,0.12)] bg-[#07111F]/96 px-6 py-5 backdrop-blur">
           <div>
             <div className="flex flex-wrap items-center gap-3">
               <span className="font-mono text-[12px] font-black text-cyan-300">{document.code}</span>
@@ -219,7 +395,7 @@ function EvidenceDetailDrawer({
             <DetailCard label="Uploaded By" value={document.uploader} />
           </div>
 
-          <section className="rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#15171B] p-5">
+          <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#0A1628] p-5">
             <div className="mb-4 flex items-center gap-2 text-[13px] text-[#7A94B4]">
               <Shield size={17} className="text-violet-300" />
               Linked Obligation
@@ -229,15 +405,9 @@ function EvidenceDetailDrawer({
             </span>
           </section>
 
-          <section className="grid min-h-[210px] place-items-center rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#15171B] p-6 text-center">
-            <div>
-              <FileText size={54} className="mx-auto text-[#5A6E88]" />
-              <h3 className="mt-4 text-base font-medium text-[#DDE6F8]">Document Preview</h3>
-              <p className="mt-2 text-[13px] text-[#7A94B4]">Click download to view full document</p>
-            </div>
-          </section>
+          <DocumentPreview document={document} onView={() => onToast?.(`Opening preview for ${document.code}`, 'info')} />
 
-          <section className="rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#15171B] p-5">
+          <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#0A1628] p-5">
             <h3 className="mb-4 text-[13px] font-medium text-[#7A94B4]">Integrity Information</h3>
             <div className="grid gap-3 text-[15px]">
               <div className="flex items-center justify-between gap-4">
@@ -320,8 +490,8 @@ export function EvidenceRepository({ onToast }: { onToast?: (message: string, ty
   }));
 
   return (
-    <div className="custom-scrollbar h-full min-h-0 overflow-y-auto bg-[#080A0E] text-[#EEF3FA]">
-      <div className="border-b border-[rgba(46,127,255,0.14)] px-5 py-5">
+    <div className="custom-scrollbar h-full min-h-0 overflow-x-hidden overflow-y-auto px-5 py-4 text-[#EEF3FA]">
+      <div className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-3">
             <FolderOpen size={28} className="text-cyan-300" />
@@ -338,7 +508,7 @@ export function EvidenceRepository({ onToast }: { onToast?: (message: string, ty
         </div>
       </div>
 
-      <div className="border-b border-[rgba(46,127,255,0.12)] p-5">
+      <div className="mt-4">
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
           <KpiCard icon={FolderOpen} label="Total Documents" value={metrics.total} accent="#06B6D4" />
           <KpiCard icon={CheckCircle2} label="Current" value={metrics.current} accent="#22C55E" delta="+8%" />
@@ -349,13 +519,13 @@ export function EvidenceRepository({ onToast }: { onToast?: (message: string, ty
         </div>
       </div>
 
-      <div className="grid gap-3 border-b border-[rgba(46,127,255,0.12)] p-5 xl:grid-cols-[1fr_1fr_1fr]">
+      <div className="mt-4 grid gap-3 xl:grid-cols-[1fr_1fr_1fr]">
         <MiniDonut title="By Document Type" segments={typeCounts} legend={typeCounts} />
         <MiniDonut title="By Status" segments={statusCounts} legend={statusCounts} />
         <ProjectBars documents={evidenceDocuments} />
       </div>
 
-      <div className="border-b border-[rgba(46,127,255,0.12)] p-5">
+      <div className="mt-4 rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
         <div className="grid gap-3 xl:grid-cols-[minmax(280px,1fr)_140px_140px_190px]">
           <label className="relative">
             <Search size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#7A94B4]" />
@@ -363,25 +533,25 @@ export function EvidenceRepository({ onToast }: { onToast?: (message: string, ty
               value={query}
               onChange={event => setQuery(event.target.value)}
               placeholder="Search evidence..."
-              className="h-10 w-full rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#15171B] pl-11 pr-4 text-[13px] text-[#EEF3FA] outline-none placeholder:text-[#5A6E88] focus:border-cyan-300/70"
+              className="h-10 w-full rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#0A1628] pl-11 pr-4 text-[13px] text-[#EEF3FA] outline-none placeholder:text-[#5A6E88] focus:border-cyan-300/70"
             />
           </label>
-          <select value={type} onChange={event => setType(event.target.value as 'All Types' | EvidenceType)} className="h-10 rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#15171B] px-3 text-[13px] text-[#DDE6F8] outline-none focus:border-cyan-300/70">
+          <select value={type} onChange={event => setType(event.target.value as 'All Types' | EvidenceType)} className="h-10 rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#0A1628] px-3 text-[13px] text-[#DDE6F8] outline-none focus:border-cyan-300/70">
             {evidenceTypes.map(item => <option key={item}>{item}</option>)}
           </select>
-          <select value={status} onChange={event => setStatus(event.target.value as 'All Status' | EvidenceStatus)} className="h-10 rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#15171B] px-3 text-[13px] text-[#DDE6F8] outline-none focus:border-cyan-300/70">
+          <select value={status} onChange={event => setStatus(event.target.value as 'All Status' | EvidenceStatus)} className="h-10 rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#0A1628] px-3 text-[13px] text-[#DDE6F8] outline-none focus:border-cyan-300/70">
             {['All Status', 'Current', 'Superseded', 'Expired'].map(item => <option key={item}>{item}</option>)}
           </select>
-          <select value={project} onChange={event => setProject(event.target.value)} className="h-10 rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#15171B] px-3 text-[13px] text-[#DDE6F8] outline-none focus:border-cyan-300/70">
+          <select value={project} onChange={event => setProject(event.target.value)} className="h-10 rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#0A1628] px-3 text-[13px] text-[#DDE6F8] outline-none focus:border-cyan-300/70">
             {projects.map(item => <option key={item}>{item}</option>)}
           </select>
         </div>
       </div>
 
-      <div className="p-4">
-        <div className="overflow-x-auto rounded-xl border border-[rgba(46,127,255,0.16)]">
+      <div className="mt-4">
+        <div className="overflow-x-auto rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)]">
           <table className="w-full min-w-[1120px] text-left">
-            <thead className="bg-[#101216]">
+            <thead className="bg-[#0A1628]/85">
               <tr className="text-[11px] font-black text-[#5A6E88]">
                 <th className="px-4 py-4">Code</th>
                 <th className="px-4 py-4">Document Title</th>
@@ -397,7 +567,19 @@ export function EvidenceRepository({ onToast }: { onToast?: (message: string, ty
             </thead>
             <tbody>
               {filtered.map(document => (
-                <tr key={document.code} className="border-t border-[rgba(46,127,255,0.08)] bg-[#15171B] transition-colors hover:bg-[#1B1D23]">
+                <tr
+                  key={document.code}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setSelectedDocument(document)}
+                  onKeyDown={event => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      setSelectedDocument(document);
+                    }
+                  }}
+                  className="cursor-pointer border-t border-[rgba(46,127,255,0.08)] bg-[#0A1628]/70 transition-colors hover:bg-white/[0.045] focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300/70"
+                >
                   <td className="px-4 py-4 align-top font-mono text-[13px] font-black text-cyan-300">{document.code}</td>
                   <td className="px-4 py-4 align-top">
                     <div className="flex items-center gap-3">

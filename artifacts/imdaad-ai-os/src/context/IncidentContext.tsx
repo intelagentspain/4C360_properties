@@ -87,7 +87,7 @@ function deriveInviteList(clientId?: string): InviteListMember[] {
   const list: InviteListMember[] = [];
 
   const addPerson = (p: { name: string; role: string }, email?: string) => {
-    const derived = email ?? `${p.name.toLowerCase().replace(/[^a-z]/g, '.')}@imdaad.ae`;
+    const derived = email ?? `${p.name.toLowerCase().replace(/[^a-z]/g, '.')}@developmentx.ae`;
     list.push({ name: p.name, email: derived, role: p.role, siteNames: [siteName] });
   };
 

@@ -951,7 +951,7 @@ function ActionsTab({ incident, onToast, onCreateWorkOrder }: { incident: Incide
   const isWorkOrderCreated = ticketState === 'work_order_created';
 
   const defaultWhatsappMsg = incident.assignedTech
-    ? `Hi ${incident.assignedTech}, this is Imdaad AI-OS.\n\nIncident ${incident.id}: ${incident.title}\nLocation: ${incident.location}\nSeverity: ${incident.severity.toUpperCase()}\n\nPlease acknowledge this message and confirm your ETA.`
+    ? `Hi ${incident.assignedTech}, this is DevelopmentX AI-OS.\n\nIncident ${incident.id}: ${incident.title}\nLocation: ${incident.location}\nSeverity: ${incident.severity.toUpperCase()}\n\nPlease acknowledge this message and confirm your ETA.`
     : '';
 
   const handleApprove = async () => {

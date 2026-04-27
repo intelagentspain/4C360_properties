@@ -60,7 +60,7 @@ export function ProjectCommand({ onToast }: { onToast?: (message: string, type?:
 
   return (
     <div className="flex h-full flex-col overflow-hidden text-[#EEF3FA]">
-      <div className="flex-shrink-0 border-b border-[rgba(46,127,255,0.12)] px-5 py-4">
+      <div className="flex-shrink-0 border-b border-[rgba(46,127,255,0.12)] bg-[#07111F]/35 px-5 py-4">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
           <div>
             <div className="mb-1 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-[#A78BFA]">
@@ -90,7 +90,7 @@ export function ProjectCommand({ onToast }: { onToast?: (message: string, type?:
           </div>
         </div>
 
-        <div className="no-scrollbar mt-4 flex gap-1 overflow-x-auto pb-1">
+        <div className="no-scrollbar mt-4 flex gap-1.5 overflow-x-auto pb-1">
           {tabs.map(tab => {
             const Icon = tab.icon;
             const active = tab.id === screen;
@@ -98,9 +98,9 @@ export function ProjectCommand({ onToast }: { onToast?: (message: string, type?:
               <button
                 key={tab.id}
                 onClick={() => goTo(tab.id)}
-                className={`flex flex-shrink-0 items-center gap-1.5 rounded-lg border px-3 py-2 text-[11px] font-bold transition-colors ${
+                className={`flex h-9 flex-shrink-0 items-center gap-1.5 rounded-lg border px-3 text-[11px] font-bold transition-all ${
                   active
-                    ? 'border-[#7C3AED]/40 bg-[#7C3AED]/15 text-[#C4B5FD]'
+                    ? 'border-[#7C3AED]/45 bg-[#7C3AED]/18 text-[#DDD6FE] shadow-[0_0_18px_rgba(124,58,237,0.14)]'
                     : 'border-transparent text-[#7A94B4] hover:border-[rgba(46,127,255,0.18)] hover:bg-white/5 hover:text-[#EEF3FA]'
                 }`}
               >

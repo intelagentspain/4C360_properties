@@ -1528,7 +1528,7 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
                           type="email"
                           value={member.email}
                           onChange={e => updateMember(i, 'email', e.target.value)}
-                          placeholder="e.g. ahmed@imdaad.ae"
+                          placeholder="e.g. ahmed@developmentx.ae"
                           className={inputCls(!!errors[`team_email_${i}`])}
                         />
                         {errors[`team_email_${i}`] && <p className="mt-0.5 text-[10px] text-red-400">{errors[`team_email_${i}`]}</p>}
@@ -1719,7 +1719,7 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
                                   onClick={() => setWhatsappTarget({
                                     name: member.name || `Member ${i + 1}`,
                                     phone: member.whatsapp.trim(),
-                                    message: `Hi ${member.name || 'there'}, welcome to Imdaad AI-OS! You have been added as ${member.role || 'a team member'}. Please check your email for login credentials.`,
+                                    message: `Hi ${member.name || 'there'}, welcome to DevelopmentX AI-OS! You have been added as ${member.role || 'a team member'}. Please check your email for login credentials.`,
                                   })}
                                   className="flex-shrink-0 p-1.5 rounded-lg border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 transition-all"
                                 >

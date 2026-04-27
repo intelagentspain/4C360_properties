@@ -417,8 +417,8 @@ export function ProfileSettings({ onToast }: Props) {
   const [modules, setModules] = useState<ModuleToggle[]>(moduleDefaults);
   const [teamQuery, setTeamQuery] = useState('');
   const [clientQuery, setClientQuery] = useState('');
-  const [orgName, setOrgName] = useState('4C360 Properties');
-  const [orgDomain, setOrgDomain] = useState('4c360.properties');
+  const [orgName, setOrgName] = useState('DevelopmentX');
+  const [orgDomain, setOrgDomain] = useState('developmentx.ae');
   const [region, setRegion] = useState('UAE and GCC');
   const [accessState, setAccessState] = useState<Record<string, boolean>>(
     Object.fromEntries(accessRows.map(row => [row.label, row.enabled]))
@@ -626,30 +626,6 @@ export function ProfileSettings({ onToast }: Props) {
         ))}
       </div>
 
-      <div className="grid gap-3 border-t border-[rgba(46,127,255,0.16)] p-4 lg:grid-cols-[1fr_1.3fr]">
-        <div className="rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#07111F]/80 p-4">
-          <h5 className="text-[13px] font-black uppercase text-[#EEF3FA]">Module Specs</h5>
-          <div className="mt-3 grid gap-2 text-[11px] text-[#B8C7DB] sm:grid-cols-2">
-            <span>Canvas: 512x512px</span>
-            <span>Frame: 4C red mark</span>
-            <span>Icon: white semantic glyph</span>
-            <span>Usage: dark surfaces</span>
-          </div>
-        </div>
-        <div className="rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#07111F]/80 p-4">
-          <h5 className="text-[13px] font-black uppercase text-[#EEF3FA]">States</h5>
-          <div className="mt-3 grid grid-cols-3 gap-3 text-center">
-            {['Default', 'Hover', 'Active'].map((state, idx) => (
-              <div key={state} className={`rounded-xl border p-3 ${idx === 0 ? 'border-[rgba(126,148,180,0.18)]' : idx === 1 ? 'border-[rgba(225,29,46,0.34)] shadow-[0_0_24px_rgba(225,29,46,0.12)]' : 'border-[#e11d2e] bg-[#e11d2e]/8 shadow-[0_0_26px_rgba(225,29,46,0.18)]'}`}>
-                <div className="mx-auto scale-[0.62]">
-                  <ModuleIconMark module={modules[0]} />
-                </div>
-                <p className="mt-[-12px] text-[11px] font-bold text-[#B8C7DB]">{state}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
     </div>
   );
 
@@ -808,7 +784,7 @@ export function ProfileSettings({ onToast }: Props) {
                 <UserRound size={13} />
                 Profile and organisation control
               </div>
-              <h3 className="text-[#EEF3FA] font-bold text-sm" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>4C360 Properties profile</h3>
+              <h3 className="text-[#EEF3FA] font-bold text-sm" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>DevelopmentX profile</h3>
               <p className="mt-1 text-[11px] text-[#7A94B4]">Control team, modules, properties, organisation identity, and access policies inside Settings.</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">

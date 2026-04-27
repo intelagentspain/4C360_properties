@@ -177,7 +177,7 @@ export function HospitalityClientView({ onToast, guestName = 'Resident', propert
             >
               {propertyName}
             </div>
-            <div className="text-[10px] opacity-45" style={{ color: '#fff' }}>Resident Services · Powered by Imdaad</div>
+            <div className="text-[10px] opacity-45" style={{ color: '#fff' }}>Resident Services · Powered by DevelopmentX</div>
           </div>
         </div>
 

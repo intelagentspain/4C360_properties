@@ -118,7 +118,7 @@ const loadingSteps = [
 
 const initialForm: ProjectFormState = {
   name: 'Jumeirah Heights Residential Tower',
-  client: 'Imdaad Development Portfolio',
+  client: 'DevelopmentX Portfolio',
   location: 'Dubai, UAE',
   type: 'Residential Tower',
   size: '42 floors, 2 basement levels, 380 units',

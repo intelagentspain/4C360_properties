@@ -142,7 +142,7 @@ function PortfolioSummaryStrip({ clients }: { clients: PortfolioClient[] }) {
   ];
 
   return (
-    <div className="grid grid-cols-6 gap-2 px-5 py-3 border-b border-[rgba(46,127,255,0.12)] flex-shrink-0">
+    <div className="grid grid-cols-2 md:grid-cols-3 2xl:grid-cols-6 gap-2 px-5 py-3 border-b border-[rgba(46,127,255,0.12)] flex-shrink-0">
       {kpis.map(k => (
         <div key={k.label} className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border ${k.bg}`}>
           <div className={k.color}>{k.icon}</div>
@@ -187,7 +187,7 @@ function PortfolioPulseFeed() {
         </div>
         <span className="text-[9px] text-[#7A94B4]">{events.length} events</span>
       </div>
-      <div className="flex overflow-hidden">
+      <div className="flex overflow-x-auto custom-scrollbar">
         <AnimatePresence initial={false}>
           {events.map(ev => {
             const border = PULSE_SEV_BORDER[ev.severity];
@@ -199,7 +199,7 @@ function PortfolioPulseFeed() {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, height: 0 }}
                 transition={{ duration: 0.22 }}
-                className={`flex-1 min-w-0 flex items-start gap-2 px-3 py-2 border-r border-[rgba(46,127,255,0.08)] border-l-2 ${border} last:border-r-0`}
+                className={`flex-1 min-w-[220px] lg:min-w-0 flex items-start gap-2 px-3 py-2 border-r border-[rgba(46,127,255,0.08)] border-l-2 ${border} last:border-r-0`}
               >
                 <div className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 mt-0.5 ${cfg.cls}`}>
                   {cfg.icon}
@@ -221,7 +221,7 @@ function PortfolioPulseFeed() {
 
 function MetricPill({ label, value, color }: { label: string; value: string | number; color: string }) {
   return (
-    <div className="flex flex-col items-center bg-[#0A1628] rounded-lg px-2 py-1.5 min-w-[48px]">
+    <div className="flex min-w-0 flex-col items-center bg-[#0A1628] rounded-lg px-2 py-1.5">
       <span className={`text-[13px] font-bold leading-tight ${color}`}>{value}</span>
       <span className="text-[8px] text-[#7A94B4] uppercase tracking-wide mt-0.5 text-center">{label}</span>
     </div>
@@ -274,6 +274,7 @@ function CardActions({
 function ClientPortfolioCard({
   client,
   onSelect,
+  onDismiss,
   onToast,
   onReport,
   view,
@@ -282,6 +283,7 @@ function ClientPortfolioCard({
 }: {
   client: PortfolioClient;
   onSelect: (c: PortfolioClient) => void;
+  onDismiss: (clientId: string) => void;
   onToast: ToastFn;
   onReport: (c: PortfolioClient) => void;
   view: 'grid' | 'list';
@@ -295,20 +297,29 @@ function ClientPortfolioCard({
     return (
       <motion.div
         whileTap={{ scale: 0.995 }}
-        className={`w-full flex flex-col rounded-xl border bg-[rgba(17,32,64,0.7)] overflow-hidden ${STATUS_BORDER[client.status]} ${STATUS_GLOW[client.status]}`}
+        exit={{ opacity: 0, scale: 0.98 }}
+        className={`relative w-full flex flex-col rounded-xl border bg-[rgba(17,32,64,0.7)] overflow-hidden ${STATUS_BORDER[client.status]} ${STATUS_GLOW[client.status]}`}
       >
         <button
-          onClick={() => onSelect(client)}
-          className="w-full text-left flex items-center gap-4 px-4 py-3 hover:bg-white/[0.02] transition-colors"
+          onClick={e => { e.stopPropagation(); onDismiss(client.id); }}
+          className="absolute right-3 top-3 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-[#0A1628]/90 text-[#7A94B4] opacity-75 transition-all hover:border-red-400/40 hover:bg-red-500/10 hover:text-red-100 hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-red-400/40"
+          title="Hide property card"
+          aria-label={`Hide ${client.name} card`}
         >
-          <div className="flex items-center gap-2 w-52 flex-shrink-0">
+          <X size={13} />
+        </button>
+        <button
+          onClick={() => onSelect(client)}
+          className="w-full text-left flex flex-col gap-3 px-4 py-3 pr-12 hover:bg-white/[0.02] transition-colors xl:flex-row xl:items-center xl:gap-4"
+        >
+          <div className="flex items-center gap-2 w-full xl:w-52 xl:flex-shrink-0">
             <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${STATUS_DOT[client.status]}`} />
-            <div>
+            <div className="min-w-0">
               <div className="text-[13px] text-[#EEF3FA] font-bold leading-tight">{client.name}</div>
               <div className="text-[9px] text-[#7A94B4]">{client.region} · {client.sector}</div>
             </div>
           </div>
-          <div className="flex gap-2 flex-1">
+          <div className="grid w-full grid-cols-2 gap-2 sm:grid-cols-3 xl:flex xl:flex-1">
             <MetricPill label="Sites"   value={client.sites}      color="text-[#EEF3FA]" />
             <MetricPill label="WOs"     value={client.workOrders} color="text-blue-400" />
             <MetricPill label="Incidents" value={client.incidents} color={client.incidents > 5 ? 'text-red-400' : client.incidents > 2 ? 'text-amber-400' : 'text-emerald-400'} />
@@ -318,7 +329,7 @@ function ClientPortfolioCard({
           <div className={`text-[10px] font-bold px-2 py-1 rounded-lg border capitalize flex-shrink-0 ${RISK_BADGE[client.riskLevel]}`}>
             {client.riskLevel}
           </div>
-          <div className="flex gap-1 flex-shrink-0">
+          <div className="flex max-w-full flex-wrap gap-1 xl:flex-shrink-0">
             {client.dataSources.map(ds => (
               <span key={ds.label} className="text-[9px] bg-[rgba(46,127,255,0.1)] border border-[rgba(46,127,255,0.2)] text-blue-300 px-1.5 py-0.5 rounded-full whitespace-nowrap">
                 {ds.label} <span className="opacity-60">·{ds.count.toLocaleString()}</span>
@@ -338,28 +349,37 @@ function ClientPortfolioCard({
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`flex flex-col rounded-xl border bg-[rgba(17,32,64,0.7)] overflow-hidden ${STATUS_BORDER[client.status]} ${STATUS_GLOW[client.status]}`}
+      exit={{ opacity: 0, scale: 0.96 }}
+      className={`relative flex min-w-0 flex-col rounded-xl border bg-[rgba(17,32,64,0.7)] overflow-hidden ${STATUS_BORDER[client.status]} ${STATUS_GLOW[client.status]}`}
     >
       <div className={`h-1 w-full ${RISK_STRIP[client.riskLevel]}`} />
+      <button
+        onClick={e => { e.stopPropagation(); onDismiss(client.id); }}
+        className="absolute right-2.5 top-2.5 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-[#0A1628]/90 text-[#7A94B4] opacity-75 shadow-lg transition-all hover:border-red-400/40 hover:bg-red-500/10 hover:text-red-100 hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-red-400/40"
+        title="Hide property card"
+        aria-label={`Hide ${client.name} card`}
+      >
+        <X size={13} />
+      </button>
 
       <button
         onClick={() => onSelect(client)}
-        className="p-3 flex-1 flex flex-col gap-2.5 text-left hover:bg-white/[0.02] transition-colors group"
+        className="p-3 flex-1 flex flex-col gap-2.5 text-left hover:bg-white/[0.02] transition-colors"
       >
         <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 items-center gap-2">
             <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 mt-0.5 ${STATUS_DOT[client.status]}`} />
-            <div>
+            <div className="min-w-0 pr-1">
               <div className="text-[13px] text-[#EEF3FA] font-bold leading-tight">{client.name}</div>
               <div className="text-[9px] text-[#7A94B4] mt-0.5">{client.region} · {client.sector}</div>
             </div>
           </div>
-          <div className={`text-[9px] font-bold px-2 py-0.5 rounded-lg border capitalize flex-shrink-0 ${RISK_BADGE[client.riskLevel]}`}>
+          <div className={`mr-8 text-[9px] font-bold px-2 py-0.5 rounded-lg border capitalize flex-shrink-0 ${RISK_BADGE[client.riskLevel]}`}>
             {client.riskLevel}
           </div>
         </div>
 
-        <div className="grid grid-cols-5 gap-1">
+        <div className="grid grid-cols-2 gap-1 sm:grid-cols-3 2xl:grid-cols-5">
           <MetricPill label="Sites"    value={client.sites}      color="text-[#EEF3FA]" />
           <MetricPill label="WOs"      value={client.workOrders} color="text-blue-400" />
           <MetricPill label="Inc."     value={client.incidents}  color={client.incidents > 5 ? 'text-red-400' : client.incidents > 2 ? 'text-amber-400' : 'text-emerald-400'} />
@@ -583,7 +603,7 @@ function ClientReportPanel({
     >
       <div className={`h-1 w-full ${RISK_STRIP[client.riskLevel]}`} />
 
-      <div className="flex items-center justify-between px-5 py-3 border-b border-[rgba(46,127,255,0.15)] flex-shrink-0">
+      <div className="flex flex-col gap-3 px-5 py-3 border-b border-[rgba(46,127,255,0.15)] flex-shrink-0 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-2.5">
           <FileText size={14} className="text-blue-400" />
           <div>
@@ -829,7 +849,7 @@ function ClientReportPanel({
                 <p className="text-[12px] text-[#EEF3FA] leading-relaxed">{client.aiInsight}</p>
                 <div className="flex items-center gap-1 mt-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-                  <span className="text-[9px] text-cyan-400 font-semibold uppercase tracking-wider">Powered by Imdaad AI</span>
+                  <span className="text-[9px] text-cyan-400 font-semibold uppercase tracking-wider">Powered by DevelopmentX AI</span>
                 </div>
               </div>
             </div>
@@ -1178,6 +1198,7 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
   const [selected,      setSelected]      = useState<PortfolioClient | null>(null);
   const [reportClient,  setReportClient]  = useState<PortfolioClient | null>(null);
   const [showAddModal,  setShowAddModal]  = useState(false);
+  const [hiddenClientIds, setHiddenClientIds] = useState<string[]>([]);
 
   const handleAddClient = (data: ClientData, teamMembers: TeamMember[], inviteOk: boolean, failedCount: number) => {
     addClient({
@@ -1211,7 +1232,12 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
     }
   };
 
-  const filtered = allClients
+  const handleDismissClient = (clientId: string) => {
+    setHiddenClientIds(prev => prev.includes(clientId) ? prev : [...prev, clientId]);
+    setSelected(prev => prev?.id === clientId ? null : prev);
+  };
+
+  const matchingClients = allClients
     .filter(c => {
       if (isMemberMode && memberFilter.assignedClients.length > 0 &&
           !memberFilter.assignedClients.some(ac => c.name.toLowerCase().includes(ac.toLowerCase()) || ac.toLowerCase().includes(c.name.toLowerCase()))) {
@@ -1233,10 +1259,13 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
       if (sortKey === 'incidents') return b.incidents - a.incidents;
       return (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9);
     });
+  const filtered = matchingClients.filter(c => !hiddenClientIds.includes(c.id));
+  const hiddenCount = hiddenClientIds.length;
+  const hiddenMatchingCount = matchingClients.length - filtered.length;
 
   return (
     <div className="h-full flex flex-col overflow-hidden relative">
-      <div className="flex items-center justify-between px-5 py-3 border-b border-[rgba(46,127,255,0.15)] flex-shrink-0">
+      <div className="flex flex-col gap-3 px-5 py-3 border-b border-[rgba(46,127,255,0.15)] flex-shrink-0 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h2 className="text-[#EEF3FA] font-bold text-base" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
             {isMemberMode ? 'My Properties' : 'Properties'}
@@ -1247,7 +1276,7 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
               : `Portfolio command view · ${allClients.length} properties · Master Admin`}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 lg:justify-end">
           {[
             { label: 'Critical', count: allClients.filter(c => c.status === 'critical').length, color: 'text-red-400 bg-red-500/10 border-red-500/30' },
             { label: 'Warning',  count: allClients.filter(c => c.status === 'warning').length,  color: 'text-amber-400 bg-amber-500/10 border-amber-500/30' },
@@ -1272,21 +1301,21 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
 
       <PortfolioPulseFeed />
 
-      <div className="flex items-center gap-2 px-5 pb-2.5 flex-shrink-0 flex-wrap gap-y-2">
-        <div className="flex items-center gap-1.5 bg-[#112040] rounded-lg px-2.5 py-1.5 border border-[rgba(46,127,255,0.2)] flex-shrink-0">
+      <div className="flex items-stretch gap-2 px-5 pb-2.5 flex-shrink-0 flex-wrap gap-y-2">
+        <div className="flex min-w-[180px] flex-1 items-center gap-1.5 bg-[#112040] rounded-lg px-2.5 py-1.5 border border-[rgba(46,127,255,0.2)] sm:flex-none">
           <Search size={11} className="text-[#7A94B4]" />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search properties..."
-            className="bg-transparent text-[11px] text-[#EEF3FA] placeholder-[#7A94B4] outline-none w-28"
+            className="w-full bg-transparent text-[11px] text-[#EEF3FA] placeholder-[#7A94B4] outline-none sm:w-36"
           />
         </div>
 
         <select
           value={region}
           onChange={e => setRegion(e.target.value)}
-          className="text-[10px] px-2 py-1.5 rounded-lg border border-[rgba(46,127,255,0.2)] bg-[#112040] text-[#7A94B4] outline-none cursor-pointer"
+          className="min-w-[130px] flex-1 text-[10px] px-2 py-1.5 rounded-lg border border-[rgba(46,127,255,0.2)] bg-[#112040] text-[#7A94B4] outline-none cursor-pointer sm:flex-none"
         >
           {REGIONS.map(r => <option key={r} value={r}>Region: {r}</option>)}
         </select>
@@ -1294,7 +1323,7 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
         <select
           value={sector}
           onChange={e => setSector(e.target.value)}
-          className="text-[10px] px-2 py-1.5 rounded-lg border border-[rgba(46,127,255,0.2)] bg-[#112040] text-[#7A94B4] outline-none cursor-pointer"
+          className="min-w-[150px] flex-1 text-[10px] px-2 py-1.5 rounded-lg border border-[rgba(46,127,255,0.2)] bg-[#112040] text-[#7A94B4] outline-none cursor-pointer sm:flex-none"
         >
           {SECTORS.map(s => <option key={s} value={s}>Sector: {s.length > 20 ? s.slice(0, 18) + '…' : s}</option>)}
         </select>
@@ -1302,7 +1331,7 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
         <select
           value={status}
           onChange={e => setStatus(e.target.value)}
-          className="text-[10px] px-2 py-1.5 rounded-lg border border-[rgba(46,127,255,0.2)] bg-[#112040] text-[#7A94B4] outline-none cursor-pointer capitalize"
+          className="min-w-[120px] flex-1 text-[10px] px-2 py-1.5 rounded-lg border border-[rgba(46,127,255,0.2)] bg-[#112040] text-[#7A94B4] outline-none cursor-pointer capitalize sm:flex-none"
         >
           {STATUSES.map(s => <option key={s} value={s}>Status: {s}</option>)}
         </select>
@@ -1310,7 +1339,7 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
         <select
           value={riskLevel}
           onChange={e => setRiskLevel(e.target.value)}
-          className="text-[10px] px-2 py-1.5 rounded-lg border border-[rgba(46,127,255,0.2)] bg-[#112040] text-[#7A94B4] outline-none cursor-pointer capitalize"
+          className="min-w-[110px] flex-1 text-[10px] px-2 py-1.5 rounded-lg border border-[rgba(46,127,255,0.2)] bg-[#112040] text-[#7A94B4] outline-none cursor-pointer capitalize sm:flex-none"
         >
           {RISK_LVLS.map(r => <option key={r} value={r}>Risk: {r}</option>)}
         </select>
@@ -1318,12 +1347,21 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
         <select
           value={sortKey}
           onChange={e => setSortKey(e.target.value)}
-          className="text-[10px] px-2 py-1.5 rounded-lg border border-[rgba(46,127,255,0.2)] bg-[#112040] text-[#7A94B4] outline-none cursor-pointer"
+          className="min-w-[150px] flex-1 text-[10px] px-2 py-1.5 rounded-lg border border-[rgba(46,127,255,0.2)] bg-[#112040] text-[#7A94B4] outline-none cursor-pointer sm:flex-none"
         >
           {SORT_OPTS.map(s => <option key={s.key} value={s.key}>Sort: {s.label}</option>)}
         </select>
 
-        <div className="ml-auto flex items-center gap-1 bg-[#112040] rounded-lg p-0.5 border border-[rgba(46,127,255,0.2)]">
+        {hiddenCount > 0 && (
+          <button
+            onClick={() => setHiddenClientIds([])}
+            className="rounded-lg border border-cyan-500/25 bg-cyan-500/10 px-2.5 py-1.5 text-[10px] font-semibold text-cyan-300 transition-colors hover:bg-cyan-500/15"
+          >
+            Show hidden cards ({hiddenCount})
+          </button>
+        )}
+
+        <div className="ml-0 flex items-center gap-1 bg-[#112040] rounded-lg p-0.5 border border-[rgba(46,127,255,0.2)] sm:ml-auto">
           <button
             onClick={() => setView('grid')}
             className={`p-1.5 rounded-md transition-all ${view === 'grid' ? 'bg-[#2E7FFF] text-white' : 'text-[#7A94B4] hover:text-[#EEF3FA]'}`}
@@ -1343,19 +1381,33 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3">
             <Users size={32} className="text-[#7A94B4] opacity-30" />
-            <span className="text-[13px] text-[#7A94B4] opacity-60">No properties match filters</span>
+            <span className="text-[13px] text-[#7A94B4] opacity-60">
+              {hiddenMatchingCount > 0 ? 'All matching property cards are hidden' : 'No properties match filters'}
+            </span>
+            {hiddenMatchingCount > 0 && (
+              <button
+                onClick={() => setHiddenClientIds([])}
+                className="rounded-lg border border-cyan-500/25 bg-cyan-500/10 px-3 py-2 text-[11px] font-semibold text-cyan-300 transition-colors hover:bg-cyan-500/15"
+              >
+                Show hidden cards
+              </button>
+            )}
           </div>
         ) : view === 'grid' ? (
-          <div className="grid grid-cols-3 gap-3">
-            {filtered.map(c => (
-              <ClientPortfolioCard key={c.id} client={c} onSelect={client => onClientSelect(client.id)} onToast={onToast} onReport={setReportClient} view="grid" onNavigateToIncidents={onNavigateToIncidents} onNavigateToCommand={onNavigateToCommand} />
-            ))}
+          <div className="grid grid-cols-1 gap-3 xl:grid-cols-2 2xl:grid-cols-3">
+            <AnimatePresence initial={false}>
+              {filtered.map(c => (
+                <ClientPortfolioCard key={c.id} client={c} onSelect={client => onClientSelect(client.id)} onDismiss={handleDismissClient} onToast={onToast} onReport={setReportClient} view="grid" onNavigateToIncidents={onNavigateToIncidents} onNavigateToCommand={onNavigateToCommand} />
+              ))}
+            </AnimatePresence>
           </div>
         ) : (
           <div className="flex flex-col gap-2">
-            {filtered.map(c => (
-              <ClientPortfolioCard key={c.id} client={c} onSelect={client => onClientSelect(client.id)} onToast={onToast} onReport={setReportClient} view="list" onNavigateToIncidents={onNavigateToIncidents} onNavigateToCommand={onNavigateToCommand} />
-            ))}
+            <AnimatePresence initial={false}>
+              {filtered.map(c => (
+                <ClientPortfolioCard key={c.id} client={c} onSelect={client => onClientSelect(client.id)} onDismiss={handleDismissClient} onToast={onToast} onReport={setReportClient} view="list" onNavigateToIncidents={onNavigateToIncidents} onNavigateToCommand={onNavigateToCommand} />
+              ))}
+            </AnimatePresence>
           </div>
         )}
       </div>

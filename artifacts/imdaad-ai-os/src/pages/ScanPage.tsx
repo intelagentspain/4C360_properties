@@ -899,7 +899,7 @@ export function ScanPage({ siteId, assetId, onIncidentCreated }: Props) {
           <QrCode size={14} className="text-white" />
         </div>
         <span className="text-[13px] font-bold text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-          Imdaad AI-OS
+          DevelopmentX AI-OS
         </span>
         <span className="text-[11px] text-[#7A94B4] ml-auto">Issue Capture</span>
       </div>

@@ -4,7 +4,7 @@ import {
   TrendingUp, TrendingDown, Minus, ArrowLeft, ShieldCheck,
   AlertTriangle, Brain, Target, DollarSign, BarChart3,
   CheckCircle, XCircle, FileWarning, Zap, ChevronRight,
-  Users, Building2, Star,
+  Users, Building2, Star, Sparkles, Lightbulb, ListChecks, Activity, X,
 } from 'lucide-react';
 import {
   computeVendorScore,
@@ -125,6 +125,274 @@ function DetailSection({ icon, title, children }: DetailSectionProps) {
   );
 }
 
+type VendorMetricName =
+  | 'Vendor Score'
+  | 'SLA Compliance'
+  | 'First-Time Fix'
+  | 'Avg Resolution'
+  | 'Evidence Compliance'
+  | 'Active Contracts'
+  | 'Jobs Last 30d'
+  | 'Avg Cost/Job';
+
+type VendorMetricInsight = {
+  metricName: VendorMetricName;
+  valueLabel: string;
+  status: 'positive' | 'monitor' | 'critical';
+  summary: string;
+  rationale: string[];
+  interpretation: string;
+  recommendation: string;
+};
+
+function vendorMetricStatus(metricName: VendorMetricName, value: number, score: number): VendorMetricInsight['status'] {
+  if (metricName === 'Avg Resolution') {
+    if (value > 60) return 'critical';
+    if (value > 45) return 'monitor';
+    return 'positive';
+  }
+  if (metricName === 'Avg Cost/Job') {
+    if (value > 620) return 'critical';
+    if (value > 500) return 'monitor';
+    return 'positive';
+  }
+  if (metricName === 'Active Contracts' || metricName === 'Jobs Last 30d') return value > 0 ? 'positive' : 'monitor';
+  if (metricName === 'Vendor Score') {
+    if (score < 65) return 'critical';
+    if (score < 80) return 'monitor';
+    return 'positive';
+  }
+  if (value < 75) return 'critical';
+  if (value < 88) return 'monitor';
+  return 'positive';
+}
+
+function buildVendorMetricInsight(vendor: VendorIntelData, metricName: VendorMetricName): VendorMetricInsight {
+  const score = computeVendorScore(vendor);
+  const riskLevel = classifyVendorRisk(score);
+  const peerCost = Number(vendor.costTrend[vendor.costTrend.length - 1]?.peerAvg ?? 500);
+  const statusFrom = (value: number) => vendorMetricStatus(metricName, value, score);
+
+  switch (metricName) {
+    case 'Vendor Score':
+      return {
+        metricName,
+        valueLabel: `${score}/100`,
+        status: statusFrom(score),
+        summary: `${vendor.name} is scoring ${score}/100 and is currently classified as ${riskLevel}.`,
+        rationale: [
+          `The score blends SLA compliance (${vendor.slaCompliance}%), first-time fix (${vendor.firstTimeFixRate}%), response speed, evidence compliance (${vendor.evidenceCompliance}%), cost, and risk flags.`,
+          vendor.trend === 'up' ? 'The trend is improving, so recent delivery is strengthening the score.' : vendor.trend === 'down' ? 'The trend is declining, so recent delivery is pulling the score down.' : 'The trend is stable, with no major movement in the recent score curve.',
+          `${vendor.contractFlags.length} contract flag${vendor.contractFlags.length === 1 ? '' : 's'} and ${vendor.repeatFailureRate}% repeat failure rate are included in the risk reading.`,
+        ],
+        interpretation: score >= 80 ? 'This vendor is a reliable candidate for priority work and broader scope.' : score >= 65 ? 'The vendor remains usable, but targeted controls are needed before expanding scope.' : 'This vendor needs active management before more critical work is assigned.',
+        recommendation: score >= 80 ? 'Keep the vendor in preferred rotation and monitor whether the improving trend holds next month.' : score >= 65 ? 'Set a short corrective action plan focused on the weakest score driver.' : 'Limit new assignments, trigger review, and prepare backup capacity for critical jobs.',
+      };
+    case 'SLA Compliance':
+      return {
+        metricName,
+        valueLabel: `${vendor.slaCompliance}%`,
+        status: statusFrom(vendor.slaCompliance),
+        summary: `${vendor.name} is closing ${vendor.slaCompliance}% of jobs within SLA.`,
+        rationale: [
+          vendor.slaCompliance >= 90 ? 'SLA performance is above the preferred vendor threshold.' : 'SLA performance is below preferred threshold and needs closer scheduling control.',
+          `${vendor.jobsLast30d} jobs in the last 30 days gives the metric enough activity to be meaningful.`,
+          `The 30-day risk forecast is ${vendor.predictedRisk30d}%, so SLA should be read alongside predictive risk.`,
+        ],
+        interpretation: vendor.slaCompliance >= 90 ? 'Operationally, the vendor is dependable for time-sensitive work.' : 'Late delivery risk may create resident escalation and contract pressure.',
+        recommendation: vendor.slaCompliance >= 90 ? 'Keep allocating high-priority jobs while watching workload concentration.' : 'Review open jobs daily and reserve critical jobs for vendors with stronger SLA performance.',
+      };
+    case 'First-Time Fix':
+      return {
+        metricName,
+        valueLabel: `${vendor.firstTimeFixRate}%`,
+        status: statusFrom(vendor.firstTimeFixRate),
+        summary: `${vendor.firstTimeFixRate}% of jobs are resolved without a repeat visit.`,
+        rationale: [
+          `Repeat failure rate is ${vendor.repeatFailureRate}%, which is the inverse pressure on this metric.`,
+          vendor.firstTimeFixRate >= 88 ? 'Diagnostic quality is strong and return visits are rare.' : 'Repeat visits are creating avoidable operational load.',
+          `Current category focus: ${vendor.category}.`,
+        ],
+        interpretation: vendor.firstTimeFixRate >= 88 ? 'The vendor is diagnosing correctly and reducing friction for residents and site teams.' : 'More rework means longer lifecycle cost and less predictable capacity.',
+        recommendation: vendor.firstTimeFixRate >= 88 ? 'Use this vendor for complex jobs where diagnostic accuracy matters.' : 'Pair the vendor with clearer issue triage, stronger evidence requirements, or a senior reviewer.',
+      };
+    case 'Avg Resolution':
+      return {
+        metricName,
+        valueLabel: `${vendor.avgResolutionMin} min`,
+        status: statusFrom(vendor.avgResolutionMin),
+        summary: `Average resolution time is ${vendor.avgResolutionMin} minutes.`,
+        rationale: [
+          vendor.avgResolutionMin <= 45 ? 'Resolution speed is within the preferred operating band.' : 'Resolution speed is above the preferred operating band.',
+          `The metric is assessed together with ${vendor.slaCompliance}% SLA compliance and ${vendor.firstTimeFixRate}% first-time fix.`,
+          vendor.dependencyRisk === 'High' || vendor.dependencyRisk === 'Critical' ? `Dependency risk is ${vendor.dependencyRisk}, which can slow closure when specialist capacity is needed.` : 'Dependency risk is manageable, so speed is mostly within vendor control.',
+        ],
+        interpretation: vendor.avgResolutionMin <= 45 ? 'Fast closure supports SLA confidence and keeps active backlog low.' : 'Longer resolution times can hide capacity constraints or weak diagnosis.',
+        recommendation: vendor.avgResolutionMin <= 45 ? 'Maintain current dispatch rules and use the vendor for short-SLA work.' : 'Review job mix, parts availability, and escalation handoffs for the slowest closures.',
+      };
+    case 'Evidence Compliance':
+      return {
+        metricName,
+        valueLabel: `${vendor.evidenceCompliance}%`,
+        status: statusFrom(vendor.evidenceCompliance),
+        summary: `${vendor.evidenceCompliance}% of closed jobs include required documentation and evidence.`,
+        rationale: [
+          vendor.evidenceCompliance >= 90 ? 'Evidence quality is strong enough for audit and client reporting.' : 'Evidence gaps may weaken audit readiness and billing support.',
+          `${vendor.contractFlags.filter(flag => flag.type === 'missing').length} active missing-evidence flag${vendor.contractFlags.filter(flag => flag.type === 'missing').length === 1 ? '' : 's'} found in contract checks.`,
+          'Before/after photos and completion notes are key signals for this score.',
+        ],
+        interpretation: vendor.evidenceCompliance >= 90 ? 'The vendor is giving management a defensible record of completed work.' : 'Incomplete documentation creates avoidable review friction and compliance exposure.',
+        recommendation: vendor.evidenceCompliance >= 90 ? 'Keep current evidence standards and sample-check high-risk jobs.' : 'Make evidence mandatory before closure and spot-check the next 10 jobs.',
+      };
+    case 'Active Contracts':
+      return {
+        metricName,
+        valueLabel: String(vendor.activeContracts),
+        status: statusFrom(vendor.activeContracts),
+        summary: `${vendor.name} has ${vendor.activeContracts} active contract${vendor.activeContracts === 1 ? '' : 's'} in scope.`,
+        rationale: [
+          `Contract expiry is ${vendor.contractExpiry}.`,
+          `The vendor covers ${vendor.sites.length} site${vendor.sites.length === 1 ? '' : 's'}: ${vendor.sites.join(', ')}.`,
+          `${vendor.contractFlags.length} contract flag${vendor.contractFlags.length === 1 ? '' : 's'} currently influence governance risk.`,
+        ],
+        interpretation: vendor.activeContracts > 1 ? 'This vendor has meaningful operational footprint and should stay visible in portfolio controls.' : 'The vendor has a smaller active footprint, so risk is more contained.',
+        recommendation: vendor.contractFlags.length > 0 ? 'Review flagged clauses before assigning additional contract scope.' : 'Keep renewal, expiry, and scope coverage visible in the monthly vendor review.',
+      };
+    case 'Jobs Last 30d':
+      return {
+        metricName,
+        valueLabel: String(vendor.jobsLast30d),
+        status: statusFrom(vendor.jobsLast30d),
+        summary: `${vendor.name} completed or handled ${vendor.jobsLast30d} jobs in the last 30 days.`,
+        rationale: [
+          'Recent job volume gives confidence that the performance metrics reflect current behavior.',
+          `Workload is being delivered with ${vendor.slaCompliance}% SLA and ${vendor.firstTimeFixRate}% first-time fix.`,
+          vendor.jobsLast30d > 150 ? 'Volume is high, so capacity monitoring matters.' : 'Volume is moderate, so performance changes may be easier to correct quickly.',
+        ],
+        interpretation: vendor.jobsLast30d > 150 ? 'The vendor is a major operational dependency for current service delivery.' : 'The vendor is active but not over-concentrated.',
+        recommendation: vendor.jobsLast30d > 150 ? 'Watch fatigue, repeat visits, and SLA drift before adding more work.' : 'Use this activity level to test targeted performance improvements.',
+      };
+    case 'Avg Cost/Job':
+      return {
+        metricName,
+        valueLabel: `AED ${vendor.avgCostPerJob}`,
+        status: statusFrom(vendor.avgCostPerJob),
+        summary: `Average cost per job is AED ${vendor.avgCostPerJob}, compared with a peer reference of AED ${peerCost}.`,
+        rationale: [
+          vendor.avgCostPerJob <= peerCost ? `Cost is AED ${peerCost - vendor.avgCostPerJob} below the current peer reference.` : `Cost is AED ${vendor.avgCostPerJob - peerCost} above the current peer reference.`,
+          `Cost should be read with ${vendor.firstTimeFixRate}% first-time fix, because cheap repeat work is not truly efficient.`,
+          `Vendor score is ${score}/100, so cost efficiency is being achieved ${score >= 80 ? 'without weakening quality.' : 'with some quality or delivery risk still present.'}`,
+        ],
+        interpretation: vendor.avgCostPerJob <= peerCost && vendor.firstTimeFixRate >= 85 ? 'The vendor is cost-efficient without obvious quality compromise.' : 'Cost requires a quality check before decisions are made on price alone.',
+        recommendation: vendor.avgCostPerJob <= peerCost ? 'Keep this vendor in cost-sensitive routing while monitoring evidence and repeat visits.' : 'Compare job mix and parts usage before renegotiating rates.',
+      };
+  }
+}
+
+function VendorAIInsightBadge({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={event => {
+        event.stopPropagation();
+        onClick();
+      }}
+      title="Explain this metric"
+      aria-label="Explain this metric"
+      className="group absolute right-2 top-2 z-10 inline-flex h-5 items-center gap-1 rounded-full border border-violet-300/25 bg-[linear-gradient(135deg,#1D7CFF,#7C3AED)] px-1.5 text-[8px] font-black uppercase tracking-wide text-white shadow-[0_0_14px_rgba(124,58,237,0.34)] transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-violet-300/70"
+    >
+      <Sparkles size={9} />
+      AI
+      <span className="pointer-events-none absolute right-0 top-7 hidden whitespace-nowrap rounded-lg border border-[rgba(46,127,255,0.28)] bg-[#07111F] px-2.5 py-1.5 text-[10px] font-bold normal-case tracking-normal text-[#DDE6F8] shadow-xl group-hover:block">
+        Explain this metric
+      </span>
+    </button>
+  );
+}
+
+function VendorInsightBlock({
+  icon: Icon,
+  title,
+  children,
+}: {
+  icon: typeof Brain;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#07111F]/85 p-4">
+      <div className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#C4B5FD]">
+        <Icon size={13} />
+        {title}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function VendorMetricInsightPanel({ insight, onClose }: { insight: VendorMetricInsight; onClose: () => void }) {
+  const statusClass = {
+    positive: 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200',
+    monitor: 'border-amber-400/30 bg-amber-400/10 text-amber-200',
+    critical: 'border-red-400/30 bg-red-400/10 text-red-200',
+  }[insight.status];
+
+  return (
+    <motion.aside
+      initial={{ x: 420, opacity: 0 }}
+      animate={{ x: 0, opacity: 1 }}
+      exit={{ x: 420, opacity: 0 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 34 }}
+      className="absolute bottom-0 right-0 top-0 z-40 flex w-full max-w-[400px] flex-col border-l border-violet-400/25 bg-[linear-gradient(180deg,rgba(10,22,40,0.98),rgba(7,17,31,0.99))] shadow-2xl shadow-black/45 backdrop-blur-xl"
+    >
+      <div className="border-b border-[rgba(46,127,255,0.16)] p-5">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-violet-300/25 bg-violet-400/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-violet-100">
+              <Sparkles size={12} />
+              AI Insight
+            </div>
+            <h3 className="text-lg font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+              AI Insight - {insight.metricName}
+            </h3>
+            <p className="mt-1 text-[12px] text-[#7A94B4]">
+              Current value: <span className="font-bold text-[#DDE6F8]">{insight.valueLabel}</span>
+            </p>
+          </div>
+          <button onClick={onClose} className="rounded-lg p-2 text-[#7A94B4] transition-colors hover:bg-white/5 hover:text-white" aria-label="Close AI insight">
+            <X size={18} />
+          </button>
+        </div>
+        <div className={`mt-4 inline-flex rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-wide ${statusClass}`}>
+          {insight.status === 'positive' ? 'Healthy signal' : insight.status === 'monitor' ? 'Monitor closely' : 'Needs attention'}
+        </div>
+      </div>
+
+      <div className="custom-scrollbar flex-1 space-y-3 overflow-y-auto p-5">
+        <VendorInsightBlock icon={Brain} title="Summary">
+          <p className="text-[13px] leading-6 text-[#DDE6F8]">{insight.summary}</p>
+        </VendorInsightBlock>
+        <VendorInsightBlock icon={ListChecks} title="Rationale">
+          <ul className="space-y-2">
+            {insight.rationale.map(item => (
+              <li key={item} className="flex gap-2 text-[12px] leading-5 text-[#B8C7DB]">
+                <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#7C3AED]" />
+                {item}
+              </li>
+            ))}
+          </ul>
+        </VendorInsightBlock>
+        <VendorInsightBlock icon={Activity} title="Interpretation">
+          <p className="text-[13px] leading-6 text-[#DDE6F8]">{insight.interpretation}</p>
+        </VendorInsightBlock>
+        <VendorInsightBlock icon={Lightbulb} title="Recommendation">
+          <p className="text-[13px] leading-6 text-[#DDE6F8]">{insight.recommendation}</p>
+        </VendorInsightBlock>
+      </div>
+    </motion.aside>
+  );
+}
+
 function MiniChart({ data, field, color }: { data: { month: string; [key: string]: number | string }[]; field: string; color: string }) {
   const values = data.map(d => d[field] as number);
   const min = Math.min(...values);
@@ -170,6 +438,7 @@ function VendorDetailPage({ vendor, onBack, onToast }: { vendor: VendorIntelData
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [showReassignModal, setShowReassignModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
+  const [selectedMetricInsight, setSelectedMetricInsight] = useState<VendorMetricInsight | null>(null);
   const { vendors: allVendors } = useVendors();
 
   const score = computeVendorScore(vendor);
@@ -181,9 +450,10 @@ function VendorDetailPage({ vendor, onBack, onToast }: { vendor: VendorIntelData
   const benchmarkRank = rankedVendors.findIndex(v => v.id === vendor.id) + 1;
 
   const sections = ['Overview', 'AI Insights', 'Contract Compliance', 'Cost vs Performance', 'Benchmarking', 'Predictive Risk', 'Recommendations', 'Dependency Risk'];
+  const openMetricInsight = (metricName: VendorMetricName) => setSelectedMetricInsight(buildVendorMetricInsight(vendor, metricName));
 
   return (
-    <div className="h-full flex flex-col overflow-hidden">
+    <div className="relative h-full flex flex-col overflow-hidden">
       <div className="flex items-center gap-3 px-5 py-3 border-b border-[rgba(46,127,255,0.15)] flex-shrink-0">
         <button onClick={onBack} className="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center text-[#7A94B4] hover:text-white transition-all">
           <ArrowLeft size={14} />
@@ -236,7 +506,8 @@ function VendorDetailPage({ vendor, onBack, onToast }: { vendor: VendorIntelData
         <div id="vendor-section-Overview">
           <DetailSection icon={<Star size={12} className="text-[#2E7FFF]" />} title="Overview">
             <div className="grid grid-cols-2 gap-3 mb-3">
-              <div className="col-span-2 sm:col-span-1 flex items-center gap-4 bg-[#0D1E3A] rounded-xl p-3">
+              <div className="relative col-span-2 sm:col-span-1 flex items-center gap-4 bg-[#0D1E3A] rounded-xl p-3 pr-10">
+                <VendorAIInsightBadge onClick={() => openMetricInsight('Vendor Score')} />
                 <ScoreRing score={score} size={64} />
                 <div>
                   <div className="text-[10px] text-[#7A94B4] mb-0.5">Vendor Score</div>
@@ -249,12 +520,13 @@ function VendorDetailPage({ vendor, onBack, onToast }: { vendor: VendorIntelData
               </div>
               <div className="grid grid-cols-2 gap-2 col-span-2 sm:col-span-1">
                 {[
-                  { label: 'SLA Compliance', value: `${vendor.slaCompliance}%`, color: scoreColor(vendor.slaCompliance) },
-                  { label: 'First-Time Fix', value: `${vendor.firstTimeFixRate}%`, color: scoreColor(vendor.firstTimeFixRate) },
-                  { label: 'Avg Resolution', value: `${vendor.avgResolutionMin} min`, color: vendor.avgResolutionMin <= 45 ? '#38D98A' : vendor.avgResolutionMin <= 60 ? '#FF9B38' : '#FF4B4B' },
-                  { label: 'Evidence Compliance', value: `${vendor.evidenceCompliance}%`, color: scoreColor(vendor.evidenceCompliance) },
+                  { label: 'SLA Compliance', value: `${vendor.slaCompliance}%`, color: scoreColor(vendor.slaCompliance), metric: 'SLA Compliance' as const },
+                  { label: 'First-Time Fix', value: `${vendor.firstTimeFixRate}%`, color: scoreColor(vendor.firstTimeFixRate), metric: 'First-Time Fix' as const },
+                  { label: 'Avg Resolution', value: `${vendor.avgResolutionMin} min`, color: vendor.avgResolutionMin <= 45 ? '#38D98A' : vendor.avgResolutionMin <= 60 ? '#FF9B38' : '#FF4B4B', metric: 'Avg Resolution' as const },
+                  { label: 'Evidence Compliance', value: `${vendor.evidenceCompliance}%`, color: scoreColor(vendor.evidenceCompliance), metric: 'Evidence Compliance' as const },
                 ].map(k => (
-                  <div key={k.label} className="bg-[#0A1628] rounded-lg p-2 text-center">
+                  <div key={k.label} className="relative bg-[#0A1628] rounded-lg p-2 pr-9 text-center">
+                    <VendorAIInsightBadge onClick={() => openMetricInsight(k.metric)} />
                     <div className="text-[12px] font-bold" style={{ color: k.color }}>{k.value}</div>
                     <div className="text-[9px] text-[#7A94B4] mt-0.5">{k.label}</div>
                   </div>
@@ -263,11 +535,12 @@ function VendorDetailPage({ vendor, onBack, onToast }: { vendor: VendorIntelData
             </div>
             <div className="grid grid-cols-3 gap-2">
               {[
-                { label: 'Active Contracts', value: vendor.activeContracts, icon: <Building2 size={10} className="text-[#2E7FFF]" /> },
-                { label: 'Jobs Last 30d', value: vendor.jobsLast30d, icon: <CheckCircle size={10} className="text-emerald-400" /> },
-                { label: 'Avg Cost/Job', value: `AED ${vendor.avgCostPerJob}`, icon: <DollarSign size={10} className="text-amber-400" /> },
+                { label: 'Active Contracts', value: vendor.activeContracts, icon: <Building2 size={10} className="text-[#2E7FFF]" />, metric: 'Active Contracts' as const },
+                { label: 'Jobs Last 30d', value: vendor.jobsLast30d, icon: <CheckCircle size={10} className="text-emerald-400" />, metric: 'Jobs Last 30d' as const },
+                { label: 'Avg Cost/Job', value: `AED ${vendor.avgCostPerJob}`, icon: <DollarSign size={10} className="text-amber-400" />, metric: 'Avg Cost/Job' as const },
               ].map(k => (
-                <div key={k.label} className="bg-[#0A1628] rounded-lg p-2.5">
+                <div key={k.label} className="relative bg-[#0A1628] rounded-lg p-2.5 pr-10">
+                  <VendorAIInsightBadge onClick={() => openMetricInsight(k.metric)} />
                   <div className="flex items-center gap-1 mb-1">{k.icon}<span className="text-[9px] text-[#7A94B4]">{k.label}</span></div>
                   <div className="text-[13px] font-bold text-[#EEF3FA]">{k.value}</div>
                 </div>
@@ -535,6 +808,15 @@ function VendorDetailPage({ vendor, onBack, onToast }: { vendor: VendorIntelData
           </DetailSection>
         </div>
       </div>
+
+      <AnimatePresence>
+        {selectedMetricInsight && (
+          <>
+            <div className="absolute inset-0 z-30 bg-black/20" onClick={() => setSelectedMetricInsight(null)} />
+            <VendorMetricInsightPanel insight={selectedMetricInsight} onClose={() => setSelectedMetricInsight(null)} />
+          </>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {showReassignModal && (

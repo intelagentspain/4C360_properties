@@ -27,7 +27,7 @@ export const mockMemberProfiles: MockMemberProfile[] = [
   {
     id: 'mbr-001',
     name: 'Hassan Yousef',
-    email: 'hassan.yousef@imdaad.ae',
+    email: 'hassan.yousef@developmentx.ae',
     role: 'FM Manager',
     perspective: 'Strategic',
     assignedClients: ['Dubai Silicon Oasis', 'Gate Avenue DIFC'],
@@ -40,7 +40,7 @@ export const mockMemberProfiles: MockMemberProfile[] = [
   {
     id: 'mbr-002',
     name: 'Karim R.',
-    email: 'karim.r@imdaad.ae',
+    email: 'karim.r@developmentx.ae',
     role: 'FM Engineer',
     perspective: 'Operational',
     assignedClients: ['Dubai Silicon Oasis'],
@@ -53,7 +53,7 @@ export const mockMemberProfiles: MockMemberProfile[] = [
   {
     id: 'mbr-003',
     name: 'Rania Al-Farsi',
-    email: 'rania.alfarsi@imdaad.ae',
+    email: 'rania.alfarsi@developmentx.ae',
     role: 'Account Manager',
     perspective: 'Strategic',
     assignedClients: ['Dubai Silicon Oasis'],
@@ -66,7 +66,7 @@ export const mockMemberProfiles: MockMemberProfile[] = [
   {
     id: 'mbr-004',
     name: 'Tariq Mansour',
-    email: 'tariq.mansour@imdaad.ae',
+    email: 'tariq.mansour@developmentx.ae',
     role: 'Site Supervisor',
     perspective: 'Operational',
     assignedClients: ['Dubai Silicon Oasis'],
@@ -85,7 +85,7 @@ export const mockMemberProfiles: MockMemberProfile[] = [
     assignedClients: ['JLT North Cluster'],
     zones: ['Dubai Marina'],
     skills: 'Facility Management Oversight, Compliance Review',
-    responsibilities: 'Review service request status and SLA compliance\nSubmit and track maintenance requests for JLT North\nAccess performance reports and satisfaction data\nEscalate unresolved issues to Imdaad account management',
+    responsibilities: 'Review service request status and SLA compliance\nSubmit and track maintenance requests for JLT North\nAccess performance reports and satisfaction data\nEscalate unresolved issues to DevelopmentX account management',
     photo: 'team/lina-barakat.png',
     isActive: true,
   },
@@ -107,7 +107,7 @@ export const mockMemberProfiles: MockMemberProfile[] = [
   {
     id: 'mbr-007',
     name: 'Ahmed K.',
-    email: 'ahmed.k@imdaad.ae',
+    email: 'ahmed.k@developmentx.ae',
     role: 'FM Engineer',
     perspective: 'Operational',
     assignedClients: ['Dubai Silicon Oasis'],
@@ -123,7 +123,7 @@ export const mockMemberProfiles: MockMemberProfile[] = [
   {
     id: 'mbr-008',
     name: 'Sara M.',
-    email: 'sara.m@imdaad.ae',
+    email: 'sara.m@developmentx.ae',
     role: 'FM Engineer',
     perspective: 'Operational',
     assignedClients: ['Dubai Silicon Oasis'],
@@ -139,7 +139,7 @@ export const mockMemberProfiles: MockMemberProfile[] = [
   {
     id: 'mbr-009',
     name: 'Faisal N.',
-    email: 'faisal.n@imdaad.ae',
+    email: 'faisal.n@developmentx.ae',
     role: 'FM Engineer',
     perspective: 'Operational',
     assignedClients: ['Dubai Silicon Oasis'],
@@ -155,7 +155,7 @@ export const mockMemberProfiles: MockMemberProfile[] = [
   {
     id: 'mbr-010',
     name: 'Omar T.',
-    email: 'omar.t@imdaad.ae',
+    email: 'omar.t@developmentx.ae',
     role: 'FM Engineer',
     perspective: 'Operational',
     assignedClients: ['Dubai Silicon Oasis'],
@@ -171,7 +171,7 @@ export const mockMemberProfiles: MockMemberProfile[] = [
   {
     id: 'mbr-011',
     name: 'Nadia H.',
-    email: 'nadia.h@imdaad.ae',
+    email: 'nadia.h@developmentx.ae',
     role: 'Safety Officer',
     perspective: 'Operational',
     assignedClients: ['Dubai Silicon Oasis'],
@@ -527,7 +527,7 @@ export const mockParts = [
 ];
 
 export const mockLoggedInTech = {
-  id: 'KR', name: 'Karim R.', role: 'HVAC Specialist', pin: '1234', avatar: 'KR', rating: 4.8, jobsCompleted: 142, email: 'karim.r@imdaad.ae',
+  id: 'KR', name: 'Karim R.', role: 'HVAC Specialist', pin: '1234', avatar: 'KR', rating: 4.8, jobsCompleted: 142, email: 'karim.r@developmentx.ae',
 };
 
 export const mockNotifications = [
@@ -762,7 +762,7 @@ export function classifyVendorRisk(score: number): VendorRiskLevel {
 export const mockVendorIntelligence: VendorIntelData[] = [
   {
     id: 'VND-001',
-    name: 'Imdaad Core',
+    name: 'DevelopmentX Core',
     category: 'FM & HVAC',
     trend: 'up',
     slaCompliance: 96,
@@ -786,13 +786,13 @@ export const mockVendorIntelligence: VendorIntelData[] = [
     predictedRisk30d: 8,
     projectedTrend: 'up',
     recommendations: [
-      { title: 'Expand scope to Business Bay', detail: 'Performance data supports extending Imdaad Core\'s HVAC scope to Business Bay cluster — projected to reduce response time by 22%.', action: 'renegotiate' },
+      { title: 'Expand scope to Business Bay', detail: 'Performance data supports extending DevelopmentX Core\'s HVAC scope to Business Bay cluster — projected to reduce response time by 22%.', action: 'renegotiate' },
       { title: 'Maintain current SLA terms', detail: 'No renegotiation required — vendor is consistently outperforming SLA targets across all three managed sites.', action: 'review' },
     ],
     dependencyRisk: 'Medium',
     dependencyNote: '3 sites depend on this vendor — a performance drop would impact 58% of managed properties.',
     address: { street: 'Building 7, Dubai Silicon Oasis', city: 'Dubai', country: 'UAE' },
-    poc: { name: 'Khalid Al Mansoori', title: 'Operations Director', phone: '+971 50 111 2233', email: 'k.mansoori@imdaadcore.ae' },
+    poc: { name: 'Khalid Al Mansoori', title: 'Operations Director', phone: '+971 50 111 2233', email: 'k.mansoori@developmentxcore.ae' },
     costTrend: [
       { month: 'Nov', cost: 435, peerAvg: 510 },
       { month: 'Dec', cost: 428, peerAvg: 508 },
@@ -945,7 +945,7 @@ export const mockVendorIntelligence: VendorIntelData[] = [
     projectedTrend: 'up',
     recommendations: [
       { title: 'Issue performance improvement notice', detail: '3 SLA breaches triggers Clause 11.2 — formal notice must be issued within 30 days. Set 60-day improvement window with measurable KPI targets.', action: 'review' },
-      { title: 'Limit scope to civil works only', detail: 'Redirect M&E tasks to Emrill FM or Imdaad Core. Engineering-only scope better aligns with Belhasa\'s demonstrated competency.', action: 'limit' },
+      { title: 'Limit scope to civil works only', detail: 'Redirect M&E tasks to Emrill FM or DevelopmentX Core. Engineering-only scope better aligns with Belhasa\'s demonstrated competency.', action: 'limit' },
       { title: 'Renegotiate day rate at next review', detail: 'AED 530/job is not justified by current performance. Benchmark shows Emrill FM delivers comparable engineering services at AED 465.', action: 'renegotiate' },
     ],
     dependencyRisk: 'Low',
@@ -1092,7 +1092,7 @@ export const mockBenchmarkData = {
     { name: 'DIFC Tower',    sla: 96, incidents: 18, compliance: 96 },
   ],
   vendors: [
-    { name: 'Imdaad Core',  slaBreaches: 2,  avgResolution: 38, repeatFailure: 4,  rating: 4.8 },
+    { name: 'DevelopmentX Core',  slaBreaches: 2,  avgResolution: 38, repeatFailure: 4,  rating: 4.8 },
     { name: 'TechServ ME',  slaBreaches: 8,  avgResolution: 62, repeatFailure: 12, rating: 3.9 },
     { name: 'Emrill FM',    slaBreaches: 5,  avgResolution: 47, repeatFailure: 7,  rating: 4.2 },
     { name: 'Farnek Serv.', slaBreaches: 11, avgResolution: 71, repeatFailure: 15, rating: 3.6 },
@@ -1444,7 +1444,7 @@ export const mockPortfolioClients: PortfolioClient[] = [
         { severity: 'Medium',   target: '< 4 hrs' },
         { severity: 'Low',      target: '< 24 hrs' },
       ],
-      vendorManager: 'Zaid Al-Hamdan — Imdaad HQ',
+      vendorManager: 'Zaid Al-Hamdan — DevelopmentX HQ',
       notes: 'Renewal auto-triggers at 85% contract term. Resident satisfaction score included in KPI review.',
     },
     lat: 25.1185,
@@ -1524,7 +1524,7 @@ export const mockPortfolioClients: PortfolioClient[] = [
         { severity: 'Medium',   target: '< 3 hrs' },
         { severity: 'Low',      target: '< 12 hrs' },
       ],
-      vendorManager: 'Zaid Al-Hamdan — Imdaad HQ',
+      vendorManager: 'Zaid Al-Hamdan — DevelopmentX HQ',
       notes: 'DIFC compliance audit scheduled Q3. Retail trading hours limit maintenance windows to 10 PM–6 AM.',
     },
     lat: 25.2048,
@@ -1607,7 +1607,7 @@ export const mockPortfolioClients: PortfolioClient[] = [
         { severity: 'Medium',   target: '< 6 hrs' },
         { severity: 'Low',      target: '< 24 hrs' },
       ],
-      vendorManager: 'Mariam Nasser — Imdaad HQ',
+      vendorManager: 'Mariam Nasser — DevelopmentX HQ',
       notes: 'Penalty review scheduled end of month. Upgrade to Platinum tier being discussed pending SLA recovery.',
     },
     lat: 25.1858,
@@ -1688,7 +1688,7 @@ export const mockPortfolioClients: PortfolioClient[] = [
         { severity: 'Medium',   target: '< 8 hrs' },
         { severity: 'Low',      target: '< 48 hrs' },
       ],
-      vendorManager: 'Mariam Nasser — Imdaad HQ',
+      vendorManager: 'Mariam Nasser — DevelopmentX HQ',
       notes: 'Formal improvement plan in progress. Client has requested senior management review. Contract at risk of non-renewal.',
     },
     lat: 25.0779,
@@ -1771,7 +1771,7 @@ export const mockPortfolioClients: PortfolioClient[] = [
         { severity: 'Medium',   target: '< 6 hrs' },
         { severity: 'Low',      target: '< 24 hrs' },
       ],
-      vendorManager: 'Zaid Al-Hamdan — Imdaad HQ',
+      vendorManager: 'Zaid Al-Hamdan — DevelopmentX HQ',
       notes: 'Community management board review every 6 months. Landscape KPIs tracked separately to FM KPIs.',
     },
     lat: 25.0550,
@@ -1854,7 +1854,7 @@ export const mockPortfolioClients: PortfolioClient[] = [
         { severity: 'Medium',   target: '< 2 hrs' },
         { severity: 'Low',      target: '< 8 hrs' },
       ],
-      vendorManager: 'Leila Mahmoud — Imdaad HQ',
+      vendorManager: 'Leila Mahmoud — DevelopmentX HQ',
       notes: 'White-glove service standard. All staff must hold valid DTCM certification. Branded uniforms mandatory on-site.',
     },
     lat: 25.1972,
@@ -2537,11 +2537,11 @@ export const mockKBResources: KBResource[] = [
     estimatedTime: '10 min read',
     difficulty: 'beginner',
     tags: ['PPM', 'compliance', 'platform', 'SOP', 'documentation'],
-    tools: ['Mobile device with Imdaad platform access', 'Camera'],
+    tools: ['Mobile device with DevelopmentX platform access', 'Camera'],
     steps: [
       {
         title: 'Access your assigned PPM tasks',
-        body: 'Open the Imdaad Field portal and navigate to your Work Orders. PPM tasks will appear with the "PPM" tag. Filter by "Open" to see all due tasks. Tap a task to view the service requirement and equipment checklist.',
+        body: 'Open the DevelopmentX Field portal and navigate to your Work Orders. PPM tasks will appear with the "PPM" tag. Filter by "Open" to see all due tasks. Tap a task to view the service requirement and equipment checklist.',
       },
       {
         title: 'Arrive on site and log start time',
@@ -2584,7 +2584,7 @@ export const mockKBResources: KBResource[] = [
       },
       {
         title: 'Log the incident in the platform',
-        body: 'Open the Imdaad platform, navigate to New Incident, and complete the form: location, description, severity, and your name. Attach at least one photo. Submit within 15 minutes of discovery.',
+        body: 'Open the DevelopmentX platform, navigate to New Incident, and complete the form: location, description, severity, and your name. Attach at least one photo. Submit within 15 minutes of discovery.',
         tip: 'Be factual and specific — "Water dripping from ceiling in corridor B3 near light fitting LE-042" is much more useful than "wet floor in block B".',
       },
       {

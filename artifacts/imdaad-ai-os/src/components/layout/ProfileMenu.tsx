@@ -21,7 +21,7 @@ interface Props {
 
 const profileActions = [
   { label: 'Personal profile', sub: 'Name, photo, title and contact details', icon: UserRound },
-  { label: 'Organisation', sub: '4C360 Properties workspace and company details', icon: Building2 },
+  { label: 'Organisation', sub: 'DevelopmentX workspace and company details', icon: Building2 },
   { label: 'Team access', sub: 'Role, permissions and assigned properties', icon: Users },
   { label: 'Security', sub: 'Password, MFA and active sessions', icon: ShieldCheck },
   { label: 'Preferences', sub: 'Theme, language, timezone and notifications', icon: SlidersHorizontal },
@@ -95,8 +95,8 @@ export function ProfileMenu({ open, onClose }: Props) {
                         Active
                       </span>
                     </div>
-                    <p className="mt-0.5 text-[11px] text-[#B8C7DB]">Strategic Director · 4C360 Properties</p>
-                    <p className="mt-1 text-[10px] text-[#7A94B4]">sarah.khan@4c360.properties</p>
+                    <p className="mt-0.5 text-[11px] text-[#B8C7DB]">Strategic Director · DevelopmentX</p>
+                    <p className="mt-1 text-[10px] text-[#7A94B4]">sarah.khan@developmentx.ae</p>
                   </div>
                 </div>
                 <button
@@ -115,9 +115,9 @@ export function ProfileMenu({ open, onClose }: Props) {
                 { label: 'Properties', value: '18' },
                 { label: 'Modules', value: '9' },
               ].map(stat => (
-                <div key={stat.label} className="rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#07111F] p-3">
-                  <div className="text-[9px] font-bold uppercase tracking-[0.12em] text-[#7A94B4]">{stat.label}</div>
-                  <div className="mt-1 text-lg font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{stat.value}</div>
+                <div key={stat.label} className="min-w-0 rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#07111F] p-2.5">
+                  <div className="truncate text-[8px] font-bold uppercase tracking-[0.1em] text-[#7A94B4]">{stat.label}</div>
+                  <div className="mt-1 truncate text-[15px] font-black leading-5 text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{stat.value}</div>
                 </div>
               ))}
             </div>
