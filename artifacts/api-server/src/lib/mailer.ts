@@ -1,7 +1,7 @@
 import { Resend } from "resend";
 import { logger } from "./logger";
 
-const RESEND_SHARED_FROM = "Imdaad AI-OS <noreply@4cgrc.com>";
+const RESEND_SHARED_FROM = "4C360 Operations <noreply@4cgrc.com>";
 
 function getFromEmail(): string {
   return process.env.SMTP_FROM || RESEND_SHARED_FROM;
