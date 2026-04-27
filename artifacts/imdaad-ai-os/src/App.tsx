@@ -9,6 +9,7 @@ import { MemberDashboardView } from '@/components/MemberDashboardView';
 import { HospitalityClientView } from '@/components/client/hospitality/HospitalityClientView';
 import { IncidentTrackingView } from '@/components/client/hospitality/IncidentTrackingView';
 import { ResidentMobilePortal } from '@/modules/residentportal';
+import { FieldOpsCapture } from '@/modules/fieldops';
 import { ToastContainer } from '@/components/shared/ToastContainer';
 import { CopilotAvatar } from '@/components/CopilotAvatar';
 import { useToast } from '@/hooks/useToast';
@@ -44,6 +45,11 @@ function getInitialStrategicPage(): StrategicPage {
 
 function isResidentPortalRoute(): boolean {
   return window.location.pathname === '/resident' || window.location.pathname.startsWith('/resident/');
+}
+
+function getFieldOpsCaptureSurveyId(): string | null {
+  const match = window.location.pathname.match(/^\/fieldops\/survey\/([^/]+)\/capture\/?$/);
+  return match?.[1] ?? null;
 }
 
 function makeResidentProfile(id = 'resident-portal'): MockMemberProfile {
@@ -160,6 +166,16 @@ function App() {
 
   if (trackId) {
     return <IncidentTrackingView incidentId={trackId} />;
+  }
+
+  const fieldOpsSurveyId = getFieldOpsCaptureSurveyId();
+  if (fieldOpsSurveyId) {
+    return (
+      <>
+        <FieldOpsCapture surveyId={fieldOpsSurveyId} />
+        <ToastContainer toasts={toasts} removeToast={removeToast} />
+      </>
+    );
   }
 
   if (isResidentPortalRoute()) {

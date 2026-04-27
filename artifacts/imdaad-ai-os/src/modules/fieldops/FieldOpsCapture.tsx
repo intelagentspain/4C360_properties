@@ -1,23 +1,81 @@
 import { useMemo, useState } from 'react';
 import { Camera, CheckCircle2, FileSignature, MapPin, Mic, QrCode, ShieldAlert } from 'lucide-react';
-import { surveys } from './data';
+import { assignments, surveys, type SurveyQuestion, type SurveySubmission } from './data';
+import { appendLocalFieldOpsSubmission } from './liveSubmissions';
 
 export function FieldOpsCapture({ surveyId }: { surveyId: string }) {
   const survey = useMemo(() => surveys.find(item => item.id === surveyId) ?? surveys[0], [surveyId]);
-  const [answered, setAnswered] = useState<Record<string, boolean>>({});
+  const assignment = useMemo(() => assignments.find(item => item.surveyId === survey.id) ?? assignments[0], [survey.id]);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
+  const [submissionId, setSubmissionId] = useState('');
   const [blocked, setBlocked] = useState('');
 
   const required = survey.questions.filter(question => question.required);
-  const completeCount = required.filter(question => answered[question.id]).length;
+  const completeCount = required.filter(question => (answers[question.id] ?? '').trim().length > 0).length;
   const progress = required.length ? Math.round((completeCount / required.length) * 100) : 100;
 
-  const submit = () => {
+  const updateAnswer = (questionId: string, value: string) => {
+    setAnswers(current => ({ ...current, [questionId]: value }));
+    setBlocked('');
+  };
+
+  const getDefaultAnswer = (question: SurveyQuestion) => {
+    if (question.type === 'pass_fail') return 'Pass';
+    if (question.type === 'yes_no') return 'Yes';
+    if (question.type === 'photo') return 'Photo uploaded';
+    if (question.type === 'signature') return 'Signature captured';
+    if (question.type === 'qr_scan') return 'QR scanned';
+    if (question.type === 'gps') return 'GPS captured';
+    return 'Completed';
+  };
+
+  const submit = async () => {
     if (progress < 100) {
       setBlocked('Complete all mandatory questions and required evidence before submitting.');
       return;
     }
+
+    const newSubmissionId = `SUB-${Date.now().toString().slice(-8)}`;
+    const answerRows = survey.questions
+      .filter(question => question.type !== 'section')
+      .map(question => ({
+        question: question.label,
+        answer: answers[question.id] || getDefaultAnswer(question),
+      }));
+    const issueCount = answerRows.filter(row => /fail|no|blocked|abnormal|issue|defect/i.test(row.answer)).length;
+    const evidence = survey.questions
+      .filter(question => question.evidenceRequired || question.type === 'photo' || question.type === 'signature' || question.type === 'voice')
+      .map(question => ({
+        type: question.type === 'signature' ? 'signature' as const : question.type === 'voice' ? 'voice' as const : 'photo' as const,
+        label: question.label,
+      }));
+    const submission: SurveySubmission = {
+      id: newSubmissionId,
+      surveyId: survey.id,
+      assignmentId: assignment.id,
+      submittedBy: 'Email recipient',
+      answers: answerRows,
+      evidence,
+      gpsLocation: { lat: 25.2048, lng: 55.2708, site: survey.siteIds[0] ?? assignment.site },
+      status: 'Pending Review',
+      issuesDetected: issueCount,
+      score: Math.max(55, 100 - issueCount * 14),
+      submittedAt: 'Just now',
+      reviewer: 'Sarah Khan',
+    };
+
+    appendLocalFieldOpsSubmission(submission);
+    setSubmissionId(newSubmissionId);
     setSubmitted(true);
+
+    fetch('/api/fieldops/submissions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(submission),
+    }).catch(() => {
+      // Local storage keeps the dashboard demo live even if the API is offline.
+    });
   };
 
   if (submitted) {
@@ -31,7 +89,7 @@ export function FieldOpsCapture({ surveyId }: { surveyId: string }) {
           <p className="mt-2 text-sm leading-6 text-[#B8C7DB]">Your survey has been submitted and is pending supervisor review.</p>
           <div className="mt-5 rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#07111F] p-4 text-left">
             <p className="text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">Submission ID</p>
-            <p className="mt-1 font-mono text-sm font-bold text-[#EEF3FA]">SUB-{Date.now().toString().slice(-8)}</p>
+            <p className="mt-1 font-mono text-sm font-bold text-[#EEF3FA]">{submissionId}</p>
             <p className="mt-3 text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">Status</p>
             <p className="mt-1 text-sm font-bold text-emerald-300">Pending Review</p>
           </div>
@@ -59,7 +117,8 @@ export function FieldOpsCapture({ surveyId }: { surveyId: string }) {
 
         <div className="space-y-3 p-4">
           {survey.questions.map(question => {
-            const isDone = answered[question.id] || !question.required;
+            const value = answers[question.id] ?? '';
+            const isDone = value.trim().length > 0 || !question.required;
             const isSection = question.type === 'section';
             if (isSection) {
               return <h2 key={question.id} className="pt-2 text-[11px] font-black uppercase tracking-widest text-[#E11D2E]">{question.label}</h2>;
@@ -73,13 +132,45 @@ export function FieldOpsCapture({ surveyId }: { surveyId: string }) {
                   </div>
                   {question.required && <span className="rounded-full bg-[#E11D2E]/12 px-2 py-1 text-[9px] font-bold text-red-200">Required</span>}
                 </div>
+                {['text', 'numeric'].includes(question.type) && (
+                  <input
+                    value={value}
+                    onChange={event => updateAnswer(question.id, event.target.value)}
+                    placeholder={question.type === 'numeric' ? 'Enter reading' : 'Enter notes'}
+                    className="mt-3 h-10 w-full rounded-lg border border-[rgba(46,127,255,0.18)] bg-[#0A1628] px-3 text-sm text-[#EEF3FA] outline-none focus:border-[#E11D2E]"
+                  />
+                )}
+                {question.type === 'single_choice' && (
+                  <select
+                    value={value}
+                    onChange={event => updateAnswer(question.id, event.target.value)}
+                    className="mt-3 h-10 w-full rounded-lg border border-[rgba(46,127,255,0.18)] bg-[#0A1628] px-3 text-sm text-[#EEF3FA] outline-none focus:border-[#E11D2E]"
+                  >
+                    <option value="">Select answer</option>
+                    {(question.options ?? ['Excellent', 'Good', 'Needs attention']).map(option => <option key={option}>{option}</option>)}
+                  </select>
+                )}
+                {['pass_fail', 'yes_no'].includes(question.type) && (
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    {(question.type === 'pass_fail' ? ['Pass', 'Fail'] : ['Yes', 'No']).map(option => (
+                      <button
+                        key={option}
+                        type="button"
+                        onClick={() => updateAnswer(question.id, option)}
+                        className={`rounded-lg border px-3 py-2 text-[11px] font-bold ${value === option ? 'border-[#E11D2E]/55 bg-[#E11D2E]/15 text-white' : 'border-[rgba(46,127,255,0.18)] bg-[#0A1628] text-[#B8C7DB]'}`}
+                      >
+                        {option}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <div className="mt-3 flex flex-wrap gap-2">
-                  {question.type === 'photo' && <button className="rounded-lg border border-[rgba(46,127,255,0.18)] px-3 py-2 text-[11px] font-bold text-[#B8C7DB]"><Camera size={13} className="mr-1 inline" />Photo</button>}
-                  {question.type === 'voice' && <button className="rounded-lg border border-[rgba(46,127,255,0.18)] px-3 py-2 text-[11px] font-bold text-[#B8C7DB]"><Mic size={13} className="mr-1 inline" />Voice</button>}
-                  {question.type === 'signature' && <button className="rounded-lg border border-[rgba(46,127,255,0.18)] px-3 py-2 text-[11px] font-bold text-[#B8C7DB]"><FileSignature size={13} className="mr-1 inline" />Sign</button>}
-                  {question.type === 'qr_scan' && <button className="rounded-lg border border-[rgba(46,127,255,0.18)] px-3 py-2 text-[11px] font-bold text-[#B8C7DB]"><QrCode size={13} className="mr-1 inline" />Scan</button>}
+                  {(question.type === 'photo' || question.evidenceRequired) && <button onClick={() => updateAnswer(question.id, 'Photo uploaded')} className="rounded-lg border border-[rgba(46,127,255,0.18)] px-3 py-2 text-[11px] font-bold text-[#B8C7DB]"><Camera size={13} className="mr-1 inline" />Photo</button>}
+                  {question.type === 'voice' && <button onClick={() => updateAnswer(question.id, 'Voice note uploaded')} className="rounded-lg border border-[rgba(46,127,255,0.18)] px-3 py-2 text-[11px] font-bold text-[#B8C7DB]"><Mic size={13} className="mr-1 inline" />Voice</button>}
+                  {question.type === 'signature' && <button onClick={() => updateAnswer(question.id, 'Signature captured')} className="rounded-lg border border-[rgba(46,127,255,0.18)] px-3 py-2 text-[11px] font-bold text-[#B8C7DB]"><FileSignature size={13} className="mr-1 inline" />Sign</button>}
+                  {question.type === 'qr_scan' && <button onClick={() => updateAnswer(question.id, 'QR scanned')} className="rounded-lg border border-[rgba(46,127,255,0.18)] px-3 py-2 text-[11px] font-bold text-[#B8C7DB]"><QrCode size={13} className="mr-1 inline" />Scan</button>}
                   <button
-                    onClick={() => setAnswered(current => ({ ...current, [question.id]: !current[question.id] }))}
+                    onClick={() => updateAnswer(question.id, isDone ? '' : getDefaultAnswer(question))}
                     className={`rounded-lg px-3 py-2 text-[11px] font-bold ${isDone ? 'bg-emerald-400/12 text-emerald-300' : 'bg-[#E11D2E]/12 text-red-200'}`}
                   >
                     {isDone ? 'Completed' : 'Mark complete'}

@@ -44,6 +44,7 @@ import {
   type SurveySubmission,
   type SurveyType,
 } from './data';
+import { getLocalFieldOpsSubmissions, subscribeToLocalFieldOpsSubmissions } from './liveSubmissions';
 
 type Tab = 'surveys' | 'assignments' | 'tracking' | 'templates' | 'ai';
 type Drawer = 'detail' | 'design' | 'assign' | 'share' | 'submission' | null;
@@ -82,16 +83,66 @@ const statusClass: Record<string, string> = {
 const fieldInput = 'h-9 rounded-lg border border-[rgba(46,127,255,0.22)] bg-[#0A1628] px-3 text-[12px] text-[#EEF3FA] outline-none placeholder:text-[#4A6080] focus:border-[#E11D2E]';
 const priorityOptions = ['Low', 'Medium', 'High', 'Critical'] as const;
 type SurveyPriority = (typeof priorityOptions)[number];
-const aiPromptChips = [
-  'HVAC PPM',
-  'Lift Safety Inspection',
-  'Cleaning Audit',
-  'Fire System Check',
-  'Asset Condition Survey',
-  'Handover Inspection',
-  'Defect Capture',
-  'Site Safety Walkthrough',
+const aiPromptCategories: Array<{ category: string; chips: string[] }> = [
+  {
+    category: 'Property Operations',
+    chips: [
+      'HVAC PPM',
+      'Lift Safety Inspection',
+      'Cleaning Audit',
+      'Fire System Check',
+      'Pump Room Inspection',
+      'Generator PPM',
+      'Water Tank Inspection',
+      'Facade & Roof Check',
+    ],
+  },
+  {
+    category: 'Development & Handover',
+    chips: [
+      'Handover Inspection',
+      'Defect Capture',
+      'Snagging Survey',
+      'Pre-Handover Inspection',
+      'Mock-up Apartment Review',
+      'Common Area Handover',
+      'Authority Readiness Check',
+    ],
+  },
+  {
+    category: 'Safety & Compliance',
+    chips: [
+      'Site Safety Walkthrough',
+      'Fire Life Safety Audit',
+      'Permit-to-Work Check',
+      'Environmental Inspection',
+      'Waste Management Audit',
+      'Security Patrol Check',
+    ],
+  },
+  {
+    category: 'Resident & Community',
+    chips: [
+      'Move-In Inspection',
+      'Resident Complaint Follow-up',
+      'Amenity Condition Check',
+      'Pool & Gym Audit',
+      'Landscape Inspection',
+      'Community Event Readiness',
+    ],
+  },
+  {
+    category: 'Assets & Vendors',
+    chips: [
+      'Asset Condition Survey',
+      'Vendor Performance Audit',
+      'Contractor Work Completion',
+      'Spare Parts Stock Check',
+      'Lifecycle Replacement Survey',
+    ],
+  },
 ];
+const aiPromptChips = aiPromptCategories.flatMap(group => group.chips);
 type AiDraftProfile = {
   sections: number;
   questions: number;
@@ -100,6 +151,16 @@ type AiDraftProfile = {
   focus: string;
   evidence: string;
   questionSections: Array<{ title: string; questions: string[] }>;
+};
+type EditableTemplateQuestion = {
+  text: string;
+  photoRequired: boolean;
+  copilotEnabled: boolean;
+  copilotGuidance: string;
+};
+type EditableTemplateSection = {
+  title: string;
+  checks: EditableTemplateQuestion[];
 };
 const aiDraftProfiles: Record<string, AiDraftProfile> = {
   'HVAC PPM': {
@@ -207,6 +268,99 @@ const aiDraftProfiles: Record<string, AiDraftProfile> = {
     ],
   },
 };
+
+function getPromptCategory(chip: string) {
+  return aiPromptCategories.find(group => group.chips.includes(chip))?.category ?? 'Property Operations';
+}
+
+function makeGenericDraftProfile(chip: string): AiDraftProfile {
+  const category = getPromptCategory(chip);
+  const lower = chip.toLowerCase();
+  const isDevelopment = category === 'Development & Handover';
+  const isCompliance = category === 'Safety & Compliance';
+  const isCommunity = category === 'Resident & Community';
+  const isVendor = category === 'Assets & Vendors';
+  const isPpm = lower.includes('ppm') || lower.includes('generator') || lower.includes('pump') || lower.includes('tank');
+
+  if (isDevelopment) {
+    return {
+      sections: 5,
+      questions: 20,
+      duration: '15-25 minutes',
+      frequency: 'Per milestone or handover batch',
+      focus: `${chip.toLowerCase()}, readiness checks, defects, approvals, and handover evidence`,
+      evidence: 'photos, location proof, snag notes, approval status, and QA sign-off',
+      questionSections: [
+        { title: 'Scope & Readiness', questions: ['Confirm project, tower, floor, and unit or zone', 'Validate area is ready for inspection', 'Check required drawings and approvals are available'] },
+        { title: 'Quality & Defects', questions: ['Capture visible defects or incomplete work', 'Rate severity and handover impact', 'Assign corrective owner and target closure date'] },
+        { title: 'Evidence & Approval', questions: ['Upload photos for each failed item', 'Confirm critical issues are escalated', 'Collect reviewer sign-off before submission'] },
+      ],
+    };
+  }
+
+  if (isCompliance) {
+    return {
+      sections: 5,
+      questions: 22,
+      duration: '12-20 minutes',
+      frequency: lower.includes('permit') ? 'Per work permit' : 'Weekly',
+      focus: `${chip.toLowerCase()}, compliance controls, unsafe observations, corrective actions, and escalation`,
+      evidence: 'mandatory photos for non-compliance, GPS proof, risk rating, and supervisor review',
+      questionSections: [
+        { title: 'Control Checks', questions: ['Confirm required permit, signage, or control is in place', 'Check access routes and emergency provisions', 'Verify responsible party is present and briefed'] },
+        { title: 'Risk Observations', questions: ['Record unsafe condition or non-compliance', 'Rate severity and likelihood', 'Assign corrective action owner'] },
+        { title: 'Escalation', questions: ['Upload photo evidence for failed checks', 'Create incident for critical non-compliance', 'Capture reviewer sign-off'] },
+      ],
+    };
+  }
+
+  if (isCommunity) {
+    return {
+      sections: 4,
+      questions: 16,
+      duration: '8-14 minutes',
+      frequency: lower.includes('event') ? 'Before each event' : 'Weekly',
+      focus: `${chip.toLowerCase()}, resident experience, amenity readiness, service quality, and follow-up actions`,
+      evidence: 'condition photos, resident notes, service rating, and follow-up owner',
+      questionSections: [
+        { title: 'Resident Context', questions: ['Confirm property, area, unit, or amenity', 'Record resident or community concern where applicable', 'Check service readiness and accessibility'] },
+        { title: 'Experience & Condition', questions: ['Rate cleanliness, safety, and presentation', 'Capture any defect or service gap', 'Identify immediate action required'] },
+        { title: 'Follow-up', questions: ['Upload photos for service gaps', 'Assign owner for corrective action', 'Confirm resident communication is required'] },
+      ],
+    };
+  }
+
+  if (isVendor) {
+    return {
+      sections: 4,
+      questions: 18,
+      duration: '10-18 minutes',
+      frequency: lower.includes('vendor') || lower.includes('contractor') ? 'Per visit or work package' : 'Monthly',
+      focus: `${chip.toLowerCase()}, asset status, vendor output, quality evidence, lifecycle risk, and closure`,
+      evidence: 'before/after photos, asset scan, completion notes, quality score, and approver sign-off',
+      questionSections: [
+        { title: 'Asset or Work Package', questions: ['Scan asset, zone, or work package reference', 'Confirm scope and responsible vendor', 'Check current condition or completion status'] },
+        { title: 'Quality & Performance', questions: ['Rate workmanship or service quality', 'Record defects, delays, or missing materials', 'Flag lifecycle or warranty impact'] },
+        { title: 'Close-out Evidence', questions: ['Upload before/after photos where applicable', 'Confirm corrective actions are complete', 'Collect approver sign-off'] },
+      ],
+    };
+  }
+
+  return {
+    sections: isPpm ? 5 : 4,
+    questions: isPpm ? 20 : 16,
+    duration: isPpm ? '15-22 minutes' : '10-15 minutes',
+    frequency: isPpm ? 'Monthly' : 'Weekly',
+    focus: `${chip.toLowerCase()}, operating condition, safety checks, readings, defects, and supervisor sign-off`,
+    evidence: 'asset photos, readings where applicable, QR scan, failed-item notes, and GPS proof',
+    questionSections: [
+      { title: 'Asset Identity', questions: ['Confirm asset, location, and access condition', 'Scan QR or record asset reference', 'Verify safe access before inspection'] },
+      { title: 'Condition & Readings', questions: ['Check visible condition and operational status', 'Record readings or performance observations', 'Flag abnormal noise, leaks, vibration, or damage'] },
+      { title: 'Evidence & Action', questions: ['Upload photo evidence for failed checks', 'Assign corrective action owner', 'Escalate critical findings for incident creation'] },
+    ],
+  };
+}
+
 const assignableAssignees = ['MEP Team', 'Fire Safety Vendor', 'Soft Services Team', 'QA/QC Team', 'Handover Team', 'Arabian FM Contractor', 'Mariam Saleh', 'Ahmed Farouk'];
 const supervisorReviewers = ['Mariam Saleh', 'Sarah Khan', 'Omar Haddad', 'Nadia Karim', 'James Miller'];
 const recurrenceOptions = ['one-time', 'daily', 'weekly', 'monthly', 'quarterly', 'custom'];
@@ -261,13 +415,16 @@ function normalizeTemplate(template: { name: string; type: string; duration: str
 
 function inferSurveyTypeFromPrompt(prompt: string): SurveyType {
   const lower = prompt.toLowerCase();
+  if (lower.includes('vendor') || lower.includes('contractor') || lower.includes('work completion')) return 'Field Inspection';
+  if (lower.includes('permit') || lower.includes('environment') || lower.includes('security') || lower.includes('waste')) return 'Safety';
+  if (lower.includes('resident') || lower.includes('amenity') || lower.includes('pool') || lower.includes('gym') || lower.includes('landscape') || lower.includes('community')) return 'Field Inspection';
   if (lower.includes('clean')) return 'Cleaning Audit';
   if (lower.includes('fire')) return 'Fire Safety';
-  if (lower.includes('handover') || lower.includes('snag')) return 'Handover';
+  if (lower.includes('handover') || lower.includes('snag') || lower.includes('mock-up') || lower.includes('authority')) return 'Handover';
   if (lower.includes('defect') || lower.includes('reactive')) return 'Reactive Maintenance';
   if (lower.includes('asset condition') || lower.includes('condition')) return 'Asset Condition';
   if (lower.includes('safety') || lower.includes('lift')) return 'Safety';
-  if (lower.includes('ppm') || lower.includes('preventive') || lower.includes('maintenance') || lower.includes('chiller')) return 'Preventive Maintenance';
+  if (lower.includes('ppm') || lower.includes('preventive') || lower.includes('maintenance') || lower.includes('chiller') || lower.includes('generator') || lower.includes('pump') || lower.includes('tank')) return 'Preventive Maintenance';
   return 'Field Inspection';
 }
 
@@ -279,14 +436,101 @@ function titleFromPrompt(prompt: string, type: SurveyType) {
   if (lower.includes('fire')) return 'Fire Safety Inspection';
   if (lower.includes('handover')) return 'Handover Inspection Checklist';
   if (lower.includes('defect')) return 'Defect Capture Survey';
+  const matchedChip = aiPromptChips.find(chip => lower.includes(chip.toLowerCase().replace('&', 'and')) || lower.includes(chip.toLowerCase()));
+  if (matchedChip) return `${matchedChip} Checklist`;
   return `${type} Survey`;
 }
 
-function getAiDraftProfile(prompt: string, selectedChip: string | null) {
-  if (selectedChip && aiDraftProfiles[selectedChip]) return aiDraftProfiles[selectedChip];
+function inferAiChipFromPrompt(prompt: string) {
   const lower = prompt.toLowerCase();
-  const matchedChip = aiPromptChips.find(chip => chip.split(' ').some(word => lower.includes(word.toLowerCase())));
-  return matchedChip ? aiDraftProfiles[matchedChip] : aiDraftProfiles['Asset Condition Survey'];
+  if (lower.includes('chiller') || lower.includes('hvac') || lower.includes('ahu') || lower.includes('fan coil') || lower.includes('air condition')) return 'HVAC PPM';
+  if (lower.includes('lift') || lower.includes('elevator')) return 'Lift Safety Inspection';
+  if (lower.includes('clean') || lower.includes('housekeeping') || lower.includes('janitor')) return 'Cleaning Audit';
+  if (lower.includes('fire') || lower.includes('alarm') || lower.includes('sprinkler') || lower.includes('life safety')) return 'Fire System Check';
+  if (lower.includes('pump room') || lower.includes('pump')) return 'Pump Room Inspection';
+  if (lower.includes('generator')) return 'Generator PPM';
+  if (lower.includes('water tank') || lower.includes('tank cleaning') || lower.includes('potable water')) return 'Water Tank Inspection';
+  if (lower.includes('facade') || lower.includes('façade') || lower.includes('roof')) return 'Facade & Roof Check';
+  if (lower.includes('pre-handover')) return 'Pre-Handover Inspection';
+  if (lower.includes('mock-up') || lower.includes('mockup')) return 'Mock-up Apartment Review';
+  if (lower.includes('common area') && lower.includes('handover')) return 'Common Area Handover';
+  if (lower.includes('authority') || lower.includes('dcc') || lower.includes('municipality') || lower.includes('dewa') || lower.includes('rera')) return 'Authority Readiness Check';
+  if (lower.includes('handover')) return 'Handover Inspection';
+  if (lower.includes('snag')) return 'Snagging Survey';
+  if (lower.includes('defect') || lower.includes('reactive')) return 'Defect Capture';
+  if (lower.includes('permit') || lower.includes('ptw')) return 'Permit-to-Work Check';
+  if (lower.includes('environment') || lower.includes('waste') || lower.includes('sustainability')) return lower.includes('waste') ? 'Waste Management Audit' : 'Environmental Inspection';
+  if (lower.includes('security') || lower.includes('patrol') || lower.includes('access control')) return 'Security Patrol Check';
+  if (lower.includes('site safety') || lower.includes('ppe') || lower.includes('hse')) return 'Site Safety Walkthrough';
+  if (lower.includes('move-in') || lower.includes('move in')) return 'Move-In Inspection';
+  if (lower.includes('complaint') || lower.includes('resident follow')) return 'Resident Complaint Follow-up';
+  if (lower.includes('amenity')) return 'Amenity Condition Check';
+  if (lower.includes('pool') || lower.includes('gym')) return 'Pool & Gym Audit';
+  if (lower.includes('landscape') || lower.includes('irrigation')) return 'Landscape Inspection';
+  if (lower.includes('event')) return 'Community Event Readiness';
+  if (lower.includes('vendor')) return 'Vendor Performance Audit';
+  if (lower.includes('contractor') || lower.includes('work completion')) return 'Contractor Work Completion';
+  if (lower.includes('spare') || lower.includes('stock')) return 'Spare Parts Stock Check';
+  if (lower.includes('lifecycle') || lower.includes('replacement')) return 'Lifecycle Replacement Survey';
+  if (lower.includes('asset') || lower.includes('condition')) return 'Asset Condition Survey';
+  return null;
+}
+
+function getAiDraftProfile(prompt: string, selectedChip: string | null) {
+  const promptChip = selectedChip ?? inferAiChipFromPrompt(prompt);
+  if (promptChip) return aiDraftProfiles[promptChip] ?? makeGenericDraftProfile(promptChip);
+  const lower = prompt.toLowerCase();
+  const matchedChip = aiPromptChips.find(chip => {
+    const chipText = chip.toLowerCase();
+    const normalisedChipText = chipText.replace('&', 'and');
+    const words = chipText.split(/[\s&/-]+/).filter(word => word.length > 3);
+    return lower.includes(chipText) || lower.includes(normalisedChipText) || words.some(word => lower.includes(word));
+  });
+  return matchedChip ? (aiDraftProfiles[matchedChip] ?? makeGenericDraftProfile(matchedChip)) : aiDraftProfiles['Asset Condition Survey'];
+}
+
+function getResponsibleRoleForPrompt(prompt: string, type: SurveyType) {
+  const lower = prompt.toLowerCase();
+  if (lower.includes('fire') || lower.includes('life safety')) return 'Fire safety contractor with HSE review';
+  if (lower.includes('lift') || lower.includes('elevator')) return 'Lift vendor with facilities manager review';
+  if (lower.includes('clean') || lower.includes('housekeeping')) return 'Soft services supervisor';
+  if (lower.includes('security') || lower.includes('patrol')) return 'Security supervisor';
+  if (lower.includes('landscape') || lower.includes('irrigation')) return 'Landscape contractor with property manager review';
+  if (lower.includes('handover') || lower.includes('snag')) return 'Handover lead with QA/QC review';
+  if (lower.includes('permit') || lower.includes('environment') || lower.includes('waste')) return 'Compliance lead with site supervisor review';
+  if (lower.includes('vendor') || lower.includes('contractor')) return 'FM supervisor with vendor manager review';
+  if (type === 'Preventive Maintenance') return 'FM Engineer with MEP supervisor review';
+  if (type === 'Safety') return 'HSE lead with site supervisor review';
+  return 'Assigned field supervisor';
+}
+
+function buildGeneratedSurveyFromPrompt(prompt: string) {
+  const selectedChip = inferAiChipFromPrompt(prompt);
+  const profile = getAiDraftProfile(prompt, selectedChip);
+  const type = inferSurveyTypeFromPrompt(prompt);
+  return {
+    title: titleFromPrompt(prompt, type),
+    prompt,
+    frequency: profile.frequency,
+    responsibleRole: getResponsibleRoleForPrompt(prompt, type),
+    sections: profile.questionSections.map(section => ({
+      title: section.title,
+      questions: section.questions.map(question => {
+        const parts = [question];
+        if (needsPhotoEvidence(question)) parts.push('photo evidence');
+        if (isTechnicalInspectionQuestion(question)) parts.push('Copilot guidance');
+        return parts.join(' - ');
+      }),
+    })),
+  };
+}
+
+function nudgePrompt(prompt: string) {
+  const lower = prompt.toLowerCase();
+  if (lower.includes('monthly')) return prompt.replace(/monthly/gi, 'quarterly with risk-based spot checks');
+  if (lower.includes('inspection')) return prompt.replace(/inspection/gi, 'inspection with escalation rules');
+  if (lower.includes('checklist')) return prompt.replace(/checklist/gi, 'checklist with evidence and scoring');
+  return `${prompt} with evidence, scoring, escalation rules, and mobile Copilot guidance`;
 }
 
 function getTemplatePreview(template: FieldOpsTemplate) {
@@ -351,6 +595,123 @@ function getTemplatePreview(template: FieldOpsTemplate) {
   };
 }
 
+function needsPhotoEvidence(text: string) {
+  const lower = text.toLowerCase();
+  return lower.includes('photo') || lower.includes('evidence') || lower.includes('defect') || lower.includes('blocked') || lower.includes('failed');
+}
+
+function isTechnicalInspectionQuestion(text: string) {
+  const lower = text.toLowerCase();
+  return [
+    'alarm',
+    'asset',
+    'chiller',
+    'compressor',
+    'differential',
+    'door',
+    'electrical',
+    'emergency',
+    'fire',
+    'gps',
+    'hvac',
+    'isolation',
+    'lift',
+    'lockout',
+    'mep',
+    'panel',
+    'permit',
+    'pressure',
+    'pump',
+    'qr',
+    'reading',
+    'riser',
+    'scan',
+    'temperature',
+    'valve',
+    'waterproofing',
+  ].some(keyword => lower.includes(keyword));
+}
+
+function getCopilotGuidance(text: string) {
+  const lower = text.toLowerCase();
+  if (lower.includes('pressure')) return 'Confirm the asset is running under normal load, read the calibrated gauge or BMS value, record the unit, and flag any value outside the approved operating range.';
+  if (lower.includes('temperature') || lower.includes('differential')) return 'Measure entering and leaving temperatures after the system stabilises, compare against the expected differential, and note ambient conditions if readings are abnormal.';
+  if (lower.includes('lockout') || lower.includes('isolation')) return 'Verify isolation signage, lock/tag reference, responsible person, and stored-energy release before touching equipment. Stop the survey if isolation is unclear.';
+  if (lower.includes('fire') || lower.includes('alarm') || lower.includes('pump')) return 'Check panel status, active faults, accessibility, and last service tag. Photograph failed or impaired life-safety equipment and escalate immediately.';
+  if (lower.includes('lift') || lower.includes('door') || lower.includes('emergency')) return 'Test the item safely with the vendor or authorised technician present. Confirm response, alignment, signage, and any fault indication before marking pass.';
+  if (lower.includes('gps') || lower.includes('qr') || lower.includes('scan') || lower.includes('asset')) return 'Stand at the inspected asset or zone, scan the QR if available, confirm the location shown in the app, and correct the asset reference before submitting.';
+  if (lower.includes('permit')) return 'Check the permit number, validity window, scope, authorised supervisor, required controls, and work area match before allowing work to continue.';
+  if (lower.includes('defect') || lower.includes('failed') || lower.includes('abnormal')) return 'Describe the failure clearly, capture a close-up and wider context photo, record severity, and assign the corrective owner before moving on.';
+  return 'Follow the approved method statement, inspect only the specified asset or area, record objective observations, and escalate unsafe or abnormal findings before submission.';
+}
+
+function createEditableQuestion(text: string, photoRequired = needsPhotoEvidence(text)): EditableTemplateQuestion {
+  const copilotEnabled = isTechnicalInspectionQuestion(text);
+  return {
+    text,
+    photoRequired,
+    copilotEnabled,
+    copilotGuidance: copilotEnabled ? getCopilotGuidance(text) : '',
+  };
+}
+
+function toEditableSections(sections: Array<{ title: string; checks: string[] }>): EditableTemplateSection[] {
+  return sections.map(section => ({
+    title: section.title,
+    checks: section.checks
+      .filter(check => !check.toLowerCase().startsWith('upload photo') && !check.toLowerCase().startsWith('capture photo'))
+      .map(check => createEditableQuestion(
+        check.replace(/^Upload photo evidence for\s*/i, '').replace(/^Capture photo evidence for\s*/i, 'Capture evidence for '),
+        needsPhotoEvidence(check),
+      )),
+  }));
+}
+
+function surveyToTemplate(survey: Survey): FieldOpsTemplate {
+  return {
+    name: survey.name,
+    type: survey.type,
+    duration: survey.type === 'Handover' ? '25 min' : survey.type === 'Cleaning Audit' ? '9 min' : '12 min',
+    questions: survey.questions.filter(question => question.type !== 'section').length,
+    evidence: survey.questions.some(question => question.evidenceRequired) ? 'Photos required by question' : 'Photos optional',
+  };
+}
+
+function surveyToEditableSections(survey: Survey): EditableTemplateSection[] {
+  const sections: EditableTemplateSection[] = [];
+  let activeSection: EditableTemplateSection = { title: 'Survey checks', checks: [] };
+
+  survey.questions.forEach(question => {
+    if (question.type === 'section') {
+      if (activeSection.checks.length) sections.push(activeSection);
+      activeSection = { title: question.label, checks: [] };
+      return;
+    }
+    activeSection.checks.push(createEditableQuestion(question.label, question.evidenceRequired));
+  });
+
+  if (activeSection.checks.length || sections.length === 0) sections.push(activeSection);
+  return sections;
+}
+
+function aiDraftToTemplate(prompt: string, profile: AiDraftProfile): FieldOpsTemplate {
+  const inferredType = inferSurveyTypeFromPrompt(prompt);
+  return {
+    name: titleFromPrompt(prompt, inferredType),
+    type: inferredType,
+    duration: profile.duration,
+    questions: profile.questions,
+    evidence: profile.evidence,
+  };
+}
+
+function aiDraftToEditableSections(profile: AiDraftProfile): EditableTemplateSection[] {
+  return profile.questionSections.map(section => ({
+    title: section.title,
+    checks: section.questions.map(question => createEditableQuestion(question)),
+  }));
+}
+
 function Badge({ children, tone = 'default' }: { children: React.ReactNode; tone?: string }) {
   return (
     <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-bold ${statusClass[tone] ?? 'border-[rgba(46,127,255,0.2)] bg-white/5 text-[#B8C7DB]'}`}>
@@ -404,21 +765,27 @@ function ActionIconButton({
 function TemplateSurveyDetails({
   template,
   onUseTemplate,
+  initialSections,
+  eyebrow = 'Survey template',
+  actionLabel = 'Use edited template',
 }: {
   template: FieldOpsTemplate;
   onUseTemplate?: () => void;
+  initialSections?: EditableTemplateSection[];
+  eyebrow?: string;
+  actionLabel?: string;
 }) {
   const preview = getTemplatePreview(template);
-  const [sections, setSections] = useState(preview.sections);
+  const [sections, setSections] = useState<EditableTemplateSection[]>(() => initialSections ?? toEditableSections(preview.sections));
   const [responsibleRole, setResponsibleRole] = useState(preview.responsibleRole);
   const [triggers, setTriggers] = useState(preview.triggers);
 
   useEffect(() => {
     const nextPreview = getTemplatePreview(template);
-    setSections(nextPreview.sections);
+    setSections(initialSections ?? toEditableSections(nextPreview.sections));
     setResponsibleRole(nextPreview.responsibleRole);
     setTriggers(nextPreview.triggers);
-  }, [template]);
+  }, [template, initialSections]);
 
   const updateSectionTitle = (sectionIndex: number, title: string) => {
     setSections(current => current.map((section, index) => index === sectionIndex ? { ...section, title } : section));
@@ -427,12 +794,56 @@ function TemplateSurveyDetails({
   const updateQuestion = (sectionIndex: number, questionIndex: number, value: string) => {
     setSections(current => current.map((section, index) => {
       if (index !== sectionIndex) return section;
-      return { ...section, checks: section.checks.map((check, checkIndex) => checkIndex === questionIndex ? value : check) };
+      return {
+        ...section,
+        checks: section.checks.map((check, checkIndex) => {
+          if (checkIndex !== questionIndex) return check;
+          const technical = isTechnicalInspectionQuestion(value);
+          return {
+            ...check,
+            text: value,
+            copilotEnabled: technical ? check.copilotEnabled : false,
+            copilotGuidance: technical && !check.copilotGuidance ? getCopilotGuidance(value) : check.copilotGuidance,
+          };
+        }),
+      };
+    }));
+  };
+
+  const toggleQuestionPhoto = (sectionIndex: number, questionIndex: number) => {
+    setSections(current => current.map((section, index) => {
+      if (index !== sectionIndex) return section;
+      return { ...section, checks: section.checks.map((check, checkIndex) => checkIndex === questionIndex ? { ...check, photoRequired: !check.photoRequired } : check) };
+    }));
+  };
+
+  const toggleQuestionCopilot = (sectionIndex: number, questionIndex: number) => {
+    setSections(current => current.map((section, index) => {
+      if (index !== sectionIndex) return section;
+      return {
+        ...section,
+        checks: section.checks.map((check, checkIndex) => {
+          if (checkIndex !== questionIndex) return check;
+          const nextEnabled = !check.copilotEnabled;
+          return {
+            ...check,
+            copilotEnabled: nextEnabled,
+            copilotGuidance: nextEnabled && !check.copilotGuidance ? getCopilotGuidance(check.text) : check.copilotGuidance,
+          };
+        }),
+      };
+    }));
+  };
+
+  const updateQuestionCopilotGuidance = (sectionIndex: number, questionIndex: number, value: string) => {
+    setSections(current => current.map((section, index) => {
+      if (index !== sectionIndex) return section;
+      return { ...section, checks: section.checks.map((check, checkIndex) => checkIndex === questionIndex ? { ...check, copilotGuidance: value } : check) };
     }));
   };
 
   const addQuestion = (sectionIndex: number) => {
-    setSections(current => current.map((section, index) => index === sectionIndex ? { ...section, checks: [...section.checks, 'New checklist question'] } : section));
+    setSections(current => current.map((section, index) => index === sectionIndex ? { ...section, checks: [...section.checks, createEditableQuestion('New checklist question', false)] } : section));
   };
 
   const removeQuestion = (sectionIndex: number, questionIndex: number) => {
@@ -447,13 +858,15 @@ function TemplateSurveyDetails({
   };
 
   const totalChecks = sections.reduce((sum, section) => sum + section.checks.length, 0);
+  const photoEvidenceCount = sections.reduce((sum, section) => sum + section.checks.filter(check => check.photoRequired).length, 0);
+  const copilotGuidanceCount = sections.reduce((sum, section) => sum + section.checks.filter(check => check.copilotEnabled).length, 0);
 
   return (
     <div className="space-y-4">
       <div className="rounded-2xl border border-[#E11D2E]/25 bg-[linear-gradient(135deg,rgba(225,29,46,0.13),rgba(46,127,255,0.06))] p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <div className="text-[10px] font-black uppercase tracking-widest text-[#E11D2E]">Survey template</div>
+            <div className="text-[10px] font-black uppercase tracking-widest text-[#E11D2E]">{eyebrow}</div>
             <h4 className="mt-1 text-xl font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{template.name}</h4>
             <p className="mt-1 text-[12px] text-[#7A94B4]">{template.type}</p>
           </div>
@@ -479,9 +892,13 @@ function TemplateSurveyDetails({
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h5 className="text-sm font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Survey questions</h5>
-            <p className="mt-1 text-[11px] text-[#7A94B4]">Edit section names and questions before using this template.</p>
+            <p className="mt-1 text-[11px] text-[#7A94B4]">Edit questions, require photo evidence, and enable Copilot guidance for technical inspections.</p>
           </div>
-          <Badge>{sections.length} sections</Badge>
+          <div className="flex flex-wrap gap-2">
+            <Badge>{sections.length} sections</Badge>
+            <Badge>{photoEvidenceCount} photo evidence</Badge>
+            <Badge>{copilotGuidanceCount} copilot guides</Badge>
+          </div>
         </div>
         <div className="mt-3 space-y-3">
           {sections.map((section, sectionIndex) => (
@@ -496,13 +913,34 @@ function TemplateSurveyDetails({
               </label>
               <div className="mt-2 space-y-2">
                 {section.checks.map((check, questionIndex) => (
-                  <div key={`${check}-${questionIndex}`} className="flex items-center gap-2">
+                  <div key={`${check.text}-${questionIndex}`} className="grid gap-2 rounded-lg border border-[rgba(46,127,255,0.10)] bg-[#07111F] p-2 sm:grid-cols-[auto_1fr_auto_auto_auto] sm:items-center">
                     <CheckCircle2 size={13} className="mt-0.5 shrink-0 text-emerald-300" />
                     <input
-                      value={check}
+                      value={check.text}
                       onChange={event => updateQuestion(sectionIndex, questionIndex, event.target.value)}
                       className="h-9 min-w-0 flex-1 rounded-lg border border-[rgba(46,127,255,0.14)] bg-[#102040] px-3 text-[11px] text-[#DDE6F8] outline-none focus:border-[#E11D2E]"
                     />
+                    <label className={`flex h-9 cursor-pointer items-center justify-center gap-2 rounded-lg border px-3 text-[10px] font-bold transition ${check.photoRequired ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200' : 'border-[rgba(46,127,255,0.16)] bg-[#0A1628] text-[#7A94B4] hover:text-[#DDE6F8]'}`}>
+                      <input
+                        type="checkbox"
+                        checked={check.photoRequired}
+                        onChange={() => toggleQuestionPhoto(sectionIndex, questionIndex)}
+                        className="accent-[#E11D2E]"
+                      />
+                      Photo evidence
+                    </label>
+                    {isTechnicalInspectionQuestion(check.text) && (
+                      <label className={`flex h-9 cursor-pointer items-center justify-center gap-2 rounded-lg border px-3 text-[10px] font-bold transition ${check.copilotEnabled ? 'border-[#7C3AED]/40 bg-[#7C3AED]/16 text-violet-100 shadow-lg shadow-violet-950/20' : 'border-[rgba(46,127,255,0.16)] bg-[#0A1628] text-[#7A94B4] hover:text-[#DDE6F8]'}`}>
+                        <input
+                          type="checkbox"
+                          checked={check.copilotEnabled}
+                          onChange={() => toggleQuestionCopilot(sectionIndex, questionIndex)}
+                          className="accent-[#7C3AED]"
+                        />
+                        <Bot size={13} />
+                        Copilot guide
+                      </label>
+                    )}
                     <button
                       type="button"
                       onClick={() => removeQuestion(sectionIndex, questionIndex)}
@@ -511,6 +949,20 @@ function TemplateSurveyDetails({
                     >
                       <X size={13} />
                     </button>
+                    {check.copilotEnabled && isTechnicalInspectionQuestion(check.text) && (
+                      <div className="rounded-lg border border-[#7C3AED]/24 bg-[#7C3AED]/10 p-3 sm:col-start-2 sm:col-span-4">
+                        <div className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-violet-100">
+                          <Bot size={13} />
+                          Surveyor Copilot guidance
+                        </div>
+                        <textarea
+                          value={check.copilotGuidance}
+                          onChange={event => updateQuestionCopilotGuidance(sectionIndex, questionIndex, event.target.value)}
+                          className="min-h-16 w-full rounded-lg border border-[#7C3AED]/20 bg-[#07111F] p-3 text-[11px] leading-5 text-[#DDE6F8] outline-none placeholder:text-[#4A6080] focus:border-[#7C3AED]"
+                          placeholder="Add short field guidance for how the surveyor should perform this technical check."
+                        />
+                      </div>
+                    )}
                   </div>
                 ))}
                 <button
@@ -565,7 +1017,7 @@ function TemplateSurveyDetails({
       </div>
 
       {onUseTemplate && (
-        <button onClick={onUseTemplate} className="h-10 w-full rounded-xl bg-[#E11D2E] text-[12px] font-bold text-white shadow-lg shadow-red-950/25">Use edited template</button>
+        <button onClick={onUseTemplate} className="h-10 w-full rounded-xl bg-[#E11D2E] text-[12px] font-bold text-white shadow-lg shadow-red-950/25">{actionLabel}</button>
       )}
     </div>
   );
@@ -628,6 +1080,7 @@ function CreateSurveyModal({
   const [aiPrompt, setAiPrompt] = useState(aiGeneratedSurvey.prompt);
   const [selectedAiChip, setSelectedAiChip] = useState<string | null>('Asset Condition Survey');
   const [aiGeneratedPreview, setAiGeneratedPreview] = useState(false);
+  const [aiDraftPreviewOpen, setAiDraftPreviewOpen] = useState(false);
   const [type, setType] = useState<SurveyType>(initialTemplate?.type ?? 'Preventive Maintenance');
   const [surveyName, setSurveyName] = useState(initialTemplate ? `${initialTemplate.name} survey` : 'Water-cooled chiller PPM checklist');
   const [propertyId, setPropertyId] = useState(properties[0]?.id ?? '');
@@ -643,6 +1096,8 @@ function CreateSurveyModal({
     [type, selectedProperty, scope, priority],
   );
   const aiDraftProfile = useMemo(() => getAiDraftProfile(aiPrompt, selectedAiChip), [aiPrompt, selectedAiChip]);
+  const aiDraftTemplate = useMemo(() => aiDraftToTemplate(aiPrompt, aiDraftProfile), [aiPrompt, aiDraftProfile]);
+  const aiDraftSections = useMemo(() => aiDraftToEditableSections(aiDraftProfile), [aiDraftProfile]);
   const [description, setDescription] = useState(aiDescription);
 
   useEffect(() => {
@@ -712,9 +1167,9 @@ function CreateSurveyModal({
     : 'Superadmin can create, publish, and assign surveys across all organizations.';
 
   return (
-    <div className="fixed inset-0 z-[2500] flex items-center justify-center p-3 sm:p-4">
+    <div className="fixed inset-0 z-[2500] flex items-start justify-center overflow-hidden p-3 sm:p-4">
       <button className="absolute inset-0 bg-black/65 backdrop-blur-sm" onClick={onClose} aria-label="Close create survey" />
-      <motion.div initial={{ opacity: 0, y: 12, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 12, scale: 0.97 }} className="relative flex max-h-[calc(100vh-1.5rem)] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-[rgba(46,127,255,0.25)] bg-[#0A1628] shadow-2xl sm:max-h-[calc(100vh-2rem)]">
+      <motion.div initial={{ opacity: 0, y: 12, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 12, scale: 0.97 }} className="relative flex max-h-[calc(100dvh-1.5rem)] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-[rgba(46,127,255,0.25)] bg-[#0A1628] shadow-2xl sm:max-h-[calc(100dvh-2rem)]">
         <div className="shrink-0 flex items-start justify-between border-b border-[rgba(46,127,255,0.14)] bg-[linear-gradient(135deg,rgba(225,29,46,0.14),rgba(46,127,255,0.06))] px-5 py-3.5">
           <div>
             <div className="text-[10px] font-bold uppercase tracking-widest text-[#E11D2E]">{stepLabel}</div>
@@ -725,7 +1180,7 @@ function CreateSurveyModal({
           </div>
           <button onClick={onClose} className="rounded-lg p-2 text-[#7A94B4] hover:bg-white/5 hover:text-white"><X size={18} /></button>
         </div>
-        <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
+        <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto px-4 py-4 pb-5 sm:px-5">
           {wizardStep === 'start' && (
             <div className="grid gap-3 lg:grid-cols-3">
               <button
@@ -772,20 +1227,27 @@ function CreateSurveyModal({
                   placeholder="Example: Create a preventive maintenance checklist for a water-cooled chiller in a residential tower."
                   className="mt-4 min-h-32 w-full rounded-xl border border-[rgba(46,127,255,0.22)] bg-[#0A1628] p-3 text-[12px] leading-5 text-[#EEF3FA] outline-none placeholder:text-[#4A6080] focus:border-[#E11D2E]"
                 />
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {aiPromptChips.map(chip => (
-                    <button
-                      key={chip}
-                      type="button"
-                      onClick={() => {
-                        setSelectedAiChip(chip);
-                        setAiPrompt(`Create a ${chip.toLowerCase()} checklist for a residential tower.`);
-                        setAiGeneratedPreview(false);
-                      }}
-                      className={`rounded-full border px-3 py-1.5 text-[10px] font-bold transition ${selectedAiChip === chip ? 'border-[#E11D2E]/70 bg-[#E11D2E]/12 text-white shadow-lg shadow-red-950/20' : 'border-[rgba(46,127,255,0.22)] bg-[#07111F] text-[#B8C7DB] hover:border-[#E11D2E]/45 hover:text-white'}`}
-                    >
-                      {chip}
-                    </button>
+                <div className="mt-3 max-h-64 space-y-3 overflow-y-auto pr-1 custom-scrollbar">
+                  {aiPromptCategories.map(group => (
+                    <div key={group.category}>
+                      <div className="mb-1.5 text-[9px] font-black uppercase tracking-[0.18em] text-[#7A94B4]">{group.category}</div>
+                      <div className="flex flex-wrap gap-2">
+                        {group.chips.map(chip => (
+                          <button
+                            key={chip}
+                            type="button"
+                            onClick={() => {
+                              setSelectedAiChip(chip);
+                              setAiPrompt(`Create a ${chip.toLowerCase()} checklist for a property development and management portfolio.`);
+                              setAiGeneratedPreview(false);
+                            }}
+                            className={`rounded-full border px-3 py-1.5 text-[10px] font-bold transition ${selectedAiChip === chip ? 'border-[#E11D2E]/70 bg-[#E11D2E]/12 text-white shadow-lg shadow-red-950/20' : 'border-[rgba(46,127,255,0.22)] bg-[#07111F] text-[#B8C7DB] hover:border-[#E11D2E]/45 hover:text-white'}`}
+                          >
+                            {chip}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -948,7 +1410,7 @@ function CreateSurveyModal({
             </>
           )}
         </div>
-        <div className="shrink-0 flex flex-col-reverse gap-2 border-t border-[rgba(46,127,255,0.14)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+        <div className="shrink-0 flex flex-col-reverse gap-2 border-t border-[rgba(46,127,255,0.14)] bg-[#0A1628] px-4 py-2 sm:flex-row sm:items-center sm:justify-between sm:px-5">
           {wizardStep === 'basics' && !initialTemplate ? (
             <button onClick={goBackFromBasics} className="rounded-lg border border-[rgba(46,127,255,0.22)] px-4 py-2 text-[12px] font-bold text-[#B8C7DB] hover:bg-white/5">Back</button>
           ) : <span />}
@@ -957,7 +1419,7 @@ function CreateSurveyModal({
             {wizardStep === 'ai' && (
               <>
                 <button onClick={() => setWizardStep('start')} className="rounded-lg border border-[rgba(46,127,255,0.22)] px-4 py-2 text-[12px] font-bold text-[#B8C7DB] hover:bg-white/5">Back</button>
-                <button onClick={() => setAiGeneratedPreview(current => !current)} className="rounded-lg border border-[#E11D2E]/35 bg-[#E11D2E]/10 px-4 py-2 text-[12px] font-bold text-red-100 hover:bg-[#E11D2E]/16">{aiGeneratedPreview ? 'Hide AI Preview' : 'Preview AI Draft'}</button>
+                <button onClick={() => { setAiGeneratedPreview(true); setAiDraftPreviewOpen(true); }} className="rounded-lg border border-[#E11D2E]/35 bg-[#E11D2E]/10 px-4 py-2 text-[12px] font-bold text-red-100 hover:bg-[#E11D2E]/16">Preview AI Draft</button>
                 <button onClick={applyAiDraft} className="rounded-lg bg-[#E11D2E] px-4 py-2 text-[12px] font-bold text-white shadow-lg shadow-red-950/25">Generate Survey</button>
               </>
             )}
@@ -990,6 +1452,29 @@ function CreateSurveyModal({
                 onUseTemplate={() => {
                   applyTemplate(previewTemplate);
                   setPreviewTemplate(null);
+                }}
+              />
+            </div>
+          </div>
+        )}
+        {aiDraftPreviewOpen && (
+          <div className="absolute inset-0 z-10 flex flex-col bg-[#0A1628]">
+            <div className="flex shrink-0 items-center justify-between border-b border-[rgba(46,127,255,0.14)] bg-[linear-gradient(135deg,rgba(225,29,46,0.14),rgba(46,127,255,0.06))] px-5 py-4">
+              <div>
+                <div className="text-[10px] font-black uppercase tracking-widest text-[#E11D2E]">AI draft preview</div>
+                <h3 className="mt-1 text-lg font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{aiDraftTemplate.name}</h3>
+              </div>
+              <button onClick={() => setAiDraftPreviewOpen(false)} className="rounded-lg p-2 text-[#7A94B4] hover:bg-white/5 hover:text-white"><X size={18} /></button>
+            </div>
+            <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto p-5">
+              <TemplateSurveyDetails
+                template={aiDraftTemplate}
+                initialSections={aiDraftSections}
+                eyebrow="AI generated draft"
+                actionLabel="Use AI draft"
+                onUseTemplate={() => {
+                  setAiDraftPreviewOpen(false);
+                  applyAiDraft();
                 }}
               />
             </div>
@@ -1177,12 +1662,13 @@ function AssignSurveyPanel({ survey, onToast }: { survey: Survey; onToast: Props
 }
 
 function ShareSurveyPanel({ survey, onToast }: { survey: Survey; onToast: Props['onToast'] }) {
-  const surveyLink = `https://4c360.properties/fieldops/survey/${survey.id}/capture`;
+  const surveyLink = `${window.location.origin}/fieldops/survey/${survey.id}/capture`;
   const embedCode = `<iframe src="${surveyLink}" title="${survey.name}" width="100%" height="720" style="border:0;border-radius:12px;"></iframe>`;
   const [qrGenerated, setQrGenerated] = useState(true);
   const [shareDialog, setShareDialog] = useState<'qr' | 'email' | 'whatsapp' | 'embed' | null>(null);
   const [emailTo, setEmailTo] = useState('');
   const [emailMessage, setEmailMessage] = useState(`Please complete the ${survey.name} survey using the secure link below.`);
+  const [emailSending, setEmailSending] = useState(false);
   const [whatsAppNumber, setWhatsAppNumber] = useState('');
   const [whatsAppMessage, setWhatsAppMessage] = useState(`FieldOps survey: ${survey.name}. Open here: ${surveyLink}`);
   const [rules, setRules] = useState<Record<string, boolean>>({
@@ -1218,13 +1704,33 @@ function ShareSurveyPanel({ survey, onToast }: { survey: Survey; onToast: Props[
     }
   };
 
-  const sendEmail = () => {
+  const sendEmail = async () => {
     if (!emailTo.trim()) {
       onToast('Add an email recipient first', 'warning');
       return;
     }
-    onToast(`Email share prepared for ${emailTo}`, 'success');
-    setShareDialog(null);
+    setEmailSending(true);
+    try {
+      const response = await fetch('/api/fieldops/share-survey-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: emailTo.trim(),
+          surveyId: survey.id,
+          surveyName: survey.name,
+          surveyLink,
+          message: emailMessage,
+        }),
+      });
+      const result = await response.json().catch(() => ({})) as { error?: string };
+      if (!response.ok) throw new Error(result.error ?? 'Email could not be sent');
+      onToast(`Survey email sent to ${emailTo}`, 'success');
+      setShareDialog(null);
+    } catch (error) {
+      onToast(error instanceof Error ? error.message : 'Email service is not available right now', 'error');
+    } finally {
+      setEmailSending(false);
+    }
   };
 
   const sendWhatsApp = () => {
@@ -1347,7 +1853,7 @@ function ShareSurveyPanel({ survey, onToast }: { survey: Survey; onToast: Props[
                       <textarea value={emailMessage} onChange={event => setEmailMessage(event.target.value)} className="mt-1 min-h-24 w-full rounded-lg border border-[rgba(46,127,255,0.22)] bg-[#07111F] px-3 py-2 text-[12px] leading-5 text-[#EEF3FA] outline-none focus:border-[#E11D2E]" />
                     </label>
                     <div className="rounded-xl bg-[#07111F] p-3 font-mono text-[11px] text-[#B8C7DB]">{surveyLink}</div>
-                    <button onClick={sendEmail} className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-[#E11D2E] text-[12px] font-bold text-white"><Send size={14} /> Send email</button>
+                    <button onClick={sendEmail} disabled={emailSending} className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-[#E11D2E] text-[12px] font-bold text-white disabled:cursor-wait disabled:opacity-60"><Send size={14} /> {emailSending ? 'Sending...' : 'Send email'}</button>
                   </div>
                 )}
 
@@ -1393,20 +1899,45 @@ export function FieldOpsDashboard({ onToast }: Props) {
   const [selectedSubmission, setSelectedSubmission] = useState<SurveySubmission>(submissions[0]);
   const [aiPrompt, setAiPrompt] = useState(aiGeneratedSurvey.prompt);
   const [aiGenerated, setAiGenerated] = useState(true);
+  const generatedSurvey = useMemo(() => buildGeneratedSurveyFromPrompt(aiPrompt), [aiPrompt]);
+  const [liveSubmissions, setLiveSubmissions] = useState<SurveySubmission[]>(() => getLocalFieldOpsSubmissions());
 
   const filteredSurveys = useMemo(() => {
     const lower = query.toLowerCase();
     return surveys.filter(survey => `${survey.name} ${survey.type} ${survey.assignedTo}`.toLowerCase().includes(lower));
   }, [query]);
 
+  useEffect(() => {
+    const refresh = () => setLiveSubmissions(getLocalFieldOpsSubmissions());
+    const unsubscribe = subscribeToLocalFieldOpsSubmissions(refresh);
+    fetch('/api/fieldops/submissions')
+      .then(response => response.ok ? response.json() : null)
+      .then((payload: { submissions?: SurveySubmission[] } | null) => {
+        if (payload?.submissions?.length) {
+          const local = getLocalFieldOpsSubmissions();
+          const merged = [...payload.submissions, ...local].filter((item, index, all) => all.findIndex(candidate => candidate.id === item.id) === index);
+          setLiveSubmissions(merged);
+        }
+      })
+      .catch(() => undefined);
+    return unsubscribe;
+  }, []);
+
+  const allSubmissions = useMemo(
+    () => [...liveSubmissions, ...submissions].filter((item, index, all) => all.findIndex(candidate => candidate.id === item.id) === index),
+    [liveSubmissions],
+  );
+
   const activeSurveyCount = surveys.filter(survey => survey.status !== 'Archived').length;
+  const selectedSurveyTemplate = useMemo(() => surveyToTemplate(selectedSurvey), [selectedSurvey]);
+  const selectedSurveySections = useMemo(() => surveyToEditableSections(selectedSurvey), [selectedSurvey]);
 
   const stats = [
     { label: 'Active Surveys', value: activeSurveyCount, icon: ClipboardCheck, tone: 'text-emerald-300' },
     { label: 'In Progress', value: assignments.filter(a => a.status === 'In Progress').length, icon: RadioTower, tone: 'text-blue-300' },
     { label: 'Completed', value: assignments.filter(a => a.status === 'Completed').length, icon: CheckCircle2, tone: 'text-[#E11D2E]' },
     { label: 'Overdue', value: assignments.filter(a => a.status === 'Overdue').length, icon: AlertTriangle, tone: 'text-amber-300' },
-    { label: 'Open Issues Detected', value: submissions.reduce((sum, sub) => sum + sub.issuesDetected, 0), icon: ShieldCheck, tone: 'text-red-300' },
+    { label: 'Open Issues Detected', value: allSubmissions.reduce((sum, sub) => sum + sub.issuesDetected, 0), icon: ShieldCheck, tone: 'text-red-300' },
   ];
 
   const openDrawer = (next: Drawer, survey = selectedSurvey) => {
@@ -1556,7 +2087,10 @@ export function FieldOpsDashboard({ onToast }: Props) {
 
         {tab === 'tracking' && (
           <div className="mt-4 rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
-            <h2 className="text-sm font-black" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Live submissions</h2>
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-sm font-black" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Live submissions</h2>
+              <span className="rounded-full border border-emerald-400/25 bg-emerald-400/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-200">{liveSubmissions.length} live</span>
+            </div>
             <div className="mt-4 overflow-x-auto">
               <table className="w-full min-w-[980px] text-left text-[12px]">
                 <thead className="text-[10px] uppercase tracking-wide text-[#7A94B4]">
@@ -1565,10 +2099,14 @@ export function FieldOpsDashboard({ onToast }: Props) {
                 <tbody className="divide-y divide-[rgba(46,127,255,0.08)]">
                   {assignments.map(assignment => {
                     const survey = surveys.find(item => item.id === assignment.surveyId) ?? surveys[0];
-                    const submission = submissions.find(item => item.assignmentId === assignment.id) ?? submissions[0];
+                    const submission = allSubmissions.find(item => item.assignmentId === assignment.id) ?? allSubmissions[0] ?? submissions[0];
+                    const isLive = liveSubmissions.some(item => item.id === submission.id);
                     return (
                       <tr key={assignment.id} className="hover:bg-white/[0.025]">
-                        <td className="px-3 py-3 font-bold text-[#EEF3FA]">{survey.name}</td>
+                        <td className="px-3 py-3 font-bold text-[#EEF3FA]">
+                          {survey.name}
+                          {isLive && <span className="ml-2 rounded-full bg-emerald-400/12 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-emerald-200">Live</span>}
+                        </td>
                         <td className="px-3 py-3 text-[#B8C7DB]">{assignment.assignee}</td>
                         <td className="px-3 py-3 text-[#B8C7DB]">{assignment.site}</td>
                         <td className="px-3 py-3"><Badge tone={assignment.status}>{assignment.status}</Badge></td>
@@ -1617,10 +2155,10 @@ export function FieldOpsDashboard({ onToast }: Props) {
           <div className="mt-4 grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
             <div className="rounded-xl border border-[#E11D2E]/30 bg-[linear-gradient(135deg,rgba(225,29,46,0.10),rgba(17,32,64,0.86))] p-4">
               <div className="mb-3 flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-red-200"><Bot size={15} /> AI Assist Survey Design</div>
-              <textarea value={aiPrompt} onChange={event => setAiPrompt(event.target.value)} className="min-h-28 w-full rounded-xl border border-[rgba(46,127,255,0.22)] bg-[#0A1628] p-3 text-[12px] leading-5 text-[#EEF3FA] outline-none focus:border-[#E11D2E]" />
+              <textarea value={aiPrompt} onChange={event => { setAiPrompt(event.target.value); setAiGenerated(false); }} className="min-h-28 w-full rounded-xl border border-[rgba(46,127,255,0.22)] bg-[#0A1628] p-3 text-[12px] leading-5 text-[#EEF3FA] outline-none focus:border-[#E11D2E]" />
               <div className="mt-3 flex gap-2">
                 <button onClick={() => setAiGenerated(true)} className="rounded-lg bg-[#E11D2E] px-4 py-2 text-[12px] font-bold text-white">Generate</button>
-                <button onClick={() => setAiPrompt('Create a site safety inspection for residential tower common areas')} className="rounded-lg border border-[rgba(46,127,255,0.22)] px-4 py-2 text-[12px] font-bold text-[#B8C7DB]">Edit Prompt</button>
+                <button onClick={() => { setAiPrompt('Create a site safety inspection for residential tower common areas'); setAiGenerated(false); }} className="rounded-lg border border-[rgba(46,127,255,0.22)] px-4 py-2 text-[12px] font-bold text-[#B8C7DB]">Edit Prompt</button>
               </div>
             </div>
             {aiGenerated && (
@@ -1628,16 +2166,17 @@ export function FieldOpsDashboard({ onToast }: Props) {
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <h3 className="text-sm font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Generated checklist structure</h3>
-                    <p className="mt-1 text-[11px] text-[#7A94B4]">Frequency: {aiGeneratedSurvey.frequency}</p>
-                    <p className="text-[11px] text-[#7A94B4]">Responsible role: {aiGeneratedSurvey.responsibleRole}</p>
+                    <p className="mt-1 text-[11px] text-[#7A94B4]">Survey: {generatedSurvey.title}</p>
+                    <p className="text-[11px] text-[#7A94B4]">Frequency: {generatedSurvey.frequency}</p>
+                    <p className="text-[11px] text-[#7A94B4]">Responsible role: {generatedSurvey.responsibleRole}</p>
                   </div>
                   <div className="flex gap-2">
                     <button onClick={() => onToast('AI structure applied to survey canvas', 'success')} className="rounded-lg bg-[#E11D2E] px-3 py-2 text-[11px] font-bold text-white">Apply to Survey</button>
-                    <button onClick={() => onToast('AI regenerated the checklist', 'info')} className="rounded-lg border border-[rgba(46,127,255,0.22)] px-3 py-2 text-[11px] font-bold text-[#B8C7DB]">Regenerate</button>
+                    <button onClick={() => { setAiPrompt(current => nudgePrompt(current)); onToast('AI regenerated the checklist from your prompt', 'info'); }} className="rounded-lg border border-[rgba(46,127,255,0.22)] px-3 py-2 text-[11px] font-bold text-[#B8C7DB]">Regenerate</button>
                   </div>
                 </div>
                 <div className="mt-4 grid gap-3 md:grid-cols-3">
-                  {aiGeneratedSurvey.sections.map(section => (
+                  {generatedSurvey.sections.map(section => (
                     <div key={section.title} className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#0A1628] p-4">
                       <h4 className="text-[13px] font-bold text-[#EEF3FA]">{section.title}</h4>
                       <div className="mt-3 space-y-2">
@@ -1680,47 +2219,30 @@ export function FieldOpsDashboard({ onToast }: Props) {
         )}
 
         {drawer === 'design' && (
-          <SideDrawer title="Design Survey" onClose={() => setDrawer(null)}>
-            <div className="grid gap-4 xl:grid-cols-[190px_1fr]">
-              <div className="space-y-2">
-                <h4 className="text-[11px] font-black uppercase tracking-widest text-[#7A94B4]">Question palette</h4>
-                {questionPalette.map(item => (
-                  <button key={item.type} className="w-full rounded-lg border border-[rgba(46,127,255,0.12)] bg-[#07111F] p-3 text-left hover:border-[#E11D2E]/40">
-                    <span className="block text-[12px] font-bold text-[#EEF3FA]">{item.label}</span>
-                    <span className="text-[10px] text-[#7A94B4]">{item.helper}</span>
-                  </button>
-                ))}
+          <div className="fixed inset-0 z-[2400] flex items-center justify-center p-3">
+            <button className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setDrawer(null)} aria-label="Close survey draft" />
+            <motion.div initial={{ opacity: 0, y: 12, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 12, scale: 0.97 }} className="relative flex max-h-[calc(100vh-1.5rem)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-[rgba(46,127,255,0.25)] bg-[#0A1628] shadow-2xl">
+              <div className="flex shrink-0 items-center justify-between border-b border-[rgba(46,127,255,0.14)] bg-[linear-gradient(135deg,rgba(225,29,46,0.14),rgba(46,127,255,0.06))] px-5 py-4">
+                <div>
+                  <div className="text-[10px] font-black uppercase tracking-widest text-[#E11D2E]">Survey draft</div>
+                  <h3 className="mt-1 text-lg font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{selectedSurvey.name}</h3>
+                </div>
+                <button onClick={() => setDrawer(null)} className="rounded-lg p-2 text-[#7A94B4] hover:bg-white/5 hover:text-white"><X size={18} /></button>
               </div>
-              <div className="space-y-4">
-                <div className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#07111F] p-4">
-                  <div className="mb-3 flex items-center justify-between">
-                    <h4 className="text-sm font-bold text-[#EEF3FA]">Survey canvas</h4>
-                    <button onClick={() => setTab('ai')} className="rounded-lg border border-[#E11D2E]/35 bg-[#E11D2E]/10 px-3 py-2 text-[11px] font-bold text-red-200">Ask AI Assist</button>
-                  </div>
-                  {selectedSurvey.questions.map(question => (
-                    <div key={question.id} className="mb-2 rounded-lg border border-[rgba(46,127,255,0.12)] bg-[#0A1628] p-3">
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="text-[12px] font-bold text-[#EEF3FA]">{question.label}</span>
-                        <Badge>{question.type.replace('_', ' ')}</Badge>
-                      </div>
-                      <div className="mt-2 flex gap-2">{question.required && <Badge>Mandatory</Badge>}{question.evidenceRequired && <Badge tone="Completed">Evidence required</Badge>}</div>
-                    </div>
-                  ))}
-                </div>
-                <div className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#07111F] p-4">
-                  <h4 className="text-sm font-bold text-[#EEF3FA]">Question settings</h4>
-                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                    {['Mandatory question', 'Required evidence', 'Conditional logic', 'Score / weight'].map(setting => <Badge key={setting}>{setting}</Badge>)}
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <button className="rounded-lg border border-[rgba(46,127,255,0.22)] px-3 py-2 text-[11px] font-bold text-[#B8C7DB]">Preview Mobile Survey</button>
-                  <button className="rounded-lg border border-[rgba(46,127,255,0.22)] px-3 py-2 text-[11px] font-bold text-[#B8C7DB]">Save Draft</button>
-                  <button onClick={() => onToast('Survey published', 'success')} className="rounded-lg bg-[#E11D2E] px-3 py-2 text-[11px] font-bold text-white">Publish</button>
-                </div>
+              <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto p-5">
+                <TemplateSurveyDetails
+                  template={selectedSurveyTemplate}
+                  initialSections={selectedSurveySections}
+                  eyebrow="Survey draft"
+                  actionLabel="Save Draft"
+                  onUseTemplate={() => {
+                    onToast('Survey draft saved', 'success');
+                    setDrawer(null);
+                  }}
+                />
               </div>
-            </div>
-          </SideDrawer>
+            </motion.div>
+          </div>
         )}
 
         {drawer === 'assign' && (
