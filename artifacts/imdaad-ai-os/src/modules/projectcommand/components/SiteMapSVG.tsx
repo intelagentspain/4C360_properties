@@ -13,18 +13,18 @@ export function SiteMapSVG() {
 
   return (
     <div>
-      <div className="mb-3 flex rounded-lg border border-[#1C3050] bg-[#07101C] p-1">
+      <div className="mb-3 flex rounded-lg border border-[rgba(46,127,255,0.18)] bg-[#0A1628] p-1">
         {layers.map(item => (
           <button
             key={item}
             onClick={() => setLayer(item)}
-            className={`flex-1 rounded-md px-2 py-1.5 text-[10px] font-bold transition-colors ${layer === item ? 'bg-[#7C3AED]/20 text-[#C4B5FD]' : 'text-[#5A6E88] hover:text-[#F0F4FF]'}`}
+            className={`flex-1 rounded-md px-2 py-1.5 text-[10px] font-bold transition-colors ${layer === item ? 'bg-[#7C3AED]/20 text-[#C4B5FD]' : 'text-[#7A94B4] hover:text-[#EEF3FA]'}`}
           >
             {item}
           </button>
         ))}
       </div>
-      <svg viewBox="0 0 320 230" className="h-[230px] w-full rounded-xl border border-[#1C3050] bg-[#07101C]">
+      <svg viewBox="0 0 320 230" className="h-[230px] w-full rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#0A1628]">
         <defs>
           <filter id="pcGlow"><feGaussianBlur stdDeviation="4" result="blur" /><feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
         </defs>
@@ -40,9 +40,9 @@ export function SiteMapSVG() {
             <circle cx="174" cy="172" r="5" fill={layer === 'Defects' ? '#D92B1C' : '#C8A020'} />
           </>
         )}
-        <text x="42" y="56" fill="#F0F4FF" fontSize="12" fontWeight="700">Tower A</text>
-        <text x="174" y="70" fill="#F0F4FF" fontSize="12" fontWeight="700">Tower B</text>
-        <text x="132" y="210" fill="#F0F4FF" fontSize="11" fontWeight="700">Podium</text>
+        <text x="42" y="56" fill="#EEF3FA" fontSize="12" fontWeight="700">Tower A</text>
+        <text x="174" y="70" fill="#EEF3FA" fontSize="12" fontWeight="700">Tower B</text>
+        <text x="132" y="210" fill="#EEF3FA" fontSize="11" fontWeight="700">Podium</text>
         <text x="104" y="174" fill="#FCA5A5" fontSize="11" fontWeight="700">Basement at risk</text>
       </svg>
       <div className="mt-3 grid grid-cols-4 gap-2">
@@ -52,8 +52,8 @@ export function SiteMapSVG() {
           ['Podium', '12%', '#7C3AED'],
           ['B1-B3', 'Risk', '#D92B1C'],
         ].map(([label, value, color]) => (
-          <div key={label} className="rounded-lg border border-[#1C3050] bg-[#0E1E35] p-2">
-            <div className="text-[9px] font-bold uppercase text-[#5A6E88]">{label}</div>
+          <div key={label} className="rounded-lg border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-2">
+            <div className="text-[9px] font-bold uppercase text-[#7A94B4]">{label}</div>
             <div className="mt-1 text-[13px] font-black" style={{ color }}>{value}</div>
           </div>
         ))}

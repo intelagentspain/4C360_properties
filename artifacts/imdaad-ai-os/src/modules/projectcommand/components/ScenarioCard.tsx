@@ -47,31 +47,31 @@ export function ScenarioCard({
       type="button"
       onClick={onClick}
       whileHover={{ y: -2 }}
-      className={`w-full rounded-xl border text-left transition-colors ${large ? 'p-5' : 'p-3'} ${isActive ? 'bg-white/[0.045]' : 'bg-[#0E1E35] hover:bg-[#122240]'}`}
-      style={{ borderColor: isActive ? color : '#1C3050', boxShadow: isActive ? `0 0 28px ${color}24` : undefined }}
+      className={`w-full rounded-xl border text-left transition-colors ${large ? 'p-5' : 'p-3'} ${isActive ? 'bg-white/[0.045]' : 'bg-[rgba(17,32,64,0.78)] hover:bg-[#122240]'}`}
+      style={{ borderColor: isActive ? color : 'rgba(46,127,255,0.18)', boxShadow: isActive ? `0 0 28px ${color}24` : undefined }}
     >
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-[10px] font-black uppercase tracking-[0.16em]" style={{ color }}>{scenario.label}</div>
-          <div className={`${large ? 'mt-4 text-[30px]' : 'mt-2 text-[18px]'} font-black text-[#F0F4FF]`} style={{ fontFamily: 'Syne, sans-serif' }}>
+          <div className={`${large ? 'mt-4 text-[30px]' : 'mt-2 text-[18px]'} font-black text-[#EEF3FA]`} style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
             {formatDate(scenario.completionDate)}
           </div>
-          <div className={`${large ? 'text-lg' : 'text-sm'} mt-1 font-bold text-[#BCC8DC]`}>{formatMoney(scenario.finalCost)}</div>
+          <div className={`${large ? 'text-lg' : 'text-sm'} mt-1 font-bold text-[#B8C7DB]`}>{formatMoney(scenario.finalCost)}</div>
         </div>
         <svg width="72" height="72" viewBox="0 0 72 72">
           <circle cx="36" cy="36" r={radius} fill="none" stroke="#243448" strokeWidth="6" />
           <circle cx="36" cy="36" r={radius} fill="none" stroke={color} strokeWidth="6" strokeLinecap="round" strokeDasharray={`${(scenario.probability / 100) * circumference} ${circumference}`} transform="rotate(-90 36 36)" />
-          <text x="36" y="40" fill="#F0F4FF" textAnchor="middle" fontSize="14" fontWeight="800">{scenario.probability}%</text>
+          <text x="36" y="40" fill="#EEF3FA" textAnchor="middle" fontSize="14" fontWeight="800">{scenario.probability}%</text>
         </svg>
       </div>
       <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#243448]">
         <motion.div initial={{ width: 0 }} animate={{ width: `${scenario.probability}%` }} className="h-full rounded-full" style={{ backgroundColor: color }} />
       </div>
-      <div className="mt-2 text-[11px] font-bold text-[#5A6E88]">Programme slip: <span style={{ color }}>{scenario.programmeSlip === 0 ? '0 days' : `+${scenario.programmeSlip} days`}</span></div>
+      <div className="mt-2 text-[11px] font-bold text-[#7A94B4]">Programme slip: <span style={{ color }}>{scenario.programmeSlip === 0 ? '0 days' : `+${scenario.programmeSlip} days`}</span></div>
       {large && (
         <ul className="mt-4 space-y-2">
           {scenario.assumptions.map(item => (
-            <li key={item} className="flex gap-2 text-[12px] leading-5 text-[#BCC8DC]">
+            <li key={item} className="flex gap-2 text-[12px] leading-5 text-[#B8C7DB]">
               <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
               {item}
             </li>

@@ -16,7 +16,6 @@ interface NavItem {
 
 const strategicItems: NavItem[] = [
   { icon: LayoutGrid,      label: 'Properties',         page: 'allclients' },
-  { icon: BriefcaseBusiness, label: 'ProjectCommand',   page: 'projectcommand' },
   { icon: Map,             label: 'GIS Map',            page: 'dashboard' },
   { icon: Users,           label: 'Team',               page: 'team' },
   { icon: AlertTriangle,   label: 'Incidents',          page: 'incidents' },
@@ -25,6 +24,7 @@ const strategicItems: NavItem[] = [
   { icon: Camera,          label: 'AI Capture',         page: 'aicapture' },
   { icon: Database,        label: 'Data Sources',       page: 'datasources' },
   { icon: ShieldCheck,     label: 'Vendor Intelligence', page: 'vendorintelligence' },
+  { icon: BriefcaseBusiness, label: 'ProjectCommand',   page: 'projectcommand' },
   { icon: BarChart2,       label: 'Benchmark',          page: 'benchmark' },
   { icon: PlayCircle,      label: 'Operational Replay', page: 'replay' },
   { icon: Settings,        label: 'Settings', page: 'settings' },

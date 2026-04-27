@@ -31,16 +31,16 @@ export function HealthScoreGauge({ score, size = 96, status }: { score: number; 
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <motion.div className="text-[30px] font-black leading-none text-[#F0F4FF]" style={{ fontFamily: 'Syne, sans-serif' }}>
+        <motion.div className="text-[30px] font-black leading-none text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
           {display}
         </motion.div>
-        <div className="text-[10px] font-semibold text-[#5A6E88]">/100</div>
+        <div className="text-[10px] font-semibold text-[#7A94B4]">/100</div>
         <div className="mt-1 rounded-full border border-[#00B894]/25 bg-[#00B894]/10 px-2 py-0.5 text-[9px] font-bold uppercase text-[#9AF7DC]">
           {status}
         </div>
       </div>
-      <span className="absolute left-0 top-1 text-[9px] text-[#5A6E88]">0</span>
-      <span className="absolute right-0 top-1 text-[9px] text-[#5A6E88]">100</span>
+      <span className="absolute left-0 top-1 text-[9px] text-[#7A94B4]">0</span>
+      <span className="absolute right-0 top-1 text-[9px] text-[#7A94B4]">100</span>
     </div>
   );
 }

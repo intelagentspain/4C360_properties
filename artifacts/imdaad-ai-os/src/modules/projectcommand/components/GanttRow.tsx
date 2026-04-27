@@ -29,7 +29,7 @@ export function GanttRow({
       className="grid w-full items-center gap-3 text-left transition-colors hover:bg-white/[0.025]"
       style={{ gridTemplateColumns: `${nameWidth}px 1fr`, height: rowHeight }}
     >
-      <div className={`truncate pl-2 text-[11px] font-semibold ${isPhase ? 'text-[#F0F4FF]' : 'text-[#BCC8DC]'}`}>
+      <div className={`truncate pl-2 text-[11px] font-semibold ${isPhase ? 'text-[#EEF3FA]' : 'text-[#B8C7DB]'}`}>
         {item.isCritical && showCriticalPath && <span className="mr-1 inline-block h-3 w-0.5 rounded bg-[#D92B1C] align-middle" />}
         {item.name}
       </div>

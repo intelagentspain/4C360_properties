@@ -23,19 +23,19 @@ export function SCurveChart({ height = 210, detailed = false }: { height?: numbe
     <div className="h-full min-h-[180px] w-full">
       <ResponsiveContainer width="100%" height={height}>
         <ComposedChart data={data} margin={{ top: 18, right: 18, left: -14, bottom: 0 }}>
-          <CartesianGrid stroke="#1C3050" strokeDasharray="4 6" />
-          <XAxis dataKey="month" tick={{ fill: '#5A6E88', fontSize: 10 }} axisLine={false} tickLine={false} />
-          <YAxis tick={{ fill: '#5A6E88', fontSize: 10 }} axisLine={false} tickLine={false} unit="M" />
+          <CartesianGrid stroke="rgba(46,127,255,0.18)" strokeDasharray="4 6" />
+          <XAxis dataKey="month" tick={{ fill: '#7A94B4', fontSize: 10 }} axisLine={false} tickLine={false} />
+          <YAxis tick={{ fill: '#7A94B4', fontSize: 10 }} axisLine={false} tickLine={false} unit="M" />
           <Tooltip
-            contentStyle={{ background: '#09152A', border: '1px solid #264468', borderRadius: 10, color: '#F0F4FF' }}
+            contentStyle={{ background: '#0A1628', border: '1px solid rgba(46,127,255,0.35)', borderRadius: 10, color: '#EEF3FA' }}
             formatter={(value: ValueType, name: NameType) => {
               const displayValue = Array.isArray(value) ? value.join(', ') : value;
               return [displayValue === null ? '-' : `AED ${displayValue}M`, String(name)];
             }}
           />
-          {detailed && <Legend wrapperStyle={{ color: '#BCC8DC', fontSize: 11 }} />}
+          {detailed && <Legend wrapperStyle={{ color: '#B8C7DB', fontSize: 11 }} />}
           <ReferenceLine x={costSeries.labels[costSeries.todayIndex]} stroke="#C8A020" strokeDasharray="4 4" label={{ value: 'Today', fill: '#C8A020', fontSize: 10 }} />
-          <ReferenceDot x="Feb" y={298} r={4} fill="#D92B1C" stroke="#F0F4FF" label={{ value: 'AED 298M', fill: '#F0F4FF', fontSize: 10 }} />
+          <ReferenceDot x="Feb" y={298} r={4} fill="#D92B1C" stroke="#EEF3FA" label={{ value: 'AED 298M', fill: '#EEF3FA', fontSize: 10 }} />
           <Line type="monotone" dataKey="planned" name="Planned" stroke="#C8A020" strokeDasharray="6 4" strokeWidth={2} dot={false} />
           <Line type="monotone" dataKey="actual" name="Actual Spend" stroke="#00B894" strokeWidth={2.4} dot={false} connectNulls={false} />
           <Line type="monotone" dataKey="earnedValue" name="Earned Value" stroke="#7C3AED" strokeWidth={2.4} dot={false} connectNulls={false} />

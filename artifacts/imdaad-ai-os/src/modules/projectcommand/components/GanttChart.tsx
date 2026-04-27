@@ -23,10 +23,10 @@ export function GanttChart({
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr'];
 
   return (
-    <div className="relative rounded-xl border border-[#1C3050] bg-[#09152A]/80 p-3">
+    <div className="relative rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#0A1628]/80 p-3">
       <div className="relative mb-2 grid gap-3" style={{ gridTemplateColumns: `${nameWidth}px 1fr` }}>
-        <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#5A6E88]">Phase</div>
-        <div className="grid text-center text-[9px] text-[#5A6E88]" style={{ gridTemplateColumns: 'repeat(16, minmax(0, 1fr))' }}>
+        <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#7A94B4]">Phase</div>
+        <div className="grid text-center text-[9px] text-[#7A94B4]" style={{ gridTemplateColumns: 'repeat(16, minmax(0, 1fr))' }}>
           {months.map((month, index) => <span key={`${month}-${index}`}>{month}</span>)}
         </div>
       </div>
