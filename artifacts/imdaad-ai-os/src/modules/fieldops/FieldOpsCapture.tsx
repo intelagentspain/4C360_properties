@@ -3,11 +3,13 @@ import { Camera, CheckCircle2, FileSignature, MapPin, Mic, QrCode, ShieldAlert }
 import { assignments, surveys, type SurveyQuestion, type SurveySubmission } from './data';
 import { appendLocalFieldOpsSubmission } from './liveSubmissions';
 
+type PhotoUpload = { name: string; previewUrl: string };
+
 export function FieldOpsCapture({ surveyId }: { surveyId: string }) {
   const survey = useMemo(() => surveys.find(item => item.id === surveyId) ?? surveys[0], [surveyId]);
   const assignment = useMemo(() => assignments.find(item => item.surveyId === survey.id) ?? assignments[0], [survey.id]);
   const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [photoUploads, setPhotoUploads] = useState<Record<string, string[]>>({});
+  const [photoUploads, setPhotoUploads] = useState<Record<string, PhotoUpload[]>>({});
   const [submitted, setSubmitted] = useState(false);
   const [submissionId, setSubmissionId] = useState('');
   const [blocked, setBlocked] = useState('');
@@ -26,12 +28,20 @@ export function FieldOpsCapture({ surveyId }: { surveyId: string }) {
     setBlocked('');
   };
 
-  const handlePhotoUpload = (questionId: string, fileList: FileList | null) => {
-    const fileNames = Array.from(fileList ?? []).map(file => file.name);
-    if (!fileNames.length) return;
+  const readPhoto = (file: File) => new Promise<PhotoUpload>(resolve => {
+    const reader = new FileReader();
+    reader.onload = () => resolve({ name: file.name, previewUrl: String(reader.result ?? '') });
+    reader.onerror = () => resolve({ name: file.name, previewUrl: '' });
+    reader.readAsDataURL(file);
+  });
+
+  const handlePhotoUpload = async (questionId: string, fileList: FileList | null) => {
+    const files = Array.from(fileList ?? []);
+    if (!files.length) return;
+    const uploaded = await Promise.all(files.map(readPhoto));
 
     setPhotoUploads(current => {
-      const nextFiles = [...(current[questionId] ?? []), ...fileNames];
+      const nextFiles = [...(current[questionId] ?? []), ...uploaded];
       setAnswers(answerCurrent => ({
         ...answerCurrent,
         [questionId]: `${nextFiles.length} photo${nextFiles.length === 1 ? '' : 's'} uploaded`,
@@ -65,11 +75,12 @@ export function FieldOpsCapture({ surveyId }: { surveyId: string }) {
         answer: answers[question.id] || getDefaultAnswer(question),
       }));
     const issueCount = answerRows.filter(row => /fail|no|blocked|abnormal|issue|defect/i.test(row.answer)).length;
-    const uploadedPhotoEvidence = Object.entries(photoUploads).flatMap(([questionId, fileNames]) => {
+    const uploadedPhotoEvidence = Object.entries(photoUploads).flatMap(([questionId, photos]) => {
       const question = survey.questions.find(item => item.id === questionId);
-      return fileNames.map(fileName => ({
+      return photos.map(photo => ({
         type: 'photo' as const,
-        label: `${question?.label ?? 'Photo evidence'} - ${fileName}`,
+        label: `${question?.label ?? 'Photo evidence'} - ${photo.name}`,
+        previewUrl: photo.previewUrl,
       }));
     });
     const nonPhotoEvidence = survey.questions
@@ -122,7 +133,7 @@ export function FieldOpsCapture({ surveyId }: { surveyId: string }) {
             <p className="mt-3 text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">Status</p>
             <p className="mt-1 text-sm font-bold text-emerald-300">Pending Review</p>
           </div>
-          <button className="mt-5 h-11 w-full rounded-xl bg-[#E11D2E] text-sm font-bold text-white">Report another issue</button>
+          <button className="mt-5 h-11 w-full rounded-xl bg-[#E11D2E] text-sm font-bold text-white">Take another survey</button>
         </div>
       </div>
     );
@@ -228,10 +239,10 @@ export function FieldOpsCapture({ surveyId }: { surveyId: string }) {
                 </div>
                 {uploadedPhotos.length > 0 && (
                   <div className="mt-3 space-y-1 rounded-lg border border-emerald-400/15 bg-emerald-400/5 p-2">
-                    {uploadedPhotos.map(fileName => (
-                      <p key={fileName} className="truncate text-[10px] font-semibold text-emerald-200">
+                    {uploadedPhotos.map(photo => (
+                      <p key={`${question.id}-${photo.name}`} className="truncate text-[10px] font-semibold text-emerald-200">
                         <Camera size={11} className="mr-1 inline" />
-                        {fileName}
+                        {photo.name}
                       </p>
                     ))}
                   </div>

@@ -2131,8 +2131,26 @@ export function FieldOpsDashboard({ onToast }: Props) {
                 <tbody className="divide-y divide-[rgba(46,127,255,0.08)]">
                   {trackingRows.map(row => {
                     const { assignment, survey, submission, isLive } = row;
+                    const openSubmission = () => {
+                      if (!submission) return;
+                      setSelectedSubmission(submission);
+                      setDrawer('submission');
+                    };
                     return (
-                      <tr key={row.id} className="hover:bg-white/[0.025]">
+                      <tr
+                        key={row.id}
+                        role={submission ? 'button' : undefined}
+                        tabIndex={submission ? 0 : undefined}
+                        onClick={openSubmission}
+                        onKeyDown={event => {
+                          if (!submission) return;
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            openSubmission();
+                          }
+                        }}
+                        className={`${submission ? 'cursor-pointer hover:bg-white/[0.045] focus-visible:bg-white/[0.045] focus-visible:outline-none' : 'hover:bg-white/[0.025]'} transition-colors`}
+                      >
                         <td className="px-3 py-3 font-bold text-[#EEF3FA]">
                           {survey.name}
                           {isLive && <span className="ml-2 rounded-full bg-emerald-400/12 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-emerald-200">Live</span>}
@@ -2146,7 +2164,7 @@ export function FieldOpsDashboard({ onToast }: Props) {
                         <td className="px-3 py-3 text-emerald-300">{submission ? `${submission.evidence.length} files` : '-'}</td>
                         <td className="px-3 py-3">
                           {submission ? (
-                            <button onClick={() => { setSelectedSubmission(submission); setDrawer('submission'); }} className="font-bold text-[#7EB8F7]">{submission.reviewer}</button>
+                            <button onClick={event => { event.stopPropagation(); openSubmission(); }} className="font-bold text-[#7EB8F7]">{submission.reviewer}</button>
                           ) : (
                             <span className="text-[#7A94B4]">Awaiting submission</span>
                           )}
@@ -2309,8 +2327,26 @@ export function FieldOpsDashboard({ onToast }: Props) {
                   </div>
                 ))}
               </div>
-              <div className="grid gap-2 sm:grid-cols-3">
-                {selectedSubmission.evidence.map(item => <div key={item.label} className="rounded-lg border border-[rgba(46,127,255,0.12)] bg-[#07111F] p-3 text-[11px] text-[#B8C7DB]">{item.type}: {item.label}</div>)}
+              <div className="grid gap-2 sm:grid-cols-2">
+                {selectedSubmission.evidence.map(item => (
+                  <div key={item.label} className="overflow-hidden rounded-lg border border-[rgba(46,127,255,0.12)] bg-[#07111F] text-[11px] text-[#B8C7DB]">
+                    {item.type === 'photo' && item.previewUrl && (
+                      <button
+                        type="button"
+                        onClick={() => window.open(item.previewUrl, '_blank', 'noopener,noreferrer')}
+                        className="block aspect-video w-full overflow-hidden bg-[#0A1628]"
+                        aria-label={`View ${item.label}`}
+                      >
+                        <img src={item.previewUrl} alt={item.label} className="h-full w-full object-cover transition-transform hover:scale-[1.02]" />
+                      </button>
+                    )}
+                    <div className="p-3">
+                      <p className="text-[10px] font-black uppercase tracking-wide text-[#7A94B4]">{item.type}</p>
+                      <p className="mt-1 leading-4 text-[#B8C7DB]">{item.label}</p>
+                      {item.type === 'photo' && item.previewUrl && <p className="mt-2 text-[10px] font-bold text-[#7EB8F7]">Click photo to view full size</p>}
+                    </div>
+                  </div>
+                ))}
               </div>
               <div className="flex flex-wrap gap-2">
                 <button onClick={() => onToast('Submission approved', 'success')} className="rounded-lg bg-emerald-500/90 px-3 py-2 text-[11px] font-bold text-white">Approve</button>

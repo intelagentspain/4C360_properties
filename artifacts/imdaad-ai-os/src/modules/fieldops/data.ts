@@ -82,7 +82,7 @@ export interface SurveySubmission {
   assignmentId: string;
   submittedBy: string;
   answers: Array<{ question: string; answer: string }>;
-  evidence: Array<{ type: 'photo' | 'voice' | 'signature'; label: string }>;
+  evidence: Array<{ type: 'photo' | 'voice' | 'signature'; label: string; previewUrl?: string }>;
   gpsLocation: { lat: number; lng: number; site: string };
   status: 'Submitted' | 'Pending Review' | 'Approved' | 'Rejected';
   issuesDetected: number;
