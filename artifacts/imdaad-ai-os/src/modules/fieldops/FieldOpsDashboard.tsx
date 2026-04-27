@@ -78,6 +78,10 @@ const statusClass: Record<string, string> = {
   Archived: 'border-slate-500/30 bg-slate-500/10 text-slate-400',
   Overdue: 'border-amber-400/30 bg-amber-400/10 text-amber-300',
   'Failed / Rejected': 'border-red-400/30 bg-red-400/10 text-red-300',
+  Submitted: 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300',
+  'Pending Review': 'border-violet-400/30 bg-violet-400/10 text-violet-200',
+  Approved: 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300',
+  Rejected: 'border-red-400/30 bg-red-400/10 text-red-300',
 };
 
 const fieldInput = 'h-9 rounded-lg border border-[rgba(46,127,255,0.22)] bg-[#0A1628] px-3 text-[12px] text-[#EEF3FA] outline-none placeholder:text-[#4A6080] focus:border-[#E11D2E]';
@@ -1927,6 +1931,34 @@ export function FieldOpsDashboard({ onToast }: Props) {
     () => [...liveSubmissions, ...submissions].filter((item, index, all) => all.findIndex(candidate => candidate.id === item.id) === index),
     [liveSubmissions],
   );
+  const trackingRows = useMemo(() => {
+    const rowsFromSubmissions = allSubmissions.map(submission => {
+      const assignment = assignments.find(item => item.id === submission.assignmentId) ?? assignments.find(item => item.surveyId === submission.surveyId);
+      const survey = surveys.find(item => item.id === submission.surveyId) ?? surveys.find(item => item.id === assignment?.surveyId) ?? surveys[0];
+      return {
+        id: `submission-${submission.id}`,
+        assignment,
+        survey,
+        submission,
+        isLive: liveSubmissions.some(item => item.id === submission.id),
+        status: submission.status,
+        progress: 100,
+      };
+    });
+    const submittedAssignmentIds = new Set(allSubmissions.map(item => item.assignmentId));
+    const rowsFromAssignments = assignments
+      .filter(assignment => !submittedAssignmentIds.has(assignment.id))
+      .map(assignment => ({
+        id: `assignment-${assignment.id}`,
+        assignment,
+        survey: surveys.find(item => item.id === assignment.surveyId) ?? surveys[0],
+        submission: undefined,
+        isLive: false,
+        status: assignment.status,
+        progress: assignment.progress,
+      }));
+    return [...rowsFromSubmissions, ...rowsFromAssignments];
+  }, [allSubmissions, liveSubmissions]);
 
   const activeSurveyCount = surveys.filter(survey => survey.status !== 'Archived').length;
   const selectedSurveyTemplate = useMemo(() => surveyToTemplate(selectedSurvey), [selectedSurvey]);
@@ -2097,24 +2129,28 @@ export function FieldOpsDashboard({ onToast }: Props) {
                   <tr>{['Survey', 'Assignee', 'Site', 'Status', 'Progress', 'Submitted At', 'Issues', 'Evidence', 'Reviewer'].map(head => <th key={head} className="px-3 py-2">{head}</th>)}</tr>
                 </thead>
                 <tbody className="divide-y divide-[rgba(46,127,255,0.08)]">
-                  {assignments.map(assignment => {
-                    const survey = surveys.find(item => item.id === assignment.surveyId) ?? surveys[0];
-                    const submission = allSubmissions.find(item => item.assignmentId === assignment.id) ?? allSubmissions[0] ?? submissions[0];
-                    const isLive = liveSubmissions.some(item => item.id === submission.id);
+                  {trackingRows.map(row => {
+                    const { assignment, survey, submission, isLive } = row;
                     return (
-                      <tr key={assignment.id} className="hover:bg-white/[0.025]">
+                      <tr key={row.id} className="hover:bg-white/[0.025]">
                         <td className="px-3 py-3 font-bold text-[#EEF3FA]">
                           {survey.name}
                           {isLive && <span className="ml-2 rounded-full bg-emerald-400/12 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-emerald-200">Live</span>}
                         </td>
-                        <td className="px-3 py-3 text-[#B8C7DB]">{assignment.assignee}</td>
-                        <td className="px-3 py-3 text-[#B8C7DB]">{assignment.site}</td>
-                        <td className="px-3 py-3"><Badge tone={assignment.status}>{assignment.status}</Badge></td>
-                        <td className="px-3 py-3"><div className="h-1.5 w-24 rounded-full bg-[#0A1628]"><div className="h-full rounded-full bg-[#E11D2E]" style={{ width: `${assignment.progress}%` }} /></div></td>
-                        <td className="px-3 py-3 text-[#7A94B4]">{submission.submittedAt}</td>
-                        <td className="px-3 py-3 font-bold text-red-200">{submission.issuesDetected}</td>
-                        <td className="px-3 py-3 text-emerald-300">{submission.evidence.length} files</td>
-                        <td className="px-3 py-3"><button onClick={() => { setSelectedSubmission(submission); setDrawer('submission'); }} className="font-bold text-[#7EB8F7]">{submission.reviewer}</button></td>
+                        <td className="px-3 py-3 text-[#B8C7DB]">{assignment?.assignee ?? submission?.submittedBy ?? 'Field user'}</td>
+                        <td className="px-3 py-3 text-[#B8C7DB]">{assignment?.site ?? submission?.gpsLocation.site ?? survey.siteIds[0]}</td>
+                        <td className="px-3 py-3"><Badge tone={row.status}>{row.status}</Badge></td>
+                        <td className="px-3 py-3"><div className="h-1.5 w-24 rounded-full bg-[#0A1628]"><div className="h-full rounded-full bg-[#E11D2E]" style={{ width: `${row.progress}%` }} /></div></td>
+                        <td className="px-3 py-3 text-[#7A94B4]">{submission?.submittedAt ?? 'Not submitted'}</td>
+                        <td className="px-3 py-3 font-bold text-red-200">{submission?.issuesDetected ?? 0}</td>
+                        <td className="px-3 py-3 text-emerald-300">{submission ? `${submission.evidence.length} files` : '-'}</td>
+                        <td className="px-3 py-3">
+                          {submission ? (
+                            <button onClick={() => { setSelectedSubmission(submission); setDrawer('submission'); }} className="font-bold text-[#7EB8F7]">{submission.reviewer}</button>
+                          ) : (
+                            <span className="text-[#7A94B4]">Awaiting submission</span>
+                          )}
+                        </td>
                       </tr>
                     );
                   })}
