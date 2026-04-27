@@ -43,7 +43,7 @@ export function NotificationPanel({ open, onClose }: Props) {
     <AnimatePresence>
       {open && (
         <>
-          <div className="fixed inset-0 z-[200]" onClick={onClose} />
+          <div className="fixed bottom-0 left-0 right-0 top-[52px] z-[200]" onClick={onClose} />
           <motion.div
             initial={{ opacity: 0, y: -8, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}

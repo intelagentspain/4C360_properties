@@ -2,6 +2,7 @@ import {
   Map, AlertTriangle, CheckSquare, Calendar,
   Camera, BarChart2, Settings, ClipboardList, Scan, ListChecks,
   Package, Image, Home, Clock, History, Database, PlayCircle, Users, LayoutGrid, ShieldCheck,
+  BriefcaseBusiness,
 } from 'lucide-react';
 import type { Perspective, StrategicPage } from '@/App';
 
@@ -14,7 +15,8 @@ interface NavItem {
 }
 
 const strategicItems: NavItem[] = [
-  { icon: LayoutGrid,      label: 'All Clients',        page: 'allclients' },
+  { icon: LayoutGrid,      label: 'Properties',         page: 'allclients' },
+  { icon: BriefcaseBusiness, label: 'ProjectCommand',   page: 'projectcommand' },
   { icon: Map,             label: 'GIS Map',            page: 'dashboard' },
   { icon: Users,           label: 'Team',               page: 'team' },
   { icon: AlertTriangle,   label: 'Incidents',          page: 'incidents' },
@@ -87,14 +89,19 @@ export function Sidebar({ perspective, strategicPage, onStrategicPageChange, onT
         const active   = isItemActive(item, i);
         const hasPage  = perspective === 'strategic' && !!item.page;
         const clickable = hasPage || item.active;
+        const projectActive = active && item.page === 'projectcommand';
 
         return (
           <div key={i} className="relative group">
             <button
               onClick={() => handleClick(item)}
+              aria-label={item.label}
+              title={item.label}
               className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-150 ${
                 active
-                  ? 'bg-[#2E7FFF] text-white shadow-lg shadow-blue-500/30'
+                  ? projectActive
+                    ? 'bg-[#7C3AED] text-white shadow-lg shadow-violet-500/30'
+                    : 'bg-[#2E7FFF] text-white shadow-lg shadow-blue-500/30'
                   : clickable
                   ? 'text-[#7A94B4] hover:bg-white/5 hover:text-[#EEF3FA] cursor-pointer'
                   : 'text-[#7A94B4] hover:bg-white/5 hover:text-[#EEF3FA] opacity-50'

@@ -421,7 +421,7 @@ const RBAC_PRIVILEGES = [
   { key: 'configure_ai_rules', label: 'Configure AI Rules' },
   { key: 'approve_invoices',   label: 'Approve Invoices' },
   { key: 'manage_vendors',     label: 'Manage Vendors' },
-  { key: 'edit_client_profile',label: 'Edit Client Profile' },
+  { key: 'edit_client_profile',label: 'Edit Property Profile' },
 ];
 
 const ROLE_DEFAULT_PRIVILEGES: Record<string, string[]> = {
@@ -463,7 +463,7 @@ const RESPONSIBILITY_OPTIONS = [
   'Approve work orders',
   'Oversee subcontractors',
   'Generate reports',
-  'Coordinate client communication',
+  'Coordinate property communication',
   'Perform site audits',
 ];
 
@@ -793,7 +793,7 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
 
   const validate = () => {
     const errs: Record<string, string> = {};
-    if (!name.trim())          errs.name = 'Client name is required';
+    if (!name.trim())          errs.name = 'Property name is required';
     if (!sector)               errs.sector = 'Sector is required';
     if (siteNames.filter(s => s.trim()).length === 0) errs.sites = 'At least one site is required';
     if (!contactName.trim())   errs.contactName = 'Contact name is required';
@@ -945,9 +945,9 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
             </div>
             <div>
               <div className="text-[#EEF3FA] text-sm font-semibold" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-                Add New Client
+                Add New Property
               </div>
-              <div className="text-[10px] text-[#7A94B4]">Complete all sections to onboard a new client</div>
+              <div className="text-[10px] text-[#7A94B4]">Complete all sections to onboard a new property</div>
             </div>
           </div>
           <button onClick={onClose} className="text-[#7A94B4] hover:text-white transition-colors rounded-md p-1 hover:bg-white/5">
@@ -988,7 +988,7 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
               <SectionHeader icon={SECTION_ICONS.business} title="Business Information" />
               <div className="grid grid-cols-2 gap-3">
                 <div className="col-span-2">
-                  <FieldLabel label="Client Name" required />
+                  <FieldLabel label="Property Name" required />
                   <input
                     autoFocus
                     value={name}
@@ -1162,7 +1162,7 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
                     type="email"
                     value={contactEmail}
                     onChange={e => setContactEmail(e.target.value)}
-                    placeholder="e.g. ahmed@client.ae"
+                    placeholder="e.g. ahmed@property.ae"
                     className={inputCls()}
                   />
                 </div>
@@ -1425,7 +1425,7 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
             <div className="space-y-4">
               <SectionHeader icon={SECTION_ICONS.team} title="Team Members" />
               <p className="text-[11px] text-[#7A94B4] -mt-2 mb-2 leading-relaxed">
-                Invite team members to this client workspace. Each person will receive a welcome email with login credentials.
+                Invite team members to this property workspace. Each person will receive a welcome email with login credentials.
               </p>
 
               {/* Search existing staff */}
@@ -1561,12 +1561,12 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
                           ))}
                         </select>
                         <p className="mt-0.5 text-[9px] text-[#4A6080]">
-                          {member.perspective === 'Strategic' ? 'KPIs, dispatch, AI rules, all clients' : member.perspective === 'Operational' ? 'Tasks, kanban, smart scan' : 'Service requests & tracking'}
+                          {member.perspective === 'Strategic' ? 'KPIs, dispatch, AI rules, all properties' : member.perspective === 'Operational' ? 'Tasks, kanban, smart scan' : 'Service requests & tracking'}
                         </p>
                       </div>
 
                       <div className="col-span-2">
-                        <FieldLabel label="Assigned Clients" />
+                        <FieldLabel label="Assigned Properties" />
                         <div className="flex flex-wrap gap-1.5 mt-1">
                           {INITIAL_CLIENT_DATA.map(c => {
                             const active = member.assignedClients.includes(c.name);
@@ -1587,7 +1587,7 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
                             );
                           })}
                         </div>
-                        <p className="mt-1 text-[9px] text-[#4A6080]">Leave empty to grant access to all clients</p>
+                        <p className="mt-1 text-[9px] text-[#4A6080]">Leave empty to grant access to all properties</p>
                       </div>
 
                       <div className="col-span-2">
@@ -1824,11 +1824,11 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
                 <textarea
                   value={kbNotes}
                   onChange={e => setKbNotes(e.target.value)}
-                  placeholder="Paste SOPs, escalation contacts, site notes, or any relevant information about this client…"
+                  placeholder="Paste SOPs, escalation contacts, site notes, or any relevant information about this property..."
                   rows={6}
                   className={`${inputCls()} resize-none leading-relaxed`}
                 />
-                <p className="mt-0.5 text-[9px] text-[#4A6080]">Free-form notes — visible to the team in the client's knowledge panel</p>
+                <p className="mt-0.5 text-[9px] text-[#4A6080]">Free-form notes - visible to the team in the property's knowledge panel</p>
               </div>
 
               <div>
@@ -2045,7 +2045,7 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
               <SectionHeader icon={<Package size={13} className="text-[#2E7FFF]" />} title="Inventory" />
 
               <div className="flex items-center justify-between">
-                <p className="text-[10px] text-[#7A94B4]">Track inventory items associated with this client</p>
+                <p className="text-[10px] text-[#7A94B4]">Track inventory items associated with this property</p>
                 <button
                   type="button"
                   onClick={addInventoryItem}
@@ -2171,7 +2171,7 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
             ) : (
               <>
                 <Plus size={11} />
-                Add Client
+                Add Property
               </>
             )}
           </button>
@@ -2183,6 +2183,18 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
 
 type FilterKey = 'Client' | 'Zone' | 'Service';
 
+const FILTER_LABELS: Record<FilterKey, string> = {
+  Client: 'Property',
+  Zone: 'Zone',
+  Service: 'Service',
+};
+
+const FILTER_ALL_VALUES: Record<FilterKey, string> = {
+  Client: 'All Properties',
+  Zone: 'All Zones',
+  Service: 'All Services',
+};
+
 export function CommandBar({ mode, onModeChange, onToast }: Props) {
   const { addProfiles }                         = useMemberProfiles();
   const memberFilter                            = useMemberFilter();
@@ -2191,11 +2203,11 @@ export function CommandBar({ mode, onModeChange, onToast }: Props) {
   const initialSelected: Record<FilterKey, string> = {
     Client: isMemberMode && memberFilter.assignedClients.length === 1
       ? memberFilter.assignedClients[0]
-      : 'All Clients',
+      : FILTER_ALL_VALUES.Client,
     Zone: isMemberMode && memberFilter.zones.length === 1
       ? memberFilter.zones[0]
-      : 'All Zones',
-    Service: 'All Services',
+      : FILTER_ALL_VALUES.Zone,
+    Service: FILTER_ALL_VALUES.Service,
   };
 
   const [search, setSearch]                     = useState('');
@@ -2205,7 +2217,7 @@ export function CommandBar({ mode, onModeChange, onToast }: Props) {
   const [showModeDropdown, setShowModeDropdown] = useState(false);
   const [showAddClient, setShowAddClient]       = useState(false);
 
-  const clientNames = ['All Clients', ...clientData.map(c => c.name)];
+  const clientNames = ['All Properties', ...clientData.map(c => c.name)];
   const selectedClientInfo = clientData.find(c => c.name === selected.Client);
 
   const filters: Record<FilterKey, string[]> = {
@@ -2271,7 +2283,7 @@ export function CommandBar({ mode, onModeChange, onToast }: Props) {
               <button
                 onClick={() => setOpenFilter(openFilter === key ? null : key)}
                 className={`flex items-center gap-1 px-2.5 py-1 rounded-md border text-[11px] font-medium transition-all duration-150 ${
-                  selected[key] !== `All ${key}s`
+                  selected[key] !== FILTER_ALL_VALUES[key]
                     ? 'border-[#2E7FFF] bg-[rgba(46,127,255,0.15)] text-[#EEF3FA]'
                     : 'border-[rgba(46,127,255,0.22)] text-[#7A94B4] hover:text-[#EEF3FA] hover:border-[rgba(46,127,255,0.4)]'
                 }`}
@@ -2284,7 +2296,7 @@ export function CommandBar({ mode, onModeChange, onToast }: Props) {
                     {selectedClientInfo.name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()}
                   </span>
                 )}
-                {key}: <span className="text-[#EEF3FA] ml-0.5">{selected[key].replace(`All ${key}s`, 'All')}</span>
+                {FILTER_LABELS[key]}: <span className="text-[#EEF3FA] ml-0.5">{selected[key].replace(FILTER_ALL_VALUES[key], 'All')}</span>
                 <ChevronDown size={10} className={`transition-transform ${openFilter === key ? 'rotate-180' : ''}`} />
               </button>
 
@@ -2335,7 +2347,7 @@ export function CommandBar({ mode, onModeChange, onToast }: Props) {
                             className="w-full flex items-center gap-2 px-3 py-2 text-[11px] text-[#2E7FFF] hover:bg-[rgba(46,127,255,0.08)] transition-colors font-semibold"
                           >
                             <Plus size={11} />
-                            Add New Client
+                            Add New Property
                           </button>
                         </>
                       )}

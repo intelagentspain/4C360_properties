@@ -1,6 +1,7 @@
 import { Bell } from 'lucide-react';
 import { useState } from 'react';
 import { NotificationPanel } from './NotificationPanel';
+import { ProfileMenu } from './ProfileMenu';
 import { useNotifications } from '@/context/NotificationContext';
 
 type Perspective = 'strategic' | 'operational' | 'client';
@@ -12,6 +13,7 @@ interface Props {
 
 export function TopBar({ perspective, setPerspective }: Props) {
   const [notifOpen, setNotifOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const { unreadCount } = useNotifications();
 
   return (
@@ -45,8 +47,12 @@ export function TopBar({ perspective, setPerspective }: Props) {
 
       <div className="flex items-center gap-3">
         <button
-          onClick={() => setNotifOpen(!notifOpen)}
+          onClick={() => {
+            setNotifOpen(!notifOpen);
+            setProfileOpen(false);
+          }}
           className="relative w-8 h-8 flex items-center justify-center text-[#7A94B4] hover:text-white transition-colors rounded-lg hover:bg-white/5"
+          aria-label="Open notifications"
         >
           <Bell size={18} />
           {unreadCount > 0 && (
@@ -55,12 +61,25 @@ export function TopBar({ perspective, setPerspective }: Props) {
             </span>
           )}
         </button>
-        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#2E7FFF] to-[#00C6FF] flex items-center justify-center text-white text-[11px] font-bold shadow-md">
+        <button
+          onClick={() => {
+            setProfileOpen(!profileOpen);
+            setNotifOpen(false);
+          }}
+          className={`w-8 h-8 rounded-full bg-gradient-to-br from-[#2E7FFF] via-[#0B1220] to-[#E11D2E] flex items-center justify-center text-white text-[11px] font-bold shadow-md transition-all hover:scale-105 ${
+            profileOpen ? 'ring-2 ring-[#2E7FFF]/70 ring-offset-2 ring-offset-[#0A1628]' : ''
+          }`}
+          aria-label="Open profile settings"
+          title="Profile settings"
+        >
           SK
-        </div>
+        </button>
       </div>
 
       <NotificationPanel open={notifOpen} onClose={() => setNotifOpen(false)} />
+      {profileOpen && !notifOpen && (
+        <ProfileMenu open onClose={() => setProfileOpen(false)} />
+      )}
     </header>
   );
 }

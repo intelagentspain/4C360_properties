@@ -22,7 +22,7 @@ const PERSPECTIVE_CONFIG = {
     color: '#2E7FFF',
     bg: 'rgba(46,127,255,0.12)',
     border: 'rgba(46,127,255,0.3)',
-    desc: 'Command-level panels · KPIs · AI dispatch · All assigned clients',
+    desc: 'Command-level panels · KPIs · AI dispatch · All assigned properties',
     icon: <Zap size={11} />,
   },
   Operational: {

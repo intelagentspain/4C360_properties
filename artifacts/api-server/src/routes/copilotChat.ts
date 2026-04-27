@@ -269,17 +269,38 @@ const DEFAULT_SUGGESTIONS = [
 function getMockCopilotReply(message: string): { reply: string; suggestions: string[] } {
   const msg = message.toLowerCase();
 
+  if (msg.includes("highest-risk") || msg.includes("high risk") || msg.includes("risk")) {
+    return {
+      reply: "Start with JLT North Cluster, then Business Bay Tower Complex. JLT has the sharpest pressure: critical status, 12 incidents, 9 overdue tasks, 67% SLA, and lift safety checks overdue.",
+      suggestions: ["Compare SLA by property", "List critical incidents", "Draft escalation note"],
+    };
+  }
+
+  if (msg.includes("compare") && msg.includes("sla")) {
+    return {
+      reply: "SLA attention should go first to JLT North Cluster at 67%, then Business Bay Tower Complex at 81%. Gate Avenue and Downtown Burj Area are the strongest performers at 97% and 96%.",
+      suggestions: ["Show highest-risk properties", "Find SLA breaches", "Summarise portfolio KPIs"],
+    };
+  }
+
+  if (msg.includes("data") || msg.includes("coverage") || msg.includes("source") || msg.includes("sync")) {
+    return {
+      reply: "Review connected systems by property and look for stale or missing feeds first. Power BI sync on Business Bay is the clearest reporting gap to resolve.",
+      suggestions: ["Check sync health", "Find stale sources", "Review data coverage"],
+    };
+  }
+
   if (msg.includes("incident") || msg.includes("issue") || msg.includes("problem")) {
     return {
-      reply: "You can view all active incidents in the Incidents section under the Strategic view. Filter by severity or client to prioritize your response. Would you like guidance on escalation procedures?",
+      reply: "You can view all active incidents in the Incidents section under the Strategic view. Filter by severity or property to prioritize your response. Would you like guidance on escalation procedures?",
       suggestions: ["Filter by critical severity", "Show overdue incidents", "List unassigned incidents"],
     };
   }
 
-  if (msg.includes("client") || msg.includes("portfolio")) {
+  if (msg.includes("property") || msg.includes("properties") || msg.includes("portfolio")) {
     return {
-      reply: "Your client portfolio overview is available on the All Clients page. Each client card shows health score, open incidents, and SLA compliance. Click any client to drill into their Command Centre.",
-      suggestions: ["Show critical clients", "List client SLA scores", "Active client issues"],
+      reply: "Use the property portfolio view to compare risk, open incidents, overdue work, SLA, compliance, and connected data coverage. Start with critical and warning properties before reviewing healthy live sites.",
+      suggestions: ["Show highest-risk properties", "Compare SLA by property", "Summarise portfolio KPIs"],
     };
   }
 
@@ -299,8 +320,8 @@ function getMockCopilotReply(message: string): { reply: string; suggestions: str
 
   if (msg.includes("hello") || msg.includes("hi") || msg.includes("hey") || msg.includes("help")) {
     return {
-      reply: "Hello! I'm Imdaad Copilot, your AI assistant for the Imdaad AI-OS platform. I can help you navigate incidents, understand KPIs, manage client portfolios, and more. What would you like to know?",
-      suggestions: ["Show open incidents", "KPI overview", "Active client issues"],
+      reply: "I can help you navigate incidents, understand KPIs, manage property portfolios, and plan next actions. What would you like to know?",
+      suggestions: ["Show open incidents", "KPI overview", "Highest-risk properties"],
     };
   }
 

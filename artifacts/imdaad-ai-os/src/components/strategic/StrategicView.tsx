@@ -25,8 +25,10 @@ import { AssetsSettings } from './AssetsSettings';
 import { RolesSettings } from './RolesSettings';
 import { RulesSettings } from './RulesSettings';
 import { VendorsSettings } from './VendorsSettings';
+import { ProfileSettings } from './ProfileSettings';
 import { AllClients } from './AllClients';
 import { Team } from './Team';
+import { ProjectCommand } from '@/modules/projectcommand';
 import type { StrategicPage } from '@/App';
 import type { ToastFn } from '@/lib/ui';
 
@@ -86,17 +88,18 @@ function Dashboard({ onToast, selectedClientId, onNavigateToIncident, onNavigate
   );
 }
 
-type SettingsTab = 'dispatch' | 'clients' | 'assets' | 'roles' | 'rules' | 'vendors';
+type SettingsTab = 'profile' | 'dispatch' | 'clients' | 'assets' | 'roles' | 'rules' | 'vendors';
 
 function SettingsPage({ onToast, dispatchSettings, setDispatchSettings }: { onToast: ToastFn; dispatchSettings: DispatchSettings; setDispatchSettings: (s: DispatchSettings) => void }) {
-  const [tab, setTab] = useState<SettingsTab>('dispatch');
+  const [tab, setTab] = useState<SettingsTab>('profile');
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <div className="flex-shrink-0 px-6 pt-5 pb-0 border-b border-[rgba(46,127,255,0.12)]">
         <div className="flex gap-1">
           {([
+            { id: 'profile',  label: 'Profile'           },
             { id: 'dispatch', label: 'AI Dispatch Rules' },
-            { id: 'clients',  label: 'Manage Clients'   },
+            { id: 'clients',  label: 'Manage Properties' },
             { id: 'assets',   label: 'Assets'           },
             { id: 'roles',    label: 'Roles'            },
             { id: 'rules',    label: 'Rules'            },
@@ -117,6 +120,9 @@ function SettingsPage({ onToast, dispatchSettings, setDispatchSettings }: { onTo
         </div>
       </div>
       <div className="flex-1 overflow-hidden">
+        {tab === 'profile' && (
+          <ProfileSettings onToast={onToast} />
+        )}
         {tab === 'dispatch' && (
           <DispatchAIRules onToast={onToast} settings={dispatchSettings} setSettings={setDispatchSettings} />
         )}
@@ -173,6 +179,7 @@ export function StrategicView({ onToast, page, onClientSelect, selectedClientId,
         )}
         {page === 'allclients'  && <AllClients    onToast={onToast} onClientSelect={onClientSelect} onNavigateToIncidents={onNavigateToIncidents} onNavigateToCommand={onNavigateToCommand} />}
         {page === 'team'        && <Team          onToast={onToast} />}
+        {page === 'projectcommand' && <ProjectCommand />}
       </motion.div>
     </AnimatePresence>
   );

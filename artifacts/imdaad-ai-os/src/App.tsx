@@ -16,7 +16,7 @@ import type { MockMemberProfile } from '@/data/mockData';
 import type { PPMRiskPayload } from '@/components/strategic/PPMRiskPanel';
 
 export type Perspective = 'strategic' | 'operational' | 'client';
-export type StrategicPage = 'dashboard' | 'datasources' | 'benchmark' | 'replay' | 'incidents' | 'tasks' | 'ppmschedule' | 'aicapture' | 'settings' | 'allclients' | 'team' | 'vendorintelligence';
+export type StrategicPage = 'dashboard' | 'datasources' | 'benchmark' | 'replay' | 'incidents' | 'tasks' | 'ppmschedule' | 'aicapture' | 'settings' | 'allclients' | 'team' | 'vendorintelligence' | 'projectcommand';
 
 const CLIENT_SITE_MAP: Record<string, string> = {
   'CLT-001': 'silicon-oasis',
@@ -34,6 +34,10 @@ function getMemberIdFromUrl(): string | null {
 
 function isResidentDomain(): boolean {
   return window.location.hostname.includes('resident');
+}
+
+function getInitialStrategicPage(): StrategicPage {
+  return window.location.pathname.startsWith('/projectcommand') ? 'projectcommand' : 'allclients';
 }
 
 function makeResidentProfile(id = 'resident-portal'): MockMemberProfile {
@@ -59,7 +63,8 @@ const PERSP_MAP: Record<string, Perspective> = {
 function App() {
   const { getById }                          = useMemberProfiles();
   const [perspective,    setPerspective]     = useState<Perspective>('strategic');
-  const [strategicPage,  setStrategicPage]   = useState<StrategicPage>('allclients');
+  const [strategicPage,  setStrategicPage]   = useState<StrategicPage>(getInitialStrategicPage);
+  const [pathVersion, setPathVersion] = useState(0);
   const { toasts, addToast, removeToast }    = useToast();
   // On resident.4cgrc.com (or any hostname containing "resident"), open the
   // resident portal directly — no ?member= param required.
@@ -75,6 +80,9 @@ function App() {
   const [commandClientName, setCommandClientName] = useState<string | null>(null);
 
   const trackId = useMemo(() => new URLSearchParams(window.location.search).get('track'), []);
+  const effectiveStrategicPage: StrategicPage = window.location.pathname.startsWith('/projectcommand')
+    ? 'projectcommand'
+    : strategicPage;
 
   useEffect(() => {
     const memberId = getMemberIdFromUrl();
@@ -153,7 +161,7 @@ function App() {
             className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
             style={{ background: 'rgba(46,127,255,0.1)', color: '#7EB8F7' }}
           >
-            ← Back to All Clients
+            Back to Properties
           </button>
         </div>
         <div className="flex-1 overflow-hidden">
@@ -204,8 +212,22 @@ function App() {
           <>
             <Sidebar
               perspective={perspective}
-              strategicPage={strategicPage}
-              onStrategicPageChange={page => { if (page === 'incidents') { setIncidentsClientId(undefined); setInitialIncidentId(undefined); } setStrategicPage(page); }}
+              strategicPage={effectiveStrategicPage}
+              onStrategicPageChange={page => {
+                if (page === 'incidents') {
+                  setIncidentsClientId(undefined);
+                  setInitialIncidentId(undefined);
+                }
+                if (page === 'projectcommand' && !window.location.pathname.startsWith('/projectcommand')) {
+                  window.history.pushState({}, '', '/projectcommand/overview');
+                  setPathVersion(current => current + 1);
+                }
+                if (page !== 'projectcommand' && window.location.pathname.startsWith('/projectcommand')) {
+                  window.history.pushState({}, '', '/');
+                  setPathVersion(current => current + 1);
+                }
+                setStrategicPage(page);
+              }}
               onToast={msg => addToast(msg, 'info')}
             />
             <main className="flex-1 overflow-hidden relative">
@@ -218,7 +240,7 @@ function App() {
                   transition={{ duration: 0.2, ease: 'easeInOut' }}
                   className="absolute inset-0 flex flex-col"
                 >
-                  {perspective === 'strategic'  && <StrategicView onToast={addToast} page={strategicPage} onClientSelect={handleClientSelect} selectedClientId={selectedClientId} onNavigateToIncidents={handleNavigateToIncidents} onNavigateToCommand={handleNavigateToCommand} incidentsClientId={incidentsClientId} onNavigateToIncident={handleNavigateToIncident} initialIncidentId={initialIncidentId} onInitialIncidentHandled={() => setInitialIncidentId(undefined)} onNavigateToTasks={handleNavigateToTasks} onMarkPPMCreated={handleMarkPPMCreated} ppmCreatedTasks={ppmCreatedTasks} prefilledTask={prefilledTask} onPrefilledTaskConsumed={() => setPrefilledTask(null)} />}
+                  {perspective === 'strategic'  && <StrategicView key={pathVersion} onToast={addToast} page={effectiveStrategicPage} onClientSelect={handleClientSelect} selectedClientId={selectedClientId} onNavigateToIncidents={handleNavigateToIncidents} onNavigateToCommand={handleNavigateToCommand} incidentsClientId={incidentsClientId} onNavigateToIncident={handleNavigateToIncident} initialIncidentId={initialIncidentId} onInitialIncidentHandled={() => setInitialIncidentId(undefined)} onNavigateToTasks={handleNavigateToTasks} onMarkPPMCreated={handleMarkPPMCreated} ppmCreatedTasks={ppmCreatedTasks} prefilledTask={prefilledTask} onPrefilledTaskConsumed={() => setPrefilledTask(null)} />}
                   {perspective === 'operational' && <OperationalView onToast={addToast} />}
                   {perspective === 'client'      && <ClientView onToast={addToast} />}
                 </motion.div>
@@ -228,7 +250,11 @@ function App() {
         )}
       </div>
       <ToastContainer toasts={toasts} removeToast={removeToast} />
-      <CopilotAvatar />
+      <CopilotAvatar
+        perspective={perspective}
+        strategicPage={effectiveStrategicPage}
+        memberMode={Boolean(activeMember)}
+      />
     </div>
   );
 }

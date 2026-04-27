@@ -133,7 +133,7 @@ function PortfolioSummaryStrip({ clients }: { clients: PortfolioClient[] }) {
   const totalDS          = clients.reduce((s, c) => s + c.dataSources.length, 0);
 
   const kpis = [
-    { label: 'Total Clients',        value: clients.length,  icon: <Users size={13} />,    color: 'text-blue-400',    bg: 'bg-blue-500/10 border-blue-500/20' },
+    { label: 'Total Properties',     value: clients.length,  icon: <Users size={13} />,    color: 'text-blue-400',    bg: 'bg-blue-500/10 border-blue-500/20' },
     { label: 'Total Sites',          value: totalSites,      icon: <MapPin size={13} />,   color: 'text-cyan-400',    bg: 'bg-cyan-500/10 border-cyan-500/20' },
     { label: 'Active Work Orders',   value: totalWO,         icon: <Activity size={13} />, color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/20' },
     { label: 'Critical Incidents',   value: criticalInc,     icon: <AlertTriangle size={13} />, color: criticalInc > 0 ? 'text-red-400' : 'text-emerald-400', bg: criticalInc > 0 ? 'bg-red-500/10 border-red-500/20' : 'bg-emerald-500/10 border-emerald-500/20' },
@@ -183,7 +183,7 @@ function PortfolioPulseFeed() {
         <div className="flex items-center gap-2">
           <div className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
           <span className="text-[10px] font-bold text-[#EEF3FA] uppercase tracking-wide">Portfolio Pulse</span>
-          <span className="text-[9px] text-[#7A94B4]">Cross-client live events</span>
+          <span className="text-[9px] text-[#7A94B4]">Cross-property live events</span>
         </div>
         <span className="text-[9px] text-[#7A94B4]">{events.length} events</span>
       </div>
@@ -587,7 +587,7 @@ function ClientReportPanel({
         <div className="flex items-center gap-2.5">
           <FileText size={14} className="text-blue-400" />
           <div>
-            <div className="text-[#EEF3FA] font-bold text-sm leading-tight">Client Insight Report</div>
+            <div className="text-[#EEF3FA] font-bold text-sm leading-tight">Property Insight Report</div>
             <div className="text-[10px] text-[#7A94B4]">Snapshot · {client.lastUpdated}</div>
           </div>
         </div>
@@ -1026,7 +1026,7 @@ function ClientDetailDrawer({
 
           <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4">
             <div>
-              <div className="text-[10px] text-[#7A94B4] uppercase tracking-wide mb-2">Client Overview</div>
+              <div className="text-[10px] text-[#7A94B4] uppercase tracking-wide mb-2">Property Overview</div>
               <div className="grid grid-cols-3 gap-2">
                 {[
                   { label: 'Sites',     value: client.sites,         color: 'text-[#EEF3FA]' },
@@ -1239,12 +1239,12 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
       <div className="flex items-center justify-between px-5 py-3 border-b border-[rgba(46,127,255,0.15)] flex-shrink-0">
         <div>
           <h2 className="text-[#EEF3FA] font-bold text-base" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-            {isMemberMode ? 'My Clients' : 'All Clients'}
+            {isMemberMode ? 'My Properties' : 'Properties'}
           </h2>
           <p className="text-[11px] text-[#7A94B4]">
             {isMemberMode
-              ? `Personalized scope · ${filtered.length} assigned client${filtered.length !== 1 ? 's' : ''}`
-              : `Portfolio command view · ${allClients.length} clients · Master Admin`}
+              ? `Personalized scope · ${filtered.length} assigned propert${filtered.length !== 1 ? 'ies' : 'y'}`
+              : `Portfolio command view · ${allClients.length} properties · Master Admin`}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -1263,7 +1263,7 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
             className="flex items-center gap-1.5 px-3 py-1.5 bg-[#2E7FFF] hover:bg-blue-500 text-white text-[11px] font-semibold rounded-lg transition-colors shadow-[0_0_12px_rgba(46,127,255,0.35)]"
           >
             <Plus size={13} />
-            Add New Client
+            Add New Property
           </button>
         </div>
       </div>
@@ -1278,7 +1278,7 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Search clients…"
+            placeholder="Search properties..."
             className="bg-transparent text-[11px] text-[#EEF3FA] placeholder-[#7A94B4] outline-none w-28"
           />
         </div>
@@ -1343,7 +1343,7 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3">
             <Users size={32} className="text-[#7A94B4] opacity-30" />
-            <span className="text-[13px] text-[#7A94B4] opacity-60">No clients match filters</span>
+            <span className="text-[13px] text-[#7A94B4] opacity-60">No properties match filters</span>
           </div>
         ) : view === 'grid' ? (
           <div className="grid grid-cols-3 gap-3">

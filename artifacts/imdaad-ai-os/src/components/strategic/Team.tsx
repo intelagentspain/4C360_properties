@@ -454,7 +454,7 @@ function AddStaffModal({ onClose, onToast, clientNames, editMember }: AddStaffMo
                       <option value="Client" className="bg-[#0A1628]">Client</option>
                     </select>
                     <p className="mt-0.5 text-[9px] text-[#4A6080]">
-                      {form.perspective === 'Strategic' ? 'KPIs, dispatch, AI rules, all clients' : form.perspective === 'Operational' ? 'Tasks, kanban, smart scan' : 'Service requests & tracking'}
+                      {form.perspective === 'Strategic' ? 'KPIs, dispatch, AI rules, all properties' : form.perspective === 'Operational' ? 'Tasks, kanban, smart scan' : 'Service requests & tracking'}
                     </p>
                   </div>
                   )}
@@ -467,7 +467,7 @@ function AddStaffModal({ onClose, onToast, clientNames, editMember }: AddStaffMo
                 <SectionHeader icon={<Building2 size={12} className="text-[#2E7FFF]" />} title="Assignment" />
                 <div className="space-y-3">
                   <div>
-                    <FieldLabel label="Assigned Clients" />
+                    <FieldLabel label="Assigned Properties" />
                     <div className="flex flex-wrap gap-1.5 mt-1">
                       {clientNames.map(name => (
                         <PillButton key={name} active={form.assignedClients.includes(name)} onClick={() => toggleClient(name)}>
@@ -475,7 +475,7 @@ function AddStaffModal({ onClose, onToast, clientNames, editMember }: AddStaffMo
                         </PillButton>
                       ))}
                     </div>
-                    <p className="mt-1 text-[9px] text-[#4A6080]">Leave empty to grant access to all clients</p>
+                    <p className="mt-1 text-[9px] text-[#4A6080]">Leave empty to grant access to all properties</p>
                   </div>
                   <div>
                     <FieldLabel label="Geographical Zones" />
@@ -834,7 +834,7 @@ function ProfileDrawer({ member, onClose, onEdit }: ProfileDrawerProps) {
                     ))}
                   </div>
                 ) : (
-                  <span className="text-[10px] text-[#4A6080] italic">All clients</span>
+                  <span className="text-[10px] text-[#4A6080] italic">All properties</span>
                 )}
               </div>
               <div>
@@ -1148,7 +1148,7 @@ export function Team({ onToast }: Props) {
             onChange={e => setFilterClient(e.target.value)}
             className={selectCls}
           >
-            <option value="" className="bg-[#0A1628]">All Clients</option>
+            <option value="" className="bg-[#0A1628]">All Properties</option>
             {clientNames.map(name => (
               <option key={name} value={name} className="bg-[#0A1628]">{name}</option>
             ))}

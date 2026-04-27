@@ -12,7 +12,7 @@ const ALL_PERMISSIONS = [
   'Dispatch Technicians',
   'View Reports',
   'Export Reports',
-  'Manage Clients',
+  'Manage Properties',
   'Manage Assets',
   'Manage Staff',
   'Configure Settings',
@@ -39,7 +39,7 @@ const MOCK_ROLES: Role[] = [
     id: 'ROLE-002',
     name: 'Account Manager',
     description: 'Client-facing role managing relationships and reporting.',
-    permissions: ['View Work Orders', 'View Reports', 'Export Reports', 'Manage Clients'],
+    permissions: ['View Work Orders', 'View Reports', 'Export Reports', 'Manage Properties'],
     staffCount: 8,
   },
   {

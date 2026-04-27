@@ -4,7 +4,7 @@ import { TrendingUp, TrendingDown, Minus, ChevronRight, X, BarChart2 } from 'luc
 import { mockBenchmarkData } from '@/data/mockData';
 import { type ToastFn } from '@/lib/ui';
 
-const CLIENTS    = ['All Clients', 'Imdaad — DSOA', 'Gate Avenue REIT', 'Business Bay Corp'];
+const CLIENTS    = ['All Properties', 'Imdaad — DSOA', 'Gate Avenue REIT', 'Business Bay Corp'];
 const TIME_RANGE = ['Last 7 days', 'Last 30 days', 'Last 90 days', 'YTD'];
 const REGIONS    = ['All Regions', 'Dubai East', 'Downtown', 'Dubai Marina', 'Jumeirah'];
 
