@@ -29,6 +29,7 @@ import { ProfileSettings } from './ProfileSettings';
 import { AllClients } from './AllClients';
 import { Team } from './Team';
 import { ProjectCommand } from '@/modules/projectcommand';
+import { ResidentPortalDashboard } from '@/modules/residentportal';
 import type { StrategicPage } from '@/App';
 import type { ToastFn } from '@/lib/ui';
 
@@ -180,6 +181,7 @@ export function StrategicView({ onToast, page, onClientSelect, selectedClientId,
         {page === 'allclients'  && <AllClients    onToast={onToast} onClientSelect={onClientSelect} onNavigateToIncidents={onNavigateToIncidents} onNavigateToCommand={onNavigateToCommand} />}
         {page === 'team'        && <Team          onToast={onToast} />}
         {page === 'projectcommand' && <ProjectCommand onToast={onToast} />}
+        {page === 'residentportal' && <ResidentPortalDashboard onToast={onToast} />}
       </motion.div>
     </AnimatePresence>
   );

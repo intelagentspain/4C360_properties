@@ -2,7 +2,7 @@ import {
   Map, AlertTriangle, CheckSquare, Calendar,
   Camera, BarChart2, Settings, ClipboardList, Scan, ListChecks,
   Package, Image, Home, Clock, History, Database, PlayCircle, Users, LayoutGrid, ShieldCheck,
-  BriefcaseBusiness, Bot, ClipboardCheck, Smartphone,
+  BriefcaseBusiness, Bot, ClipboardCheck, Smartphone, DoorOpen,
 } from 'lucide-react';
 import type { Perspective, StrategicPage } from '@/App';
 
@@ -25,6 +25,7 @@ const strategicItems: NavItem[] = [
   { icon: Database,        label: 'Data Sources',       page: 'datasources' },
   { icon: ShieldCheck,     label: 'Vendor Intelligence', page: 'vendorintelligence' },
   { icon: BriefcaseBusiness, label: 'ProjectCommand',   page: 'projectcommand' },
+  { icon: DoorOpen,        label: 'ResidentPortal',     page: 'residentportal' },
   { icon: BarChart2,       label: 'Benchmark',          page: 'benchmark' },
   { icon: PlayCircle,      label: 'Operational Replay', page: 'replay' },
   { icon: Settings,        label: 'Settings', page: 'settings' },

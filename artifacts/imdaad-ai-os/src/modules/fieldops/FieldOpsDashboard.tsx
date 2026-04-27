@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   ClipboardCheck,
   Copy,
+  Eye,
   FileSignature,
   Filter,
   Link2,
@@ -53,6 +54,8 @@ type FieldOpsTemplate = {
   questions: number;
   evidence: string;
 };
+type CreateWizardStep = 'start' | 'ai' | 'template' | 'basics';
+type CreateStartMode = 'ai' | 'template' | 'manual';
 
 interface Props {
   onToast: (msg: string, type?: 'success' | 'warning' | 'error' | 'info') => void;
@@ -79,6 +82,94 @@ const statusClass: Record<string, string> = {
 const fieldInput = 'h-9 rounded-lg border border-[rgba(46,127,255,0.22)] bg-[#0A1628] px-3 text-[12px] text-[#EEF3FA] outline-none placeholder:text-[#4A6080] focus:border-[#E11D2E]';
 const priorityOptions = ['Low', 'Medium', 'High', 'Critical'] as const;
 type SurveyPriority = (typeof priorityOptions)[number];
+const aiPromptChips = [
+  'HVAC PPM',
+  'Lift Safety Inspection',
+  'Cleaning Audit',
+  'Fire System Check',
+  'Asset Condition Survey',
+  'Handover Inspection',
+  'Defect Capture',
+  'Site Safety Walkthrough',
+];
+type AiDraftProfile = {
+  sections: number;
+  questions: number;
+  duration: string;
+  frequency: string;
+  focus: string;
+  evidence: string;
+};
+const aiDraftProfiles: Record<string, AiDraftProfile> = {
+  'HVAC PPM': {
+    sections: 5,
+    questions: 24,
+    duration: '18-22 minutes',
+    frequency: 'Monthly',
+    focus: 'safety isolation, chiller condition, operating readings, cleaning, and sign-off',
+    evidence: 'photos, pressure readings, temperature differential, GPS proof, and supervisor signature',
+  },
+  'Lift Safety Inspection': {
+    sections: 4,
+    questions: 18,
+    duration: '12-15 minutes',
+    frequency: 'Weekly',
+    focus: 'landing doors, cabin safety, alarms, machine-room checks, and emergency response',
+    evidence: 'photos, safety pass/fail checks, technician notes, and signature',
+  },
+  'Cleaning Audit': {
+    sections: 4,
+    questions: 16,
+    duration: '8-10 minutes',
+    frequency: 'Daily',
+    focus: 'lobbies, corridors, washrooms, amenities, consumables, and quality scoring',
+    evidence: 'optional photos for failed areas, score notes, and supervisor review',
+  },
+  'Fire System Check': {
+    sections: 6,
+    questions: 28,
+    duration: '20-25 minutes',
+    frequency: 'Weekly',
+    focus: 'fire pumps, alarms, extinguishers, fire doors, escape routes, and compliance evidence',
+    evidence: 'mandatory photos, GPS capture, fail-to-incident rules, and contractor signature',
+  },
+  'Asset Condition Survey': {
+    sections: 5,
+    questions: 18,
+    duration: '12-15 minutes',
+    frequency: 'Monthly',
+    focus: 'safety, inspection, readings, condition, and sign-off',
+    evidence: 'condition photos, severity rating, lifecycle notes, and GPS proof',
+  },
+  'Handover Inspection': {
+    sections: 6,
+    questions: 30,
+    duration: '25-35 minutes',
+    frequency: 'Per handover batch',
+    focus: 'unit readiness, finishes, MEP function, snags, resident-facing evidence, and approval',
+    evidence: 'snag photos, QR/unit scan, handover checklist, and QA sign-off',
+  },
+  'Defect Capture': {
+    sections: 3,
+    questions: 12,
+    duration: '6-8 minutes',
+    frequency: 'As needed',
+    focus: 'defect location, category, severity, before/after evidence, and incident creation',
+    evidence: 'photos, notes, QR/asset scan, and automatic issue trigger',
+  },
+  'Site Safety Walkthrough': {
+    sections: 5,
+    questions: 22,
+    duration: '15-18 minutes',
+    frequency: 'Daily',
+    focus: 'PPE, access control, permits, work-at-height, housekeeping, and hazard closure',
+    evidence: 'mandatory photos for unsafe observations, GPS proof, and HSE reviewer sign-off',
+  },
+};
+const assignableAssignees = ['MEP Team', 'Fire Safety Vendor', 'Soft Services Team', 'QA/QC Team', 'Handover Team', 'Arabian FM Contractor', 'Mariam Saleh', 'Ahmed Farouk'];
+const assignmentRoles = ['FM Engineer', 'Contractor', 'Supervisor', 'QA/QC Lead', 'HSE Lead', 'Site Engineer', 'Property Manager'];
+const supervisorReviewers = ['Mariam Saleh', 'Sarah Khan', 'Omar Haddad', 'Nadia Karim', 'James Miller'];
+const recurrenceOptions = ['one-time', 'daily', 'weekly', 'monthly', 'quarterly', 'custom'];
 
 function formatDateInput(date: Date) {
   return date.toISOString().slice(0, 10);
@@ -114,6 +205,98 @@ function normalizeTemplate(template: { name: string; type: string; duration: str
   };
 }
 
+function inferSurveyTypeFromPrompt(prompt: string): SurveyType {
+  const lower = prompt.toLowerCase();
+  if (lower.includes('clean')) return 'Cleaning Audit';
+  if (lower.includes('fire')) return 'Fire Safety';
+  if (lower.includes('handover') || lower.includes('snag')) return 'Handover';
+  if (lower.includes('defect') || lower.includes('reactive')) return 'Reactive Maintenance';
+  if (lower.includes('asset condition') || lower.includes('condition')) return 'Asset Condition';
+  if (lower.includes('safety') || lower.includes('lift')) return 'Safety';
+  if (lower.includes('ppm') || lower.includes('preventive') || lower.includes('maintenance') || lower.includes('chiller')) return 'Preventive Maintenance';
+  return 'Field Inspection';
+}
+
+function titleFromPrompt(prompt: string, type: SurveyType) {
+  const lower = prompt.toLowerCase();
+  if (lower.includes('chiller')) return 'Water-Cooled Chiller Monthly PPM';
+  if (lower.includes('lift')) return 'Lift Safety Inspection';
+  if (lower.includes('clean')) return 'Cleaning Audit Checklist';
+  if (lower.includes('fire')) return 'Fire Safety Inspection';
+  if (lower.includes('handover')) return 'Handover Inspection Checklist';
+  if (lower.includes('defect')) return 'Defect Capture Survey';
+  return `${type} Survey`;
+}
+
+function getAiDraftProfile(prompt: string, selectedChip: string | null) {
+  if (selectedChip && aiDraftProfiles[selectedChip]) return aiDraftProfiles[selectedChip];
+  const lower = prompt.toLowerCase();
+  const matchedChip = aiPromptChips.find(chip => chip.split(' ').some(word => lower.includes(word.toLowerCase())));
+  return matchedChip ? aiDraftProfiles[matchedChip] : aiDraftProfiles['Asset Condition Survey'];
+}
+
+function getTemplatePreview(template: FieldOpsTemplate) {
+  const lower = template.name.toLowerCase();
+  if (lower.includes('hvac')) {
+    return {
+      frequency: 'Monthly',
+      responsibleRole: 'FM Engineer with MEP supervisor review',
+      sections: [
+        { title: 'Safety & Isolation', checks: ['Confirm lockout/tagout is in place', 'Verify safe access around equipment'] },
+        { title: 'Operational Readings', checks: ['Record chilled water pressure', 'Record entering and leaving temperature differential'] },
+        { title: 'Evidence & Sign-off', checks: ['Upload panel photo evidence', 'Supervisor signature required for abnormal readings'] },
+      ],
+      triggers: ['Pressure outside range creates incident', 'Failed safety item blocks submission'],
+    };
+  }
+  if (lower.includes('lift')) {
+    return {
+      frequency: 'Weekly',
+      responsibleRole: 'Lift vendor with facility manager review',
+      sections: [
+        { title: 'Cabin & Landing Checks', checks: ['Inspect doors, buttons, lighting, and emergency phone', 'Confirm landing alignment at sampled floors'] },
+        { title: 'Safety Verification', checks: ['Validate alarm response', 'Capture photo evidence for defects'] },
+        { title: 'Sign-off', checks: ['Technician notes', 'Supervisor signature'] },
+      ],
+      triggers: ['Failed safety check creates high-priority incident', 'Missing signature keeps submission pending'],
+    };
+  }
+  if (lower.includes('fire')) {
+    return {
+      frequency: 'Weekly for critical areas',
+      responsibleRole: 'Fire safety contractor',
+      sections: [
+        { title: 'Life Safety Assets', checks: ['Check extinguishers, hose reels, and fire doors', 'Confirm pump panel status'] },
+        { title: 'Escape Routes', checks: ['Verify exits are clear', 'Capture blocked route evidence'] },
+        { title: 'Compliance Evidence', checks: ['GPS capture required', 'Attach inspection photos'] },
+      ],
+      triggers: ['Blocked exit creates critical incident', 'Failed fire pump creates immediate escalation'],
+    };
+  }
+  if (lower.includes('clean')) {
+    return {
+      frequency: 'Daily',
+      responsibleRole: 'Soft services supervisor',
+      sections: [
+        { title: 'Area Condition', checks: ['Rate lobby, corridors, washrooms, and amenities', 'Capture failed area photos'] },
+        { title: 'Consumables', checks: ['Confirm supplies stocked', 'Record missing consumables'] },
+        { title: 'Closeout', checks: ['Supervisor notes', 'Optional resident-facing comment'] },
+      ],
+      triggers: ['Repeated failed area opens corrective task', 'Low score flags vendor performance'],
+    };
+  }
+  return {
+    frequency: template.type === 'Handover' ? 'Per handover batch' : 'As scheduled',
+    responsibleRole: template.type === 'Handover' ? 'Handover lead with QA/QC review' : 'Assigned field supervisor',
+    sections: [
+      { title: 'Context & Scope', checks: ['Confirm site, asset, and survey location', 'Scan QR or capture GPS where required'] },
+      { title: 'Inspection Checks', checks: ['Complete pass/fail checklist', 'Capture notes for failed items'] },
+      { title: 'Evidence & Review', checks: ['Upload required evidence', 'Submit for supervisor review'] },
+    ],
+    triggers: ['Failed mandatory check creates issue', 'Missing evidence blocks submission'],
+  };
+}
+
 function Badge({ children, tone = 'default' }: { children: React.ReactNode; tone?: string }) {
   return (
     <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-bold ${statusClass[tone] ?? 'border-[rgba(46,127,255,0.2)] bg-white/5 text-[#B8C7DB]'}`}>
@@ -127,33 +310,111 @@ function ActionIconButton({
   icon: Icon,
   onClick,
   danger = false,
+  disabled = false,
 }: {
   label: string;
   icon: ComponentType<{ size?: number; className?: string }>;
   onClick: () => void;
   danger?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={disabled ? undefined : onClick}
       aria-label={label}
       title={label}
-      className={`group relative flex h-8 w-8 items-center justify-center rounded-lg border transition-all ${
-        danger
+      disabled={disabled}
+      className={`group relative flex h-8 w-8 items-center justify-center rounded-lg border transition-all disabled:cursor-not-allowed disabled:opacity-40 ${
+        disabled
+          ? 'border-slate-500/15 bg-slate-500/8 text-slate-500'
+          : danger
           ? 'border-red-400/18 bg-red-400/8 text-red-200 hover:border-red-300/45 hover:bg-red-400/14'
           : 'border-[rgba(46,127,255,0.16)] bg-[#07111F] text-[#7EB8F7] hover:border-[#7EB8F7]/45 hover:bg-[#12305C]'
       }`}
     >
       <Icon size={14} />
       <span className={`pointer-events-none absolute -top-8 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-md border px-2 py-1 text-[10px] font-bold opacity-0 shadow-xl transition-all group-hover:-top-9 group-hover:opacity-100 ${
-        danger
+        disabled
+          ? 'border-slate-500/20 bg-[#07111F] text-slate-300'
+          : danger
           ? 'border-red-400/25 bg-[#2A0B14] text-red-100'
           : 'border-[rgba(46,127,255,0.32)] bg-[#07111F] text-[#DDE6F8]'
       }`}>
         {label}
       </span>
     </button>
+  );
+}
+
+function TemplateSurveyDetails({
+  template,
+  onUseTemplate,
+}: {
+  template: FieldOpsTemplate;
+  onUseTemplate?: () => void;
+}) {
+  const preview = getTemplatePreview(template);
+  return (
+    <div className="space-y-4">
+      <div className="rounded-2xl border border-[#E11D2E]/25 bg-[linear-gradient(135deg,rgba(225,29,46,0.13),rgba(46,127,255,0.06))] p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <div className="text-[10px] font-black uppercase tracking-widest text-[#E11D2E]">Survey template</div>
+            <h4 className="mt-1 text-xl font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{template.name}</h4>
+            <p className="mt-1 text-[12px] text-[#7A94B4]">{template.type}</p>
+          </div>
+          <Badge tone="Completed">{template.questions} checks</Badge>
+        </div>
+        <div className="mt-4 grid gap-2 sm:grid-cols-3">
+          <div className="rounded-xl bg-[#07111F] p-3">
+            <div className="text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">Duration</div>
+            <div className="mt-1 text-sm font-black text-white">{template.duration}</div>
+          </div>
+          <div className="rounded-xl bg-[#07111F] p-3">
+            <div className="text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">Evidence</div>
+            <div className="mt-1 text-sm font-black text-white">{template.evidence}</div>
+          </div>
+          <div className="rounded-xl bg-[#07111F] p-3">
+            <div className="text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">Frequency</div>
+            <div className="mt-1 text-sm font-black text-white">{preview.frequency}</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-[rgba(46,127,255,0.18)] bg-[#07111F] p-4">
+        <h5 className="text-sm font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Survey structure</h5>
+        <div className="mt-3 space-y-3">
+          {preview.sections.map(section => (
+            <div key={section.title} className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#0A1628] p-3">
+              <div className="text-[12px] font-bold text-white">{section.title}</div>
+              <div className="mt-2 space-y-2">
+                {section.checks.map(check => (
+                  <div key={check} className="flex gap-2 text-[11px] leading-4 text-[#B8C7DB]">
+                    <CheckCircle2 size={13} className="mt-0.5 shrink-0 text-emerald-300" />
+                    <span>{check}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-[rgba(46,127,255,0.18)] bg-[#07111F] p-4">
+        <h5 className="text-sm font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Automation and review</h5>
+        <p className="mt-1 text-[12px] text-[#7A94B4]">Responsible role: {preview.responsibleRole}</p>
+        <div className="mt-3 space-y-2">
+          {preview.triggers.map(trigger => (
+            <div key={trigger} className="rounded-xl border border-[#E11D2E]/20 bg-[#E11D2E]/8 px-3 py-2 text-[11px] font-semibold text-red-100">{trigger}</div>
+          ))}
+        </div>
+      </div>
+
+      {onUseTemplate && (
+        <button onClick={onUseTemplate} className="h-10 w-full rounded-xl bg-[#E11D2E] text-[12px] font-bold text-white shadow-lg shadow-red-950/25">Use this template</button>
+      )}
+    </div>
   );
 }
 
@@ -207,6 +468,13 @@ function CreateSurveyModal({
   properties: PortfolioClient[];
   initialTemplate?: FieldOpsTemplate | null;
 }) {
+  const [wizardStep, setWizardStep] = useState<CreateWizardStep>(initialTemplate ? 'basics' : 'start');
+  const [startMode, setStartMode] = useState<CreateStartMode>(initialTemplate ? 'template' : 'ai');
+  const [selectedTemplate, setSelectedTemplate] = useState<FieldOpsTemplate | null>(initialTemplate ?? null);
+  const [previewTemplate, setPreviewTemplate] = useState<FieldOpsTemplate | null>(null);
+  const [aiPrompt, setAiPrompt] = useState(aiGeneratedSurvey.prompt);
+  const [selectedAiChip, setSelectedAiChip] = useState<string | null>('Asset Condition Survey');
+  const [aiGeneratedPreview, setAiGeneratedPreview] = useState(false);
   const [type, setType] = useState<SurveyType>(initialTemplate?.type ?? 'Preventive Maintenance');
   const [surveyName, setSurveyName] = useState(initialTemplate ? `${initialTemplate.name} survey` : 'Water-cooled chiller PPM checklist');
   const [propertyId, setPropertyId] = useState(properties[0]?.id ?? '');
@@ -221,6 +489,7 @@ function CreateSurveyModal({
     () => buildAiDescription(type, selectedProperty, scope, priority),
     [type, selectedProperty, scope, priority],
   );
+  const aiDraftProfile = useMemo(() => getAiDraftProfile(aiPrompt, selectedAiChip), [aiPrompt, selectedAiChip]);
   const [description, setDescription] = useState(aiDescription);
 
   useEffect(() => {
@@ -235,115 +504,324 @@ function CreateSurveyModal({
     if (!descriptionEdited) setDescription(aiDescription);
   }, [aiDescription, descriptionEdited]);
 
+  const applyTemplate = (template: FieldOpsTemplate) => {
+    setSelectedTemplate(template);
+    setStartMode('template');
+    setType(template.type);
+    setSurveyName(`${template.name} survey`);
+    setDescriptionEdited(false);
+    setWizardStep('basics');
+  };
+
+  const startManual = () => {
+    setSelectedTemplate(null);
+    setStartMode('manual');
+    setType('Custom');
+    setSurveyName('New custom field survey');
+    setDescriptionEdited(false);
+    setWizardStep('basics');
+  };
+
+  const applyAiDraft = () => {
+    const inferredType = inferSurveyTypeFromPrompt(aiPrompt);
+    setSelectedTemplate(null);
+    setStartMode('ai');
+    setType(inferredType);
+    setSurveyName(titleFromPrompt(aiPrompt, inferredType));
+    setDescriptionEdited(false);
+    setAiGeneratedPreview(true);
+    setWizardStep('basics');
+  };
+
+  const goBackFromBasics = () => {
+    if (startMode === 'template') {
+      setWizardStep('template');
+      return;
+    }
+    if (startMode === 'ai') {
+      setWizardStep('ai');
+      return;
+    }
+    setWizardStep('start');
+  };
+
+  const stepLabel = wizardStep === 'start' ? 'Step 1 / Choose path' : wizardStep === 'ai' ? 'Step 1 / AI Assist' : wizardStep === 'template' ? 'Step 1 / Template Library' : 'Step 2 / Survey Basics';
+  const helperText = wizardStep === 'start'
+    ? 'Start with AI, choose a proven template, or build manually.'
+    : wizardStep === 'ai'
+    ? 'Describe what you need and AI will prepare the first survey draft.'
+    : wizardStep === 'template'
+    ? 'Pick a best-practice structure and then refine the survey basics.'
+    : selectedTemplate
+    ? `Starting from ${selectedTemplate.name}: ${selectedTemplate.questions} questions, ${selectedTemplate.duration}, ${selectedTemplate.evidence}.`
+    : startMode === 'ai'
+    ? 'AI has prepared the first draft. Review the basics before opening the designer.'
+    : 'Superadmin can create, publish, and assign surveys across all organizations.';
+
   return (
-    <div className="fixed inset-0 z-[2500] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[2500] flex items-center justify-center p-3 sm:p-4">
       <button className="absolute inset-0 bg-black/65 backdrop-blur-sm" onClick={onClose} aria-label="Close create survey" />
-      <motion.div initial={{ opacity: 0, y: 12, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 12, scale: 0.97 }} className="relative max-h-[90vh] w-full max-w-4xl overflow-hidden rounded-2xl border border-[rgba(46,127,255,0.25)] bg-[#0A1628] shadow-2xl">
-        <div className="flex items-start justify-between border-b border-[rgba(46,127,255,0.14)] bg-[linear-gradient(135deg,rgba(225,29,46,0.14),rgba(46,127,255,0.06))] px-5 py-4">
+      <motion.div initial={{ opacity: 0, y: 12, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 12, scale: 0.97 }} className="relative flex max-h-[calc(100vh-1.5rem)] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-[rgba(46,127,255,0.25)] bg-[#0A1628] shadow-2xl sm:max-h-[calc(100vh-2rem)]">
+        <div className="shrink-0 flex items-start justify-between border-b border-[rgba(46,127,255,0.14)] bg-[linear-gradient(135deg,rgba(225,29,46,0.14),rgba(46,127,255,0.06))] px-5 py-3.5">
           <div>
-            <div className="text-[10px] font-bold uppercase tracking-widest text-[#E11D2E]">Step 1 / Survey Basics</div>
+            <div className="text-[10px] font-bold uppercase tracking-widest text-[#E11D2E]">{stepLabel}</div>
             <h3 className="mt-1 text-lg font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Create Survey</h3>
             <p className="mt-1 text-[12px] text-[#7A94B4]">
-              {initialTemplate ? `Starting from ${initialTemplate.name}: ${initialTemplate.questions} questions, ${initialTemplate.duration}, ${initialTemplate.evidence}.` : 'Superadmin can create, publish, and assign surveys across all organizations.'}
+              {helperText}
             </p>
           </div>
           <button onClick={onClose} className="rounded-lg p-2 text-[#7A94B4] hover:bg-white/5 hover:text-white"><X size={18} /></button>
         </div>
-        <div className="custom-scrollbar max-h-[70vh] overflow-y-auto p-5">
-          <div className="grid gap-4 lg:grid-cols-2">
-            <label className="space-y-1.5">
-              <span className="text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">Survey name</span>
-              <input className={`${fieldInput} w-full`} value={surveyName} onChange={event => setSurveyName(event.target.value)} />
-            </label>
-            <label className="space-y-1.5">
-              <span className="text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">Survey type</span>
-              <select className={`${fieldInput} w-full`} value={type} onChange={event => setType(event.target.value as SurveyType)}>
-                {surveyTypes.map(item => <option key={item}>{item}</option>)}
-              </select>
-            </label>
-            <label className="space-y-1.5">
-              <span className="text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">Property</span>
-              <select className={`${fieldInput} w-full`} value={propertyId} onChange={event => { setPropertyId(event.target.value); setDescriptionEdited(false); }}>
-                {properties.map(property => <option key={property.id} value={property.id}>{property.name}</option>)}
-              </select>
-            </label>
-            <label className="space-y-1.5">
-              <span className="text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">Site / Area / Asset scope</span>
-              <select className={`${fieldInput} w-full`} value={scope} onChange={event => { setScope(event.target.value); setDescriptionEdited(false); }}>
-                {scopeOptions.map(option => <option key={option}>{option}</option>)}
-              </select>
-            </label>
-            <label className="space-y-1.5">
-              <span className="text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">Priority</span>
-              <select className={`${fieldInput} w-full`} value={priority} onChange={event => { setPriority(event.target.value as SurveyPriority); setDescriptionEdited(false); }}>
-                {priorityOptions.map(option => <option key={option}>{option}</option>)}
-              </select>
-            </label>
-            <div className="space-y-1.5">
-              <span className="text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">Validity window</span>
-              <div className="grid gap-2 sm:grid-cols-2">
-                <label className="relative">
-                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-bold uppercase tracking-wide text-[#4A6080]">From</span>
-                  <input type="date" className={`${fieldInput} w-full pl-14`} value={validFrom} onChange={event => { setValidFrom(event.target.value); if (validTo < event.target.value) setValidTo(event.target.value); }} />
-                </label>
-                <label className="relative">
-                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-bold uppercase tracking-wide text-[#4A6080]">To</span>
-                  <input type="date" className={`${fieldInput} w-full pl-10`} value={validTo} min={validFrom} onChange={event => setValidTo(event.target.value)} />
-                </label>
-              </div>
+        <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
+          {wizardStep === 'start' && (
+            <div className="grid gap-3 lg:grid-cols-3">
+              <button
+                type="button"
+                onClick={() => { setStartMode('ai'); setWizardStep('ai'); }}
+                className="group rounded-2xl border border-[#E11D2E]/35 bg-[linear-gradient(135deg,rgba(225,29,46,0.18),rgba(46,127,255,0.08))] p-5 text-left shadow-xl shadow-red-950/10 transition hover:-translate-y-0.5 hover:border-[#E11D2E]/70"
+              >
+                <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-2xl bg-[#E11D2E] text-white shadow-lg shadow-red-950/30"><Sparkles size={20} /></div>
+                <div className="text-[10px] font-black uppercase tracking-widest text-red-200">Recommended</div>
+                <h4 className="mt-2 text-lg font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Start with AI</h4>
+                <p className="mt-2 text-[12px] leading-5 text-[#B8C7DB]">Tell AI what you need and get a complete mobile-ready survey draft instantly.</p>
+                <span className="mt-5 inline-flex rounded-full bg-white/10 px-3 py-1 text-[11px] font-bold text-white group-hover:bg-[#E11D2E]">AI Assist</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => { setStartMode('template'); setWizardStep('template'); }}
+                className="group rounded-2xl border border-[rgba(46,127,255,0.2)] bg-[#07111F] p-5 text-left transition hover:-translate-y-0.5 hover:border-[#7EB8F7]/55 hover:bg-[#102040]"
+              >
+                <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-2xl bg-[#12305C] text-[#7EB8F7]"><ClipboardCheck size={20} /></div>
+                <h4 className="text-lg font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Use Template</h4>
+                <p className="mt-2 text-[12px] leading-5 text-[#B8C7DB]">Choose a best-practice checklist by asset, service type, or inspection workflow.</p>
+                <span className="mt-5 inline-flex rounded-full border border-[rgba(46,127,255,0.24)] px-3 py-1 text-[11px] font-bold text-[#B8C7DB] group-hover:text-white">Browse templates</span>
+              </button>
+              <button
+                type="button"
+                onClick={startManual}
+                className="group rounded-2xl border border-[rgba(46,127,255,0.2)] bg-[#07111F] p-5 text-left transition hover:-translate-y-0.5 hover:border-white/25 hover:bg-[#102040]"
+              >
+                <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-2xl bg-white/8 text-[#B8C7DB]"><PencilRuler size={20} /></div>
+                <h4 className="text-lg font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Build Manually</h4>
+                <p className="mt-2 text-[12px] leading-5 text-[#B8C7DB]">Start from a blank survey and define fields, evidence, rules, and scoring yourself.</p>
+                <span className="mt-5 inline-flex rounded-full border border-white/10 px-3 py-1 text-[11px] font-bold text-[#B8C7DB] group-hover:text-white">Manual setup</span>
+              </button>
             </div>
-            <div className="rounded-xl border border-[#E11D2E]/20 bg-[linear-gradient(135deg,rgba(225,29,46,0.12),rgba(46,127,255,0.05))] p-4 lg:col-span-2">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-[#E11D2E]">
-                    <Sparkles size={13} />
-                    AI setup brief
+          )}
+
+          {wizardStep === 'ai' && (
+            <div className="grid gap-4 lg:grid-cols-[1fr_0.85fr]">
+              <div className="rounded-2xl border border-[#E11D2E]/30 bg-[linear-gradient(135deg,rgba(225,29,46,0.12),rgba(17,32,64,0.78))] p-5">
+                <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-red-200"><Bot size={14} /> AI survey brief</div>
+                <textarea
+                  value={aiPrompt}
+                  onChange={event => { setAiPrompt(event.target.value); setSelectedAiChip(null); setAiGeneratedPreview(false); }}
+                  placeholder="Example: Create a preventive maintenance checklist for a water-cooled chiller in a residential tower."
+                  className="mt-4 min-h-32 w-full rounded-xl border border-[rgba(46,127,255,0.22)] bg-[#0A1628] p-3 text-[12px] leading-5 text-[#EEF3FA] outline-none placeholder:text-[#4A6080] focus:border-[#E11D2E]"
+                />
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {aiPromptChips.map(chip => (
+                    <button
+                      key={chip}
+                      type="button"
+                      onClick={() => {
+                        setSelectedAiChip(chip);
+                        setAiPrompt(`Create a ${chip.toLowerCase()} checklist for a residential tower.`);
+                        setAiGeneratedPreview(false);
+                      }}
+                      className={`rounded-full border px-3 py-1.5 text-[10px] font-bold transition ${selectedAiChip === chip ? 'border-[#E11D2E]/70 bg-[#E11D2E]/12 text-white shadow-lg shadow-red-950/20' : 'border-[rgba(46,127,255,0.22)] bg-[#07111F] text-[#B8C7DB] hover:border-[#E11D2E]/45 hover:text-white'}`}
+                    >
+                      {chip}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="rounded-2xl border border-[rgba(46,127,255,0.18)] bg-[#07111F] p-5">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h4 className="text-sm font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>AI draft preview</h4>
+                    <p className="mt-1 text-[11px] text-[#7A94B4]">Structured and ready for the survey basics step.</p>
                   </div>
-                  <p className="mt-1 text-[12px] text-[#B8C7DB]">Property context, site scope, validity, and priority are used to shape the first survey draft.</p>
+                  <Badge tone={aiGeneratedPreview ? 'Completed' : 'default'}>{aiGeneratedPreview ? 'Draft generated' : 'Ready to generate'}</Badge>
                 </div>
-                <div className="flex flex-wrap gap-2 text-[10px] font-bold">
-                  <span className="rounded-full border border-emerald-400/25 bg-emerald-400/10 px-2.5 py-1 text-emerald-200">Property loaded</span>
-                  <span className="rounded-full border border-blue-400/25 bg-blue-400/10 px-2.5 py-1 text-blue-200">Scope auto-filled</span>
-                  <span className="rounded-full border border-[#E11D2E]/25 bg-[#E11D2E]/10 px-2.5 py-1 text-red-100">Evidence suggested</span>
+                <div className="mt-4 grid gap-2 text-[11px] text-[#B8C7DB]">
+                  <div className="rounded-xl bg-[#102040] p-3"><b className="text-white">{aiDraftProfile.sections} sections</b> across {aiDraftProfile.focus}.</div>
+                  <div className="rounded-xl bg-[#102040] p-3"><b className="text-white">{aiDraftProfile.questions} questions</b> with mandatory checks and evidence rules.</div>
+                  <div className="rounded-xl bg-[#102040] p-3"><b className="text-white">{aiDraftProfile.duration}</b> estimated field completion time.</div>
+                  <div className="rounded-xl bg-[#102040] p-3"><b className="text-white">{aiDraftProfile.frequency}</b> recommended frequency with {aiDraftProfile.evidence}.</div>
                 </div>
               </div>
             </div>
-            <label className="space-y-1.5 lg:col-span-2">
-              <span className="flex items-center justify-between gap-3 text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">
-                AI suggested description
-                <button
-                  type="button"
-                  onClick={() => { setDescription(aiDescription); setDescriptionEdited(false); }}
-                  className="rounded-full border border-[#E11D2E]/30 bg-[#E11D2E]/10 px-2.5 py-1 text-[10px] font-bold normal-case tracking-normal text-red-100 hover:bg-[#E11D2E]/16"
-                >
-                  Regenerate with AI
-                </button>
-              </span>
-              <textarea
-                className="min-h-24 w-full rounded-lg border border-[rgba(46,127,255,0.22)] bg-[#0A1628] px-3 py-2 text-[12px] leading-5 text-[#EEF3FA] outline-none placeholder:text-[#4A6080] focus:border-[#E11D2E]"
-                value={description}
-                onChange={event => { setDescription(event.target.value); setDescriptionEdited(true); }}
-              />
-              <span className="text-[10px] text-[#5A7190]">Valid {validFrom} to {validTo}. The design step will use this context to suggest sections, evidence rules, scoring, and mandatory checks.</span>
-            </label>
+          )}
+
+          {wizardStep === 'template' && (
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              {templates.map(template => {
+                const normalized = normalizeTemplate(template);
+                return (
+                  <div key={template.name} className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
+                    <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-[#E11D2E]/12 text-red-200"><ClipboardCheck size={18} /></div>
+                    <h3 className="text-sm font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{template.name}</h3>
+                    <p className="mt-1 text-[11px] text-[#7A94B4]">{template.type}</p>
+                    <div className="mt-4 grid grid-cols-2 gap-2 text-[10px] text-[#B8C7DB]">
+                      <span>{template.duration}</span>
+                      <span>{template.questions} questions</span>
+                      <span className="col-span-2">{template.evidence}</span>
+                    </div>
+                    <div className="mt-4 grid grid-cols-2 gap-2">
+                      <button onClick={() => setPreviewTemplate(normalized)} className="rounded-lg border border-[rgba(46,127,255,0.24)] bg-[#07111F] px-3 py-2 text-[11px] font-bold text-[#B8C7DB] hover:border-[#7EB8F7]/50 hover:text-white">
+                        View survey
+                      </button>
+                      <button onClick={() => applyTemplate(normalized)} className="rounded-lg border border-[#E11D2E]/35 bg-[#E11D2E]/10 px-3 py-2 text-[11px] font-bold text-red-200 hover:bg-[#E11D2E]/16">Use template</button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {wizardStep === 'basics' && (
+            <>
+              <div className="grid gap-3 lg:grid-cols-2">
+                <label className="space-y-1.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">Survey name</span>
+                  <input className={`${fieldInput} w-full`} value={surveyName} onChange={event => setSurveyName(event.target.value)} />
+                </label>
+                <label className="space-y-1.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">Survey type</span>
+                  <select className={`${fieldInput} w-full`} value={type} onChange={event => setType(event.target.value as SurveyType)}>
+                    {surveyTypes.map(item => <option key={item}>{item}</option>)}
+                  </select>
+                </label>
+                <label className="space-y-1.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">Property</span>
+                  <select className={`${fieldInput} w-full`} value={propertyId} onChange={event => { setPropertyId(event.target.value); setDescriptionEdited(false); }}>
+                    {properties.map(property => <option key={property.id} value={property.id}>{property.name}</option>)}
+                  </select>
+                </label>
+                <label className="space-y-1.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">Site / Area / Asset scope</span>
+                  <select className={`${fieldInput} w-full`} value={scope} onChange={event => { setScope(event.target.value); setDescriptionEdited(false); }}>
+                    {scopeOptions.map(option => <option key={option}>{option}</option>)}
+                  </select>
+                </label>
+                <label className="space-y-1.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">Priority</span>
+                  <select className={`${fieldInput} w-full`} value={priority} onChange={event => { setPriority(event.target.value as SurveyPriority); setDescriptionEdited(false); }}>
+                    {priorityOptions.map(option => <option key={option}>{option}</option>)}
+                  </select>
+                </label>
+                <div className="space-y-1.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">Validity window</span>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <label className="relative">
+                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-bold uppercase tracking-wide text-[#4A6080]">From</span>
+                      <input type="date" className={`${fieldInput} w-full pl-14`} value={validFrom} onChange={event => { setValidFrom(event.target.value); if (validTo < event.target.value) setValidTo(event.target.value); }} />
+                    </label>
+                    <label className="relative">
+                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-bold uppercase tracking-wide text-[#4A6080]">To</span>
+                      <input type="date" className={`${fieldInput} w-full pl-10`} value={validTo} min={validFrom} onChange={event => setValidTo(event.target.value)} />
+                    </label>
+                  </div>
+                </div>
+                <div className="rounded-xl border border-[#E11D2E]/20 bg-[linear-gradient(135deg,rgba(225,29,46,0.12),rgba(46,127,255,0.05))] p-4 lg:col-span-2">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-[#E11D2E]">
+                        <Sparkles size={13} />
+                        AI setup brief
+                      </div>
+                      <p className="mt-1 text-[12px] text-[#B8C7DB]">Property context, site scope, validity, and priority are used to shape the first survey draft.</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2 text-[10px] font-bold">
+                      {startMode === 'ai' && <span className="rounded-full border border-[#E11D2E]/25 bg-[#E11D2E]/10 px-2.5 py-1 text-red-100">AI draft applied</span>}
+                      <span className="rounded-full border border-emerald-400/25 bg-emerald-400/10 px-2.5 py-1 text-emerald-200">Property loaded</span>
+                      <span className="rounded-full border border-blue-400/25 bg-blue-400/10 px-2.5 py-1 text-blue-200">Scope auto-filled</span>
+                      <span className="rounded-full border border-[#E11D2E]/25 bg-[#E11D2E]/10 px-2.5 py-1 text-red-100">Evidence suggested</span>
+                    </div>
+                  </div>
+                </div>
+                <label className="space-y-1.5 lg:col-span-2">
+                  <span className="flex items-center justify-between gap-3 text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">
+                    AI suggested description
+                    <button
+                      type="button"
+                      onClick={() => { setDescription(aiDescription); setDescriptionEdited(false); }}
+                      className="rounded-full border border-[#E11D2E]/30 bg-[#E11D2E]/10 px-2.5 py-1 text-[10px] font-bold normal-case tracking-normal text-red-100 hover:bg-[#E11D2E]/16"
+                    >
+                      Regenerate with AI
+                    </button>
+                  </span>
+                  <textarea
+                    className="min-h-24 w-full rounded-lg border border-[rgba(46,127,255,0.22)] bg-[#0A1628] px-3 py-2 text-[12px] leading-5 text-[#EEF3FA] outline-none placeholder:text-[#4A6080] focus:border-[#E11D2E]"
+                    value={description}
+                    onChange={event => { setDescription(event.target.value); setDescriptionEdited(true); }}
+                  />
+                  <span className="text-[10px] text-[#5A7190]">Valid {validFrom} to {validTo}. The design step will use this context to suggest sections, evidence rules, scoring, and mandatory checks.</span>
+                </label>
+              </div>
+              <div className="mt-4 rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#07111F] p-4">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <h4 className="text-sm font-bold text-[#EEF3FA]">Template options for {type}</h4>
+                    {selectedTemplate && <p className="mt-1 text-[11px] text-[#7A94B4]">{selectedTemplate.name} is selected as the starting structure.</p>}
+                  </div>
+                  {selectedTemplate && <Badge tone="Completed">Template loaded</Badge>}
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {templateOptions[type].map(template => <Badge key={template} tone={template === selectedTemplate?.name ? 'Completed' : 'default'}>{template}</Badge>)}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+        <div className="shrink-0 flex flex-col-reverse gap-2 border-t border-[rgba(46,127,255,0.14)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          {wizardStep === 'basics' && !initialTemplate ? (
+            <button onClick={goBackFromBasics} className="rounded-lg border border-[rgba(46,127,255,0.22)] px-4 py-2 text-[12px] font-bold text-[#B8C7DB] hover:bg-white/5">Back</button>
+          ) : <span />}
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            {wizardStep === 'start' && <button onClick={onClose} className="rounded-lg border border-[rgba(46,127,255,0.22)] px-4 py-2 text-[12px] font-bold text-[#B8C7DB] hover:bg-white/5">Close</button>}
+            {wizardStep === 'ai' && (
+              <>
+                <button onClick={() => setWizardStep('start')} className="rounded-lg border border-[rgba(46,127,255,0.22)] px-4 py-2 text-[12px] font-bold text-[#B8C7DB] hover:bg-white/5">Back</button>
+                <button onClick={() => setAiGeneratedPreview(true)} className="rounded-lg border border-[#E11D2E]/35 bg-[#E11D2E]/10 px-4 py-2 text-[12px] font-bold text-red-100 hover:bg-[#E11D2E]/16">Preview AI Draft</button>
+                <button onClick={applyAiDraft} className="rounded-lg bg-[#E11D2E] px-4 py-2 text-[12px] font-bold text-white shadow-lg shadow-red-950/25">Generate Survey</button>
+              </>
+            )}
+            {wizardStep === 'template' && (
+              <>
+                <button onClick={() => setWizardStep('start')} className="rounded-lg border border-[rgba(46,127,255,0.22)] px-4 py-2 text-[12px] font-bold text-[#B8C7DB] hover:bg-white/5">Back</button>
+                <button onClick={startManual} className="rounded-lg border border-[#E11D2E]/35 bg-[#E11D2E]/10 px-4 py-2 text-[12px] font-bold text-red-100 hover:bg-[#E11D2E]/16">Build Manually</button>
+              </>
+            )}
+            {wizardStep === 'basics' && (
+              <>
+                <button onClick={onClose} className="rounded-lg border border-[rgba(46,127,255,0.22)] px-4 py-2 text-[12px] font-bold text-[#B8C7DB] hover:bg-white/5">Save Draft</button>
+                <button onClick={() => onDesign(type)} className="rounded-lg bg-[#E11D2E] px-4 py-2 text-[12px] font-bold text-white shadow-lg shadow-red-950/25">Continue to Design</button>
+              </>
+            )}
           </div>
-          <div className="mt-5 rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#07111F] p-4">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        </div>
+        {previewTemplate && (
+          <div className="absolute inset-0 z-10 flex flex-col bg-[#0A1628]">
+            <div className="flex shrink-0 items-center justify-between border-b border-[rgba(46,127,255,0.14)] bg-[linear-gradient(135deg,rgba(225,29,46,0.14),rgba(46,127,255,0.06))] px-5 py-4">
               <div>
-                <h4 className="text-sm font-bold text-[#EEF3FA]">Template options for {type}</h4>
-                {initialTemplate && <p className="mt-1 text-[11px] text-[#7A94B4]">{initialTemplate.name} is selected as the starting structure.</p>}
+                <div className="text-[10px] font-black uppercase tracking-widest text-[#E11D2E]">Template preview</div>
+                <h3 className="mt-1 text-lg font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{previewTemplate.name}</h3>
               </div>
-              {initialTemplate && <Badge tone="Completed">Template loaded</Badge>}
+              <button onClick={() => setPreviewTemplate(null)} className="rounded-lg p-2 text-[#7A94B4] hover:bg-white/5 hover:text-white"><X size={18} /></button>
             </div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {templateOptions[type].map(template => <Badge key={template} tone={template === initialTemplate?.name ? 'Completed' : 'default'}>{template}</Badge>)}
+            <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto p-5">
+              <TemplateSurveyDetails
+                template={previewTemplate}
+                onUseTemplate={() => {
+                  applyTemplate(previewTemplate);
+                  setPreviewTemplate(null);
+                }}
+              />
             </div>
           </div>
-        </div>
-        <div className="flex justify-end gap-2 border-t border-[rgba(46,127,255,0.14)] px-5 py-4">
-          <button onClick={onClose} className="rounded-lg border border-[rgba(46,127,255,0.22)] px-4 py-2 text-[12px] font-bold text-[#B8C7DB] hover:bg-white/5">Save Draft</button>
-          <button onClick={() => onDesign(type)} className="rounded-lg bg-[#E11D2E] px-4 py-2 text-[12px] font-bold text-white shadow-lg shadow-red-950/25">Continue to Design</button>
-        </div>
+        )}
       </motion.div>
     </div>
   );
@@ -361,12 +839,235 @@ function SideDrawer({ title, onClose, children }: { title: string; onClose: () =
   );
 }
 
+function AssignSurveyPanel({ survey, onToast }: { survey: Survey; onToast: Props['onToast'] }) {
+  const assignment = assignments.find(item => item.surveyId === survey.id) ?? assignments[0];
+  const [assignees, setAssignees] = useState(() => assignment.assignee.split(',').map(item => item.trim()).filter(Boolean));
+  const [role, setRole] = useState(assignment.role);
+  const [site, setSite] = useState(assignment.site);
+  const [startDate, setStartDate] = useState(formatDateInput(new Date()));
+  const [dueDate, setDueDate] = useState(assignment.dueDate);
+  const [recurrence, setRecurrence] = useState(assignment.recurrence);
+  const [priority, setPriority] = useState<SurveyPriority>('High');
+  const [reviewer, setReviewer] = useState('Mariam Saleh');
+  const [instructions, setInstructions] = useState('Capture readings, upload evidence, and escalate any failed item immediately.');
+
+  const scopeOptions = useMemo(() => {
+    const scopes = [...survey.siteIds, ...survey.assetIds];
+    return scopes.length ? scopes : ['All sites and common areas'];
+  }, [survey.assetIds, survey.siteIds]);
+
+  const toggleAssignee = (assignee: string) => {
+    setAssignees(current => current.includes(assignee) ? current.filter(item => item !== assignee) : [...current, assignee]);
+  };
+
+  const generateInstructions = (mode: 'draft' | 'safety' | 'short') => {
+    const selected = assignees.length ? assignees.join(', ') : 'selected assignees';
+    if (mode === 'short') {
+      setInstructions(`Complete ${survey.name}, attach required evidence, and escalate failed critical checks before ${dueDate}.`);
+      return;
+    }
+    if (mode === 'safety') {
+      setInstructions(`Before starting ${survey.name}, confirm safe access, PPE, isolation requirements, and site permissions. Capture photo evidence for failed checks, add notes for abnormal readings, and escalate any high-risk finding to ${reviewer}.`);
+      return;
+    }
+    setInstructions(`Assign ${survey.name} to ${selected}. Complete the survey within the selected validity window, capture mandatory photos/readings/GPS evidence, document failed items clearly, and route high-priority findings to ${reviewer} for review.`);
+  };
+
+  return (
+    <div className="space-y-5">
+      <div className="rounded-xl border border-[#E11D2E]/25 bg-[linear-gradient(135deg,rgba(225,29,46,0.12),rgba(46,127,255,0.05))] p-4">
+        <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-red-200"><Sparkles size={13} /> AI assignment setup</div>
+        <p className="mt-2 text-[12px] leading-5 text-[#B8C7DB]">Choose one or more registered assignees, define schedule and access rules, then let AI refine the field instructions.</p>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-2 sm:col-span-2">
+          <span className="text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">Assignee</span>
+          <div className="rounded-xl border border-[rgba(46,127,255,0.22)] bg-[#07111F] p-3">
+            <div className="mb-3 flex flex-wrap gap-2">
+              {assignees.length ? assignees.map(assignee => (
+                <span key={assignee} className="inline-flex items-center gap-1 rounded-full border border-emerald-400/25 bg-emerald-400/10 px-2.5 py-1 text-[10px] font-bold text-emerald-200">
+                  {assignee}
+                  <button type="button" onClick={() => toggleAssignee(assignee)} className="text-emerald-100 hover:text-white">x</button>
+                </span>
+              )) : <span className="text-[11px] text-[#7A94B4]">Select one or more assignees</span>}
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {assignableAssignees.map(assignee => (
+                <label key={assignee} className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-[11px] font-bold transition-colors ${assignees.includes(assignee) ? 'border-[#E11D2E]/45 bg-[#E11D2E]/10 text-red-100' : 'border-[rgba(46,127,255,0.14)] bg-[#0A1628] text-[#B8C7DB] hover:border-[#7EB8F7]/40'}`}>
+                  <input type="checkbox" checked={assignees.includes(assignee)} onChange={() => toggleAssignee(assignee)} className="accent-[#E11D2E]" />
+                  {assignee}
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <label className="space-y-1.5">
+          <span className="text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">Role</span>
+          <select className={`${fieldInput} w-full`} value={role} onChange={event => setRole(event.target.value)}>
+            {assignmentRoles.map(option => <option key={option}>{option}</option>)}
+          </select>
+        </label>
+        <label className="space-y-1.5">
+          <span className="text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">Site / Scope</span>
+          <select className={`${fieldInput} w-full`} value={site} onChange={event => setSite(event.target.value)}>
+            {scopeOptions.map(option => <option key={option}>{option}</option>)}
+          </select>
+        </label>
+        <label className="space-y-1.5">
+          <span className="text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">Start date</span>
+          <input type="date" className={`${fieldInput} w-full`} value={startDate} onChange={event => { setStartDate(event.target.value); if (dueDate < event.target.value) setDueDate(event.target.value); }} />
+        </label>
+        <label className="space-y-1.5">
+          <span className="text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">Due date</span>
+          <input type="date" className={`${fieldInput} w-full`} value={dueDate} min={startDate} onChange={event => setDueDate(event.target.value)} />
+        </label>
+        <label className="space-y-1.5">
+          <span className="text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">Recurrence</span>
+          <select className={`${fieldInput} w-full capitalize`} value={recurrence} onChange={event => setRecurrence(event.target.value as typeof recurrence)}>
+            {recurrenceOptions.map(option => <option key={option} value={option}>{option}</option>)}
+          </select>
+        </label>
+        <label className="space-y-1.5">
+          <span className="text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">Priority</span>
+          <select className={`${fieldInput} w-full`} value={priority} onChange={event => setPriority(event.target.value as SurveyPriority)}>
+            {priorityOptions.map(option => <option key={option}>{option}</option>)}
+          </select>
+        </label>
+        <label className="space-y-1.5 sm:col-span-2">
+          <span className="text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">Supervisor reviewer</span>
+          <select className={`${fieldInput} w-full`} value={reviewer} onChange={event => setReviewer(event.target.value)}>
+            {supervisorReviewers.map(option => <option key={option}>{option}</option>)}
+          </select>
+        </label>
+        <label className="space-y-1.5 sm:col-span-2">
+          <span className="flex items-center justify-between gap-3 text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">
+            Instructions
+            <span className="inline-flex items-center gap-1 rounded-full border border-[#E11D2E]/25 bg-[#E11D2E]/10 px-2.5 py-1 text-[10px] font-black normal-case tracking-normal text-red-100"><Bot size={12} /> AI Copilot</span>
+          </span>
+          <textarea className="min-h-24 w-full rounded-lg border border-[rgba(46,127,255,0.22)] bg-[#0A1628] px-3 py-2 text-[12px] leading-5 text-[#EEF3FA] outline-none focus:border-[#E11D2E]" value={instructions} onChange={event => setInstructions(event.target.value)} />
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => generateInstructions('draft')} className="rounded-full border border-[#E11D2E]/30 bg-[#E11D2E]/10 px-3 py-1.5 text-[10px] font-bold text-red-100 hover:bg-[#E11D2E]/16">Draft with AI</button>
+            <button type="button" onClick={() => generateInstructions('safety')} className="rounded-full border border-[rgba(46,127,255,0.22)] bg-[#07111F] px-3 py-1.5 text-[10px] font-bold text-[#B8C7DB] hover:text-white">Add safety notes</button>
+            <button type="button" onClick={() => generateInstructions('short')} className="rounded-full border border-[rgba(46,127,255,0.22)] bg-[#07111F] px-3 py-1.5 text-[10px] font-bold text-[#B8C7DB] hover:text-white">Make concise</button>
+          </div>
+        </label>
+      </div>
+
+      <div className="rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#07111F] p-4">
+        <h4 className="text-sm font-bold text-[#EEF3FA]">Access control</h4>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          {['Authenticated users only', 'Public link allowed', 'QR scan allowed', 'Vendor access allowed', 'Anonymous capture allowed', 'Approval required'].map(item => <Badge key={item}>{item}</Badge>)}
+        </div>
+      </div>
+
+      <button onClick={() => onToast(`Survey assigned to ${assignees.length || 0} assignee${assignees.length === 1 ? '' : 's'}`, 'success')} className="w-full rounded-lg bg-[#E11D2E] px-4 py-3 text-[12px] font-bold text-white disabled:cursor-not-allowed disabled:opacity-50" disabled={assignees.length === 0}>Assign Survey</button>
+    </div>
+  );
+}
+
+function ShareSurveyPanel({ survey, onToast }: { survey: Survey; onToast: Props['onToast'] }) {
+  const surveyLink = `https://4c360.properties/fieldops/survey/${survey.id}/capture`;
+  const [qrGenerated, setQrGenerated] = useState(true);
+  const [rules, setRules] = useState<Record<string, boolean>>({
+    requireLogin: true,
+    anonymousSubmission: false,
+    limitByGeography: true,
+    expiry: true,
+    maxSubmissions: true,
+    allowedRoles: true,
+    allowedOrganizations: true,
+    allowedSites: true,
+  });
+
+  const toggleRule = (id: string) => {
+    setRules(current => ({ ...current, [id]: !current[id] }));
+  };
+
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(surveyLink);
+      onToast('Survey link copied', 'success');
+    } catch {
+      onToast('Copy blocked by browser. Link is visible in the drawer.', 'warning');
+    }
+  };
+
+  const shareActions: Array<{ label: string; icon: typeof QrCode; onClick: () => void }> = [
+    { label: 'Generate QR Code', icon: QrCode, onClick: () => { setQrGenerated(true); onToast('QR code generated', 'success'); } },
+    { label: 'Copy Link', icon: Copy, onClick: copyLink },
+    { label: 'Send by Email', icon: Mail, onClick: () => onToast('Email share draft prepared', 'success') },
+    { label: 'Send by WhatsApp', icon: MessageCircle, onClick: () => onToast('WhatsApp share link prepared', 'success') },
+    { label: 'Embed Link', icon: Link2, onClick: () => onToast('Embed link copied for portal use', 'success') },
+  ];
+
+  const accessRules = [
+    { id: 'requireLogin', label: 'Require login' },
+    { id: 'anonymousSubmission', label: 'Allow anonymous submission' },
+    { id: 'limitByGeography', label: 'Limit by geography' },
+    { id: 'expiry', label: 'Expiry: 30 Apr 2026' },
+    { id: 'maxSubmissions', label: 'Max submissions: 250' },
+    { id: 'allowedRoles', label: 'Allowed roles: Engineer, Inspector, Contractor' },
+    { id: 'allowedOrganizations', label: 'Allowed organizations: DevelopmentX' },
+    { id: 'allowedSites', label: `Allowed sites: ${survey.siteIds[0] ?? 'Selected sites'}` },
+  ];
+
+  return (
+    <div className="space-y-5">
+      <div className="grid gap-5 lg:grid-cols-[170px_1fr]">
+        <div className="space-y-3">
+          <QRPreview />
+          <div className={`rounded-xl border px-3 py-2 text-center text-[10px] font-black uppercase tracking-widest ${qrGenerated ? 'border-emerald-400/25 bg-emerald-400/10 text-emerald-200' : 'border-amber-400/25 bg-amber-400/10 text-amber-200'}`}>
+            {qrGenerated ? 'QR ready' : 'QR pending'}
+          </div>
+        </div>
+        <div className="space-y-3">
+          <div className="rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#07111F] p-4">
+            <p className="text-[10px] font-bold uppercase text-[#7A94B4]">Mobile survey link</p>
+            <p className="mt-2 break-all font-mono text-[12px] text-[#B8C7DB]">{surveyLink}</p>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {shareActions.map(({ label, icon: Icon, onClick }) => (
+              <button key={label} onClick={onClick} className="flex items-center gap-2 rounded-lg border border-[rgba(46,127,255,0.18)] bg-[#07111F] px-3 py-2 text-[11px] font-bold text-[#B8C7DB] transition hover:border-[#E11D2E]/40 hover:bg-white/5 hover:text-white">
+                <Icon size={14} />
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#07111F] p-4">
+        <div className="flex items-center justify-between gap-3">
+          <h4 className="text-sm font-bold text-[#EEF3FA]">Access rules summary</h4>
+          <span className="text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">{Object.values(rules).filter(Boolean).length} active</span>
+        </div>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          {accessRules.map(rule => (
+            <label key={rule.id} className={`flex cursor-pointer items-center gap-2 rounded-full border px-3 py-2 text-[11px] font-bold transition ${rules[rule.id] ? 'border-[rgba(46,127,255,0.24)] bg-[#112033] text-[#B8C7DB]' : 'border-slate-500/15 bg-[#07111F] text-[#5A6F8E]'}`}>
+              <input type="checkbox" checked={rules[rule.id]} onChange={() => toggleRule(rule.id)} className="h-3.5 w-3.5 rounded accent-[#E11D2E]" />
+              {rule.label}
+            </label>
+          ))}
+        </div>
+        {rules.limitByGeography && (
+          <div className="mt-4 rounded-lg border border-emerald-400/25 bg-emerald-400/10 px-3 py-2 text-[11px] font-bold text-emerald-300">
+            <MapPin size={13} className="mr-1 inline" /> Geo-restricted - 150m radius around selected site boundary
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function FieldOpsDashboard({ onToast }: Props) {
   const { clients: properties } = useClients();
   const [tab, setTab] = useState<Tab>('surveys');
   const [query, setQuery] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   const [createTemplate, setCreateTemplate] = useState<FieldOpsTemplate | null>(null);
+  const [templatePreview, setTemplatePreview] = useState<FieldOpsTemplate | null>(null);
   const [drawer, setDrawer] = useState<Drawer>(null);
   const [selectedSurvey, setSelectedSurvey] = useState<Survey>(surveys[0]);
   const [selectedSubmission, setSelectedSubmission] = useState<SurveySubmission>(submissions[0]);
@@ -378,8 +1079,10 @@ export function FieldOpsDashboard({ onToast }: Props) {
     return surveys.filter(survey => `${survey.name} ${survey.type} ${survey.assignedTo}`.toLowerCase().includes(lower));
   }, [query]);
 
+  const activeSurveyCount = surveys.filter(survey => survey.status !== 'Archived').length;
+
   const stats = [
-    { label: 'Active Surveys', value: surveys.filter(s => s.status === 'Active').length, icon: ClipboardCheck, tone: 'text-emerald-300' },
+    { label: 'Active Surveys', value: activeSurveyCount, icon: ClipboardCheck, tone: 'text-emerald-300' },
     { label: 'In Progress', value: assignments.filter(a => a.status === 'In Progress').length, icon: RadioTower, tone: 'text-blue-300' },
     { label: 'Completed', value: assignments.filter(a => a.status === 'Completed').length, icon: CheckCircle2, tone: 'text-[#E11D2E]' },
     { label: 'Overdue', value: assignments.filter(a => a.status === 'Overdue').length, icon: AlertTriangle, tone: 'text-amber-300' },
@@ -393,6 +1096,7 @@ export function FieldOpsDashboard({ onToast }: Props) {
 
   const openCreateSurvey = (template?: FieldOpsTemplate) => {
     setCreateTemplate(template ?? null);
+    setTemplatePreview(null);
     setCreateOpen(true);
   };
 
@@ -401,8 +1105,8 @@ export function FieldOpsDashboard({ onToast }: Props) {
     setCreateTemplate(null);
   };
 
-  const actionButton = (label: string, next: Drawer, survey: Survey, icon: ComponentType<{ size?: number; className?: string }>) => (
-    <ActionIconButton label={label} icon={icon} onClick={() => openDrawer(next, survey)} />
+  const actionButton = (label: string, next: Drawer, survey: Survey, icon: ComponentType<{ size?: number; className?: string }>, disabled = false) => (
+    <ActionIconButton label={label} icon={icon} disabled={disabled} onClick={() => openDrawer(next, survey)} />
   );
 
   return (
@@ -418,9 +1122,6 @@ export function FieldOpsDashboard({ onToast }: Props) {
             <p className="mt-1 text-[12px] text-[#7A94B4]">Create, assign, and track mobile field surveys and inspections.</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button onClick={() => setTab('ai')} className="flex h-9 items-center gap-2 rounded-lg border border-[rgba(46,127,255,0.22)] bg-[#112040] px-3 text-[12px] font-bold text-[#B8C7DB] hover:bg-white/5">
-              <Sparkles size={15} /> AI Assist
-            </button>
             <button onClick={() => openCreateSurvey()} className="flex h-9 items-center gap-2 rounded-lg bg-[#E11D2E] px-4 text-[12px] font-bold text-white shadow-lg shadow-red-950/25">
               <Plus size={15} /> Create Survey
             </button>
@@ -456,8 +1157,8 @@ export function FieldOpsDashboard({ onToast }: Props) {
           <div className="mt-4 rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)]">
             <div className="flex flex-col gap-3 border-b border-[rgba(46,127,255,0.12)] p-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <h2 className="text-sm font-black" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Survey library</h2>
-                <p className="mt-1 text-[11px] text-[#7A94B4]">Design, assign, share, duplicate, archive, and track mobile surveys.</p>
+                <h2 className="text-sm font-black" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Active Surveys</h2>
+                <p className="mt-1 text-[11px] text-[#7A94B4]">{activeSurveyCount} active surveys ready to design, assign, share, duplicate, archive, and track.</p>
               </div>
               <div className="flex gap-2">
                 <div className="relative">
@@ -489,7 +1190,7 @@ export function FieldOpsDashboard({ onToast }: Props) {
                       <td className="px-4 py-3 text-[#7A94B4]">{survey.lastUpdated}</td>
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap gap-1">
-                          {actionButton('Design', 'design', survey, PencilRuler)}
+                          {actionButton('Edit', 'design', survey, PencilRuler, survey.status === 'Completed')}
                           {actionButton('Assign', 'assign', survey, Users)}
                           {actionButton('Share', 'share', survey, Link2)}
                           <ActionIconButton label="Track" icon={RadioTower} onClick={() => setTab('tracking')} />
@@ -567,19 +1268,28 @@ export function FieldOpsDashboard({ onToast }: Props) {
 
         {tab === 'templates' && (
           <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            {templates.map(template => (
-              <div key={template.name} className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
-                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-[#E11D2E]/12 text-red-200"><ClipboardCheck size={18} /></div>
-                <h3 className="text-sm font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{template.name}</h3>
-                <p className="mt-1 text-[11px] text-[#7A94B4]">{template.type}</p>
-                <div className="mt-4 grid grid-cols-2 gap-2 text-[10px] text-[#B8C7DB]">
-                  <span>{template.duration}</span>
-                  <span>{template.questions} questions</span>
-                  <span className="col-span-2">{template.evidence}</span>
+            {templates.map(template => {
+              const normalized = normalizeTemplate(template);
+              return (
+                <div key={template.name} className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
+                  <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-[#E11D2E]/12 text-red-200"><ClipboardCheck size={18} /></div>
+                  <h3 className="text-sm font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{template.name}</h3>
+                  <p className="mt-1 text-[11px] text-[#7A94B4]">{template.type}</p>
+                  <div className="mt-4 grid grid-cols-2 gap-2 text-[10px] text-[#B8C7DB]">
+                    <span>{template.duration}</span>
+                    <span>{template.questions} questions</span>
+                    <span className="col-span-2">{template.evidence}</span>
+                  </div>
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    <button onClick={() => setTemplatePreview(normalized)} className="rounded-lg border border-[rgba(46,127,255,0.24)] bg-[#07111F] px-3 py-2 text-[11px] font-bold text-[#B8C7DB] hover:border-[#7EB8F7]/50 hover:text-white">
+                      <Eye size={13} className="mr-1 inline" />
+                      View
+                    </button>
+                    <button onClick={() => openCreateSurvey(normalized)} className="rounded-lg border border-[#E11D2E]/35 bg-[#E11D2E]/10 px-3 py-2 text-[11px] font-bold text-red-200 hover:bg-[#E11D2E]/16">Use template</button>
+                  </div>
                 </div>
-                <button onClick={() => openCreateSurvey(normalizeTemplate(template))} className="mt-4 w-full rounded-lg border border-[#E11D2E]/35 bg-[#E11D2E]/10 px-3 py-2 text-[11px] font-bold text-red-200 hover:bg-[#E11D2E]/16">Use template</button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
@@ -623,6 +1333,15 @@ export function FieldOpsDashboard({ onToast }: Props) {
       </div>
 
       <AnimatePresence>
+        {templatePreview && (
+          <SideDrawer title="Survey Template Preview" onClose={() => setTemplatePreview(null)}>
+            <TemplateSurveyDetails
+              template={templatePreview}
+              onUseTemplate={() => openCreateSurvey(templatePreview)}
+            />
+          </SideDrawer>
+        )}
+
         {createOpen && <CreateSurveyModal properties={properties} initialTemplate={createTemplate} onClose={closeCreateSurvey} onDesign={type => { closeCreateSurvey(); setSelectedSurvey({ ...selectedSurvey, type }); setDrawer('design'); }} />}
 
         {drawer === 'detail' && (
@@ -686,54 +1405,13 @@ export function FieldOpsDashboard({ onToast }: Props) {
 
         {drawer === 'assign' && (
           <SideDrawer title="Assign Survey" onClose={() => setDrawer(null)}>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {['Assignee', 'Role', 'Start date', 'Due date', 'Recurrence', 'Priority', 'Supervisor reviewer'].map((label, index) => (
-                <label key={label} className="space-y-1.5">
-                  <span className="text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">{label}</span>
-                  <input className={`${fieldInput} w-full`} defaultValue={['MEP Team', 'FM Engineer', '2026-04-27', '2026-04-30', 'monthly', 'High', 'Mariam Saleh'][index]} />
-                </label>
-              ))}
-              <label className="space-y-1.5 sm:col-span-2">
-                <span className="text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">Instructions</span>
-                <textarea className="min-h-20 w-full rounded-lg border border-[rgba(46,127,255,0.22)] bg-[#0A1628] px-3 py-2 text-[12px] text-[#EEF3FA] outline-none" defaultValue="Capture readings, upload evidence, and escalate any failed item immediately." />
-              </label>
-            </div>
-            <div className="mt-5 rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#07111F] p-4">
-              <h4 className="text-sm font-bold text-[#EEF3FA]">Access control</h4>
-              <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                {['Authenticated users only', 'Public link allowed', 'QR scan allowed', 'Vendor access allowed', 'Anonymous capture allowed', 'Approval required'].map(item => <Badge key={item}>{item}</Badge>)}
-              </div>
-            </div>
-            <button onClick={() => onToast('Survey assignment saved', 'success')} className="mt-5 w-full rounded-lg bg-[#E11D2E] px-4 py-3 text-[12px] font-bold text-white">Assign Survey</button>
+            <AssignSurveyPanel survey={selectedSurvey} onToast={onToast} />
           </SideDrawer>
         )}
 
         {drawer === 'share' && (
           <SideDrawer title="Share Survey" onClose={() => setDrawer(null)}>
-            <div className="grid gap-5 lg:grid-cols-[170px_1fr]">
-              <div><QRPreview /></div>
-              <div className="space-y-3">
-                <div className="rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#07111F] p-4">
-                  <p className="text-[10px] font-bold uppercase text-[#7A94B4]">Mobile survey link</p>
-                  <p className="mt-2 break-all font-mono text-[12px] text-[#B8C7DB]">https://4c360.properties/fieldops/survey/{selectedSurvey.id}/capture</p>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {[['Generate QR Code', QrCode], ['Copy Link', Copy], ['Send by Email', Mail], ['Send by WhatsApp', MessageCircle], ['Embed Link', Link2]].map(([label, Icon]) => {
-                    const I = Icon as typeof QrCode;
-                    return <button key={label as string} className="flex items-center gap-2 rounded-lg border border-[rgba(46,127,255,0.18)] bg-[#07111F] px-3 py-2 text-[11px] font-bold text-[#B8C7DB] hover:bg-white/5"><I size={14} />{label as string}</button>;
-                  })}
-                </div>
-              </div>
-            </div>
-            <div className="mt-5 rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#07111F] p-4">
-              <h4 className="text-sm font-bold text-[#EEF3FA]">Access rules summary</h4>
-              <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                {['Require login', 'Allow anonymous submission', 'Limit by geography', 'Expiry: 30 Apr 2026', 'Max submissions: 250', 'Allowed roles: Engineer, Inspector, Contractor', 'Allowed organizations: Danube Properties', 'Allowed sites: Lawnz Residences'].map(item => <Badge key={item}>{item}</Badge>)}
-              </div>
-              <div className="mt-4 rounded-lg border border-emerald-400/25 bg-emerald-400/10 px-3 py-2 text-[11px] font-bold text-emerald-300">
-                <MapPin size={13} className="mr-1 inline" /> Geo-restricted - 150m radius around selected site boundary
-              </div>
-            </div>
+            <ShareSurveyPanel survey={selectedSurvey} onToast={onToast} />
           </SideDrawer>
         )}
 

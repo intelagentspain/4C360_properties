@@ -122,9 +122,15 @@ export function CommandCenter({ goTo }: { goTo: (screen: ProjectCommandScreen) =
                 <span className="rounded-full border border-[rgba(46,127,255,0.22)] bg-[#0A1628] px-2 py-0.5 text-[9px] tracking-normal text-[#7A94B4]">{threatIndex + 1}/{threats.length}</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="flex h-8 items-center gap-1.5 rounded-full border border-violet-400/25 bg-violet-400/10 px-3 text-[10px] font-bold text-violet-200">
-                  <Sparkles size={13} /> AI Forecast Ready
-                </span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedInsight({ metricName: 'Float Remaining', value: `${project.floatRemaining}d` })}
+                  title="Explain this threat"
+                  aria-label="Explain this threat"
+                  className="flex h-8 items-center gap-1.5 rounded-full border border-violet-300/30 bg-[linear-gradient(135deg,#1D7CFF,#7C3AED)] px-3 text-[10px] font-black uppercase tracking-wide text-white shadow-[0_0_18px_rgba(124,58,237,0.35)] transition-transform hover:scale-105"
+                >
+                  <Sparkles size={13} /> Explain this
+                </button>
                 <div className="flex rounded-lg border border-[rgba(46,127,255,0.2)] bg-[#0A1628] p-1">
                   <button
                     type="button"

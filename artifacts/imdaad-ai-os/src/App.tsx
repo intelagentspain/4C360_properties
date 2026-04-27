@@ -8,6 +8,7 @@ import { ClientView } from '@/components/client/ClientView';
 import { MemberDashboardView } from '@/components/MemberDashboardView';
 import { HospitalityClientView } from '@/components/client/hospitality/HospitalityClientView';
 import { IncidentTrackingView } from '@/components/client/hospitality/IncidentTrackingView';
+import { ResidentMobilePortal } from '@/modules/residentportal';
 import { ToastContainer } from '@/components/shared/ToastContainer';
 import { CopilotAvatar } from '@/components/CopilotAvatar';
 import { useToast } from '@/hooks/useToast';
@@ -16,7 +17,7 @@ import type { MockMemberProfile } from '@/data/mockData';
 import type { PPMRiskPayload } from '@/components/strategic/PPMRiskPanel';
 
 export type Perspective = 'strategic' | 'operational' | 'client';
-export type StrategicPage = 'dashboard' | 'datasources' | 'benchmark' | 'replay' | 'incidents' | 'tasks' | 'ppmschedule' | 'aicapture' | 'settings' | 'allclients' | 'team' | 'vendorintelligence' | 'projectcommand';
+export type StrategicPage = 'dashboard' | 'datasources' | 'benchmark' | 'replay' | 'incidents' | 'tasks' | 'ppmschedule' | 'aicapture' | 'settings' | 'allclients' | 'team' | 'vendorintelligence' | 'projectcommand' | 'residentportal';
 
 const CLIENT_SITE_MAP: Record<string, string> = {
   'CLT-001': 'silicon-oasis',
@@ -37,7 +38,12 @@ function isResidentDomain(): boolean {
 }
 
 function getInitialStrategicPage(): StrategicPage {
+  if (window.location.pathname.startsWith('/residentportal')) return 'residentportal';
   return window.location.pathname.startsWith('/projectcommand') ? 'projectcommand' : 'allclients';
+}
+
+function isResidentPortalRoute(): boolean {
+  return window.location.pathname === '/resident' || window.location.pathname.startsWith('/resident/');
 }
 
 function makeResidentProfile(id = 'resident-portal'): MockMemberProfile {
@@ -102,7 +108,7 @@ function App() {
 
   const handleSetPerspective = (p: Perspective) => {
     setPerspective(p);
-    if (window.location.pathname.startsWith('/projectcommand')) {
+    if (window.location.pathname.startsWith('/projectcommand') || window.location.pathname.startsWith('/residentportal')) {
       window.history.pushState({}, '', '/');
       setPathVersion(current => current + 1);
     }
@@ -154,6 +160,16 @@ function App() {
 
   if (trackId) {
     return <IncidentTrackingView incidentId={trackId} />;
+  }
+
+  if (isResidentPortalRoute()) {
+    const residentId = window.location.pathname.split('/').filter(Boolean)[1];
+    return (
+      <>
+        <ResidentMobilePortal residentId={residentId} onToast={addToast} />
+        <ToastContainer toasts={toasts} removeToast={removeToast} />
+      </>
+    );
   }
 
   if (commandClientId) {
@@ -226,7 +242,11 @@ function App() {
                   window.history.pushState({}, '', '/projectcommand/overview');
                   setPathVersion(current => current + 1);
                 }
-                if (page !== 'projectcommand' && window.location.pathname.startsWith('/projectcommand')) {
+                if (page === 'residentportal' && !window.location.pathname.startsWith('/residentportal')) {
+                  window.history.pushState({}, '', '/residentportal');
+                  setPathVersion(current => current + 1);
+                }
+                if (page !== 'projectcommand' && page !== 'residentportal' && (window.location.pathname.startsWith('/projectcommand') || window.location.pathname.startsWith('/residentportal'))) {
                   window.history.pushState({}, '', '/');
                   setPathVersion(current => current + 1);
                 }
