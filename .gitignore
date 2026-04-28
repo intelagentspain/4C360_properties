@@ -54,3 +54,6 @@ artifacts/api-server/uploads/*.mp3
 artifacts/api-server/uploads/*.wav
 artifacts/api-server/uploads/*.mp4
 artifacts/api-server/uploads/*.ogg
+
+# Runtime submission snapshots
+/data/

@@ -5,7 +5,7 @@ self.addEventListener('push', function(event) {
   try {
     payload = event.data.json();
   } catch {
-    payload = { title: 'Imdaad AI-OS', body: event.data.text() };
+    payload = { title: 'AI-OS', body: event.data.text() };
   }
 
   const options = {
@@ -22,7 +22,7 @@ self.addEventListener('push', function(event) {
   };
 
   event.waitUntil(
-    self.registration.showNotification(payload.title || 'Imdaad AI-OS', options)
+    self.registration.showNotification(payload.title || 'AI-OS', options)
   );
 });
 

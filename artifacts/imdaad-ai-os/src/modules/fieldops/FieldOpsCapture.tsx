@@ -11,7 +11,9 @@ export function FieldOpsCapture({ surveyId }: { surveyId: string }) {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [photoUploads, setPhotoUploads] = useState<Record<string, PhotoUpload[]>>({});
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [submissionId, setSubmissionId] = useState('');
+  const [syncNotice, setSyncNotice] = useState('');
   const [blocked, setBlocked] = useState('');
 
   const required = survey.questions.filter(question => question.required);
@@ -85,11 +87,13 @@ export function FieldOpsCapture({ surveyId }: { surveyId: string }) {
   };
 
   const submit = async () => {
+    if (submitting) return;
     if (progress < 100) {
       setBlocked('Complete all mandatory questions and required evidence before submitting.');
       return;
     }
 
+    setSubmitting(true);
     const newSubmissionId = `SUB-${Date.now().toString().slice(-8)}`;
     const answerRows = survey.questions
       .filter(question => question.type !== 'section')
@@ -129,21 +133,28 @@ export function FieldOpsCapture({ surveyId }: { surveyId: string }) {
     };
 
     appendLocalFieldOpsSubmission(submission);
-    setSubmissionId(newSubmissionId);
-    setSubmitted(true);
 
     const apiSubmission: SurveySubmission = {
       ...submission,
       evidence: submission.evidence.map(({ previewUrl: _previewUrl, ...item }) => item),
     };
 
-    fetch('/api/fieldops/submissions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(apiSubmission),
-    }).catch(() => {
-      // Local storage keeps the dashboard demo live even if the API is offline.
-    });
+    try {
+      const response = await fetch('/api/fieldops/submissions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(apiSubmission),
+      });
+      const isJson = response.headers.get('content-type')?.includes('application/json');
+      if (!response.ok || !isJson) throw new Error('Submission API did not confirm receipt.');
+      setSyncNotice('Synced to FieldOps Tracking.');
+    } catch {
+      setSyncNotice('Saved on this device. Dashboard sync will retry when the API is available.');
+    } finally {
+      setSubmissionId(newSubmissionId);
+      setSubmitted(true);
+      setSubmitting(false);
+    }
   };
 
   if (submitted) {
@@ -155,6 +166,7 @@ export function FieldOpsCapture({ surveyId }: { surveyId: string }) {
           </div>
           <h1 className="mt-5 text-2xl font-black" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Submitted</h1>
           <p className="mt-2 text-sm leading-6 text-[#B8C7DB]">Your survey has been submitted and is pending supervisor review.</p>
+          {syncNotice && <p className="mt-2 text-xs leading-5 text-emerald-200">{syncNotice}</p>}
           <div className="mt-5 rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#07111F] p-4 text-left">
             <p className="text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">Submission ID</p>
             <p className="mt-1 font-mono text-sm font-bold text-[#EEF3FA]">{submissionId}</p>
@@ -286,7 +298,7 @@ export function FieldOpsCapture({ surveyId }: { surveyId: string }) {
               <ShieldAlert size={13} className="mr-1 inline" /> {blocked}
             </div>
           )}
-          <button onClick={submit} className="h-12 w-full rounded-xl bg-[#E11D2E] text-sm font-bold text-white">Submit Survey</button>
+          <button onClick={submit} disabled={submitting} className="h-12 w-full rounded-xl bg-[#E11D2E] text-sm font-bold text-white disabled:cursor-wait disabled:opacity-70">{submitting ? 'Submitting...' : 'Submit Survey'}</button>
         </div>
       </div>
     </div>

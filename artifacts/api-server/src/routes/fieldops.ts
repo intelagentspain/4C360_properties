@@ -1,4 +1,6 @@
 import { Router } from "express";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import path from "node:path";
 import { sendEmail } from "../lib/mailer";
 import { logger } from "../lib/logger";
 
@@ -27,7 +29,34 @@ interface FieldOpsSubmission {
   reviewer: string;
 }
 
-const fieldOpsSubmissions: FieldOpsSubmission[] = [];
+const DATA_DIR = path.resolve(process.cwd(), "data");
+const SUBMISSIONS_FILE = path.join(DATA_DIR, "fieldops-submissions.json");
+
+let fieldOpsSubmissions: FieldOpsSubmission[] = [];
+let submissionsLoaded = false;
+
+async function loadSubmissions(): Promise<void> {
+  if (submissionsLoaded) return;
+
+  try {
+    const raw = await readFile(SUBMISSIONS_FILE, "utf8");
+    const parsed = JSON.parse(raw) as unknown;
+    fieldOpsSubmissions = Array.isArray(parsed) ? parsed as FieldOpsSubmission[] : [];
+  } catch (error) {
+    const code = typeof error === "object" && error !== null && "code" in error ? (error as { code?: string }).code : undefined;
+    if (code !== "ENOENT") {
+      logger.warn({ err: error }, "Unable to load FieldOps submissions store");
+    }
+    fieldOpsSubmissions = [];
+  }
+
+  submissionsLoaded = true;
+}
+
+async function persistSubmissions(): Promise<void> {
+  await mkdir(DATA_DIR, { recursive: true });
+  await writeFile(SUBMISSIONS_FILE, JSON.stringify(fieldOpsSubmissions, null, 2));
+}
 
 function escapeHtml(str: string): string {
   return str
@@ -116,42 +145,56 @@ router.post("/fieldops/share-survey-email", async (req, res) => {
   res.status(502).json({ ok: false, error: result.error ?? "Failed to send email" });
 });
 
-router.get("/fieldops/submissions", (_req, res) => {
-  res.json({ submissions: fieldOpsSubmissions });
+router.get("/fieldops/submissions", async (_req, res) => {
+  try {
+    await loadSubmissions();
+    res.json({ submissions: fieldOpsSubmissions });
+  } catch (error) {
+    logger.error({ err: error }, "FieldOps submissions fetch failed");
+    res.status(500).json({ ok: false, error: "Failed to load FieldOps submissions." });
+  }
 });
 
-router.post("/fieldops/submissions", (req, res) => {
-  const submission = req.body as Partial<FieldOpsSubmission>;
+router.post("/fieldops/submissions", async (req, res) => {
+  try {
+    await loadSubmissions();
+    const submission = req.body as Partial<FieldOpsSubmission>;
 
-  if (!submission.id || !submission.surveyId || !submission.assignmentId) {
-    res.status(400).json({ ok: false, error: "Submission id, survey id, and assignment id are required." });
-    return;
+    if (!submission.id || !submission.surveyId || !submission.assignmentId) {
+      res.status(400).json({ ok: false, error: "Submission id, survey id, and assignment id are required." });
+      return;
+    }
+
+    const next: FieldOpsSubmission = {
+      id: submission.id,
+      surveyId: submission.surveyId,
+      assignmentId: submission.assignmentId,
+      submittedBy: submission.submittedBy ?? "Field user",
+      answers: submission.answers ?? [],
+      evidence: submission.evidence ?? [],
+      gpsLocation: submission.gpsLocation ?? { lat: 25.2048, lng: 55.2708, site: "Field location" },
+      status: submission.status ?? "Pending Review",
+      issuesDetected: submission.issuesDetected ?? 0,
+      score: submission.score ?? 90,
+      submittedAt: submission.submittedAt ?? new Date().toISOString(),
+      reviewer: submission.reviewer ?? "Sarah Khan",
+    };
+
+    const existingIndex = fieldOpsSubmissions.findIndex(item => item.id === next.id);
+    if (existingIndex >= 0) {
+      fieldOpsSubmissions[existingIndex] = next;
+    } else {
+      fieldOpsSubmissions.unshift(next);
+    }
+
+    await persistSubmissions();
+
+    logger.info({ submissionId: next.id, surveyId: next.surveyId }, "FieldOps submission received");
+    res.status(201).json({ ok: true, submission: next });
+  } catch (error) {
+    logger.error({ err: error }, "FieldOps submission save failed");
+    res.status(500).json({ ok: false, error: "Failed to save FieldOps submission." });
   }
-
-  const next: FieldOpsSubmission = {
-    id: submission.id,
-    surveyId: submission.surveyId,
-    assignmentId: submission.assignmentId,
-    submittedBy: submission.submittedBy ?? "Field user",
-    answers: submission.answers ?? [],
-    evidence: submission.evidence ?? [],
-    gpsLocation: submission.gpsLocation ?? { lat: 25.2048, lng: 55.2708, site: "Field location" },
-    status: submission.status ?? "Pending Review",
-    issuesDetected: submission.issuesDetected ?? 0,
-    score: submission.score ?? 90,
-    submittedAt: submission.submittedAt ?? new Date().toISOString(),
-    reviewer: submission.reviewer ?? "Sarah Khan",
-  };
-
-  const existingIndex = fieldOpsSubmissions.findIndex(item => item.id === next.id);
-  if (existingIndex >= 0) {
-    fieldOpsSubmissions[existingIndex] = next;
-  } else {
-    fieldOpsSubmissions.unshift(next);
-  }
-
-  logger.info({ submissionId: next.id, surveyId: next.surveyId }, "FieldOps submission received");
-  res.status(201).json({ ok: true, submission: next });
 });
 
 export default router;

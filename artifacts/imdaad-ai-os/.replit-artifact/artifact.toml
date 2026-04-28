@@ -1,6 +1,6 @@
 kind = "web"
 previewPath = "/"
-title = "Imdaad AI-OS"
+title = "AI-OS"
 version = "1.0.0"
 id = "artifacts/imdaad-ai-os"
 router = "path"

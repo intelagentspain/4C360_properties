@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   AlertTriangle,
@@ -2156,32 +2156,49 @@ export function FieldOpsDashboard({ onToast }: Props) {
   const generatedSurvey = useMemo(() => buildGeneratedSurveyFromPrompt(aiPrompt), [aiPrompt]);
   const [liveSubmissions, setLiveSubmissions] = useState<SurveySubmission[]>(() => getLocalFieldOpsSubmissions());
 
+  const refreshLiveSubmissions = useCallback(async () => {
+    const local = getLocalFieldOpsSubmissions();
+    setLiveSubmissions(current => [...local, ...current].filter((item, index, all) => all.findIndex(candidate => candidate.id === item.id) === index));
+
+    try {
+      const response = await fetch('/api/fieldops/submissions', { cache: 'no-store' });
+      if (!response.ok || !response.headers.get('content-type')?.includes('application/json')) return;
+
+      const payload = await response.json() as { submissions?: SurveySubmission[] };
+      if (!payload.submissions?.length) return;
+
+      setLiveSubmissions(current => (
+        [...payload.submissions!, ...getLocalFieldOpsSubmissions(), ...current]
+          .filter((item, index, all) => all.findIndex(candidate => candidate.id === item.id) === index)
+      ));
+    } catch {
+      // Local submissions keep the dashboard live when the API is not reachable.
+    }
+  }, []);
+
   const filteredSurveys = useMemo(() => {
     const lower = query.toLowerCase();
     return surveys.filter(survey => `${survey.name} ${survey.type} ${survey.assignedTo}`.toLowerCase().includes(lower));
   }, [query]);
 
   useEffect(() => {
-    const refresh = () => setLiveSubmissions(getLocalFieldOpsSubmissions());
+    const refresh = () => { void refreshLiveSubmissions(); };
     const unsubscribe = subscribeToLocalFieldOpsSubmissions(refresh);
-    fetch('/api/fieldops/submissions')
-      .then(response => response.ok && response.headers.get('content-type')?.includes('application/json') ? response.json() : null)
-      .then((payload: { submissions?: SurveySubmission[] } | null) => {
-        if (payload?.submissions?.length) {
-          const local = getLocalFieldOpsSubmissions();
-          const merged = [...payload.submissions, ...local].filter((item, index, all) => all.findIndex(candidate => candidate.id === item.id) === index);
-          setLiveSubmissions(merged);
-        }
-      })
-      .catch(() => undefined);
-    return unsubscribe;
-  }, []);
+    window.addEventListener('focus', refresh);
+    refresh();
+
+    return () => {
+      unsubscribe();
+      window.removeEventListener('focus', refresh);
+    };
+  }, [refreshLiveSubmissions]);
 
   useEffect(() => {
-    if (tab === 'tracking') {
-      setLiveSubmissions(getLocalFieldOpsSubmissions());
-    }
-  }, [tab]);
+    if (tab !== 'tracking') return undefined;
+    void refreshLiveSubmissions();
+    const interval = window.setInterval(() => { void refreshLiveSubmissions(); }, 5000);
+    return () => window.clearInterval(interval);
+  }, [refreshLiveSubmissions, tab]);
 
   const allSubmissions = useMemo(
     () => [...liveSubmissions, ...submissions].filter((item, index, all) => all.findIndex(candidate => candidate.id === item.id) === index),
