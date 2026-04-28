@@ -21,7 +21,19 @@ export function getLocalFieldOpsSubmissions(): SurveySubmission[] {
 
 export function saveLocalFieldOpsSubmissions(items: SurveySubmission[]) {
   if (!canUseBrowserStorage()) return;
-  window.localStorage.setItem(LIVE_SUBMISSIONS_KEY, JSON.stringify(items));
+  try {
+    window.localStorage.setItem(LIVE_SUBMISSIONS_KEY, JSON.stringify(items));
+  } catch {
+    const lightweight = items.map(item => ({
+      ...item,
+      evidence: item.evidence.map(({ previewUrl: _previewUrl, ...evidence }) => evidence),
+    }));
+    try {
+      window.localStorage.setItem(LIVE_SUBMISSIONS_KEY, JSON.stringify(lightweight));
+    } catch {
+      return;
+    }
+  }
   window.dispatchEvent(new CustomEvent(LIVE_SUBMISSIONS_EVENT));
 }
 

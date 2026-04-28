@@ -28,9 +28,32 @@ export function FieldOpsCapture({ surveyId }: { surveyId: string }) {
     setBlocked('');
   };
 
+  const resizePhotoPreview = (dataUrl: string) => new Promise<string>(resolve => {
+    const image = new Image();
+    image.onload = () => {
+      const maxSize = 960;
+      const scale = Math.min(1, maxSize / Math.max(image.width, image.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(image.width * scale));
+      canvas.height = Math.max(1, Math.round(image.height * scale));
+      const context = canvas.getContext('2d');
+      if (!context) {
+        resolve(dataUrl);
+        return;
+      }
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL('image/jpeg', 0.72));
+    };
+    image.onerror = () => resolve(dataUrl);
+    image.src = dataUrl;
+  });
+
   const readPhoto = (file: File) => new Promise<PhotoUpload>(resolve => {
     const reader = new FileReader();
-    reader.onload = () => resolve({ name: file.name, previewUrl: String(reader.result ?? '') });
+    reader.onload = async () => {
+      const previewUrl = await resizePhotoPreview(String(reader.result ?? ''));
+      resolve({ name: file.name, previewUrl });
+    };
     reader.onerror = () => resolve({ name: file.name, previewUrl: '' });
     reader.readAsDataURL(file);
   });
@@ -109,10 +132,15 @@ export function FieldOpsCapture({ surveyId }: { surveyId: string }) {
     setSubmissionId(newSubmissionId);
     setSubmitted(true);
 
+    const apiSubmission: SurveySubmission = {
+      ...submission,
+      evidence: submission.evidence.map(({ previewUrl: _previewUrl, ...item }) => item),
+    };
+
     fetch('/api/fieldops/submissions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(submission),
+      body: JSON.stringify(apiSubmission),
     }).catch(() => {
       // Local storage keeps the dashboard demo live even if the API is offline.
     });

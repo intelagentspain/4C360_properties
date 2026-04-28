@@ -2165,7 +2165,7 @@ export function FieldOpsDashboard({ onToast }: Props) {
     const refresh = () => setLiveSubmissions(getLocalFieldOpsSubmissions());
     const unsubscribe = subscribeToLocalFieldOpsSubmissions(refresh);
     fetch('/api/fieldops/submissions')
-      .then(response => response.ok ? response.json() : null)
+      .then(response => response.ok && response.headers.get('content-type')?.includes('application/json') ? response.json() : null)
       .then((payload: { submissions?: SurveySubmission[] } | null) => {
         if (payload?.submissions?.length) {
           const local = getLocalFieldOpsSubmissions();
@@ -2176,6 +2176,12 @@ export function FieldOpsDashboard({ onToast }: Props) {
       .catch(() => undefined);
     return unsubscribe;
   }, []);
+
+  useEffect(() => {
+    if (tab === 'tracking') {
+      setLiveSubmissions(getLocalFieldOpsSubmissions());
+    }
+  }, [tab]);
 
   const allSubmissions = useMemo(
     () => [...liveSubmissions, ...submissions].filter((item, index, all) => all.findIndex(candidate => candidate.id === item.id) === index),
