@@ -442,6 +442,7 @@ const solutions: Solution[] = [
 
 function getBasePath() {
   const path = window.location.pathname;
+  if (path.startsWith('/4c360')) return '/4c360';
   return path.startsWith('/brochure') ? '/brochure' : '';
 }
 
@@ -454,7 +455,7 @@ function getCurrentSolutionSlug(): SolutionSlug | null {
 }
 
 function routeTo(slug?: SolutionSlug) {
-  const basePath = getBasePath() || '/brochure';
+  const basePath = getBasePath() || (window.location.hostname === 'brochures.4cgrc.com' ? '/4c360' : '/brochure');
   const nextPath = slug ? `${basePath}/${slug}` : basePath;
   window.history.pushState({}, '', nextPath);
   window.dispatchEvent(new PopStateEvent('popstate'));
@@ -612,7 +613,7 @@ function SolutionsLanding() {
               <div className="flex items-center gap-3">
                 <img src="/4c-logo.png" alt="4C360" className="h-12 w-12 rounded-xl border border-white/10 bg-[#07111F]" />
                 <div>
-                  <p className="text-[11px] font-black uppercase tracking-[0.26em] text-[#FFB4BC]">solutions.4c360.com</p>
+                  <p className="text-[11px] font-black uppercase tracking-[0.26em] text-[#FFB4BC]">brochures.4cgrc.com / 4C360</p>
                   <p className="text-[12px] font-semibold text-[#7A94B4]">Interactive solution brochures</p>
                 </div>
               </div>

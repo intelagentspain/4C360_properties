@@ -48,9 +48,11 @@ function Root() {
   const isField = path === '/field' || path === '/field/' || path.startsWith('/field/');
   const fieldOpsCaptureMatch = path.match(/^\/fieldops\/survey\/([^/]+)\/capture/);
   const isLogin = path === '/login' || path === '/login/';
+  const isBrochuresHost = window.location.hostname === 'brochures.4cgrc.com';
   const isSolutionsHost = window.location.hostname === 'solutions.4c360.com';
   const isSolutionSlug = /^\/(properties|fm|marine|osh)\/?$/.test(path);
-  const isBrochure = path === '/brochure' || path === '/brochure/' || path.startsWith('/brochure/') || isSolutionsHost || isSolutionSlug;
+  const isProductFamilySolution = path === '/4c360' || path === '/4c360/' || /^\/4c360\/(properties|fm|marine|osh)\/?$/.test(path);
+  const isBrochure = path === '/brochure' || path === '/brochure/' || path.startsWith('/brochure/') || isBrochuresHost || isSolutionsHost || isSolutionSlug || isProductFamilySolution;
 
   if (isLogin) {
     return <LoginPage />;
