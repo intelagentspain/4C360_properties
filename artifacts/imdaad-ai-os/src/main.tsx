@@ -6,6 +6,7 @@ import { FieldPortal } from "./pages/FieldPortal";
 import { FieldJobDeepLink } from "./pages/FieldJobDeepLink";
 import { LoginPage } from "./components/auth/LoginPage";
 import { FieldOpsCapture } from "./modules/fieldops/FieldOpsCapture";
+import { ModuleBrochure } from "./pages/ModuleBrochure";
 import { IncidentProvider, useIncidents } from "./context/IncidentContext";
 import { NotificationProvider } from "./context/NotificationContext";
 import { MemberProfilesProvider } from "./context/MemberProfilesContext";
@@ -47,9 +48,16 @@ function Root() {
   const isField = path === '/field' || path === '/field/' || path.startsWith('/field/');
   const fieldOpsCaptureMatch = path.match(/^\/fieldops\/survey\/([^/]+)\/capture/);
   const isLogin = path === '/login' || path === '/login/';
+  const isSolutionsHost = window.location.hostname === 'solutions.4c360.com';
+  const isSolutionSlug = /^\/(properties|fm|marine|osh)\/?$/.test(path);
+  const isBrochure = path === '/brochure' || path === '/brochure/' || path.startsWith('/brochure/') || isSolutionsHost || isSolutionSlug;
 
   if (isLogin) {
     return <LoginPage />;
+  }
+
+  if (isBrochure) {
+    return <ModuleBrochure />;
   }
 
   if (isScan) {
