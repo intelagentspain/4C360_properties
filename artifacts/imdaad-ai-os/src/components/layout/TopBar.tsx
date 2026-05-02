@@ -27,7 +27,7 @@ export function TopBar({ perspective, setPerspective }: Props) {
         <img src="/4c-logo.png" className="w-8 h-8 rounded-lg object-contain" alt="4C logo" />
         <div>
           <div className="text-[#EEF3FA] font-semibold text-sm leading-tight" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-            DevelopmentX
+            OSH Authority
           </div>
           <div className="text-[#7A94B4] text-[10px] leading-tight">Powered by 4C360</div>
         </div>
