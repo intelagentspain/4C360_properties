@@ -11,70 +11,102 @@ interface ExpertAgent {
 }
 
 const EXPERT_AGENTS: Record<string, ExpertAgent> = {
-  hvac: {
-    name: "HVAC Expert",
-    specialty: "Cooling, Ventilation & Air Handling",
-    systemPrompt: `You are the HVAC Expert for Imdaad 4C360 FM — a senior specialist in cooling, ventilation, and air handling systems for residential and commercial facilities in Dubai. You have 20+ years of experience with split systems, AHUs, FCUs, VRF/VRV systems, and ducted central AC. You know UAE/Dubai climate requirements and relevant standards (ASHRAE, CIBSE, Dubai Civil Defence).`,
+  gas_detection: {
+    name: "Gas Detection Expert",
+    specialty: "Portable & Fixed Gas Detection",
+    systemPrompt: `You are the Gas Detection Expert for OSH Authority (powered by 4C360) — a senior occupational hygienist specialising in atmospheric monitoring. You have 20+ years of experience with portable 4-gas monitors, fixed gas detection systems, calibration gas, bump testing, span calibration, and alarm threshold setting (LEL, O₂, CO, H₂S, VOC). You know OSHA 1910.146, EH40 WEL, ATEX/IECEx zones, and confined-space atmospheric requirements.`,
   },
-  chiller: {
-    name: "Chiller Expert",
-    specialty: "Water-Cooled & Air-Cooled Chillers",
-    systemPrompt: `You are the Chiller Expert for Imdaad 4C360 FM — a senior specialist in industrial and commercial chiller plant operation. You have deep expertise in water-cooled and air-cooled chillers (Carrier, Trane, York, Daikin), condenser water systems, cooling towers, primary/secondary pumping, and refrigerant management. You know ASHRAE standards, F-Gas regulations, and UAE district cooling requirements.`,
+  loto: {
+    name: "LOTO / Energy Control Expert",
+    specialty: "Lockout, Tagout & Isolation",
+    systemPrompt: `You are the LOTO Expert for OSH Authority (powered by 4C360) — a senior energy-control specialist. You have deep expertise in hazardous energy isolation across electrical, pneumatic, hydraulic, gravitational, thermal, and chemical sources. You know OSHA 1910.147, the six-step LOTO procedure, group/multi-lock hasps, tagout-only exceptions, and zero-energy verification (test-before-touch).`,
   },
-  lift: {
-    name: "Lift Expert",
-    specialty: "Passenger & Service Lifts",
-    systemPrompt: `You are the Lift Expert for Imdaad 4C360 FM — a senior specialist in vertical transportation systems. You have expertise in passenger lifts, service elevators, escalators (KONE, Otis, Schindler, ThyssenKrupp), including drive systems, door mechanisms, safety devices, and regulatory compliance. You know Dubai Municipality lift regulations, EN 81 standards, and DCD requirements for emergency protocols.`,
+  fall_protection: {
+    name: "Fall Protection & Scaffold Expert",
+    specialty: "Working at Height, Scaffolds & PFAS",
+    systemPrompt: `You are the Fall Protection Expert for OSH Authority (powered by 4C360) — a senior specialist in working-at-height controls. You have expertise in scaffold inspection (TG20, NASC SG4), edge protection, anchor points (EN 795 / OSHA 1926.502 — 22 kN / 5,000 lbf), full-body harnesses (EN 361), shock-absorbing lanyards, SRLs, MEWPs, fall clearance calculation, and rescue plans (suspension trauma 15–30 min window).`,
   },
   fire_safety: {
-    name: "Fire Safety Expert",
-    specialty: "Suppression, Detection & Life Safety",
-    systemPrompt: `You are the Fire Safety Expert for Imdaad 4C360 FM — a senior specialist in active fire protection. You have expertise in sprinkler systems, fire suppression (gaseous, foam), fire alarm panels (Notifier, Hochiki, Siemens), emergency lighting, smoke detection, and evacuation systems. You know Dubai Civil Defence (DCD) requirements, NFPA 13/72, and local Fire Code for residential communities.`,
+    name: "Fire & Life Safety Expert",
+    specialty: "Detection, Suppression & Evacuation",
+    systemPrompt: `You are the Fire & Life Safety Expert for OSH Authority (powered by 4C360). You have expertise in fire alarm panels, smoke and heat detection, sprinkler and gaseous suppression, emergency lighting (BS 5266 / BS EN 50172, 3-hour duration), portable extinguishers (CO₂, dry powder, water/foam), fire doors, evacuation marshalling, and PEEP refuges. You know NFPA 13/72, BS 5839-1, and Civil Defence/Fire Code requirements.`,
   },
-  plumbing: {
-    name: "Plumbing Expert",
-    specialty: "Leak Detection, Pumps & Water Systems",
-    systemPrompt: `You are the Plumbing Expert for Imdaad 4C360 FM — a senior specialist in building water systems. You have expertise in cold/hot water supply, drainage, sewerage, booster pumps, water tanks (DEWA connection), pressure relief valves, and irrigation systems. You know Dubai Municipality plumbing codes, DEWA regulations, and legionella management protocols for residential communities.`,
+  chemical_safety: {
+    name: "Chemical Safety / HAZMAT Expert",
+    specialty: "COSHH, Spill Response & Storage",
+    systemPrompt: `You are the Chemical Safety Expert for OSH Authority (powered by 4C360) — a senior HAZMAT specialist. You have expertise in COSHH/GHS hazard classification, SDS interpretation (Sections 4/6/8/14), incompatible storage segregation, chemical spill response (containment, neutralisation, disposal), and PPE selection (nitrile vs Viton vs butyl). You know IDLH thresholds, RIDDOR/EPA reporting triggers, and HAZWOPER response levels.`,
   },
-  electrical: {
-    name: "Electrical Expert",
-    specialty: "Panels, Breakers, Cabling & Distribution",
-    systemPrompt: `You are the Electrical Expert for Imdaad 4C360 FM — a senior specialist in building electrical systems. You have expertise in LV distribution panels (MCBs, RCDs, MCCBs), earthing, cable management, power factor correction, lighting controls, UPS systems, and metering. You know DEWA connection requirements, IEC 60364, and ADED electrical code for Dubai residential developments.`,
+  confined_space: {
+    name: "Confined Space Expert",
+    specialty: "Permit-Required Entry & Rescue",
+    systemPrompt: `You are the Confined Space Expert for OSH Authority (powered by 4C360). You have deep expertise in permit-required confined-space entry, atmospheric pre-entry testing (top/middle/bottom sampling), continuous monitoring, forced ventilation (5 air changes), tripod and retrieval-line rescue, attendant duties (never enter), and isolation via LOTO. You know OSHA 1910.146, BS 8485, and the principle that the attendant calls for help and operates the winch — never enters.`,
   },
-  generator: {
-    name: "Generator Expert",
-    specialty: "Standby Power & Load Testing",
-    systemPrompt: `You are the Generator Expert for Imdaad 4C360 FM — a senior specialist in standby power systems. You have expertise in diesel generators (Caterpillar, Cummins, Perkins, FG Wilson), ATS/AMF panels, load bank testing, fuel systems, exhaust and cooling, and parallel operation. You know UAE civil defence requirements for emergency power and Dubai Municipality building permit conditions for generator installations.`,
+  hot_work: {
+    name: "Hot Work Permit Expert",
+    specialty: "Welding, Cutting & Fire Watch",
+    systemPrompt: `You are the Hot Work Expert for OSH Authority (powered by 4C360). You have expertise in hot work permit issuance, pre-work atmospheric testing (LEL action bands), combustible removal/screening (10 m horizontal, 15 m vertical spark zone), fire watch duties, post-work watch (60 min + 3 h periodic), and engineering alternatives to hot work. You know NFPA 51B, FM Global hot work standards, and time-limited permit validity (max 8 hours, never overnight).`,
+  },
+  ppe: {
+    name: "PPE & Occupational Health Expert",
+    specialty: "PPE Selection & Cabinet Audit",
+    systemPrompt: `You are the PPE Expert for OSH Authority (powered by 4C360) — a senior occupational health specialist. You have expertise in PPE hierarchy of control, head/eye/hearing/respiratory/hand/foot protection, EN/ANSI standards (EN 388 cut/abrasion, EN 166 eye, EN 12492 head, EN 374 chemical, FFP1/2/3 respirators), expiry tracking, fit testing, and quarantine of damaged equipment. You know that wrong-spec PPE is worse than no PPE.`,
   },
 };
 
-const DEFAULT_EXPERT = EXPERT_AGENTS.hvac;
+const DEFAULT_EXPERT = EXPERT_AGENTS.gas_detection;
 
 function resolveExpert(assetType: string, assetSubtype?: string, assetName?: string): ExpertAgent {
   const typeKey = (assetType ?? "").toLowerCase().replace(/[^a-z0-9]/g, "_");
   const subtypeKey = (assetSubtype ?? "").toLowerCase();
   const nameKey = (assetName ?? "").toLowerCase();
 
-  if (subtypeKey.includes("chiller") || nameKey.includes("chiller")) {
-    return EXPERT_AGENTS.chiller;
+  if (subtypeKey.includes("scaffold") || nameKey.includes("scaffold") || nameKey.includes("anchor") || nameKey.includes("harness")) {
+    return EXPERT_AGENTS.fall_protection;
   }
-  if (nameKey.includes("generator") || nameKey.includes("gen-") || nameKey.startsWith("g-0")) {
-    return EXPERT_AGENTS.generator;
+  if (nameKey.includes("eyewash") || nameKey.includes("shower") || nameKey.includes("spill") || nameKey.includes("chemical")) {
+    return EXPERT_AGENTS.chemical_safety;
+  }
+  if (nameKey.includes("gas detector") || nameKey.includes("gd-") || nameKey.includes("4-gas")) {
+    return EXPERT_AGENTS.gas_detection;
+  }
+  if (nameKey.includes("ppe") || nameKey.includes("cabinet")) {
+    return EXPERT_AGENTS.ppe;
+  }
+  if (nameKey.includes("extinguisher") || nameKey.includes("fire panel") || nameKey.includes("alarm") || nameKey.includes("emergency light")) {
+    return EXPERT_AGENTS.fire_safety;
   }
 
   const map: Record<string, string> = {
-    hvac: "hvac",
-    chiller: "chiller",
-    lift: "lift",
-    elevator: "lift",
-    vertical_transport: "lift",
+    gas: "gas_detection",
+    detection: "gas_detection",
+    monitor: "gas_detection",
+    loto: "loto",
+    isolation: "loto",
+    electrical: "loto",
+    energy: "loto",
+    scaffold: "fall_protection",
+    height: "fall_protection",
+    fall: "fall_protection",
+    anchor: "fall_protection",
+    harness: "fall_protection",
     fire: "fire_safety",
     fire_safety: "fire_safety",
-    safety: "fire_safety",
-    plumbing: "plumbing",
-    electrical: "electrical",
-    generator: "generator",
-    power: "generator",
+    alarm: "fire_safety",
+    extinguisher: "fire_safety",
+    evacuation: "fire_safety",
+    chemical: "chemical_safety",
+    hazmat: "chemical_safety",
+    spill: "chemical_safety",
+    eyewash: "chemical_safety",
+    confined: "confined_space",
+    confined_space: "confined_space",
+    vessel: "confined_space",
+    tank: "confined_space",
+    hot_work: "hot_work",
+    welding: "hot_work",
+    permit: "hot_work",
+    ppe: "ppe",
+    respirator: "ppe",
   };
 
   for (const [k, v] of Object.entries(map)) {
@@ -95,7 +127,7 @@ function buildSystemPrompt(expert: ExpertAgent, body: ExpertChatBody): string {
   ].filter(Boolean).join(" ");
   sections.push(`Asset: ${assetLine}`);
   if (body.siteName) sections.push(`Site: ${body.siteName}`);
-  if (body.ppmTemplateName) sections.push(`PPM Template: ${body.ppmTemplateName}`);
+  if (body.ppmTemplateName) sections.push(`Inspection Template: ${body.ppmTemplateName}`);
 
   // ── Current step ──
   if (body.currentStep) {
@@ -149,7 +181,7 @@ function buildSystemPrompt(expert: ExpertAgent, body: ExpertChatBody): string {
       const stockLabel = p.inStock === 0 ? "OUT OF STOCK" : p.inStock <= 3 ? `LOW STOCK (${p.inStock} left)` : `In stock (${p.inStock})`;
       return `  • ${p.name}: ${stockLabel}`;
     }).join("\n");
-    sections.push(`\nParts Availability (inform your recommendations):\n${partLines}`);
+    sections.push(`\nParts / Consumables Availability (inform your recommendations):\n${partLines}`);
   }
 
   // ── Inspector notes ──
@@ -161,21 +193,21 @@ function buildSystemPrompt(expert: ExpertAgent, body: ExpertChatBody): string {
 
   return `${expert.systemPrompt}${contextBlock}
 
-You are assisting a field engineer performing a live PPM inspection. Be their expert voice in the field.
+You are assisting an OSH inspector performing a live safety inspection. Be their expert voice in the field.
 
 Rules:
 1. Be concise — 2-4 sentences unless a step-by-step breakdown is explicitly requested.
-2. Safety first — if you detect any safety risk, flag it immediately and clearly.
-3. Distinguish NORMAL from ABNORMAL conditions with specific, measurable language where possible.
-4. Use prior incident history to spot repeat failures or chronic issues on this asset.
-5. If parts are OUT OF STOCK, factor this into your recommendation (e.g. advise ordering or temporary workarounds).
-6. If an abnormal condition is detected, recommend whether to: a) note and continue, b) raise a corrective incident, or c) stop the PPM and escalate.
+2. Safety first — if you detect any hazard or unsafe condition, flag it immediately and clearly. Recommend stop-work where warranted.
+3. Distinguish ACCEPTABLE from UNACCEPTABLE conditions with specific, measurable language (gas concentration, anchor strength, lux levels, dB, temperature, pH, LEL %).
+4. Use prior incident history to spot repeat hazards, recurring near-misses, or chronic issues on this asset.
+5. If parts/consumables (calibration gas, PPE, spill kit, anchors) are OUT OF STOCK, factor this into your recommendation.
+6. If an unsafe condition is detected, recommend whether to: a) note and continue, b) raise a corrective incident, or c) stop work and escalate to the HSE Manager.
 7. When recommending a corrective incident, end your response with exactly this on a new line:
    [CREATE_INCIDENT] {"title":"<title>","severity":"<critical|high|medium|low>","description":"<description>"}
 8. Never suggest skipping mandatory checklist steps. If a mandatory step cannot be completed, recommend escalation.
 9. When a step requires photographic evidence, remind the inspector to capture it before proceeding.
-10. When the situation is ambiguous, recommend escalating to a supervisor rather than guessing.
-11. Reference readings, tolerances, or standards where relevant (e.g., refrigerant pressure ranges, voltage tolerances, flow rates).
+10. When the situation is ambiguous, recommend escalating to the HSE Manager rather than guessing.
+11. Reference standards and tolerances where relevant (OSHA 1910/1926, EN 795, BS 5839-1, BS 5266, NFPA 13/72, ACoP L8, EH40 WEL, ATEX/IECEx).
 
 You respond only in English. Keep a professional but approachable tone.`;
 }
@@ -227,10 +259,10 @@ function createOpenAIClient(): OpenAI {
 
 const STATIC_SUGGESTIONS: string[] = [
   "Guide me through this step",
-  "Is this normal?",
+  "Is this within tolerance?",
   "What evidence do I need?",
   "Should I escalate this?",
-  "Summarize remaining steps",
+  "Summarise remaining steps",
   "Create corrective incident",
 ];
 
@@ -238,10 +270,10 @@ function extractSuggestions(reply: string): string[] {
   const suggestions: string[] = [];
   const lower = reply.toLowerCase();
 
-  if (lower.includes("pressure") || lower.includes("temperature") || lower.includes("reading")) {
-    suggestions.push("What are the normal ranges?");
+  if (lower.includes("ppm") || lower.includes("concentration") || lower.includes("lel") || lower.includes("kn ") || lower.includes("lux") || lower.includes("reading")) {
+    suggestions.push("What are the acceptable thresholds?");
   }
-  if (lower.includes("escalat") || lower.includes("supervisor")) {
+  if (lower.includes("escalat") || lower.includes("supervisor") || lower.includes("hse manager") || lower.includes("stop work")) {
     suggestions.push("How do I escalate this?");
   }
   if (lower.includes("incident") || lower.includes("corrective") || lower.includes("[create_incident]")) {
@@ -252,6 +284,9 @@ function extractSuggestions(reply: string): string[] {
   }
   if (lower.includes("checklist") || lower.includes("next step")) {
     suggestions.push("Walk me through the next step");
+  }
+  if (lower.includes("permit") || lower.includes("loto") || lower.includes("isolation")) {
+    suggestions.push("Is the permit still valid?");
   }
 
   const remaining = STATIC_SUGGESTIONS.filter(s => !suggestions.includes(s));
@@ -270,7 +305,7 @@ router.post("/ppm/expert-chat", async (req: Request, res: Response) => {
     return;
   }
 
-  const expert = resolveExpert(body.assetType ?? "hvac", body.assetSubtype, body.assetName);
+  const expert = resolveExpert(body.assetType ?? "gas_detection", body.assetSubtype, body.assetName);
   const systemPrompt = buildSystemPrompt(expert, body);
 
   const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
@@ -290,11 +325,11 @@ router.post("/ppm/expert-chat", async (req: Request, res: Response) => {
     const reply = completion.choices[0]?.message?.content?.trim() ?? "";
     const suggestions = extractSuggestions(reply);
 
-    logger.info({ assetType: body.assetType, expert: expert.name, messageCount: body.messages.length }, "PPM expert chat response generated");
+    logger.info({ assetType: body.assetType, expert: expert.name, messageCount: body.messages.length }, "OSH expert chat response generated");
 
     res.json({ reply, suggestions });
   } catch (err) {
-    logger.error({ err }, "PPM expert chat failed");
+    logger.error({ err }, "OSH expert chat failed");
     res.status(500).json({ error: "Failed to get expert response. Please try again." });
   }
 });

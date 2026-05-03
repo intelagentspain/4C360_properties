@@ -226,20 +226,20 @@ function FloatingOrb({ open, voiceStatus }: { open: boolean; voiceStatus: VoiceS
 
 const DEFAULT_CONTEXT: CopilotContextConfig = {
   greetings: [
-    'I can help with incidents, KPIs, portfolios, and workflows. What do you need?',
-    'Ask me to summarise, compare, prioritise, or draft the next action.',
-    'I can turn what you see here into a quick decision brief.',
+    'I can help with OSH incidents, permits, inspections, and compliance. What do you need?',
+    'Ask me to triage hazards, check permits, prioritise inspections, or draft a corrective action.',
+    'I can turn what you see here into a quick safety decision brief.',
   ],
   chips: [
-    'Show open incidents',
-    'Summarise KPIs',
-    'Review site portfolio',
-    'List overdue work orders',
-    'Explain current risks',
-    'Compare SLA performance',
-    'Draft an escalation',
-    'Find blocked work',
-    'Show active modules',
+    'Show open OSH incidents',
+    'Summarise compliance KPIs',
+    'Review site safety status',
+    'List overdue inspections',
+    'Explain current hazards',
+    'Compare SLA across sites',
+    'Draft an HSE escalation',
+    'Find expired permits',
+    'Show active controls',
     'What needs attention?',
   ],
 };
@@ -247,31 +247,31 @@ const DEFAULT_CONTEXT: CopilotContextConfig = {
 const STRATEGIC_CONTEXTS: Record<CopilotStrategicPage, CopilotContextConfig> = {
   allclients: {
     greetings: DEFAULT_CONTEXT.greetings,
-    chips: ['Show highest-risk sites', 'Compare SLA by site', 'Summarise portfolio KPIs', 'List critical incidents', 'Find sites with overdue work', 'Rank by risk', 'Show live sites', 'Review data coverage', 'Draft portfolio update', 'Spot performance gaps'],
+    chips: ['Show highest-risk sites', 'Compare SLA by site', 'Summarise compliance KPIs', 'List critical OSH incidents', 'Find sites with overdue inspections', 'Rank by risk', 'Show live hazards', 'Review data coverage', 'Draft portfolio safety brief', 'Spot compliance gaps'],
   },
   dashboard: {
-    greetings: ['I can read the dashboard signals and turn them into priorities.', 'Want a quick summary, risk view, or action list?', 'Ask me what changed and what needs attention.'],
-    chips: ['Explain KPI changes', 'Show live incidents', 'Summarise dispatch queue', 'Highlight SLA risks', 'What needs attention now?', 'Review map signals', 'Find dispatch pressure', 'Summarise PPM risks', 'Draft daily brief', 'Compare current vs target'],
+    greetings: ['I can read the OSH signals and turn them into priorities.', 'Want a quick safety summary, risk view, or action list?', 'Ask me what changed and what needs attention.'],
+    chips: ['Explain KPI changes', 'Show live incidents', 'Summarise dispatch queue', 'Highlight SLA risks', 'What needs attention now?', 'Review hazard map', 'Find dispatch pressure', 'Summarise inspection risks', 'Draft daily HSE brief', 'Compare current vs target'],
   },
   team: {
-    greetings: ['I can help with coverage, roles, access, and workload balance.', 'Need to know who owns what or who is overloaded?', 'Ask me to review assignments or access in seconds.'],
-    chips: ['Summarise team coverage', 'Find overloaded members', 'Review role assignments', 'Check inactive users', 'Explain site access', 'List contractors', 'Find missing skills', 'Review management users', 'Draft team update', 'Suggest reassignments'],
+    greetings: ['I can help with inspector coverage, competencies, access, and workload balance.', 'Need to know who owns what or who is overloaded?', 'Ask me to review assignments or competency gaps in seconds.'],
+    chips: ['Summarise inspector coverage', 'Find overloaded inspectors', 'Review role assignments', 'Check inactive users', 'Explain site access', 'List contractors', 'Find missing competencies', 'Review HSE managers', 'Draft team update', 'Suggest reassignments'],
   },
   incidents: {
-    greetings: ['I can triage incidents, spot patterns, and draft next steps.', 'Need severity, SLA, or escalation help?', 'Ask me for a clean incident brief.'],
-    chips: ['Summarise critical incidents', 'Find SLA breaches', 'Draft escalation note', 'Group by site', 'Recommend next actions', 'Find repeat issues', 'Create manager brief', 'Prioritise by severity', 'Show unresolved incidents', 'Explain root cause'],
+    greetings: ['I can triage OSH incidents, spot patterns, and draft next steps.', 'Need severity, SLA, near-miss, or escalation help?', 'Ask me for a clean incident brief.'],
+    chips: ['Summarise critical incidents', 'Find SLA breaches', 'Draft HSE escalation', 'Group by site', 'Recommend corrective actions', 'Find repeat hazards', 'Create manager brief', 'Prioritise by severity', 'Show unresolved incidents', 'Explain root cause'],
   },
   tasks: {
-    greetings: ['I can help prioritise work orders and clear blockers.', 'Ask me what should move first.', 'I can turn the work list into an action plan.'],
-    chips: ['List overdue work orders', 'Find unassigned tasks', 'Prioritise today', 'Show blocked work', 'Summarise workload', 'Find SLA pressure', 'Group by site', 'Suggest assignments', 'Draft inspector notes', 'Review completed work'],
+    greetings: ['I can help prioritise inspections and clear blockers.', 'Ask me what should move first.', 'I can turn the inspection list into an action plan.'],
+    chips: ['List overdue inspections', 'Find unassigned tasks', 'Prioritise today', 'Show blocked work', 'Summarise workload', 'Find SLA pressure', 'Group by site', 'Suggest assignments', 'Draft inspector notes', 'Review closed inspections'],
   },
   ppmschedule: {
-    greetings: ['I can help plan maintenance before risk becomes incident.', 'Need overdue PPMs, asset risks, or staffing help?', 'Ask me to turn the schedule into a plan.'],
-    chips: ['Show overdue PPMs', 'Plan next week', 'Find asset risks', 'Summarise maintenance load', 'Recommend assignments', 'Flag critical assets', 'Group by inspector', 'Draft maintenance brief', 'Compare due dates', 'Find missed services'],
+    greetings: ['I can help plan inspections before hazards become incidents.', 'Need overdue inspections, asset risks, or competency gaps?', 'Ask me to turn the schedule into a plan.'],
+    chips: ['Show overdue inspections', 'Plan next week', 'Find high-risk assets', 'Summarise inspection load', 'Recommend assignments', 'Flag critical equipment', 'Group by inspector', 'Draft inspection brief', 'Compare due dates', 'Find missed checks'],
   },
   aicapture: {
-    greetings: ['I can turn captures into clean issues and actions.', 'Share a note or photo context and I will structure it.', 'Need severity, category, or a work order draft?'],
-    chips: ['Create issue from capture', 'Suggest severity', 'Classify defect type', 'Draft work order', 'Explain capture confidence', 'Group duplicate issues', 'Write resident update', 'Recommend owner', 'List missing evidence', 'Create follow-up task'],
+    greetings: ['I can turn captures into clean OSH findings and corrective actions.', 'Share a note or photo and I will structure it as a hazard report.', 'Need severity, category, or a corrective work order draft?'],
+    chips: ['Create finding from capture', 'Suggest severity', 'Classify hazard type', 'Draft corrective action', 'Explain capture confidence', 'Group duplicate hazards', 'Write site team update', 'Recommend owner', 'List missing evidence', 'Create follow-up inspection'],
   },
   datasources: {
     greetings: ['I can help check data health and integration gaps.', 'Ask me what is stale, missing, or ready to connect.', 'I can translate sync status into action.'],
@@ -301,12 +301,12 @@ const STRATEGIC_CONTEXTS: Record<CopilotStrategicPage, CopilotContextConfig> = {
 
 const PERSPECTIVE_CONTEXTS: Record<Exclude<CopilotPerspective, 'strategic'>, CopilotContextConfig> = {
   operational: {
-    greetings: ['I can help with jobs, checklists, evidence, and priorities.', 'Need the next best action in the field?', 'Ask me to simplify the work queue.'],
-    chips: ['Prioritise my tasks', 'Explain next job', 'Review checklist', 'Summarise overdue work', 'Help capture evidence', 'Draft job note', 'Check parts needed', 'Find safety steps', 'Update supervisor', 'Close-out checklist'],
+    greetings: ['I can help with inspections, permits, evidence, and field priorities.', 'Need the next best safety action in the field?', 'Ask me to simplify the inspection queue.'],
+    chips: ['Prioritise my inspections', 'Explain next job', 'Review checklist', 'Summarise overdue inspections', 'Help capture evidence', 'Draft inspection note', 'Check PPE & permits', 'Find LOTO steps', 'Update supervisor', 'Close-out checklist'],
   },
   client: {
-    greetings: ['I can help track requests and explain service status.', 'Need to report an issue or check progress?', 'Ask me for a simple update.'],
-    chips: ['Track my request', 'Report an issue', 'Explain service status', 'Show request history', 'Contact support', 'Check appointment', 'Add more details', 'Find latest update', 'Escalate request', 'Share feedback'],
+    greetings: ['I can help track safety requests and explain inspection status.', 'Need to report a hazard or check progress?', 'Ask me for a simple update.'],
+    chips: ['Track my request', 'Report a hazard', 'Explain inspection status', 'Show request history', 'Contact HSE team', 'Check inspection date', 'Add more details', 'Find latest update', 'Escalate request', 'Share feedback'],
   },
 };
 
@@ -317,8 +317,8 @@ function getCopilotContext(
 ): CopilotContextConfig {
   if (memberMode) {
     return {
-      greetings: ['I can help with your assignments, access, and next actions.', 'Need a quick brief on what matters most?', 'Ask me what to focus on first.'],
-      chips: ['Summarise my dashboard', 'Show assigned sites', 'Explain my access', 'List urgent work', 'What should I do next?', 'Review my role', 'Show open tasks', 'Draft status update', 'Find overdue items', 'Check notifications'],
+      greetings: ['I can help with your inspections, access, and next safety actions.', 'Need a quick brief on what matters most?', 'Ask me what to focus on first.'],
+      chips: ['Summarise my dashboard', 'Show assigned sites', 'Explain my access', 'List urgent inspections', 'What should I do next?', 'Review my role', 'Show open hazards', 'Draft status update', 'Find overdue items', 'Check notifications'],
     };
   }
   if (perspective === 'strategic') return STRATEGIC_CONTEXTS[strategicPage] ?? DEFAULT_CONTEXT;
@@ -343,15 +343,15 @@ function getLocalCopilotReply(message: string, config: CopilotContextConfig) {
 
   if (lower.includes('highest-risk') || lower.includes('high risk') || lower.includes('risk')) {
     return {
-      reply: 'Start with JLT North Cluster, then Business Bay Tower Complex. JLT has the sharpest pressure: critical status, 12 incidents, 9 overdue tasks, 67% SLA, and lift safety checks overdue.',
-      suggestions: ['Compare SLA by site', 'List critical incidents', 'Draft escalation note', 'Suggest reassignments'],
+      reply: 'Start with JLT North Cluster, then Business Bay Tower Complex. JLT has the sharpest pressure: critical status, 12 OSH incidents, 9 overdue inspections, 67% SLA, and scaffold safety checks overdue.',
+      suggestions: ['Compare SLA by site', 'List critical incidents', 'Draft HSE escalation', 'Suggest reassignments'],
     };
   }
 
   if (lower.includes('compare') && lower.includes('sla')) {
     return {
       reply: 'SLA attention should go first to JLT North Cluster at 67%, then Business Bay Tower Complex at 81%. Gate Avenue and Downtown Burj Area are the strongest performers at 97% and 96%.',
-      suggestions: ['Show highest-risk sites', 'Find SLA breaches', 'Summarise portfolio KPIs', 'Draft manager brief'],
+      suggestions: ['Show highest-risk sites', 'Find SLA breaches', 'Summarise compliance KPIs', 'Draft manager brief'],
     };
   }
 
@@ -362,36 +362,43 @@ function getLocalCopilotReply(message: string, config: CopilotContextConfig) {
     };
   }
 
-  if (lower.includes('incident') || lower.includes('sla') || lower.includes('critical')) {
+  if (lower.includes('incident') || lower.includes('sla') || lower.includes('critical') || lower.includes('hazard') || lower.includes('near-miss')) {
     return {
-      reply: 'Start with critical incidents, SLA pressure, and anything unassigned. I can help group them by site, severity, owner, or next action.',
-      suggestions: ['Summarise critical incidents', 'Find SLA breaches', 'Group by site', 'Recommend next actions'],
+      reply: 'Start with critical OSH incidents, SLA pressure, and anything unassigned. I can group them by site, severity, hazard type (LOTO, scaffold, hot work, chemical), or next corrective action.',
+      suggestions: ['Summarise critical incidents', 'Find SLA breaches', 'Group by hazard type', 'Recommend corrective actions'],
     };
   }
 
-  if (lower.includes('team') || lower.includes('role') || lower.includes('access') || lower.includes('member')) {
+  if (lower.includes('permit') || lower.includes('loto') || lower.includes('hot work') || lower.includes('confined') || lower.includes('height')) {
     return {
-      reply: 'Review coverage, role fit, inactive users, and site access. The fastest check is who owns each site and who has too much open work.',
-      suggestions: ['Summarise team coverage', 'Find overloaded members', 'Review role assignments', 'Explain site access'],
+      reply: 'Active permits to watch: 4 hot work permits open, 1 confined-space entry past validity, 2 LOTO isolations awaiting verification. Expired permits trigger an automatic stop-work.',
+      suggestions: ['Find expired permits', 'Show active LOTO', 'Review hot work fire watch', 'Draft permit close-out'],
     };
   }
 
-  if (lower.includes('kpi') || lower.includes('performance') || lower.includes('portfolio') || lower.includes('site') || lower.includes('sites')) {
+  if (lower.includes('team') || lower.includes('role') || lower.includes('access') || lower.includes('inspector') || lower.includes('member') || lower.includes('competen')) {
     return {
-      reply: 'Look at SLA, open work, critical incidents, overdue tasks, and connected data coverage. Those signals give the clearest portfolio health picture.',
-      suggestions: ['Summarise portfolio KPIs', 'Compare SLA by site', 'Show highest-risk sites', 'Spot performance gaps'],
+      reply: 'Review inspector coverage, competency cards, inactive users, and site access. Fastest check: who owns each site, who has expired competencies, who is overloaded.',
+      suggestions: ['Summarise inspector coverage', 'Find overloaded inspectors', 'Review competencies', 'Explain site access'],
     };
   }
 
-  if (lower.includes('work') || lower.includes('task') || lower.includes('ppm') || lower.includes('maintenance')) {
+  if (lower.includes('kpi') || lower.includes('performance') || lower.includes('portfolio') || lower.includes('site') || lower.includes('sites') || lower.includes('compliance')) {
     return {
-      reply: 'Prioritise overdue work, blocked tasks, critical assets, and jobs without an owner. I can help turn that into a dispatch or maintenance plan.',
-      suggestions: ['List overdue work orders', 'Find unassigned tasks', 'Show blocked work', 'Plan next week'],
+      reply: 'Look at SLA, open inspections, critical incidents, expired permits, and connected data coverage. Those signals give the clearest portfolio safety picture.',
+      suggestions: ['Summarise compliance KPIs', 'Compare SLA by site', 'Show highest-risk sites', 'Spot compliance gaps'],
+    };
+  }
+
+  if (lower.includes('work') || lower.includes('task') || lower.includes('inspection') || lower.includes('schedule')) {
+    return {
+      reply: 'Prioritise overdue inspections, blocked tasks, high-risk assets, and jobs without an owner. I can turn that into a dispatch or weekly inspection plan.',
+      suggestions: ['List overdue inspections', 'Find unassigned tasks', 'Show blocked work', 'Plan next week'],
     };
   }
 
   return {
-    reply: 'I can help turn that into a summary, comparison, priority list, escalation draft, or setup check. Pick the angle you want and I will keep it practical.',
+    reply: 'I can help turn that into a summary, comparison, priority list, HSE escalation draft, or compliance check. Pick the angle you want and I will keep it practical.',
     suggestions,
   };
 }
