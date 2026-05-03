@@ -118,7 +118,7 @@ const loadingSteps = [
 
 const initialForm: ProjectFormState = {
   name: 'Jumeirah Heights Residential Tower',
-  client: 'DevelopmentX Portfolio',
+  client: 'OSH Authority Portfolio',
   location: 'Dubai, UAE',
   type: 'Residential Tower',
   size: '42 floors, 2 basement levels, 380 units',

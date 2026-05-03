@@ -21,7 +21,7 @@ interface Props {
 
 const profileActions = [
   { label: 'Personal profile', sub: 'Name, photo, title and contact details', icon: UserRound },
-  { label: 'Organisation', sub: 'DevelopmentX workspace and company details', icon: Building2 },
+  { label: 'Organisation', sub: 'OSH Authority workspace and company details', icon: Building2 },
   { label: 'Team access', sub: 'Role, permissions and assigned sites', icon: Users },
   { label: 'Security', sub: 'Password, MFA and active sessions', icon: ShieldCheck },
   { label: 'Preferences', sub: 'Theme, language, timezone and notifications', icon: SlidersHorizontal },
@@ -95,7 +95,7 @@ export function ProfileMenu({ open, onClose }: Props) {
                         Active
                       </span>
                     </div>
-                    <p className="mt-0.5 text-[11px] text-[#B8C7DB]">Strategic Director · DevelopmentX</p>
+                    <p className="mt-0.5 text-[11px] text-[#B8C7DB]">Strategic Director · OSH Authority</p>
                     <p className="mt-1 text-[10px] text-[#7A94B4]">sarah.khan@developmentx.ae</p>
                   </div>
                 </div>

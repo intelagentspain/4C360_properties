@@ -417,7 +417,7 @@ export function ProfileSettings({ onToast }: Props) {
   const [modules, setModules] = useState<ModuleToggle[]>(moduleDefaults);
   const [teamQuery, setTeamQuery] = useState('');
   const [clientQuery, setClientQuery] = useState('');
-  const [orgName, setOrgName] = useState('DevelopmentX');
+  const [orgName, setOrgName] = useState('OSH Authority');
   const [orgDomain, setOrgDomain] = useState('developmentx.ae');
   const [region, setRegion] = useState('UAE and GCC');
   const [accessState, setAccessState] = useState<Record<string, boolean>>(
@@ -784,7 +784,7 @@ export function ProfileSettings({ onToast }: Props) {
                 <UserRound size={13} />
                 Profile and organisation control
               </div>
-              <h3 className="text-[#EEF3FA] font-bold text-sm" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>DevelopmentX profile</h3>
+              <h3 className="text-[#EEF3FA] font-bold text-sm" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>OSH Authority profile</h3>
               <p className="mt-1 text-[11px] text-[#7A94B4]">Control team, modules, sites, organisation identity, and access policies inside Settings.</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">

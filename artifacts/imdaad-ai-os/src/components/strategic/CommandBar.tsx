@@ -1719,7 +1719,7 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
                                   onClick={() => setWhatsappTarget({
                                     name: member.name || `Member ${i + 1}`,
                                     phone: member.whatsapp.trim(),
-                                    message: `Hi ${member.name || 'there'}, welcome to DevelopmentX AI-OS! You have been added as ${member.role || 'a team member'}. Please check your email for login credentials.`,
+                                    message: `Hi ${member.name || 'there'}, welcome to OSH Authority AI-OS! You have been added as ${member.role || 'a team member'}. Please check your email for login credentials.`,
                                   })}
                                   className="flex-shrink-0 p-1.5 rounded-lg border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 transition-all"
                                 >

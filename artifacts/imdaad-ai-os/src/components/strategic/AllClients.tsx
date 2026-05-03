@@ -849,7 +849,7 @@ function ClientReportPanel({
                 <p className="text-[12px] text-[#EEF3FA] leading-relaxed">{client.aiInsight}</p>
                 <div className="flex items-center gap-1 mt-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-                  <span className="text-[9px] text-cyan-400 font-semibold uppercase tracking-wider">Powered by DevelopmentX AI</span>
+                  <span className="text-[9px] text-cyan-400 font-semibold uppercase tracking-wider">Powered by OSH Authority AI</span>
                 </div>
               </div>
             </div>

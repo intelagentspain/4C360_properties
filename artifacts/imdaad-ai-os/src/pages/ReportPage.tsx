@@ -178,7 +178,7 @@ export function ReportPage({ memberToken }: ReportPageProps) {
             </div>
             <div>
               <div className="font-bold text-white text-sm" style={{ fontFamily: 'Georgia, serif' }}>
-                DevelopmentX
+                OSH Authority
               </div>
               <div className="text-[10px]" style={{ color: 'rgba(255,255,255,0.45)' }}>
                 Site Operations
@@ -641,7 +641,7 @@ function SuccessView({ incidentRef, onAnother }: { incidentRef: string; onAnothe
             <AlertTriangle size={15} style={{ color: '#C9A96E' }} />
           </div>
           <div>
-            <div className="font-bold text-white text-sm" style={{ fontFamily: 'Georgia, serif' }}>DevelopmentX</div>
+            <div className="font-bold text-white text-sm" style={{ fontFamily: 'Georgia, serif' }}>OSH Authority</div>
             <div className="text-[10px]" style={{ color: 'rgba(255,255,255,0.45)' }}>Site Operations</div>
           </div>
         </div>

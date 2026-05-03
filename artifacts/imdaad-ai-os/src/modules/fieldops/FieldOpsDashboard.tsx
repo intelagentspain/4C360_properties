@@ -2011,7 +2011,7 @@ function ShareSurveyPanel({ survey, onToast }: { survey: Survey; onToast: Props[
     { id: 'expiry', label: 'Expiry: 30 Apr 2026' },
     { id: 'maxSubmissions', label: 'Max submissions: 250' },
     { id: 'allowedRoles', label: 'Allowed roles: Engineer, Inspector, Contractor' },
-    { id: 'allowedOrganizations', label: 'Allowed organizations: DevelopmentX' },
+    { id: 'allowedOrganizations', label: 'Allowed organizations: OSH Authority' },
     { id: 'allowedSites', label: `Allowed sites: ${survey.siteIds[0] ?? 'Selected sites'}` },
   ];
 

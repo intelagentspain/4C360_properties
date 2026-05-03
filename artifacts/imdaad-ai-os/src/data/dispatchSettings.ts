@@ -216,7 +216,7 @@ export const initialDispatchSettings: DispatchSettings = {
     },
     {
       id: 'ELG-003',
-      name: 'DevelopmentX In-House Team A',
+      name: 'OSH Authority In-House Team A',
       type: 'inhouse',
       skillFilter: 'General',
       regionFilter: 'Silicon Oasis',
@@ -238,7 +238,7 @@ export const initialDispatchSettings: DispatchSettings = {
     },
     {
       id: 'ELG-005',
-      name: 'DevelopmentX In-House Team B',
+      name: 'OSH Authority In-House Team B',
       type: 'inhouse',
       skillFilter: 'Safety Equipment',
       regionFilter: 'Dubai',

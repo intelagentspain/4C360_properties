@@ -159,7 +159,7 @@ export const surveys: Survey[] = [
     name: 'Fire Safety Inspection - Basement',
     type: 'Fire Safety',
     description: 'Fire doors, extinguishers, pumps, and escape route compliance.',
-    clientId: 'DevelopmentX',
+    clientId: 'OSH Authority',
     siteIds: ['Business Bay Tower Complex'],
     assetIds: ['FSP-03'],
     status: 'In Progress',

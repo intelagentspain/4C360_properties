@@ -412,7 +412,7 @@ export function FieldPortal({ initialWorkOrderId }: FieldPortalProps) {
       <div className="sticky top-0 z-30 bg-[#0A1628] border-b border-[rgba(46,127,255,0.2)] px-4 py-3 flex items-center gap-3">
         <div className="flex items-center gap-2">
           <div className="bg-[rgba(46,127,255,0.15)] border border-[rgba(46,127,255,0.3)] rounded-lg px-3 py-1.5">
-            <span className="text-[#2E7FFF] font-bold text-sm tracking-wider">DevelopmentX</span>
+            <span className="text-[#2E7FFF] font-bold text-sm tracking-wider">OSH Authority</span>
             <span className="text-[#7A94B4] text-sm ml-1 font-light">Field</span>
           </div>
         </div>

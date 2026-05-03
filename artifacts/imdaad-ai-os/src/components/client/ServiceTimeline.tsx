@@ -145,7 +145,7 @@ export function ServiceTimeline() {
                             <TechAvatar initials="KR" size={9} />
                             <div className="flex-1">
                               <div className="text-[12px] text-[#EEF3FA] font-bold">Karim R.</div>
-                              <div className="text-[10px] text-[#7A94B4]">HVAC Specialist · DevelopmentX</div>
+                              <div className="text-[10px] text-[#7A94B4]">Safety Inspector · OSH Authority</div>
                               <div className="flex items-center gap-1">
                                 {[1,2,3,4,5].map(s => (
                                   <Star key={s} size={9} className="text-amber-400 fill-amber-400" />
@@ -255,7 +255,7 @@ export function ServiceTimeline() {
           <TechAvatar initials="KR" size={9} />
           <div>
             <div className="text-[#EEF3FA] text-sm font-semibold">Karim R.</div>
-            <div className="text-[11px] text-[#7A94B4]">HVAC Specialist</div>
+            <div className="text-[11px] text-[#7A94B4]">Safety Inspector</div>
             <div className="flex items-center gap-1 text-[11px] text-amber-400">
               {[1,2,3,4,5].map(s => <Star key={s} size={10} className="fill-amber-400" />)}
               <span className="ml-0.5">4.8 · 142 jobs</span>
