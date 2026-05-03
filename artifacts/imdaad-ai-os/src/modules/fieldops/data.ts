@@ -294,7 +294,7 @@ export const submissions: SurveySubmission[] = [
       { question: 'Emergency exits are clear', answer: 'No' },
       { question: 'Fire pump test result', answer: 'Fail - pressure drop detected' },
     ],
-    evidence: [{ type: 'photo', label: 'Blocked exit photo' }, { type: 'voice', label: 'Technician note' }],
+    evidence: [{ type: 'photo', label: 'Blocked exit photo' }, { type: 'voice', label: 'Inspector note' }],
     gpsLocation: { lat: 25.1851, lng: 55.2728, site: 'Business Bay Tower Complex' },
     status: 'Pending Review',
     issuesDetected: 3,

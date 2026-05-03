@@ -51,7 +51,7 @@ interface Props {
   }) => void;
 }
 
-const ROLES = ['Cleaner', 'Tenant', 'Security', 'Technician', 'Visitor', 'Other'];
+const ROLES = ['Cleaner', 'Tenant', 'Security', 'Inspector', 'Visitor', 'Other'];
 
 const SEVERITY_COLORS: Record<string, { bg: string; text: string; border: string; label: string }> = {
   critical: { bg: 'bg-red-500/15',    text: 'text-red-400',    border: 'border-red-500/40',    label: 'Critical' },

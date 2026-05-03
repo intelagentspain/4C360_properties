@@ -24,7 +24,7 @@ const ISSUE_POOL: AiAnalysis[] = [
       'Oil staining visible around evaporator coil outlet',
       'Condensate tray shows evidence of intermittent overflow',
     ],
-    recommendedAction: 'Assign a certified HVAC technician to perform a leak test using an electronic detector and recharge refrigerant to manufacturer specification after repair.',
+    recommendedAction: 'Assign a certified HVAC inspector to perform a leak test using an electronic detector and recharge refrigerant to manufacturer specification after repair.',
     priority: 'high',
     confidence: 91,
   },
@@ -89,7 +89,7 @@ export function mockVoiceAnalysis(transcript: string): AiAnalysis {
       subCategory: 'Cooling Failure',
       identifiedAsset: 'Air Conditioning Unit',
       observations: ['Resident reports AC not functioning', 'Issue described via voice note', 'Maintenance team to verify on site'],
-      recommendedAction: 'Assign an HVAC technician to inspect the unit and assess refrigerant levels, thermostat, and fan motor.',
+      recommendedAction: 'Assign an HVAC inspector to inspect the unit and assess refrigerant levels, thermostat, and fan motor.',
       priority: 'high',
       confidence: 55,
     };
@@ -127,7 +127,7 @@ export function mockVoiceAnalysis(transcript: string): AiAnalysis {
     subCategory: 'General Issue',
     identifiedAsset: 'Site Area',
     observations: ['Issue reported via voice note', 'Details captured in resident description', 'Maintenance team to verify on site'],
-    recommendedAction: 'Dispatch appropriate maintenance technician to inspect and assess the reported issue.',
+    recommendedAction: 'Dispatch appropriate maintenance inspector to inspect and assess the reported issue.',
     priority: 'low',
     confidence: 35,
   };

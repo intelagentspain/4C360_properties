@@ -503,7 +503,7 @@ function buildEndClientInviteEmail(
                   <td style="padding:16px 20px;">
                     <p style="color:#92400E;font-size:12px;font-weight:700;margin:0 0 4px;">⏱ 30-Minute Response Guarantee</p>
                     <p style="color:#78350F;font-size:11px;line-height:1.6;margin:0;">
-                      Every incident you report is logged immediately and routed to the nearest available technician. You will receive a confirmation with a reference number as soon as you submit.
+                      Every incident you report is logged immediately and routed to the nearest available inspector. You will receive a confirmation with a reference number as soon as you submit.
                     </p>
                   </td>
                 </tr>

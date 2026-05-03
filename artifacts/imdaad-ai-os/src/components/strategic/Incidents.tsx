@@ -150,12 +150,12 @@ function OverviewTab({ incident }: { incident: Incident }) {
       </div>
       {incident.assignedTech && (
         <div>
-          <div className="text-[10px] text-[#7A94B4] uppercase tracking-wide mb-1.5">Assigned Technician</div>
+          <div className="text-[10px] text-[#7A94B4] uppercase tracking-wide mb-1.5">Assigned Inspector</div>
           <div className="flex items-center gap-2.5 p-2.5 bg-[#112040] rounded-xl border border-[rgba(46,127,255,0.2)]">
             <TechAvatar initials={incident.techId || '?'} size={8} />
             <div>
               <div className="text-[12px] text-[#EEF3FA] font-semibold">{incident.assignedTech}</div>
-              <div className="text-[10px] text-blue-400">{incident.status === 'closed' ? 'Closed by technician' : 'En route · GPS tracking active'}</div>
+              <div className="text-[10px] text-blue-400">{incident.status === 'closed' ? 'Closed by inspector' : 'En route · GPS tracking active'}</div>
             </div>
           </div>
         </div>
@@ -1109,7 +1109,7 @@ function ActionsTab({ incident, onToast, onCreateWorkOrder }: { incident: Incide
         >
           <Send size={14} />
           <div className="text-left">
-            <div className="text-[12px] font-bold">Dispatch Technician</div>
+            <div className="text-[12px] font-bold">Dispatch Inspector</div>
             <div className="text-[10px] opacity-80">Open AI smart-dispatch panel</div>
           </div>
         </button>
@@ -1122,7 +1122,7 @@ function ActionsTab({ incident, onToast, onCreateWorkOrder }: { incident: Incide
           <MessageSquare size={14} />
           <div className="text-left">
             <div className="text-[12px] font-bold">Send WhatsApp to {incident.assignedTech}</div>
-            <div className="text-[10px] opacity-80">Notify technician via WhatsApp</div>
+            <div className="text-[10px] opacity-80">Notify inspector via WhatsApp</div>
           </div>
         </button>
       )}

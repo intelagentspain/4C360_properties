@@ -54,7 +54,7 @@ function mergeApiDataWithMock(apiClients: Record<string, unknown>[]): PortfolioC
         accountManager: { name: '', role: 'Account Manager', initials: '', status: 'available' },
         fmManager: { name: '', role: 'FM Manager', initials: '', status: 'available' },
         supervisors: [],
-        technicians: [],
+        inspectors: [],
       },
       resources: mockMatch?.resources ?? {
         budgetUsed: 0,

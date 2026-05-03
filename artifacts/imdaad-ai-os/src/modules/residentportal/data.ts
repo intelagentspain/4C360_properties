@@ -184,7 +184,7 @@ export const residentRequests: ResidentRequest[] = [
       { label: 'Submitted', at: '09:36', detail: 'Resident submitted via SnapFix mobile with photo evidence.' },
       { label: 'Reviewed', at: '09:41', detail: 'AI classified as Safety Equipment / Cooling, high priority.' },
       { label: 'Assigned', at: '09:48', detail: 'Assigned to FieldOps Safety Equipment Team.' },
-      { label: 'In progress', at: '10:20', detail: 'Technician en route after completing nearby PPM.' },
+      { label: 'In progress', at: '10:20', detail: 'Inspector en route after completing nearby PPM.' },
     ],
   },
   {

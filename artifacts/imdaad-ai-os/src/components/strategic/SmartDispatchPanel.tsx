@@ -146,7 +146,7 @@ export function SmartDispatchPanel({ onToast }: Props) {
                 <CheckCircle size={14} className="text-emerald-400 flex-shrink-0" />
                 <div>
                   <div className="text-[11px] text-emerald-400 font-semibold">Assigned to {assigned[activeIncident]}</div>
-                  <div className="text-[10px] text-[#7A94B4]">Technician notified · GPS tracking started</div>
+                  <div className="text-[10px] text-[#7A94B4]">Inspector notified · GPS tracking started</div>
                 </div>
               </div>
               {TECH_WHATSAPP[assigned[activeIncident]] && (
@@ -230,7 +230,7 @@ export function SmartDispatchPanel({ onToast }: Props) {
                           <UserCheck size={11} /> Assign
                         </button>
                         <button
-                          onClick={() => onToast('Manual override — select technician from map', 'info')}
+                          onClick={() => onToast('Manual override — select inspector from map', 'info')}
                           className="flex items-center gap-1 px-2.5 py-1.5 border border-[rgba(46,127,255,0.3)] text-[#7A94B4] text-[11px] rounded-lg hover:bg-white/5 transition-colors"
                         >
                           <RotateCcw size={11} /> Override

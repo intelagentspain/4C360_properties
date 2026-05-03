@@ -255,7 +255,7 @@ function ResidentProfileDrawer({ resident, onClose, onToast }: { resident: Resid
       <section className="mt-6 rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#0A1628] p-4">
         <h3 className="text-[13px] font-black text-[#EEF3FA]">Communication history</h3>
         <div className="mt-3 space-y-3 text-[13px] text-[#BCC8DC]">
-          <p>Portal message: request status update sent after technician assignment.</p>
+          <p>Portal message: request status update sent after inspector assignment.</p>
           <p>WhatsApp notice: chilled water maintenance acknowledged.</p>
         </div>
       </section>

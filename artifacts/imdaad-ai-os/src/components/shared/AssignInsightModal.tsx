@@ -55,13 +55,13 @@ const MOCK_CANDIDATES: Record<Insight['category'], Candidate[]> = {
     {
       name: 'Omar Al-Rashid',
       initials: 'OA',
-      role: 'Senior Field Technician',
+      role: 'Senior Field Inspector',
       availability: 'Available',
       availabilityScore: 100,
       skillMatch: 95,
       proximity: '0.3 km',
       proximityScore: 97,
-      rationale: 'Closest available technician with SLA response certification, currently 0.3 km from site with no active jobs.',
+      rationale: 'Closest available inspector with SLA response certification, currently 0.3 km from site with no active jobs.',
       avatarColor: '#2E7FFF',
     },
     {
@@ -79,7 +79,7 @@ const MOCK_CANDIDATES: Record<Insight['category'], Candidate[]> = {
     {
       name: 'Khalid Mansoor',
       initials: 'KM',
-      role: 'Technician',
+      role: 'Inspector',
       availability: 'Available',
       availabilityScore: 100,
       skillMatch: 74,
@@ -93,7 +93,7 @@ const MOCK_CANDIDATES: Record<Insight['category'], Candidate[]> = {
     {
       name: 'Sara Al-Mansouri',
       initials: 'SM',
-      role: 'Field Technician',
+      role: 'Field Inspector',
       availability: 'Idle',
       availabilityScore: 100,
       skillMatch: 92,
@@ -105,7 +105,7 @@ const MOCK_CANDIDATES: Record<Insight['category'], Candidate[]> = {
     {
       name: 'Faisal Nasser',
       initials: 'FN',
-      role: 'Field Technician',
+      role: 'Field Inspector',
       availability: 'Idle',
       availabilityScore: 100,
       skillMatch: 87,
@@ -117,7 +117,7 @@ const MOCK_CANDIDATES: Record<Insight['category'], Candidate[]> = {
     {
       name: 'Tariq Al-Balushi',
       initials: 'TB',
-      role: 'Senior Technician',
+      role: 'Senior Inspector',
       availability: 'Available',
       availabilityScore: 85,
       skillMatch: 79,
@@ -137,7 +137,7 @@ const MOCK_CANDIDATES: Record<Insight['category'], Candidate[]> = {
       skillMatch: 97,
       proximity: '0.9 km',
       proximityScore: 88,
-      rationale: 'Certified chiller technician with PPM specialisation. Best match for preventive maintenance before failure.',
+      rationale: 'Certified chiller inspector with PPM specialisation. Best match for preventive maintenance before failure.',
       avatarColor: '#38D98A',
     },
     {
@@ -155,7 +155,7 @@ const MOCK_CANDIDATES: Record<Insight['category'], Candidate[]> = {
     {
       name: 'Ahmed Saeed',
       initials: 'AS',
-      role: 'Technician',
+      role: 'Inspector',
       availability: 'Wrapping up',
       availabilityScore: 55,
       skillMatch: 71,
@@ -181,7 +181,7 @@ const MOCK_CANDIDATES: Record<Insight['category'], Candidate[]> = {
     {
       name: 'Ibrahim Al-Zaabi',
       initials: 'IZ',
-      role: 'HVAC Technician',
+      role: 'HVAC Inspector',
       availability: 'Available',
       availabilityScore: 100,
       skillMatch: 86,
@@ -193,7 +193,7 @@ const MOCK_CANDIDATES: Record<Insight['category'], Candidate[]> = {
     {
       name: 'Reem Al-Nuaimi',
       initials: 'RA',
-      role: 'Senior Technician',
+      role: 'Senior Inspector',
       availability: 'Idle',
       availabilityScore: 100,
       skillMatch: 78,
@@ -209,12 +209,12 @@ const RECOMMENDED_STEPS: Record<Insight['category'], string[]> = {
   risk: [
     'Contact Omar Al-Rashid via WhatsApp to confirm immediate dispatch',
     'Update Job #SI-298 status to "Re-assigned" in the system',
-    'Set SLA timer override and notify the client of incoming technician',
+    'Set SLA timer override and notify the client of incoming inspector',
     'Log assignment rationale and override reason for audit trail',
   ],
   efficiency: [
-    'Select one idle technician (Sara M. or Faisal N.) for redeployment',
-    'Dispatch selected technician to Cluster C open incident',
+    'Select one idle inspector (Sara M. or Faisal N.) for redeployment',
+    'Dispatch selected inspector to Cluster C open incident',
     'Update resource allocation map in the dispatch dashboard',
     'Monitor Cluster C resolution time and confirm load balance',
   ],

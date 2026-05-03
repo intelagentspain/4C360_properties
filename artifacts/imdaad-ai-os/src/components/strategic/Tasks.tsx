@@ -303,7 +303,7 @@ export function Tasks({ onToast, prefilledTask, onPrefilledTaskConsumed }: Props
       <div className="flex flex-1 overflow-hidden">
         <div className={`flex flex-col overflow-hidden transition-all duration-300 ${selected ? 'flex-[55]' : 'flex-1'}`}>
           <div className="hidden sm:grid grid-cols-[2.5fr_1.5fr_1fr_1.5fr_1.2fr_1fr] px-5 py-2 text-[9px] text-[#7A94B4] uppercase tracking-wide border-b border-[rgba(46,127,255,0.08)] flex-shrink-0">
-            {['Task', 'Location', 'Priority', 'SLA', 'Status', 'Technician'].map(h => <div key={h}>{h}</div>)}
+            {['Task', 'Location', 'Priority', 'SLA', 'Status', 'Inspector'].map(h => <div key={h}>{h}</div>)}
           </div>
           <div className="flex-1 overflow-y-auto custom-scrollbar">
             {filtered.map(task => {
@@ -411,7 +411,7 @@ export function Tasks({ onToast, prefilledTask, onPrefilledTaskConsumed }: Props
                     <Clock size={14} className="text-amber-400 flex-shrink-0 mt-0.5" />
                     <div>
                       <div className="text-[11px] text-amber-400 font-semibold mb-0.5">PPM Draft — Review before finalising</div>
-                      <div className="text-[10px] text-[#7A94B4]">Pre-filled from Predictive AI Risk Engine. Assign a technician and confirm to create this work order.</div>
+                      <div className="text-[10px] text-[#7A94B4]">Pre-filled from Predictive AI Risk Engine. Assign a inspector and confirm to create this work order.</div>
                     </div>
                   </div>
                 )}
@@ -453,7 +453,7 @@ export function Tasks({ onToast, prefilledTask, onPrefilledTaskConsumed }: Props
 
                 {selected.tech && (
                   <div>
-                    <div className="text-[10px] text-[#7A94B4] uppercase tracking-wide mb-1.5">Assigned Technician</div>
+                    <div className="text-[10px] text-[#7A94B4] uppercase tracking-wide mb-1.5">Assigned Inspector</div>
                     <div className="flex items-center gap-2.5 p-2.5 bg-[#112040] rounded-xl border border-[rgba(46,127,255,0.2)]">
                       <TechAvatar initials={TECH_INITIALS[selected.tech] || selected.tech.slice(0,2)} size={8} />
                       <div>

@@ -80,17 +80,17 @@ export const initialDispatchSettings: DispatchSettings = {
   ],
 
   matchWeights: {
-    proximityDistance: { label: 'Proximity / Distance',    enabled: true,  weight: 30, desc: 'Prefer the nearest available technician to the incident location' },
+    proximityDistance: { label: 'Proximity / Distance',    enabled: true,  weight: 30, desc: 'Prefer the nearest available inspector to the incident location' },
     skillMatch:        { label: 'Skill Match',             enabled: true,  weight: 25, desc: 'Exact or closest skill match to the ticket category' },
-    availability:      { label: 'Availability Status',     enabled: true,  weight: 20, desc: 'Technician must be Available or En Route with low load' },
+    availability:      { label: 'Availability Status',     enabled: true,  weight: 20, desc: 'Inspector must be Available or En Route with low load' },
     slaRisk:           { label: 'SLA Risk Weight',         enabled: true,  weight: 15, desc: 'Elevate priority if SLA breach is imminent' },
-    techRating:        { label: 'Tech Performance Rating', enabled: true,  weight: 5,  desc: 'Higher-rated technicians preferred for critical jobs' },
-    shiftCompliance:   { label: 'Shift Compliance',        enabled: true,  weight: 5,  desc: 'Do not assign technicians outside their scheduled shift' },
-    pastPerformance:   { label: 'Past Performance Score',  enabled: false, weight: 0,  desc: 'Historical job closure rate and SLA adherence per technician' },
+    techRating:        { label: 'Tech Performance Rating', enabled: true,  weight: 5,  desc: 'Higher-rated inspectors preferred for critical jobs' },
+    shiftCompliance:   { label: 'Shift Compliance',        enabled: true,  weight: 5,  desc: 'Do not assign inspectors outside their scheduled shift' },
+    pastPerformance:   { label: 'Past Performance Score',  enabled: false, weight: 0,  desc: 'Historical job closure rate and SLA adherence per inspector' },
     vendorPreference:  { label: 'Client Vendor Preference', enabled: false, weight: 0, desc: "Match the client's preferred vendor/team when specified" },
-    clientPreference:  { label: 'Client Preference Tag',   enabled: false, weight: 0,  desc: 'Client-specific technician preference flags' },
-    languageMatch:     { label: 'Language Match',          enabled: false, weight: 0,  desc: 'Match technician language to resident language preference' },
-    assetFamiliarity:  { label: 'Asset Familiarity',       enabled: false, weight: 0,  desc: 'Prefer technicians who have worked on the same asset previously' },
+    clientPreference:  { label: 'Client Preference Tag',   enabled: false, weight: 0,  desc: 'Client-specific inspector preference flags' },
+    languageMatch:     { label: 'Language Match',          enabled: false, weight: 0,  desc: 'Match inspector language to resident language preference' },
+    assetFamiliarity:  { label: 'Asset Familiarity',       enabled: false, weight: 0,  desc: 'Prefer inspectors who have worked on the same asset previously' },
   },
 
   autoAssignRules: [

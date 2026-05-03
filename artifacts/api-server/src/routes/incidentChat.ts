@@ -85,7 +85,7 @@ function getMockReply(userMessage: string, ctx?: FormContext): string {
   }
 
   if (msg.includes("description") || msg.includes("describe") || msg.includes("write")) {
-    const desc = ctx?.imageAnalysis?.description ?? "A facility issue has been identified that requires maintenance attention. The exact cause and extent of impact should be investigated by a qualified technician. Prompt response is recommended to prevent further deterioration.";
+    const desc = ctx?.imageAnalysis?.description ?? "A facility issue has been identified that requires maintenance attention. The exact cause and extent of impact should be investigated by a qualified inspector. Prompt response is recommended to prevent further deterioration.";
     return `Here's a professional description you can use:\n\n**Description:** ${desc}\n\nFeel free to edit this to add any additional context you have.`;
   }
 

@@ -4,7 +4,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  mockTechnicians, mockAssets,
+  mockInspectors, mockAssets,
   mockTasks, mockSLAZones, mockPredictedFailures,
 } from '@/data/mockData';
 import { PPMHistoryDrawer } from '@/components/shared/PPMHistoryDrawer';
@@ -38,16 +38,16 @@ const taskStatusColor: Record<string, string> = {
   pending: '#7A94B4',
 };
 
-type LayerKey = 'technicians' | 'incidents' | 'assets' | 'tasks' | 'slaZones' | 'predictedFailures';
+type LayerKey = 'inspectors' | 'incidents' | 'assets' | 'tasks' | 'slaZones' | 'predictedFailures';
 
 type DrawerItem =
-  | { kind: 'tech'; data: typeof mockTechnicians[0] }
+  | { kind: 'tech'; data: typeof mockInspectors[0] }
   | { kind: 'incident'; data: Incident }
   | { kind: 'asset'; data: typeof mockAssets[0] }
   | { kind: 'task'; data: typeof mockTasks[0] }
   | { kind: 'failure'; data: typeof mockPredictedFailures[0] };
 
-function createTechIcon(tech: typeof mockTechnicians[0]) {
+function createTechIcon(tech: typeof mockInspectors[0]) {
   const color = statusColors[tech.status] || '#7A94B4';
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36">
     <circle cx="18" cy="18" r="16" fill="${color}" fill-opacity="0.25" stroke="${color}" stroke-width="2"/>
@@ -103,7 +103,7 @@ function createClientMarkerIcon(name: string, riskLevel: string, marketLabel?: s
 }
 
 const layers: { key: LayerKey; label: string; icon: React.ReactNode; color: string }[] = [
-  { key: 'technicians', label: 'Technicians', icon: <Users size={11} />, color: '#38D98A' },
+  { key: 'inspectors', label: 'Inspectors', icon: <Users size={11} />, color: '#38D98A' },
   { key: 'incidents', label: 'Incidents', icon: <AlertTriangle size={11} />, color: '#FF4B4B' },
   { key: 'assets', label: 'Assets', icon: <Package size={11} />, color: '#2E7FFF' },
   { key: 'tasks', label: 'Tasks', icon: <ClipboardList size={11} />, color: '#FF9B38' },
@@ -131,7 +131,7 @@ function MapDrawer({ item, onClose, onToast, onViewHistory }: MapDrawerProps) {
         >
           <div className="flex items-center justify-between px-4 py-3 border-b border-[rgba(46,127,255,0.15)] flex-shrink-0">
             <span className="text-[11px] font-bold text-[#EEF3FA] uppercase tracking-wider">
-              {item.kind === 'tech' ? 'Technician' :
+              {item.kind === 'tech' ? 'Inspector' :
                item.kind === 'incident' ? 'Incident' :
                item.kind === 'asset' ? 'Asset' :
                item.kind === 'task' ? 'Task' : 'Predicted Failure'}
@@ -176,7 +176,7 @@ function ActionBtn({ children, primary, onClick }: { children: React.ReactNode; 
   );
 }
 
-function TechDetail({ data, onToast, onClose }: { data: typeof mockTechnicians[0]; onToast: (m: string, t?: any) => void; onClose: () => void }) {
+function TechDetail({ data, onToast, onClose }: { data: typeof mockInspectors[0]; onToast: (m: string, t?: any) => void; onClose: () => void }) {
   const color = statusColors[data.status] || '#7A94B4';
   return (
     <>
@@ -433,7 +433,7 @@ export function CommunityMap({ onToast, selectedClientId }: Props) {
   }, [isMemberMode, memberFilter.zones]);
 
   const [activeLayers, setActiveLayers] = useState<Record<LayerKey, boolean>>({
-    technicians: true,
+    inspectors: true,
     incidents: true,
     assets: false,
     tasks: false,
@@ -489,7 +489,7 @@ export function CommunityMap({ onToast, selectedClientId }: Props) {
           />
         ))}
 
-        {activeLayers.technicians && mockTechnicians.map(tech => (
+        {activeLayers.inspectors && mockInspectors.map(tech => (
           <Marker
             key={tech.id}
             position={[tech.lat, tech.lng]}

@@ -178,7 +178,7 @@ function getMockAnalysis(context: {
         "Condensate tray shows evidence of intermittent overflow",
       ],
       recommendedAction:
-        "Isolate the unit and assign a certified HVAC technician to perform a leak test using electronic detector. Recharge refrigerant to manufacturer specification after repair.",
+        "Isolate the unit and assign a certified HVAC inspector to perform a leak test using electronic detector. Recharge refrigerant to manufacturer specification after repair.",
       confidence: 91,
     };
   }

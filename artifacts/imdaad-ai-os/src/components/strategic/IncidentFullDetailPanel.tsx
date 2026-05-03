@@ -225,13 +225,13 @@ function OverviewTab({ incident, event }: { incident: Incident | null; event: Pu
 
       {incident.assignedTech && (
         <div>
-          <div className="text-[10px] text-[#7A94B4] uppercase tracking-wide mb-1.5">Assigned Technician</div>
+          <div className="text-[10px] text-[#7A94B4] uppercase tracking-wide mb-1.5">Assigned Inspector</div>
           <div className="flex items-center gap-2.5 p-2.5 bg-[#112040] rounded-xl border border-[rgba(46,127,255,0.2)]">
             <TechAvatar initials={incident.techId || '?'} size={8} />
             <div>
               <div className="text-[12px] text-[#EEF3FA] font-semibold">{incident.assignedTech}</div>
               <div className="text-[10px] text-blue-400">
-                {incident.status === 'closed' ? 'Closed by technician' : 'En route · GPS tracking active'}
+                {incident.status === 'closed' ? 'Closed by inspector' : 'En route · GPS tracking active'}
               </div>
             </div>
           </div>

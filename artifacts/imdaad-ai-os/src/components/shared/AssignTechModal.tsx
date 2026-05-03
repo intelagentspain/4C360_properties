@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Bot, Star, CheckCircle, Briefcase, MapPin, Layers, Tag } from 'lucide-react';
-import { mockTechnicians } from '@/data/mockData';
+import { mockInspectors } from '@/data/mockData';
 import { useMemberProfiles } from '@/context/MemberProfilesContext';
 import { TechAvatar } from '@/components/shared/TechAvatar';
 import { scoreColor } from '@/lib/ui';
@@ -84,7 +84,7 @@ function buildReasoning(tech: ScoredTech, workOrder: WorkOrderContext): string {
 
   if (tech.rating >= 4.8) parts.push(`${tech.rating}★ SLA record`);
 
-  return parts.slice(0, 4).join(' · ') || 'General maintenance technician';
+  return parts.slice(0, 4).join(' · ') || 'General maintenance inspector';
 }
 
 function scoreCandidate(tech: ScoredTech, workOrder: WorkOrderContext): number {
@@ -133,7 +133,7 @@ export function AssignTechModal({ open, workOrder, onConfirm, onCancel }: Props)
 
     const profileMap = Object.fromEntries(profiles.map(p => [p.name, p]));
 
-    const pool: ScoredTech[] = mockTechnicians.map(t => {
+    const pool: ScoredTech[] = mockInspectors.map(t => {
       const profile = profileMap[t.name];
       const skills = profile?.skills ?? t.skill;
       const zones = profile?.zones ?? [];
@@ -142,7 +142,7 @@ export function AssignTechModal({ open, workOrder, onConfirm, onCancel }: Props)
         id: t.id,
         name: t.name,
         initials: getInitials(t.name),
-        role: profile?.role ?? 'Field Technician',
+        role: profile?.role ?? 'Field Inspector',
         primarySkill: t.skill,
         skillsSummary: skills,
         zones,
@@ -192,7 +192,7 @@ export function AssignTechModal({ open, workOrder, onConfirm, onCancel }: Props)
                 </div>
                 <div>
                   <div className="text-[#EEF3FA] text-sm font-semibold" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-                    AI Assign Technician
+                    AI Assign Inspector
                   </div>
                   <div className="text-[10px] text-[#7A94B4]">{workOrder.id} · {workOrder.skill}</div>
                 </div>
@@ -334,7 +334,7 @@ export function AssignTechModal({ open, workOrder, onConfirm, onCancel }: Props)
               {candidates.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-12 gap-2 text-[#7A94B4]">
                   <Bot size={24} className="opacity-40" />
-                  <span className="text-[12px] opacity-60">No available technicians found</span>
+                  <span className="text-[12px] opacity-60">No available inspectors found</span>
                 </div>
               )}
             </div>

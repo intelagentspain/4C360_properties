@@ -104,7 +104,7 @@ function getMockVoiceAnalysis(transcript: string): Analysis {
         "Issue may be thermostat fault, refrigerant loss, or fan failure",
         "High ambient temperature makes this a priority during summer months",
       ],
-      recommendedAction: "Assign an HVAC technician to inspect the unit, check refrigerant levels, and test thermostat and fan motor before the next business day.",
+      recommendedAction: "Assign an HVAC inspector to inspect the unit, check refrigerant levels, and test thermostat and fan motor before the next business day.",
       confidence: 72,
     };
   }
@@ -181,7 +181,7 @@ function getMockVoiceAnalysis(transcript: string): Analysis {
       "Full details captured in transcript",
       "Maintenance team to assess and classify on site",
     ],
-    recommendedAction: "Review the voice note transcript and dispatch the appropriate maintenance technician to inspect and assess the issue.",
+    recommendedAction: "Review the voice note transcript and dispatch the appropriate maintenance inspector to inspect and assess the issue.",
     confidence: 40,
   };
 }

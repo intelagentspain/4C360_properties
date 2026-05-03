@@ -99,7 +99,7 @@ function buildSystemPrompt(expert: ExpertAgent, body: ExpertChatBody): string {
 
   // ── Current step ──
   if (body.currentStep) {
-    sections.push(`\nCurrent Step (technician is HERE): ${body.currentStep}`);
+    sections.push(`\nCurrent Step (inspector is HERE): ${body.currentStep}`);
   }
 
   // ── Checklist ──
@@ -126,12 +126,12 @@ function buildSystemPrompt(expert: ExpertAgent, body: ExpertChatBody): string {
     if (evidenceReq.length > 0) sections.push(`Evidence Required For:\n${evidenceReq.map(s => `  • ${s}`).join("\n")}`);
   }
 
-  // ── Technician readings ──
+  // ── Inspector readings ──
   if (body.techReadings && Object.keys(body.techReadings).length > 0) {
     const readingLines = Object.entries(body.techReadings)
       .map(([k, v]) => `  ${k}: ${v}`)
       .join("\n");
-    sections.push(`\nLatest Technician Readings / Observations:\n${readingLines}`);
+    sections.push(`\nLatest Inspector Readings / Observations:\n${readingLines}`);
   }
 
   // ── Prior incidents for this asset ──
@@ -152,8 +152,8 @@ function buildSystemPrompt(expert: ExpertAgent, body: ExpertChatBody): string {
     sections.push(`\nParts Availability (inform your recommendations):\n${partLines}`);
   }
 
-  // ── Technician notes ──
-  if (body.techNotes) sections.push(`\nTechnician Notes: ${body.techNotes}`);
+  // ── Inspector notes ──
+  if (body.techNotes) sections.push(`\nInspector Notes: ${body.techNotes}`);
 
   const contextBlock = sections.length > 0
     ? `\n\n── FIELD CONTEXT ──\n${sections.join("\n")}\n── END CONTEXT ──`
@@ -173,7 +173,7 @@ Rules:
 7. When recommending a corrective incident, end your response with exactly this on a new line:
    [CREATE_INCIDENT] {"title":"<title>","severity":"<critical|high|medium|low>","description":"<description>"}
 8. Never suggest skipping mandatory checklist steps. If a mandatory step cannot be completed, recommend escalation.
-9. When a step requires photographic evidence, remind the technician to capture it before proceeding.
+9. When a step requires photographic evidence, remind the inspector to capture it before proceeding.
 10. When the situation is ambiguous, recommend escalating to a supervisor rather than guessing.
 11. Reference readings, tolerances, or standards where relevant (e.g., refrigerant pressure ranges, voltage tolerances, flow rates).
 

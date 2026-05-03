@@ -271,7 +271,7 @@ const solutions: Solution[] = [
         audiences: ['Operations', 'Site Management'],
         summary: 'A service request command layer for intake, assignment, escalation, resident/client communication, and closure.',
         outcomes: ['Protect SLA commitments', 'Improve dispatch speed', 'Reduce missed follow-ups', 'Close jobs with evidence'],
-        workflows: ['Receive request', 'Classify priority', 'Assign technician or vendor', 'Close and confirm'],
+        workflows: ['Receive request', 'Classify priority', 'Assign inspector or vendor', 'Close and confirm'],
         aiCapabilities: ['Priority suggestions', 'SLA risk explanations', 'Assignment recommendations', 'Closure summaries'],
         kpis: ['Open tickets', 'SLA compliance', 'Average resolution', 'Escalations'],
         integrations: ['SnapFix', 'ResidentPortal', 'FieldOps', 'Notifications'],
@@ -297,7 +297,7 @@ const solutions: Solution[] = [
     organizationValue: [
       ['FM leadership', 'Portfolio performance, SLA exposure, and vendor quality in one place.'],
       ['Supervisors', 'Better dispatch, clearer priorities, and fewer missed service risks.'],
-      ['Technicians', 'Mobile jobs, checklists, photos, and AI guidance at the point of work.'],
+      ['Inspectors', 'Mobile jobs, checklists, photos, and AI guidance at the point of work.'],
       ['Clients', 'Transparent reporting backed by real evidence and live status.'],
     ],
     ctas: ['Book a walkthrough', 'Ask the AI advisor', 'Explore FM workflows', 'Discuss rollout'],

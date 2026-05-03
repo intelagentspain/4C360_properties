@@ -1507,9 +1507,9 @@ router.post("/workorders", async (req: Request, res: Response) => {
   try {
     const hasValidTechId = typeof body.assignedToId === "string" && body.assignedToId.trim().length > 0;
     const hasValidTechName = typeof body.assignedTo === "string" && body.assignedTo.trim().length > 0;
-    const hasTechnician = hasValidTechId && hasValidTechName;
+    const hasInspector = hasValidTechId && hasValidTechName;
     const rawStatus = body.status ?? "open";
-    const status = rawStatus === "assigned" && !hasTechnician ? "open" : rawStatus;
+    const status = rawStatus === "assigned" && !hasInspector ? "open" : rawStatus;
     const [inserted] = await db.insert(workOrdersTable).values({
       id: body.id,
       incidentId: body.incidentId ?? null,
@@ -1521,8 +1521,8 @@ router.post("/workorders", async (req: Request, res: Response) => {
       siteId: body.siteId ?? null,
       description: body.description ?? null,
       status,
-      assignedTo: hasTechnician ? body.assignedTo : null,
-      assignedToId: hasTechnician ? body.assignedToId : null,
+      assignedTo: hasInspector ? body.assignedTo : null,
+      assignedToId: hasInspector ? body.assignedToId : null,
     }).onConflictDoNothing().returning();
     if (!inserted) {
       res.status(409).json({ error: "Work order with this id already exists", id: body.id });

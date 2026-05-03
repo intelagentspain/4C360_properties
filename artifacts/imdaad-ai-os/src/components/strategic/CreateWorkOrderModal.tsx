@@ -4,7 +4,7 @@ import {
   X, Sparkles, ChevronDown, Check, Clock, User, AlertTriangle,
   Loader2, FileText, Zap,
 } from 'lucide-react';
-import { mockKanbanTasks, mockTechnicians } from '@/data/mockData';
+import { mockKanbanTasks, mockInspectors } from '@/data/mockData';
 import { SEVERITY_BADGE, type ToastFn } from '@/lib/ui';
 
 type KTask = typeof mockKanbanTasks[0];
@@ -101,7 +101,7 @@ function computeAISuggestions(form: FormState): AISuggestions {
       techReason = `${form.skill} specialist · best match`;
     } else {
       tech = 'Omar T.';
-      techReason = 'General technician · available';
+      techReason = 'General inspector · available';
     }
   }
 
@@ -305,7 +305,7 @@ export function CreateWorkOrderModal({ open, onClose, onCreated, onToast }: Prop
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <SelectField label="Assigned Technician" value={form.tech} options={TECH_OPTIONS} placeholder="Select technician…" onChange={v => setField('tech', v)} />
+                  <SelectField label="Assigned Inspector" value={form.tech} options={TECH_OPTIONS} placeholder="Select inspector…" onChange={v => setField('tech', v)} />
                   <div>
                     <label className="text-[9px] text-[#7A94B4] uppercase tracking-wide block mb-1">SLA Window</label>
                     <div className="flex items-center gap-2 bg-[#0D1F3A] border border-[rgba(46,127,255,0.2)] rounded-lg px-3 py-2">
@@ -394,7 +394,7 @@ export function CreateWorkOrderModal({ open, onClose, onCreated, onToast }: Prop
                     >
                       <div className="flex items-center gap-1.5">
                         <User size={10} className="text-blue-400" />
-                        <span className="text-[9px] text-[#7A94B4] uppercase tracking-wide">Technician</span>
+                        <span className="text-[9px] text-[#7A94B4] uppercase tracking-wide">Inspector</span>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-[11px] text-[#EEF3FA] font-semibold">{suggestions.tech}</span>

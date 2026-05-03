@@ -109,7 +109,7 @@ function ServiceRecord({ record }: { record: PPMHistoryRecord }) {
           </div>
           <div className="flex items-center gap-1 text-[10px] text-[#7A94B4]">
             <User size={9} />
-            {record.technician}
+            {record.inspector}
           </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">

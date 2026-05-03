@@ -193,7 +193,7 @@ function SectionMatchLogic({ settings, setSettings, onToast }: Props) {
 
   return (
     <div className="space-y-5">
-      <SectionTitle title="AI Top Match Logic" subtitle="Configure the weighted scoring formula used to rank technicians for dispatch" />
+      <SectionTitle title="AI Top Match Logic" subtitle="Configure the weighted scoring formula used to rank inspectors for dispatch" />
 
       <Card>
         <div className="text-[10px] text-[#7A94B4] uppercase tracking-wide mb-3">Match Parameters</div>
@@ -272,7 +272,7 @@ function SectionAutoRules({ settings, setSettings, onToast }: Props) {
 
   return (
     <div className="space-y-5">
-      <SectionTitle title="Auto-Assignment Rules" subtitle="Define conditions that trigger automatic technician assignment" />
+      <SectionTitle title="Auto-Assignment Rules" subtitle="Define conditions that trigger automatic inspector assignment" />
       <div className="flex justify-end">
         <button onClick={addRule} className="flex items-center gap-1.5 text-[11px] bg-[#2E7FFF] text-white px-3 py-1.5 rounded-lg hover:bg-blue-500 transition-colors">
           <Plus size={12} /> Add Rule
@@ -426,7 +426,7 @@ function SectionSLARules({ settings, setSettings, onToast }: Props) {
 
   return (
     <div className="space-y-5">
-      <SectionTitle title="SLA Rules" subtitle="Map SLA urgency thresholds to dispatch priorities and technician profiles" />
+      <SectionTitle title="SLA Rules" subtitle="Map SLA urgency thresholds to dispatch priorities and inspector profiles" />
 
       <div className="space-y-3">
         {settings.slaRules.map((rule, i) => {
@@ -458,7 +458,7 @@ function SectionSLARules({ settings, setSettings, onToast }: Props) {
                   <FieldRow label="Dispatch Priority">
                     <Sel value={rule.dispatchPriority} opts={SLA_PRIOS} onChange={v => update(rule.id, 'dispatchPriority', v)} />
                   </FieldRow>
-                  <FieldRow label="Technician Profile">
+                  <FieldRow label="Inspector Profile">
                     <Sel value={rule.techProfile} opts={TECH_PROFS} onChange={v => update(rule.id, 'techProfile', v)} />
                   </FieldRow>
                 </div>
@@ -469,7 +469,7 @@ function SectionSLARules({ settings, setSettings, onToast }: Props) {
                     <div className="text-[11px] text-[#EEF3FA]">{rule.dispatchPriority}</div>
                   </div>
                   <div>
-                    <div className="text-[9px] text-[#7A94B4] uppercase tracking-wide mb-1">Technician Profile</div>
+                    <div className="text-[9px] text-[#7A94B4] uppercase tracking-wide mb-1">Inspector Profile</div>
                     <div className="text-[11px] text-[#EEF3FA]">{rule.techProfile}</div>
                   </div>
                 </div>

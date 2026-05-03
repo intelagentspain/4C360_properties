@@ -24,10 +24,10 @@ const insights: InsightDetail[] = [
     confidence: 84,
     impact: 'high',
     rationale:
-      'Job #SI-298 has been stalled in "In-Progress" status for 38 minutes without a technician location update or status change. The contracted SLA window for this client is 60 minutes and the remaining buffer is only 14 minutes. Based on field movement data and historical completion rates, the AI engine flags this as a high-probability breach requiring immediate intervention.',
+      'Job #SI-298 has been stalled in "In-Progress" status for 38 minutes without a inspector location update or status change. The contracted SLA window for this client is 60 minutes and the remaining buffer is only 14 minutes. Based on field movement data and historical completion rates, the AI engine flags this as a high-probability breach requiring immediate intervention.',
     currentContext: [
       'Job #SI-298 status: In-Progress — no update for 38 min',
-      'Assigned technician Omar T. last GPS ping: 1.2 km from site, 34 min ago',
+      'Assigned inspector Omar T. last GPS ping: 1.2 km from site, 34 min ago',
       'Client SLA window: 60 min — 14 min remaining',
       'Dispatch queue: 2 other open jobs in the same cluster',
       'Inbound call volume: 1 client call received 12 min ago (unanswered)',
@@ -35,18 +35,18 @@ const insights: InsightDetail[] = [
     historicalContext: [
       'In the past 90 days, 78% of jobs stalled >35 min resulted in an SLA breach',
       'This client cluster has a 91% SLA compliance rate — today\'s job is an outlier',
-      'Technician Omar T. average job completion: 42 min; current job age: 38 min with no closure',
+      'Inspector Omar T. average job completion: 42 min; current job age: 38 min with no closure',
       'Similar stall patterns in Q1 2025 led to 3 escalation complaints from this client',
     ],
     confidenceFactors: [
       { label: 'Job stall duration', value: 92, color: '#FF4B4B' },
-      { label: 'Technician GPS gap', value: 85, color: '#FF9B38' },
+      { label: 'Inspector GPS gap', value: 85, color: '#FF9B38' },
       { label: 'SLA time remaining', value: 80, color: '#FF9B38' },
       { label: 'Historical breach pattern', value: 78, color: '#A78BFA' },
     ],
     recommendedActions: [
       'Contact Omar T. immediately via WhatsApp to confirm on-site status',
-      'If unreachable within 2 min, dispatch nearest available technician to Job #SI-298',
+      'If unreachable within 2 min, dispatch nearest available inspector to Job #SI-298',
       'Proactively notify client of delay and provide updated ETA to maintain trust',
     ],
   },
@@ -58,17 +58,17 @@ const insights: InsightDetail[] = [
     confidence: 91,
     impact: 'medium',
     rationale:
-      'Real-time GPS and job-assignment data show two fully available technicians idle within 0.5 km of Cluster A, while no open jobs exist in that zone. Simultaneously, Cluster C has one unassigned open incident with no technician nearby. Redeploying one idle resource from Cluster A to Cluster C eliminates idle cost and reduces Cluster C response time from an estimated 18 min to under 4 min.',
+      'Real-time GPS and job-assignment data show two fully available inspectors idle within 0.5 km of Cluster A, while no open jobs exist in that zone. Simultaneously, Cluster C has one unassigned open incident with no inspector nearby. Redeploying one idle resource from Cluster A to Cluster C eliminates idle cost and reduces Cluster C response time from an estimated 18 min to under 4 min.',
     currentContext: [
       'Sara M. — idle 0.2 km from Cluster A, no active job for 22 min',
       'Faisal N. — idle 0.4 km from Cluster A, no active job for 31 min',
       'Cluster A open incidents: 0',
       'Cluster C open incident: #MC-114 — AC fault, unassigned, raised 17 min ago',
-      'Nearest technician to Cluster C (excluding Sara/Faisal): 3.1 km away',
+      'Nearest inspector to Cluster C (excluding Sara/Faisal): 3.1 km away',
     ],
     historicalContext: [
       'Cluster C averages 2.1 AC incidents per week; current pace is 3.4 — above trend',
-      'Idle time >20 min per technician costs an estimated AED 38 in productivity loss',
+      'Idle time >20 min per inspector costs an estimated AED 38 in productivity loss',
       'Last redeployment from Cluster A to Cluster C (Feb 2025) resolved incident 6 min faster than SLA',
       'Over-staffing in one cluster while another is short has occurred 11 times in the past 60 days',
     ],
@@ -79,8 +79,8 @@ const insights: InsightDetail[] = [
       { label: 'Historical pattern match', value: 84, color: '#A78BFA' },
     ],
     recommendedActions: [
-      'Select one idle technician (Sara M. recommended — closest to Cluster C route) for redeployment',
-      'Dispatch selected technician to Cluster C incident #MC-114 immediately',
+      'Select one idle inspector (Sara M. recommended — closest to Cluster C route) for redeployment',
+      'Dispatch selected inspector to Cluster C incident #MC-114 immediately',
       'Update the live resource allocation map and confirm ETA with Cluster C building contact',
     ],
   },

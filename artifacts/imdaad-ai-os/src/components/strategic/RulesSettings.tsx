@@ -35,14 +35,14 @@ const MOCK_RULES: Rule[] = [
     id: 'RUL-002',
     name: 'SLA Breach Warning',
     trigger: 'SLA remaining < 30 min AND ticket still open',
-    action: 'Send alert to assigned technician and supervisor',
+    action: 'Send alert to assigned inspector and supervisor',
     type: 'sla',
   },
   {
     id: 'RUL-003',
     name: 'After-Hours Assignment',
     trigger: 'Ticket created between 22:00–06:00',
-    action: 'Auto-assign to on-call technician roster',
+    action: 'Auto-assign to on-call inspector roster',
     type: 'assignment',
   },
   {
@@ -55,8 +55,8 @@ const MOCK_RULES: Rule[] = [
   {
     id: 'RUL-005',
     name: 'High Priority Reassignment',
-    trigger: 'Technician unavailable AND ticket priority = High',
-    action: 'Auto-reassign to next best available technician',
+    trigger: 'Inspector unavailable AND ticket priority = High',
+    action: 'Auto-reassign to next best available inspector',
     type: 'assignment',
   },
 ];
@@ -73,7 +73,7 @@ const TRIGGER_SUGGESTIONS = [
 const ACTION_SUGGESTIONS = [
   'Escalate to On-Call Supervisor',
   'Notify Operations Manager',
-  'Auto-assign to nearest technician',
+  'Auto-assign to nearest inspector',
   'Send email to client contact',
   'Create follow-up ticket',
   'Override dispatch mode to Manual',

@@ -263,11 +263,11 @@ const STRATEGIC_CONTEXTS: Record<CopilotStrategicPage, CopilotContextConfig> = {
   },
   tasks: {
     greetings: ['I can help prioritise work orders and clear blockers.', 'Ask me what should move first.', 'I can turn the work list into an action plan.'],
-    chips: ['List overdue work orders', 'Find unassigned tasks', 'Prioritise today', 'Show blocked work', 'Summarise workload', 'Find SLA pressure', 'Group by site', 'Suggest assignments', 'Draft technician notes', 'Review completed work'],
+    chips: ['List overdue work orders', 'Find unassigned tasks', 'Prioritise today', 'Show blocked work', 'Summarise workload', 'Find SLA pressure', 'Group by site', 'Suggest assignments', 'Draft inspector notes', 'Review completed work'],
   },
   ppmschedule: {
     greetings: ['I can help plan maintenance before risk becomes incident.', 'Need overdue PPMs, asset risks, or staffing help?', 'Ask me to turn the schedule into a plan.'],
-    chips: ['Show overdue PPMs', 'Plan next week', 'Find asset risks', 'Summarise maintenance load', 'Recommend assignments', 'Flag critical assets', 'Group by technician', 'Draft maintenance brief', 'Compare due dates', 'Find missed services'],
+    chips: ['Show overdue PPMs', 'Plan next week', 'Find asset risks', 'Summarise maintenance load', 'Recommend assignments', 'Flag critical assets', 'Group by inspector', 'Draft maintenance brief', 'Compare due dates', 'Find missed services'],
   },
   aicapture: {
     greetings: ['I can turn captures into clean issues and actions.', 'Share a note or photo context and I will structure it.', 'Need severity, category, or a work order draft?'],

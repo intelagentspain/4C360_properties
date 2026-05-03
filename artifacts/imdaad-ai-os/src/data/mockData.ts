@@ -46,7 +46,7 @@ export const mockMemberProfiles: MockMemberProfile[] = [
     assignedClients: ['Dubai Silicon Oasis'],
     zones: ['Cluster A', 'Block C'],
     skills: 'Fall Protection Specialist, Hazardous Gas Handling, Predictive Hazard Detection',
-    responsibilities: 'Respond to Safety Equipment incidents in Cluster A within SLA targets\nConduct quarterly gas detector and Fume Hood servicing\nLog all interventions in the platform after each job\nTrain junior technicians on Safety Equipment diagnostic procedures',
+    responsibilities: 'Respond to Safety Equipment incidents in Cluster A within SLA targets\nConduct quarterly gas detector and Fume Hood servicing\nLog all interventions in the platform after each job\nTrain junior inspectors on Safety Equipment diagnostic procedures',
     photo: 'team/karim-r.png',
     isActive: true,
   },
@@ -72,7 +72,7 @@ export const mockMemberProfiles: MockMemberProfile[] = [
     assignedClients: ['Dubai Silicon Oasis'],
     zones: ['Cluster A', 'Cluster B', 'Block C', 'Recreation Area'],
     skills: 'Fall Protection & Electrical Safety, Site Safety, Permit to Work',
-    responsibilities: 'Conduct daily site walk-arounds and log observations before 09:00\nEnsure all technicians hold valid permits for high-risk tasks\nChase overdue work orders 30 min before SLA breach\nReview team attendance and assign shift coverage',
+    responsibilities: 'Conduct daily site walk-arounds and log observations before 09:00\nEnsure all inspectors hold valid permits for high-risk tasks\nChase overdue work orders 30 min before SLA breach\nReview team attendance and assign shift coverage',
     photo: 'team/tariq-mansour.png',
     isActive: true,
   },
@@ -177,7 +177,7 @@ export const mockMemberProfiles: MockMemberProfile[] = [
     assignedClients: ['Dubai Silicon Oasis'],
     zones: ['Cluster A', 'Cluster B', 'Recreation Area', 'Main Gate'],
     skills: 'Safety Compliance, General Maintenance, Plumbing, Fire Safety',
-    responsibilities: 'Conduct weekly safety walks across all zones\nManage fire exit compliance and safety inspection records\nAssist with general maintenance jobs across all clusters\nEnsure all technicians follow safety protocols on site',
+    responsibilities: 'Conduct weekly safety walks across all zones\nManage fire exit compliance and safety inspection records\nAssist with general maintenance jobs across all clusters\nEnsure all inspectors follow safety protocols on site',
     mobile: '+971 54 678 9012',
     availability: 'Full-time',
     shift: 'Business Hours (08:00–17:00)',
@@ -186,7 +186,7 @@ export const mockMemberProfiles: MockMemberProfile[] = [
   },
 ];
 
-export const mockTechnicians = [
+export const mockInspectors = [
   { id: 'AK', name: 'Ahmed K.', skill: 'Plumbing', status: 'active', job: '#SI-301', lat: 25.1190, lng: 55.3760, rating: 4.6, jobsCompleted: 98 },
   { id: 'SM', name: 'Sara M.', skill: 'Electrical', status: 'available', lat: 25.1165, lng: 55.3790, rating: 4.9, jobsCompleted: 210 },
   { id: 'KR', name: 'Karim R.', skill: 'Safety Equipment', status: 'transit', job: '#SI-2241', lat: 25.1180, lng: 55.3740, rating: 4.8, jobsCompleted: 142 },
@@ -346,7 +346,7 @@ export const mockPPMSchedule = [
     task: '6-Month Suppression Test', skill: 'Safety', location: 'Block B',
     daysUntilDue: 14, lastDone: 166, daysScheduled: 180, riskLevel: 'medium',
     tech: null, techId: null, condition: 90, nextDueDate: '24 Apr',
-    notes: 'Unassigned — requires certified fire safety technician.',
+    notes: 'Unassigned — requires certified fire safety inspector.',
   },
   {
     id: 'PPM-S-007', assetId: 'AST-004', asset: 'Eyewash Station EW-02', type: 'Plumbing',
@@ -374,7 +374,7 @@ export const mockPPMSchedule = [
 export interface PPMHistoryRecord {
   id: string;
   date: string;
-  technician: string;
+  inspector: string;
   techId: string;
   result: 'pass' | 'fail' | 'partial';
   conditionScore: number;
@@ -407,12 +407,12 @@ export const mockPPMHistory: PPMAssetHistory[] = [
       { finding: 'Filter replacement required', occurrences: 4, total: 4 },
     ],
     records: [
-      { id: 'H-001-1', date: '12 Jan 2026', technician: 'Karim R.', techId: 'KR', result: 'partial', conditionScore: 72, durationMinutes: 140, findings: 'Calibration Gas at 72% nominal — topped up to 89%. Condenser coils cleaned. Filter replaced (Grade F7). Minor belt wear noted.', partsUsed: ['Cal-Gas-410 Calibration Gas 2kg', 'HEPA Filter F7'], onTime: false },
-      { id: 'H-001-2', date: '13 Oct 2025', technician: 'Karim R.', techId: 'KR', result: 'pass', conditionScore: 81, durationMinutes: 120, findings: 'Quarterly service completed. All readings within spec. Filter replaced. Coils cleaned — light fouling only. Calibration Gas pressure at 94%.', partsUsed: ['HEPA Filter F7'], onTime: true },
-      { id: 'H-001-3', date: '10 Jul 2025', technician: 'Omar T.', techId: 'OT', result: 'partial', conditionScore: 78, durationMinutes: 175, findings: 'Calibration Gas pressure at 76% — below threshold. Leak suspected at connection joint. Topped up. Joint re-sealed. Recommend follow-up in 30 days.', partsUsed: ['Cal-Gas-410 Calibration Gas 3kg', 'Sealant Kit'], onTime: true },
-      { id: 'H-001-4', date: '14 Apr 2025', technician: 'Karim R.', techId: 'KR', result: 'pass', conditionScore: 86, durationMinutes: 115, findings: 'Routine quarterly service. All parameters nominal. Filter replaced, coils washed, thermostat calibrated. Asset in good condition.', partsUsed: ['HEPA Filter F7'], onTime: true },
-      { id: 'H-001-5', date: '10 Jan 2025', technician: 'Karim R.', techId: 'KR', result: 'fail', conditionScore: 63, durationMinutes: 220, findings: 'Calibration Gas critically low at 48%. Compressor showing intermittent fault. Full calibration gas recharge performed. Compressor contacts replaced. Follow-up required.', partsUsed: ['Cal-Gas-410 Calibration Gas 5kg', 'Compressor Contacts'], onTime: false },
-      { id: 'H-001-6', date: '11 Oct 2024', technician: 'Karim R.', techId: 'KR', result: 'pass', conditionScore: 88, durationMinutes: 110, findings: 'Standard quarterly service. Minor condenser fouling cleared. All readings nominal post-service. Asset operating within specification.', onTime: true },
+      { id: 'H-001-1', date: '12 Jan 2026', inspector: 'Karim R.', techId: 'KR', result: 'partial', conditionScore: 72, durationMinutes: 140, findings: 'Calibration Gas at 72% nominal — topped up to 89%. Condenser coils cleaned. Filter replaced (Grade F7). Minor belt wear noted.', partsUsed: ['Cal-Gas-410 Calibration Gas 2kg', 'HEPA Filter F7'], onTime: false },
+      { id: 'H-001-2', date: '13 Oct 2025', inspector: 'Karim R.', techId: 'KR', result: 'pass', conditionScore: 81, durationMinutes: 120, findings: 'Quarterly service completed. All readings within spec. Filter replaced. Coils cleaned — light fouling only. Calibration Gas pressure at 94%.', partsUsed: ['HEPA Filter F7'], onTime: true },
+      { id: 'H-001-3', date: '10 Jul 2025', inspector: 'Omar T.', techId: 'OT', result: 'partial', conditionScore: 78, durationMinutes: 175, findings: 'Calibration Gas pressure at 76% — below threshold. Leak suspected at connection joint. Topped up. Joint re-sealed. Recommend follow-up in 30 days.', partsUsed: ['Cal-Gas-410 Calibration Gas 3kg', 'Sealant Kit'], onTime: true },
+      { id: 'H-001-4', date: '14 Apr 2025', inspector: 'Karim R.', techId: 'KR', result: 'pass', conditionScore: 86, durationMinutes: 115, findings: 'Routine quarterly service. All parameters nominal. Filter replaced, coils washed, thermostat calibrated. Asset in good condition.', partsUsed: ['HEPA Filter F7'], onTime: true },
+      { id: 'H-001-5', date: '10 Jan 2025', inspector: 'Karim R.', techId: 'KR', result: 'fail', conditionScore: 63, durationMinutes: 220, findings: 'Calibration Gas critically low at 48%. Compressor showing intermittent fault. Full calibration gas recharge performed. Compressor contacts replaced. Follow-up required.', partsUsed: ['Cal-Gas-410 Calibration Gas 5kg', 'Compressor Contacts'], onTime: false },
+      { id: 'H-001-6', date: '11 Oct 2024', inspector: 'Karim R.', techId: 'KR', result: 'pass', conditionScore: 88, durationMinutes: 110, findings: 'Standard quarterly service. Minor condenser fouling cleared. All readings nominal post-service. Asset operating within specification.', onTime: true },
     ],
   },
   {
@@ -427,12 +427,12 @@ export const mockPPMHistory: PPMAssetHistory[] = [
       { finding: 'Door sensor misalignment', occurrences: 2, total: 4 },
     ],
     records: [
-      { id: 'H-002-1', date: '9 Mar 2026', technician: 'Faisal N.', techId: 'FN', result: 'partial', conditionScore: 58, durationMinutes: 95, findings: 'Monthly safety check. Motor vibration at 4.2mm/s — above 3.5mm/s threshold. Guide rails lubricated. Door sensors adjusted. Vibration issue escalated for specialist review.', onTime: false },
-      { id: 'H-002-2', date: '6 Feb 2026', technician: 'Faisal N.', techId: 'FN', result: 'pass', conditionScore: 64, durationMinutes: 80, findings: 'Monthly check completed. Light vibration noted (3.1mm/s — within tolerance). Rails lubricated. Emergency button tested and functional. Cabin lighting checked.', onTime: false },
-      { id: 'H-002-3', date: '5 Jan 2026', technician: 'Ahmed K.', techId: 'AK', result: 'fail', conditionScore: 55, durationMinutes: 180, findings: 'Motor overheating detected (82°C — limit is 75°C). Lift taken out of service for 4 hours. Motor cooling fan replaced. Bearings greased. Service resumed after cool-down.', partsUsed: ['Cooling Fan Assembly', 'Bearing Grease 500g'], onTime: true },
-      { id: 'H-002-4', date: '4 Dec 2025', technician: 'Faisal N.', techId: 'FN', result: 'partial', conditionScore: 62, durationMinutes: 90, findings: 'Motor vibration elevated (3.9mm/s). Door sensor on Floor 3 misaligned — adjusted and re-tested. Guide rails lubricated. Recommend motor inspection next service.', onTime: true },
-      { id: 'H-002-5', date: '2 Nov 2025', technician: 'Faisal N.', techId: 'FN', result: 'pass', conditionScore: 71, durationMinutes: 75, findings: 'Standard monthly check. All parameters within spec. No anomalies detected. Rails lubricated, emergency lighting tested.', onTime: true },
-      { id: 'H-002-6', date: '1 Oct 2025', technician: 'Ahmed K.', techId: 'AK', result: 'pass', conditionScore: 75, durationMinutes: 85, findings: 'Monthly safety inspection completed. Cabin interior checked. Safety switches tested. Drive belt tension verified. Asset in satisfactory condition.', onTime: false },
+      { id: 'H-002-1', date: '9 Mar 2026', inspector: 'Faisal N.', techId: 'FN', result: 'partial', conditionScore: 58, durationMinutes: 95, findings: 'Monthly safety check. Motor vibration at 4.2mm/s — above 3.5mm/s threshold. Guide rails lubricated. Door sensors adjusted. Vibration issue escalated for specialist review.', onTime: false },
+      { id: 'H-002-2', date: '6 Feb 2026', inspector: 'Faisal N.', techId: 'FN', result: 'pass', conditionScore: 64, durationMinutes: 80, findings: 'Monthly check completed. Light vibration noted (3.1mm/s — within tolerance). Rails lubricated. Emergency button tested and functional. Cabin lighting checked.', onTime: false },
+      { id: 'H-002-3', date: '5 Jan 2026', inspector: 'Ahmed K.', techId: 'AK', result: 'fail', conditionScore: 55, durationMinutes: 180, findings: 'Motor overheating detected (82°C — limit is 75°C). Lift taken out of service for 4 hours. Motor cooling fan replaced. Bearings greased. Service resumed after cool-down.', partsUsed: ['Cooling Fan Assembly', 'Bearing Grease 500g'], onTime: true },
+      { id: 'H-002-4', date: '4 Dec 2025', inspector: 'Faisal N.', techId: 'FN', result: 'partial', conditionScore: 62, durationMinutes: 90, findings: 'Motor vibration elevated (3.9mm/s). Door sensor on Floor 3 misaligned — adjusted and re-tested. Guide rails lubricated. Recommend motor inspection next service.', onTime: true },
+      { id: 'H-002-5', date: '2 Nov 2025', inspector: 'Faisal N.', techId: 'FN', result: 'pass', conditionScore: 71, durationMinutes: 75, findings: 'Standard monthly check. All parameters within spec. No anomalies detected. Rails lubricated, emergency lighting tested.', onTime: true },
+      { id: 'H-002-6', date: '1 Oct 2025', inspector: 'Ahmed K.', techId: 'AK', result: 'pass', conditionScore: 75, durationMinutes: 85, findings: 'Monthly safety inspection completed. Cabin interior checked. Safety switches tested. Drive belt tension verified. Asset in satisfactory condition.', onTime: false },
     ],
   },
   {
@@ -447,12 +447,12 @@ export const mockPPMHistory: PPMAssetHistory[] = [
       { finding: 'Fuel level verified and topped up', occurrences: 6, total: 6 },
     ],
     records: [
-      { id: 'H-003-1', date: '15 Jan 2026', technician: 'Sara M.', techId: 'SM', result: 'pass', conditionScore: 94, durationMinutes: 120, findings: 'Quarterly load test conducted at 80% rated capacity for 30 minutes. All readings nominal. Battery voltage 13.8V. Fuel at 92%. Coolant level OK.', onTime: true },
-      { id: 'H-003-2', date: '16 Oct 2025', technician: 'Sara M.', techId: 'SM', result: 'pass', conditionScore: 95, durationMinutes: 115, findings: 'Load test completed. Transfer switch tested — 2.3s switchover (within 3s SLA). Engine oil changed. Air filter cleaned. All systems nominal.', partsUsed: ['Engine Oil 5L', 'Air Filter'], onTime: true },
-      { id: 'H-003-3', date: '18 Jul 2025', technician: 'Omar T.', techId: 'OT', result: 'pass', conditionScore: 93, durationMinutes: 130, findings: 'Quarterly service. Load test at 75% capacity — stable. Voltage regulator tested. Fuel injectors cleaned. Battery replaced as preventive measure.', partsUsed: ['Battery 12V 100Ah'], onTime: true },
-      { id: 'H-003-4', date: '22 Apr 2025', technician: 'Sara M.', techId: 'SM', result: 'pass', conditionScore: 96, durationMinutes: 105, findings: 'Routine quarterly service. All parameters excellent. Load test completed. Radiator checked — no leaks. Coolant topped up. Asset in excellent condition.', partsUsed: ['Coolant 2L'], onTime: true },
-      { id: 'H-003-5', date: '19 Jan 2025', technician: 'Sara M.', techId: 'SM', result: 'pass', conditionScore: 95, durationMinutes: 118, findings: 'Quarterly load test completed — 85% rated capacity for 35 minutes. All fuel, battery, coolant, and oil readings within spec. Exhaust checked — no abnormal emissions. No issues found.', onTime: true },
-      { id: 'H-003-6', date: '20 Oct 2024', technician: 'Omar T.', techId: 'OT', result: 'pass', conditionScore: 97, durationMinutes: 108, findings: 'Quarterly service. Load test at 80% capacity — generator held load steadily for 30 minutes. Engine oil changed. Air filter replaced. Fuel topped up to 100%. Asset performing excellently.', partsUsed: ['Engine Oil 5L', 'Air Filter'], onTime: true },
+      { id: 'H-003-1', date: '15 Jan 2026', inspector: 'Sara M.', techId: 'SM', result: 'pass', conditionScore: 94, durationMinutes: 120, findings: 'Quarterly load test conducted at 80% rated capacity for 30 minutes. All readings nominal. Battery voltage 13.8V. Fuel at 92%. Coolant level OK.', onTime: true },
+      { id: 'H-003-2', date: '16 Oct 2025', inspector: 'Sara M.', techId: 'SM', result: 'pass', conditionScore: 95, durationMinutes: 115, findings: 'Load test completed. Transfer switch tested — 2.3s switchover (within 3s SLA). Engine oil changed. Air filter cleaned. All systems nominal.', partsUsed: ['Engine Oil 5L', 'Air Filter'], onTime: true },
+      { id: 'H-003-3', date: '18 Jul 2025', inspector: 'Omar T.', techId: 'OT', result: 'pass', conditionScore: 93, durationMinutes: 130, findings: 'Quarterly service. Load test at 75% capacity — stable. Voltage regulator tested. Fuel injectors cleaned. Battery replaced as preventive measure.', partsUsed: ['Battery 12V 100Ah'], onTime: true },
+      { id: 'H-003-4', date: '22 Apr 2025', inspector: 'Sara M.', techId: 'SM', result: 'pass', conditionScore: 96, durationMinutes: 105, findings: 'Routine quarterly service. All parameters excellent. Load test completed. Radiator checked — no leaks. Coolant topped up. Asset in excellent condition.', partsUsed: ['Coolant 2L'], onTime: true },
+      { id: 'H-003-5', date: '19 Jan 2025', inspector: 'Sara M.', techId: 'SM', result: 'pass', conditionScore: 95, durationMinutes: 118, findings: 'Quarterly load test completed — 85% rated capacity for 35 minutes. All fuel, battery, coolant, and oil readings within spec. Exhaust checked — no abnormal emissions. No issues found.', onTime: true },
+      { id: 'H-003-6', date: '20 Oct 2024', inspector: 'Omar T.', techId: 'OT', result: 'pass', conditionScore: 97, durationMinutes: 108, findings: 'Quarterly service. Load test at 80% capacity — generator held load steadily for 30 minutes. Engine oil changed. Air filter replaced. Fuel topped up to 100%. Asset performing excellently.', partsUsed: ['Engine Oil 5L', 'Air Filter'], onTime: true },
     ],
   },
   {
@@ -468,12 +468,12 @@ export const mockPPMHistory: PPMAssetHistory[] = [
       { finding: 'Strainer cleaning required', occurrences: 2, total: 6 },
     ],
     records: [
-      { id: 'H-004-1', date: '31 Mar 2026', technician: 'Ahmed K.', techId: 'AK', result: 'partial', conditionScore: 89, durationMinutes: 65, findings: 'Monthly inspection. Pressure variance of ±0.4 bar noted — borderline tolerance. Impeller inspected — minor leading-edge wear detected. Seals intact. Monitoring recommended.', onTime: true },
-      { id: 'H-004-2', date: '28 Feb 2026', technician: 'Ahmed K.', techId: 'AK', result: 'pass', conditionScore: 91, durationMinutes: 60, findings: 'Routine inspection completed. Pump pressure stable. Flow rate at 98% nominal. Impeller clear. No issues noted.', onTime: true },
-      { id: 'H-004-3', date: '30 Jan 2026', technician: 'Faisal N.', techId: 'FN', result: 'partial', conditionScore: 87, durationMinutes: 80, findings: 'Pressure oscillation of ±0.5 bar detected during inspection. Strainer cleaned — significant debris found. Pressure stabilised post-clean. Impeller checked — intact.', onTime: false },
-      { id: 'H-004-4', date: '31 Dec 2025', technician: 'Ahmed K.', techId: 'AK', result: 'pass', conditionScore: 92, durationMinutes: 55, findings: 'Year-end inspection. All readings nominal. Pump running smoothly. Seals and gaskets in good condition. Lubrication applied to motor bearings.', partsUsed: ['Bearing Lubricant'], onTime: true },
-      { id: 'H-004-5', date: '30 Nov 2025', technician: 'Ahmed K.', techId: 'AK', result: 'partial', conditionScore: 88, durationMinutes: 70, findings: 'Pressure variance of ±0.3 bar first observed this service. Strainer inspected — light debris accumulation cleared. Impeller checked, no wear. Seals intact. Flagged for monitoring.', onTime: true },
-      { id: 'H-004-6', date: '31 Oct 2025', technician: 'Faisal N.', techId: 'FN', result: 'pass', conditionScore: 93, durationMinutes: 58, findings: 'Monthly inspection. All pressures nominal. Impeller visually inspected — clear. Seals checked — no leaks. Motor temperature within limits. Asset in good condition.', onTime: true },
+      { id: 'H-004-1', date: '31 Mar 2026', inspector: 'Ahmed K.', techId: 'AK', result: 'partial', conditionScore: 89, durationMinutes: 65, findings: 'Monthly inspection. Pressure variance of ±0.4 bar noted — borderline tolerance. Impeller inspected — minor leading-edge wear detected. Seals intact. Monitoring recommended.', onTime: true },
+      { id: 'H-004-2', date: '28 Feb 2026', inspector: 'Ahmed K.', techId: 'AK', result: 'pass', conditionScore: 91, durationMinutes: 60, findings: 'Routine inspection completed. Pump pressure stable. Flow rate at 98% nominal. Impeller clear. No issues noted.', onTime: true },
+      { id: 'H-004-3', date: '30 Jan 2026', inspector: 'Faisal N.', techId: 'FN', result: 'partial', conditionScore: 87, durationMinutes: 80, findings: 'Pressure oscillation of ±0.5 bar detected during inspection. Strainer cleaned — significant debris found. Pressure stabilised post-clean. Impeller checked — intact.', onTime: false },
+      { id: 'H-004-4', date: '31 Dec 2025', inspector: 'Ahmed K.', techId: 'AK', result: 'pass', conditionScore: 92, durationMinutes: 55, findings: 'Year-end inspection. All readings nominal. Pump running smoothly. Seals and gaskets in good condition. Lubrication applied to motor bearings.', partsUsed: ['Bearing Lubricant'], onTime: true },
+      { id: 'H-004-5', date: '30 Nov 2025', inspector: 'Ahmed K.', techId: 'AK', result: 'partial', conditionScore: 88, durationMinutes: 70, findings: 'Pressure variance of ±0.3 bar first observed this service. Strainer inspected — light debris accumulation cleared. Impeller checked, no wear. Seals intact. Flagged for monitoring.', onTime: true },
+      { id: 'H-004-6', date: '31 Oct 2025', inspector: 'Faisal N.', techId: 'FN', result: 'pass', conditionScore: 93, durationMinutes: 58, findings: 'Monthly inspection. All pressures nominal. Impeller visually inspected — clear. Seals checked — no leaks. Motor temperature within limits. Asset in good condition.', onTime: true },
     ],
   },
   {
@@ -488,12 +488,12 @@ export const mockPPMHistory: PPMAssetHistory[] = [
       { finding: 'Alarm sounders and strobes tested', occurrences: 6, total: 6 },
     ],
     records: [
-      { id: 'H-005-1', date: '20 Sep 2025', technician: 'Sara M.', techId: 'SM', result: 'pass', conditionScore: 97, durationMinutes: 180, findings: '6-month inspection completed. All 48 zone detectors tested and functional. Panel battery backup duration verified at 72 hours. All sounders and strobes tested. Regulatory sign-off completed.', onTime: true },
-      { id: 'H-005-2', date: '22 Mar 2025', technician: 'Sara M.', techId: 'SM', result: 'pass', conditionScore: 98, durationMinutes: 175, findings: 'Bi-annual inspection. Detector sensitivity calibrated. Manual call points tested. Control panel firmware updated to v3.2.1. All outputs verified functional.', partsUsed: ['Firmware Update Kit'], onTime: true },
-      { id: 'H-005-3', date: '20 Sep 2024', technician: 'Omar T.', techId: 'OT', result: 'pass', conditionScore: 99, durationMinutes: 165, findings: 'Full 6-month fire panel inspection. All systems passed. No faults or degradation detected. Panel in excellent condition. Next inspection due March 2025.', onTime: true },
-      { id: 'H-005-4', date: '21 Mar 2024', technician: 'Sara M.', techId: 'SM', result: 'pass', conditionScore: 98, durationMinutes: 178, findings: 'Bi-annual inspection completed. All 48 detectors functioning. Manual call points across all zones tested — all operational. Battery backup load-tested — 72-hour capacity confirmed. Regulatory checklist signed off.', onTime: true },
-      { id: 'H-005-5', date: '22 Sep 2023', technician: 'Sara M.', techId: 'SM', result: 'pass', conditionScore: 97, durationMinutes: 172, findings: '6-month inspection. Control panel diagnostics run — no fault codes. All zones active. Sounder circuit tested in all zones. Fault LED test passed. Battery checked — 12.9V open circuit voltage.', onTime: true },
-      { id: 'H-005-6', date: '24 Mar 2023', technician: 'Omar T.', techId: 'OT', result: 'pass', conditionScore: 96, durationMinutes: 160, findings: 'Annual inspection and bi-annual interim. All detectors, sounders, and manual call points tested. Control panel Earth fault checked — none detected. Panel cleaned. Sign-off documentation submitted to compliance team.', onTime: true },
+      { id: 'H-005-1', date: '20 Sep 2025', inspector: 'Sara M.', techId: 'SM', result: 'pass', conditionScore: 97, durationMinutes: 180, findings: '6-month inspection completed. All 48 zone detectors tested and functional. Panel battery backup duration verified at 72 hours. All sounders and strobes tested. Regulatory sign-off completed.', onTime: true },
+      { id: 'H-005-2', date: '22 Mar 2025', inspector: 'Sara M.', techId: 'SM', result: 'pass', conditionScore: 98, durationMinutes: 175, findings: 'Bi-annual inspection. Detector sensitivity calibrated. Manual call points tested. Control panel firmware updated to v3.2.1. All outputs verified functional.', partsUsed: ['Firmware Update Kit'], onTime: true },
+      { id: 'H-005-3', date: '20 Sep 2024', inspector: 'Omar T.', techId: 'OT', result: 'pass', conditionScore: 99, durationMinutes: 165, findings: 'Full 6-month fire panel inspection. All systems passed. No faults or degradation detected. Panel in excellent condition. Next inspection due March 2025.', onTime: true },
+      { id: 'H-005-4', date: '21 Mar 2024', inspector: 'Sara M.', techId: 'SM', result: 'pass', conditionScore: 98, durationMinutes: 178, findings: 'Bi-annual inspection completed. All 48 detectors functioning. Manual call points across all zones tested — all operational. Battery backup load-tested — 72-hour capacity confirmed. Regulatory checklist signed off.', onTime: true },
+      { id: 'H-005-5', date: '22 Sep 2023', inspector: 'Sara M.', techId: 'SM', result: 'pass', conditionScore: 97, durationMinutes: 172, findings: '6-month inspection. Control panel diagnostics run — no fault codes. All zones active. Sounder circuit tested in all zones. Fault LED test passed. Battery checked — 12.9V open circuit voltage.', onTime: true },
+      { id: 'H-005-6', date: '24 Mar 2023', inspector: 'Omar T.', techId: 'OT', result: 'pass', conditionScore: 96, durationMinutes: 160, findings: 'Annual inspection and bi-annual interim. All detectors, sounders, and manual call points tested. Control panel Earth fault checked — none detected. Panel cleaned. Sign-off documentation submitted to compliance team.', onTime: true },
     ],
   },
 ];
@@ -632,7 +632,7 @@ export const mockDataSources = [
     owner: 'Supervisors', frequency: 'On scan',
     feeds: ['Inspection records', 'Checklists'],
     errors: [] as { time: string; message: string; severity: string }[],
-    description: 'Mobile QR code scanning for physical asset inspections. Technicians scan on-site to log inspection results.',
+    description: 'Mobile QR code scanning for physical asset inspections. Inspectors scan on-site to log inspection results.',
   },
   {
     id: 'DS-005', name: 'Oracle ERP', type: 'External System', status: 'syncing' as const,
@@ -1272,7 +1272,7 @@ export const mockAICaptures = [
   {
     id: 'AIC-008', category: 'Safety Equipment', subCategory: 'Hazardous Gas Leak',
     title: 'Oily Residue Near Compressor Unit', location: 'Roof — Block D',
-    severity: 'high', confidence: 83, source: 'Technician Photo',
+    severity: 'high', confidence: 83, source: 'Inspector Photo',
     capturedAt: '08:55 AM', status: 'pending' as const,
     linkedIncident: null, linkedJob: 'KT-012',
     signals: [
@@ -1357,7 +1357,7 @@ export interface PortfolioClient {
     accountManager: PortfolioClientPerson;
     fmManager: PortfolioClientPerson;
     supervisors: PortfolioClientPerson[];
-    technicians: PortfolioClientPerson[];
+    inspectors: PortfolioClientPerson[];
   };
   resources: PortfolioClientResources;
   contract: PortfolioClientContract;
@@ -1404,7 +1404,7 @@ export const mockPortfolioClients: PortfolioClient[] = [
         { name: 'Tariq Mansour', role: 'Site Supervisor', initials: 'TM', status: 'on-site', skill: 'Fall Protection & Electrical Safety' },
         { name: 'Layla Nour', role: 'Compliance Lead', initials: 'LN', status: 'available', skill: 'Safety & Inspections' },
       ],
-      technicians: [
+      inspectors: [
         { name: 'Karim R.', role: 'Fall Protection Specialist', initials: 'KR', status: 'on-site', skill: 'Safety Equipment', jobsThisMonth: 18, slaRate: 94 },
         { name: 'Ahmed K.', role: 'Plumber', initials: 'AK', status: 'transit', skill: 'Plumbing', jobsThisMonth: 12, slaRate: 91 },
         { name: 'Sara M.', role: 'Electrician', initials: 'SM', status: 'available', skill: 'Electrical', jobsThisMonth: 15, slaRate: 97 },
@@ -1487,8 +1487,8 @@ export const mockPortfolioClients: PortfolioClient[] = [
       supervisors: [
         { name: 'Amira Haddad', role: 'Operations Supervisor', initials: 'AH', status: 'on-site', skill: 'Retail Safety' },
       ],
-      technicians: [
-        { name: 'Omar T.', role: 'MEP Technician', initials: 'OT', status: 'on-site', skill: 'Electrical', jobsThisMonth: 14, slaRate: 99 },
+      inspectors: [
+        { name: 'Omar T.', role: 'MEP Inspector', initials: 'OT', status: 'on-site', skill: 'Electrical', jobsThisMonth: 14, slaRate: 99 },
         { name: 'Bilal S.', role: 'Safety Inspector', initials: 'BS', status: 'available', skill: 'Safety Equipment', jobsThisMonth: 11, slaRate: 97 },
         { name: 'Nour A.', role: 'General Tech', initials: 'NA', status: 'available', skill: 'General', jobsThisMonth: 9, slaRate: 96 },
       ],
@@ -1568,7 +1568,7 @@ export const mockPortfolioClients: PortfolioClient[] = [
         { name: 'Yusuf Rahimi', role: 'Operations Supervisor', initials: 'YR', status: 'on-site', skill: 'MEP' },
         { name: 'Dana Saleh', role: 'Safety Supervisor', initials: 'DS', status: 'off-duty', skill: 'Safety' },
       ],
-      technicians: [
+      inspectors: [
         { name: 'Rami B.', role: 'Electrical Tech', initials: 'RB', status: 'on-site', skill: 'Electrical', jobsThisMonth: 16, slaRate: 78 },
         { name: 'Ali M.', role: 'Fall Protection Specialist', initials: 'AM', status: 'transit', skill: 'Safety Equipment', jobsThisMonth: 14, slaRate: 82 },
         { name: 'Hassan T.', role: 'Plumber', initials: 'HT', status: 'off-duty', skill: 'Plumbing', jobsThisMonth: 8, slaRate: 75 },
@@ -1650,7 +1650,7 @@ export const mockPortfolioClients: PortfolioClient[] = [
       supervisors: [
         { name: 'Ismail Rashid', role: 'Site Supervisor', initials: 'IR', status: 'on-site', skill: 'General HSE' },
       ],
-      technicians: [
+      inspectors: [
         { name: 'Tariq H.', role: 'Safety Inspector', initials: 'TH', status: 'on-site', skill: 'Safety Equipment', jobsThisMonth: 22, slaRate: 63 },
         { name: 'Ziad K.', role: 'Electrician', initials: 'ZK', status: 'on-site', skill: 'Electrical', jobsThisMonth: 19, slaRate: 68 },
       ],
@@ -1732,7 +1732,7 @@ export const mockPortfolioClients: PortfolioClient[] = [
         { name: 'Samira Kamel', role: 'Community Supervisor', initials: 'SK', status: 'on-site', skill: 'Spill Response & Permits' },
         { name: 'Adel Farouk', role: 'Safety Lead', initials: 'AF', status: 'available', skill: 'Safety & Compliance' },
       ],
-      technicians: [
+      inspectors: [
         { name: 'Malik R.', role: 'Plumber', initials: 'MR', status: 'on-site', skill: 'Plumbing', jobsThisMonth: 13, slaRate: 87 },
         { name: 'Jad T.', role: 'General Tech', initials: 'JT', status: 'transit', skill: 'General', jobsThisMonth: 11, slaRate: 84 },
         { name: 'Rana H.', role: 'Electrician', initials: 'RH', status: 'available', skill: 'Electrical', jobsThisMonth: 9, slaRate: 91 },
@@ -1815,7 +1815,7 @@ export const mockPortfolioClients: PortfolioClient[] = [
         { name: 'Camille Raza', role: 'Luxury Standards Supervisor', initials: 'CR', status: 'on-site', skill: 'MEP & Safety Concierge' },
         { name: 'Nabil Oueida', role: 'Engineering Supervisor', initials: 'NO', status: 'available', skill: 'Fall Protection & BMS' },
       ],
-      technicians: [
+      inspectors: [
         { name: 'Emad S.', role: 'Safety Systems Specialist', initials: 'ES', status: 'available', skill: 'Safety Systems', jobsThisMonth: 8, slaRate: 100 },
         { name: 'Lara K.', role: 'Fall Protection Specialist', initials: 'LK', status: 'on-site', skill: 'Safety Equipment', jobsThisMonth: 10, slaRate: 96 },
         { name: 'Fares M.', role: 'Electrician', initials: 'FM', status: 'available', skill: 'Electrical', jobsThisMonth: 7, slaRate: 97 },
@@ -2094,7 +2094,7 @@ export const mockKBResources: KBResource[] = [
       {
         title: 'Pre-service planning and isolation',
         body: 'Review the asset history and last service report. Confirm the service window with building management. Isolate the gas detector at the main MCC and attach lockout tags. Close all calibration gas circuit valves and allow 10 minutes for pressure equalisation.',
-        warning: 'Central gas detector units operate at high calibration gas pressures (200–400 PSI). All technicians must hold a valid calibration gas handling certificate.',
+        warning: 'Central gas detector units operate at high calibration gas pressures (200–400 PSI). All inspectors must hold a valid calibration gas handling certificate.',
       },
       {
         title: 'Condenser coil inspection and cleaning',
@@ -2192,7 +2192,7 @@ export const mockKBResources: KBResource[] = [
       },
       {
         title: 'Final inspection and tag',
-        body: 'Pull the pin and squeeze the trigger briefly to confirm pressure. Replace the pin and fit a new tamper seal. Attach a new inspection tag showing the service date, technician name, and next service date.',
+        body: 'Pull the pin and squeeze the trigger briefly to confirm pressure. Replace the pin and fit a new tamper seal. Attach a new inspection tag showing the service date, inspector name, and next service date.',
       },
     ],
   },

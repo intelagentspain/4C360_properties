@@ -166,7 +166,7 @@ export function ResidentMobilePortal({ residentId = 'res-001', onToast }: Props)
                 <Sparkles size={17} className="text-[#E11D2E]" />
                 <h3 className="text-sm font-black">AI request pulse</h3>
               </div>
-              <p className="mt-3 text-sm leading-6 text-slate-600">Your HVAC request is active and expected today. AI suggests keeping the thermostat photo available for the technician.</p>
+              <p className="mt-3 text-sm leading-6 text-slate-600">Your HVAC request is active and expected today. AI suggests keeping the thermostat photo available for the inspector.</p>
             </MobileCard>
           </>
         )}
@@ -266,7 +266,7 @@ export function ResidentMobilePortal({ residentId = 'res-001', onToast }: Props)
             </MobileCard>
             <MobileCard>
               <h3 className="text-sm font-black">Messages</h3>
-              <div className="mt-3 rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">Management: We have assigned your request and will update you when the technician arrives.</div>
+              <div className="mt-3 rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">Management: We have assigned your request and will update you when the inspector arrives.</div>
               <button type="button" onClick={() => onToast?.('Reply composer ready', 'info')} className="mt-4 h-11 w-full rounded-2xl border border-slate-200 text-sm font-black text-slate-700">Reply to Management</button>
             </MobileCard>
             <button type="button" onClick={() => onToast?.('Resolution confirmation saved', 'success')} className="h-13 w-full rounded-3xl bg-[#07111F] py-4 text-sm font-black text-white">Confirm Resolution</button>

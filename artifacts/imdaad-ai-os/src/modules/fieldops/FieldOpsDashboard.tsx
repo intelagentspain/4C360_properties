@@ -186,11 +186,11 @@ const aiDraftProfiles: Record<string, AiDraftProfile> = {
     duration: '12-15 minutes',
     frequency: 'Weekly',
     focus: 'landing doors, cabin safety, alarms, machine-room checks, and emergency response',
-    evidence: 'photos, safety pass/fail checks, technician notes, and signature',
+    evidence: 'photos, safety pass/fail checks, inspector notes, and signature',
     questionSections: [
       { title: 'Cabin & Landing Checks', questions: ['Inspect cabin lighting, buttons, and emergency phone', 'Confirm landing doors close cleanly on sampled floors', 'Check lift levelling at each tested landing'] },
       { title: 'Safety Systems', questions: ['Test alarm and intercom response', 'Confirm overload warning is operational', 'Verify emergency stop and signage condition'] },
-      { title: 'Evidence & Sign-off', questions: ['Upload photo of any failed safety item', 'Record technician notes for defects', 'Collect supervisor signature before submission'] },
+      { title: 'Evidence & Sign-off', questions: ['Upload photo of any failed safety item', 'Record inspector notes for defects', 'Collect supervisor signature before submission'] },
     ],
   },
   'Cleaning Audit': {
@@ -558,7 +558,7 @@ function getTemplatePreview(template: FieldOpsTemplate) {
       sections: [
         { title: 'Cabin & Landing Checks', checks: ['Inspect doors, buttons, lighting, and emergency phone', 'Confirm landing alignment at sampled floors'] },
         { title: 'Safety Verification', checks: ['Validate alarm response', 'Capture photo evidence for defects'] },
-        { title: 'Sign-off', checks: ['Technician notes', 'Supervisor signature'] },
+        { title: 'Sign-off', checks: ['Inspector notes', 'Supervisor signature'] },
       ],
       triggers: ['Failed safety check creates high-priority incident', 'Missing signature keeps submission pending'],
     };
@@ -642,7 +642,7 @@ function getCopilotGuidance(text: string) {
   if (lower.includes('temperature') || lower.includes('differential')) return 'Measure entering and leaving temperatures after the system stabilises, compare against the expected differential, and note ambient conditions if readings are abnormal.';
   if (lower.includes('lockout') || lower.includes('isolation')) return 'Verify isolation signage, lock/tag reference, responsible person, and stored-energy release before touching equipment. Stop the survey if isolation is unclear.';
   if (lower.includes('fire') || lower.includes('alarm') || lower.includes('pump')) return 'Check panel status, active faults, accessibility, and last service tag. Photograph failed or impaired life-safety equipment and escalate immediately.';
-  if (lower.includes('lift') || lower.includes('door') || lower.includes('emergency')) return 'Test the item safely with the vendor or authorised technician present. Confirm response, alignment, signage, and any fault indication before marking pass.';
+  if (lower.includes('lift') || lower.includes('door') || lower.includes('emergency')) return 'Test the item safely with the vendor or authorised inspector present. Confirm response, alignment, signage, and any fault indication before marking pass.';
   if (lower.includes('gps') || lower.includes('qr') || lower.includes('scan') || lower.includes('asset')) return 'Stand at the inspected asset or zone, scan the QR if available, confirm the location shown in the app, and correct the asset reference before submitting.';
   if (lower.includes('permit')) return 'Check the permit number, validity window, scope, authorised supervisor, required controls, and work area match before allowing work to continue.';
   if (lower.includes('defect') || lower.includes('failed') || lower.includes('abnormal')) return 'Describe the failure clearly, capture a close-up and wider context photo, record severity, and assign the corrective owner before moving on.';

@@ -21,7 +21,7 @@ interface Step {
 
 const STEPS: Step[] = [
   { id: 'received',   label: 'Request Received',       time: '10:14 AM', status: 'done',   icon: <CheckCircle size={11} /> },
-  { id: 'assigned',   label: 'Technician Assigned',    time: '10:14 AM', status: 'done',   icon: <Shield size={11} /> },
+  { id: 'assigned',   label: 'Inspector Assigned',    time: '10:14 AM', status: 'done',   icon: <Shield size={11} /> },
   { id: 'enroute',    label: 'En Route',               time: '10:16 AM', status: 'active', icon: <Navigation size={11} /> },
   { id: 'inprogress', label: 'Repair in Progress',                       status: 'pending', icon: <Wrench size={11} /> },
   { id: 'completed',  label: 'Completed & Confirmed',                    status: 'pending', icon: <CheckCircle size={11} /> },
@@ -232,7 +232,7 @@ export function ServiceTimeline() {
         </div>
         <div className="p-3 space-y-2">
           <div className="text-[11px] text-[#7A94B4]">
-            Your technician will upload before &amp; after photos. They'll appear here once the job starts.
+            Your inspector will upload before &amp; after photos. They'll appear here once the job starts.
           </div>
           <div className="grid grid-cols-2 gap-2">
             {['Before', 'After'].map(label => (

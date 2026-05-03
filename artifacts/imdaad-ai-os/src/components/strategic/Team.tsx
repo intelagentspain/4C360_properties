@@ -1067,10 +1067,10 @@ export function Team({ onToast }: Props) {
         <div className="flex items-center justify-between px-5 py-3 border-b border-[rgba(46,127,255,0.15)] flex-shrink-0">
           <div>
             <h2 className="text-[#EEF3FA] font-bold text-base" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-              Technician Intelligence &amp; Performance Control
+              Inspector Intelligence &amp; Performance Control
             </h2>
             <p className="text-[11px] text-[#7A94B4]">
-              Internal staff &amp; technicians · {teamMembers.length} members
+              Internal staff &amp; inspectors · {teamMembers.length} members
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -1222,7 +1222,7 @@ export function Team({ onToast }: Props) {
                 <div>
                   <div className="flex items-center gap-2 mb-2">
                     <AlertTriangle size={12} className="text-red-400" />
-                    <span className="text-[10px] font-bold text-red-400 uppercase tracking-widest">At-Risk Technicians</span>
+                    <span className="text-[10px] font-bold text-red-400 uppercase tracking-widest">At-Risk Inspectors</span>
                     <div className="flex-1 h-px bg-red-500/15" />
                   </div>
                   <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">

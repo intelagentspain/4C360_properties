@@ -86,7 +86,7 @@ const moduleDefaults: ModuleToggle[] = [
     id: 'field-ops',
     name: 'FieldOps',
     tagline: 'Trade services',
-    description: 'Technician dispatch, job execution, evidence capture, parts, and field productivity.',
+    description: 'Inspector dispatch, job execution, evidence capture, parts, and field productivity.',
     owner: 'In-house',
     active: true,
     icon: SlidersHorizontal,
@@ -132,7 +132,7 @@ const moduleDetails: Record<string, { workflows: string[]; rules: string[]; poli
     policies: ['Photos are linked to organisation records', 'Sensitive captures require role approval', 'AI labels are editable by authorised users'],
   },
   'service-desk': {
-    workflows: ['Create work order', 'Assign technician', 'Verify completion evidence', 'Close with SLA outcome'],
+    workflows: ['Create work order', 'Assign inspector', 'Verify completion evidence', 'Close with SLA outcome'],
     rules: ['High severity requires supervisor approval', 'Overdue work orders escalate automatically', 'Evidence required before closure'],
     policies: ['Contractors see assigned jobs only', 'Site-visible notes require approval', 'Edits are retained in work-order history'],
   },
@@ -147,8 +147,8 @@ const moduleDetails: Record<string, { workflows: string[]; rules: string[]; poli
     policies: ['PPM changes require management role', 'Vendor PPM access is limited by contract', 'Asset history is retained for compliance'],
   },
   'field-ops': {
-    workflows: ['Dispatch technician', 'Execute field job', 'Capture evidence', 'Close with supervisor review'],
-    rules: ['Technicians see assigned jobs only', 'Critical jobs require live status updates', 'Parts requests notify inventory owner'],
+    workflows: ['Dispatch inspector', 'Execute field job', 'Capture evidence', 'Close with supervisor review'],
+    rules: ['Inspectors see assigned jobs only', 'Critical jobs require live status updates', 'Parts requests notify inventory owner'],
     policies: ['Field actions are timestamped', 'Offline updates sync to the organisation record', 'Evidence is required for selected job types'],
   },
   'project-command': {
@@ -248,7 +248,7 @@ function moduleTeam(module: ModuleToggle, profiles: MockMemberProfile[]) {
   const query = `${module.owner} ${module.name}`.toLowerCase();
   const matched = profiles.filter(profile => {
     const haystack = `${profile.name} ${profile.role} ${profile.perspective} ${profile.skills} ${profile.responsibilities}`.toLowerCase();
-    if (query.includes('contractor') || query.includes('facility')) return /contractor|engineer|technician|fm engineer/i.test(haystack);
+    if (query.includes('contractor') || query.includes('facility')) return /contractor|engineer|inspector|fm engineer/i.test(haystack);
     if (query.includes('partner') || query.includes('snapfix') || query.includes('green')) return /operational|engineer|supervisor|field/i.test(haystack);
     if (query.includes('management') || query.includes('vendor') || query.includes('project')) return /manager|management|executive|strategic|supervisor/i.test(haystack);
     if (query.includes('operations') || query.includes('service') || query.includes('field')) return /operational|strategic|engineer|supervisor|manager/i.test(haystack);

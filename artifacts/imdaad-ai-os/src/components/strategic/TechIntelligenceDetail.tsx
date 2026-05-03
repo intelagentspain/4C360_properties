@@ -67,7 +67,7 @@ export interface TechIntelData {
  *   'down' → projectedScore = score - round(8 * (100 - slaCompliance)/100 + repeatVisitRate * 0.3)
  *
  * Insights are generated from actual metric combinations (SLA, FTFR, response, evidence, repeat).
- * Recommendations are derived from the lowest-scoring driver for each technician.
+ * Recommendations are derived from the lowest-scoring driver for each inspector.
  */
 export const TECH_INTELLIGENCE: Record<string, TechIntelData> = {
   'Karim R.': {
@@ -115,7 +115,7 @@ export const TECH_INTELLIGENCE: Record<string, TechIntelData> = {
       },
       {
         title: 'Consider mentorship pairing',
-        detail: 'Pair with at-risk technicians (Omar T.) for 2 joint jobs per week to raise team floor without impacting his capacity.',
+        detail: 'Pair with at-risk inspectors (Omar T.) for 2 joint jobs per week to raise team floor without impacting his capacity.',
       },
       {
         title: 'Cap active workload at 4 jobs',
@@ -281,7 +281,7 @@ export const TECH_INTELLIGENCE: Record<string, TechIntelData> = {
       },
       {
         title: 'Leverage supervisory experience',
-        detail: 'Pair Tariq with At-Risk technicians (Omar T., Faisal N.) for 2 joint jobs per week. Evidence shows knowledge transfer boosts junior tech scores by ~6 points in 30 days.',
+        detail: 'Pair Tariq with At-Risk inspectors (Omar T., Faisal N.) for 2 joint jobs per week. Evidence shows knowledge transfer boosts junior tech scores by ~6 points in 30 days.',
       },
     ],
   },
@@ -335,7 +335,7 @@ export const TECH_INTELLIGENCE: Record<string, TechIntelData> = {
       },
       {
         title: 'Dispatch optimisation: route only Plumbing',
-        detail: 'Redirect General and Electrical jobs to other technicians. Focus Ahmed exclusively on Plumbing to maximise first-time fix rate.',
+        detail: 'Redirect General and Electrical jobs to other inspectors. Focus Ahmed exclusively on Plumbing to maximise first-time fix rate.',
       },
     ],
   },
@@ -421,7 +421,7 @@ export const TECH_INTELLIGENCE: Record<string, TechIntelData> = {
     primaryConcern: '4 SLA breaches this week — critical intervention required',
     specialization: 'Electrical',
     insights: [
-      'Performance score of 54 is 21 points below team average and declining — this technician requires immediate supervisory intervention.',
+      'Performance score of 54 is 21 points below team average and declining — this inspector requires immediate supervisory intervention.',
       'SLA compliance at 61% means 39% of jobs are delivered late; 4 breaches in the last week is a systemic pattern, not isolated incidents.',
       'Evidence compliance at 65% is the lowest on the team — 35% of jobs lack required photo documentation.',
       'Repeat visit rate of 22% indicates significant diagnostic accuracy issues; nearly 1 in 4 jobs requires a return visit.',
@@ -633,7 +633,7 @@ export function TechIntelligenceDetail({ member, intel, onBack, onEditProfile, o
                 {'  ·  '}
                 <span>SLA risk: {intel.slaDrop30d}%</span>
               </p>
-              <p>Recommending {member.name} for <strong className="text-[#EEF3FA]">{intel.specialization}</strong> jobs only — routing non-core jobs to backup technicians reduces SLA risk by 34%.</p>
+              <p>Recommending {member.name} for <strong className="text-[#EEF3FA]">{intel.specialization}</strong> jobs only — routing non-core jobs to backup inspectors reduces SLA risk by 34%.</p>
               <p>Optimal dispatch window: <strong className="text-[#EEF3FA]">08:00–14:00</strong> (peak performance period based on 90-day history).</p>
               {intel.workload.active >= 4 && (
                 <p className="text-amber-400 font-semibold">⚠ Current workload above recommended threshold — dispatch additional jobs with caution.</p>
@@ -935,7 +935,7 @@ function generateDefaultIntel(name: string): TechIntelData {
         detail: 'Require before and after photos on every job from the start. Teams that build this habit early average 9 points higher evidence compliance scores.',
       },
       {
-        title: 'Assign to a mentor technician',
+        title: 'Assign to a mentor inspector',
         detail: 'Pair with a High Performer for the first 5 jobs. Knowledge transfer in early assignments raises first-time fix rates by an average of 8 points.',
       },
     ],

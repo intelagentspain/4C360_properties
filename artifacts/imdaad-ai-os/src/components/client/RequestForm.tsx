@@ -66,7 +66,7 @@ export function RequestForm({ onSubmit, onToast }: Props) {
             { label: 'Issue type',      value: cls.category,              color: '' },
             { label: 'AI confidence',   value: `${cls.confidence}%`,      color: 'text-emerald-400 font-bold' },
             { label: 'Location',        value: 'Villa 23',                color: '' },
-            { label: 'Technician',      value: 'Karim R. · HVAC',         color: '' },
+            { label: 'Inspector',      value: 'Karim R. · HVAC',         color: '' },
             { label: 'ETA',             value: '~18 minutes',             color: 'text-emerald-400' },
             { label: 'SLA commitment',  value: cls.slaWindow,             color: '' },
           ].map(r => (

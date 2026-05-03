@@ -9,7 +9,7 @@ interface Props {
 const ALL_PERMISSIONS = [
   'View Work Orders',
   'Manage Work Orders',
-  'Dispatch Technicians',
+  'Dispatch Inspectors',
   'View Reports',
   'Export Reports',
   'Manage Sites',
@@ -46,14 +46,14 @@ const MOCK_ROLES: Role[] = [
     id: 'ROLE-003',
     name: 'Supervisor',
     description: 'Oversees teams, approves dispatches, and manages escalations.',
-    permissions: ['View Work Orders', 'Manage Work Orders', 'Dispatch Technicians', 'View Reports', 'Override AI Dispatch'],
+    permissions: ['View Work Orders', 'Manage Work Orders', 'Dispatch Inspectors', 'View Reports', 'Override AI Dispatch'],
     staffCount: 12,
   },
   {
     id: 'ROLE-004',
     name: 'Operations Manager',
     description: 'Full access to operations data and staff management.',
-    permissions: ['View Work Orders', 'Manage Work Orders', 'Dispatch Technicians', 'View Reports', 'Export Reports', 'Manage Staff', 'Override AI Dispatch'],
+    permissions: ['View Work Orders', 'Manage Work Orders', 'Dispatch Inspectors', 'View Reports', 'Export Reports', 'Manage Staff', 'Override AI Dispatch'],
     staffCount: 4,
   },
 ];
@@ -174,7 +174,7 @@ export function RolesSettings({ onToast }: Props) {
               <input
                 value={form.name}
                 onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                placeholder="e.g. Senior Technician"
+                placeholder="e.g. Senior Inspector"
                 className="w-full px-3 py-2 text-[12px] bg-[#0A1628] border border-[rgba(46,127,255,0.2)] rounded-lg text-[#EEF3FA] placeholder-[#7A94B4]/50 outline-none focus:border-[rgba(46,127,255,0.5)] transition-colors"
               />
             </div>

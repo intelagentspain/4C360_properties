@@ -114,7 +114,7 @@ function EventDrawer({ event, onClose, onToast, onViewFullDetail }: DrawerProps)
               <div className="bg-[#0A1628] rounded-xl p-3">
                 <div className="text-[11px] font-semibold text-[#7A94B4] mb-2 uppercase tracking-wide">Context</div>
                 <div className="text-[12px] text-[#EEF3FA] leading-relaxed">
-                  {event.type === 'incident' && 'Incident auto-detected via AI Capture. Work order created and nearest available technician identified.'}
+                  {event.type === 'incident' && 'Incident auto-detected via AI Capture. Work order created and nearest available inspector identified.'}
                   {event.type === 'sla' && 'SLA countdown has crossed the warning threshold. Supervisor intervention may be required to prevent breach.'}
                   {event.type === 'ai' && 'AI Engine took autonomous action based on configured Hybrid mode rules. No supervisor confirmation required.'}
                   {event.type === 'task' && 'Task completed with full evidence trail. Photo attached to work order. Resident notified via app.'}
