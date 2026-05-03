@@ -76,7 +76,7 @@ function buildChatMetadata(summary: IncidentSummary): SubmitAiMetadata {
     confidence: 65,
     issueType: 'Resident Chat Report',
     category,
-    identifiedAsset: 'Property Area',
+    identifiedAsset: 'Site Area',
     observations: [
       `Issue: ${summary.issue}`,
       `Location: ${summary.location}`,

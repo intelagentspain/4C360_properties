@@ -272,35 +272,35 @@ function getMockCopilotReply(message: string): { reply: string; suggestions: str
   if (msg.includes("highest-risk") || msg.includes("high risk") || msg.includes("risk")) {
     return {
       reply: "Start with JLT North Cluster, then Business Bay Tower Complex. JLT has the sharpest pressure: critical status, 12 incidents, 9 overdue tasks, 67% SLA, and lift safety checks overdue.",
-      suggestions: ["Compare SLA by property", "List critical incidents", "Draft escalation note"],
+      suggestions: ["Compare SLA by site", "List critical incidents", "Draft escalation note"],
     };
   }
 
   if (msg.includes("compare") && msg.includes("sla")) {
     return {
       reply: "SLA attention should go first to JLT North Cluster at 67%, then Business Bay Tower Complex at 81%. Gate Avenue and Downtown Burj Area are the strongest performers at 97% and 96%.",
-      suggestions: ["Show highest-risk properties", "Find SLA breaches", "Summarise portfolio KPIs"],
+      suggestions: ["Show highest-risk sites", "Find SLA breaches", "Summarise portfolio KPIs"],
     };
   }
 
   if (msg.includes("data") || msg.includes("coverage") || msg.includes("source") || msg.includes("sync")) {
     return {
-      reply: "Review connected systems by property and look for stale or missing feeds first. Power BI sync on Business Bay is the clearest reporting gap to resolve.",
+      reply: "Review connected systems by site and look for stale or missing feeds first. Power BI sync on Business Bay is the clearest reporting gap to resolve.",
       suggestions: ["Check sync health", "Find stale sources", "Review data coverage"],
     };
   }
 
   if (msg.includes("incident") || msg.includes("issue") || msg.includes("problem")) {
     return {
-      reply: "You can view all active incidents in the Incidents section under the Strategic view. Filter by severity or property to prioritize your response. Would you like guidance on escalation procedures?",
+      reply: "You can view all active incidents in the Incidents section under the Strategic view. Filter by severity or site to prioritize your response. Would you like guidance on escalation procedures?",
       suggestions: ["Filter by critical severity", "Show overdue incidents", "List unassigned incidents"],
     };
   }
 
-  if (msg.includes("property") || msg.includes("properties") || msg.includes("portfolio")) {
+  if (msg.includes("site") || msg.includes("sites") || msg.includes("portfolio")) {
     return {
-      reply: "Use the property portfolio view to compare risk, open incidents, overdue work, SLA, compliance, and connected data coverage. Start with critical and warning properties before reviewing healthy live sites.",
-      suggestions: ["Show highest-risk properties", "Compare SLA by property", "Summarise portfolio KPIs"],
+      reply: "Use the site portfolio view to compare risk, open incidents, overdue work, SLA, compliance, and connected data coverage. Start with critical and warning sites before reviewing healthy live sites.",
+      suggestions: ["Show highest-risk sites", "Compare SLA by site", "Summarise portfolio KPIs"],
     };
   }
 
@@ -320,8 +320,8 @@ function getMockCopilotReply(message: string): { reply: string; suggestions: str
 
   if (msg.includes("hello") || msg.includes("hi") || msg.includes("hey") || msg.includes("help")) {
     return {
-      reply: "I can help you navigate incidents, understand KPIs, manage property portfolios, and plan next actions. What would you like to know?",
-      suggestions: ["Show open incidents", "KPI overview", "Highest-risk properties"],
+      reply: "I can help you navigate incidents, understand KPIs, manage site portfolios, and plan next actions. What would you like to know?",
+      suggestions: ["Show open incidents", "KPI overview", "Highest-risk sites"],
     };
   }
 

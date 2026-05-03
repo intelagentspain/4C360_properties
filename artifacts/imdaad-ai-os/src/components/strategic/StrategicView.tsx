@@ -100,7 +100,7 @@ function SettingsPage({ onToast, dispatchSettings, setDispatchSettings }: { onTo
           {([
             { id: 'profile',  label: 'Profile'           },
             { id: 'dispatch', label: 'AI Dispatch Rules' },
-            { id: 'clients',  label: 'Manage Properties' },
+            { id: 'clients',  label: 'Manage Sites' },
             { id: 'assets',   label: 'Assets'           },
             { id: 'roles',    label: 'Roles'            },
             { id: 'rules',    label: 'Rules'            },

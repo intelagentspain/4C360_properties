@@ -133,8 +133,8 @@ function PortfolioSummaryStrip({ clients }: { clients: PortfolioClient[] }) {
   const totalDS          = clients.reduce((s, c) => s + c.dataSources.length, 0);
 
   const kpis = [
-    { label: 'Total Properties',     value: clients.length,  icon: <Users size={13} />,    color: 'text-blue-400',    bg: 'bg-blue-500/10 border-blue-500/20' },
-    { label: 'Total Sites',          value: totalSites,      icon: <MapPin size={13} />,   color: 'text-cyan-400',    bg: 'bg-cyan-500/10 border-cyan-500/20' },
+    { label: 'Total Sites',     value: clients.length,  icon: <Users size={13} />,    color: 'text-blue-400',    bg: 'bg-blue-500/10 border-blue-500/20' },
+    { label: 'Total Buildings',      value: totalSites,      icon: <MapPin size={13} />,   color: 'text-cyan-400',    bg: 'bg-cyan-500/10 border-cyan-500/20' },
     { label: 'Active Work Orders',   value: totalWO,         icon: <Activity size={13} />, color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/20' },
     { label: 'Critical Incidents',   value: criticalInc,     icon: <AlertTriangle size={13} />, color: criticalInc > 0 ? 'text-red-400' : 'text-emerald-400', bg: criticalInc > 0 ? 'bg-red-500/10 border-red-500/20' : 'bg-emerald-500/10 border-emerald-500/20' },
     { label: 'Avg SLA',              value: `${avgSLA}%`,    icon: <Shield size={13} />,   color: avgSLA >= 90 ? 'text-emerald-400' : avgSLA >= 80 ? 'text-amber-400' : 'text-red-400', bg: avgSLA >= 90 ? 'bg-emerald-500/10 border-emerald-500/20' : avgSLA >= 80 ? 'bg-amber-500/10 border-amber-500/20' : 'bg-red-500/10 border-red-500/20' },
@@ -183,7 +183,7 @@ function PortfolioPulseFeed() {
         <div className="flex items-center gap-2">
           <div className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
           <span className="text-[10px] font-bold text-[#EEF3FA] uppercase tracking-wide">Portfolio Pulse</span>
-          <span className="text-[9px] text-[#7A94B4]">Cross-property live events</span>
+          <span className="text-[9px] text-[#7A94B4]">Cross-site live events</span>
         </div>
         <span className="text-[9px] text-[#7A94B4]">{events.length} events</span>
       </div>
@@ -303,7 +303,7 @@ function ClientPortfolioCard({
         <button
           onClick={e => { e.stopPropagation(); onDismiss(client.id); }}
           className="absolute right-3 top-3 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-[#0A1628]/90 text-[#7A94B4] opacity-75 transition-all hover:border-red-400/40 hover:bg-red-500/10 hover:text-red-100 hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-red-400/40"
-          title="Hide property card"
+          title="Hide site card"
           aria-label={`Hide ${client.name} card`}
         >
           <X size={13} />
@@ -356,7 +356,7 @@ function ClientPortfolioCard({
       <button
         onClick={e => { e.stopPropagation(); onDismiss(client.id); }}
         className="absolute right-2.5 top-2.5 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-[#0A1628]/90 text-[#7A94B4] opacity-75 shadow-lg transition-all hover:border-red-400/40 hover:bg-red-500/10 hover:text-red-100 hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-red-400/40"
-        title="Hide property card"
+        title="Hide site card"
         aria-label={`Hide ${client.name} card`}
       >
         <X size={13} />
@@ -607,7 +607,7 @@ function ClientReportPanel({
         <div className="flex items-center gap-2.5">
           <FileText size={14} className="text-blue-400" />
           <div>
-            <div className="text-[#EEF3FA] font-bold text-sm leading-tight">Property Insight Report</div>
+            <div className="text-[#EEF3FA] font-bold text-sm leading-tight">Site Insight Report</div>
             <div className="text-[10px] text-[#7A94B4]">Snapshot · {client.lastUpdated}</div>
           </div>
         </div>
@@ -1046,7 +1046,7 @@ function ClientDetailDrawer({
 
           <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4">
             <div>
-              <div className="text-[10px] text-[#7A94B4] uppercase tracking-wide mb-2">Property Overview</div>
+              <div className="text-[10px] text-[#7A94B4] uppercase tracking-wide mb-2">Site Overview</div>
               <div className="grid grid-cols-3 gap-2">
                 {[
                   { label: 'Sites',     value: client.sites,         color: 'text-[#EEF3FA]' },
@@ -1268,12 +1268,12 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
       <div className="flex flex-col gap-3 px-5 py-3 border-b border-[rgba(46,127,255,0.15)] flex-shrink-0 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h2 className="text-[#EEF3FA] font-bold text-base" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-            {isMemberMode ? 'My Properties' : 'Properties'}
+            {isMemberMode ? 'My Sites' : 'Sites'}
           </h2>
           <p className="text-[11px] text-[#7A94B4]">
             {isMemberMode
-              ? `Personalized scope · ${filtered.length} assigned propert${filtered.length !== 1 ? 'ies' : 'y'}`
-              : `Portfolio command view · ${allClients.length} properties · Master Admin`}
+              ? `Personalized scope · ${filtered.length} assigned site${filtered.length !== 1 ? "s" : ""}`
+              : `Portfolio command view · ${allClients.length} sites · Master Admin`}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 lg:justify-end">
@@ -1292,7 +1292,7 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
             className="flex items-center gap-1.5 px-3 py-1.5 bg-[#2E7FFF] hover:bg-blue-500 text-white text-[11px] font-semibold rounded-lg transition-colors shadow-[0_0_12px_rgba(46,127,255,0.35)]"
           >
             <Plus size={13} />
-            Add New Property
+            Add New Site
           </button>
         </div>
       </div>
@@ -1307,7 +1307,7 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Search properties..."
+            placeholder="Search sites..."
             className="w-full bg-transparent text-[11px] text-[#EEF3FA] placeholder-[#7A94B4] outline-none sm:w-36"
           />
         </div>
@@ -1382,7 +1382,7 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
           <div className="flex flex-col items-center justify-center py-20 gap-3">
             <Users size={32} className="text-[#7A94B4] opacity-30" />
             <span className="text-[13px] text-[#7A94B4] opacity-60">
-              {hiddenMatchingCount > 0 ? 'All matching property cards are hidden' : 'No properties match filters'}
+              {hiddenMatchingCount > 0 ? 'All matching site cards are hidden' : 'No sites match filters'}
             </span>
             {hiddenMatchingCount > 0 && (
               <button

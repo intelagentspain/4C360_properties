@@ -50,8 +50,8 @@ function Root() {
   const isLogin = path === '/login' || path === '/login/';
   const isBrochuresHost = window.location.hostname === 'brochures.4cgrc.com';
   const isSolutionsHost = window.location.hostname === 'solutions.4c360.com';
-  const isSolutionSlug = /^\/(properties|fm|marine|osh)\/?$/.test(path);
-  const isProductFamilySolution = path === '/4c360' || path === '/4c360/' || /^\/4c360\/(properties|fm|marine|osh)\/?$/.test(path);
+  const isSolutionSlug = /^\/(sites|fm|marine|osh)\/?$/.test(path);
+  const isProductFamilySolution = path === '/4c360' || path === '/4c360/' || /^\/4c360\/(sites|fm|marine|osh)\/?$/.test(path);
   const isBrochure = path === '/brochure' || path === '/brochure/' || path.startsWith('/brochure/') || isBrochuresHost || isSolutionsHost || isSolutionSlug || isProductFamilySolution;
 
   if (isLogin) {

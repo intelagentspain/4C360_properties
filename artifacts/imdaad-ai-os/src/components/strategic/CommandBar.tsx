@@ -421,7 +421,7 @@ const RBAC_PRIVILEGES = [
   { key: 'configure_ai_rules', label: 'Configure AI Rules' },
   { key: 'approve_invoices',   label: 'Approve Invoices' },
   { key: 'manage_vendors',     label: 'Manage Vendors' },
-  { key: 'edit_client_profile',label: 'Edit Property Profile' },
+  { key: 'edit_client_profile',label: 'Edit Site Profile' },
 ];
 
 const ROLE_DEFAULT_PRIVILEGES: Record<string, string[]> = {
@@ -463,7 +463,7 @@ const RESPONSIBILITY_OPTIONS = [
   'Approve work orders',
   'Oversee subcontractors',
   'Generate reports',
-  'Coordinate property communication',
+  'Coordinate site communication',
   'Perform site audits',
 ];
 
@@ -793,7 +793,7 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
 
   const validate = () => {
     const errs: Record<string, string> = {};
-    if (!name.trim())          errs.name = 'Property name is required';
+    if (!name.trim())          errs.name = 'Site name is required';
     if (!sector)               errs.sector = 'Sector is required';
     if (siteNames.filter(s => s.trim()).length === 0) errs.sites = 'At least one site is required';
     if (!contactName.trim())   errs.contactName = 'Contact name is required';
@@ -945,9 +945,9 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
             </div>
             <div>
               <div className="text-[#EEF3FA] text-sm font-semibold" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-                Add New Property
+                Add New Site
               </div>
-              <div className="text-[10px] text-[#7A94B4]">Complete all sections to onboard a new property</div>
+              <div className="text-[10px] text-[#7A94B4]">Complete all sections to onboard a new site</div>
             </div>
           </div>
           <button onClick={onClose} className="text-[#7A94B4] hover:text-white transition-colors rounded-md p-1 hover:bg-white/5">
@@ -988,7 +988,7 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
               <SectionHeader icon={SECTION_ICONS.business} title="Business Information" />
               <div className="grid grid-cols-2 gap-3">
                 <div className="col-span-2">
-                  <FieldLabel label="Property Name" required />
+                  <FieldLabel label="Site Name" required />
                   <input
                     autoFocus
                     value={name}
@@ -1162,7 +1162,7 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
                     type="email"
                     value={contactEmail}
                     onChange={e => setContactEmail(e.target.value)}
-                    placeholder="e.g. ahmed@property.ae"
+                    placeholder="e.g. ahmed@site.ae"
                     className={inputCls()}
                   />
                 </div>
@@ -1425,7 +1425,7 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
             <div className="space-y-4">
               <SectionHeader icon={SECTION_ICONS.team} title="Team Members" />
               <p className="text-[11px] text-[#7A94B4] -mt-2 mb-2 leading-relaxed">
-                Invite team members to this property workspace. Each person will receive a welcome email with login credentials.
+                Invite team members to this site workspace. Each person will receive a welcome email with login credentials.
               </p>
 
               {/* Search existing staff */}
@@ -1561,12 +1561,12 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
                           ))}
                         </select>
                         <p className="mt-0.5 text-[9px] text-[#4A6080]">
-                          {member.perspective === 'Strategic' ? 'KPIs, dispatch, AI rules, all properties' : member.perspective === 'Operational' ? 'Tasks, kanban, smart scan' : 'Service requests & tracking'}
+                          {member.perspective === 'Strategic' ? 'KPIs, dispatch, AI rules, all sites' : member.perspective === 'Operational' ? 'Tasks, kanban, smart scan' : 'Service requests & tracking'}
                         </p>
                       </div>
 
                       <div className="col-span-2">
-                        <FieldLabel label="Assigned Properties" />
+                        <FieldLabel label="Assigned Sites" />
                         <div className="flex flex-wrap gap-1.5 mt-1">
                           {INITIAL_CLIENT_DATA.map(c => {
                             const active = member.assignedClients.includes(c.name);
@@ -1587,7 +1587,7 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
                             );
                           })}
                         </div>
-                        <p className="mt-1 text-[9px] text-[#4A6080]">Leave empty to grant access to all properties</p>
+                        <p className="mt-1 text-[9px] text-[#4A6080]">Leave empty to grant access to all sites</p>
                       </div>
 
                       <div className="col-span-2">
@@ -1824,11 +1824,11 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
                 <textarea
                   value={kbNotes}
                   onChange={e => setKbNotes(e.target.value)}
-                  placeholder="Paste SOPs, escalation contacts, site notes, or any relevant information about this property..."
+                  placeholder="Paste SOPs, escalation contacts, site notes, or any relevant information about this site..."
                   rows={6}
                   className={`${inputCls()} resize-none leading-relaxed`}
                 />
-                <p className="mt-0.5 text-[9px] text-[#4A6080]">Free-form notes - visible to the team in the property's knowledge panel</p>
+                <p className="mt-0.5 text-[9px] text-[#4A6080]">Free-form notes - visible to the team in the site's knowledge panel</p>
               </div>
 
               <div>
@@ -2045,7 +2045,7 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
               <SectionHeader icon={<Package size={13} className="text-[#2E7FFF]" />} title="Inventory" />
 
               <div className="flex items-center justify-between">
-                <p className="text-[10px] text-[#7A94B4]">Track inventory items associated with this property</p>
+                <p className="text-[10px] text-[#7A94B4]">Track inventory items associated with this site</p>
                 <button
                   type="button"
                   onClick={addInventoryItem}
@@ -2171,7 +2171,7 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
             ) : (
               <>
                 <Plus size={11} />
-                Add Property
+                Add Site
               </>
             )}
           </button>
@@ -2184,13 +2184,13 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
 type FilterKey = 'Client' | 'Zone' | 'Service';
 
 const FILTER_LABELS: Record<FilterKey, string> = {
-  Client: 'Property',
+  Client: 'Site',
   Zone: 'Zone',
   Service: 'Service',
 };
 
 const FILTER_ALL_VALUES: Record<FilterKey, string> = {
-  Client: 'All Properties',
+  Client: 'All Sites',
   Zone: 'All Zones',
   Service: 'All Services',
 };
@@ -2217,7 +2217,7 @@ export function CommandBar({ mode, onModeChange, onToast }: Props) {
   const [showModeDropdown, setShowModeDropdown] = useState(false);
   const [showAddClient, setShowAddClient]       = useState(false);
 
-  const clientNames = ['All Properties', ...clientData.map(c => c.name)];
+  const clientNames = ['All Sites', ...clientData.map(c => c.name)];
   const selectedClientInfo = clientData.find(c => c.name === selected.Client);
 
   const filters: Record<FilterKey, string[]> = {
@@ -2347,7 +2347,7 @@ export function CommandBar({ mode, onModeChange, onToast }: Props) {
                             className="w-full flex items-center gap-2 px-3 py-2 text-[11px] text-[#2E7FFF] hover:bg-[rgba(46,127,255,0.08)] transition-colors font-semibold"
                           >
                             <Plus size={11} />
-                            Add New Property
+                            Add New Site
                           </button>
                         </>
                       )}

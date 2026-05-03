@@ -125,7 +125,7 @@ export function mockVoiceAnalysis(transcript: string): AiAnalysis {
     description: transcript.length > 15 ? transcript.slice(0, 300) : 'Resident submitted a voice note reporting a facility issue. Maintenance team to review and assess.',
     category: 'General Maintenance',
     subCategory: 'General Issue',
-    identifiedAsset: 'Property Area',
+    identifiedAsset: 'Site Area',
     observations: ['Issue reported via voice note', 'Details captured in resident description', 'Maintenance team to verify on site'],
     recommendedAction: 'Dispatch appropriate maintenance technician to inspect and assess the reported issue.',
     priority: 'low',
@@ -154,7 +154,7 @@ function mapAnalysisResponse(a: {
     description: a.description ?? 'Issue identified via analysis.',
     category: a.category ?? 'General Maintenance',
     subCategory: a.issueType ?? 'Issue Reported',
-    identifiedAsset: a.identifiedAsset ?? 'Property Area',
+    identifiedAsset: a.identifiedAsset ?? 'Site Area',
     observations: Array.isArray(a.observations) && a.observations.length > 0
       ? a.observations
       : [fallbackObservation],

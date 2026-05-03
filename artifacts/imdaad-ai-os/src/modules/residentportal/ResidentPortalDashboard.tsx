@@ -192,7 +192,7 @@ function ResidentProfileDrawer({ resident, onClose, onToast }: { resident: Resid
   const docs = residentDocuments.filter(document => document.linkedResidentId === resident.id);
 
   return (
-    <DrawerShell title={resident.name} subtitle={`${resident.type} - ${unit?.propertyName ?? 'Property'} - Unit ${unit?.unitNumber ?? resident.unitId}`} onClose={onClose}>
+    <DrawerShell title={resident.name} subtitle={`${resident.type} - ${unit?.siteName ?? 'Site'} - Unit ${unit?.unitNumber ?? resident.unitId}`} onClose={onClose}>
       <div className="grid gap-4 md:grid-cols-2">
         <DetailCard label="Profile" value={<>{resident.email}<br />{resident.phone}</>} />
         <DetailCard label="Unit details" value={`${unit?.building ?? 'Building'} / Floor ${unit?.floor ?? '-'}`} />
@@ -422,7 +422,7 @@ function CreateNoticeModal({ onClose, onToast }: { onClose: () => void; onToast:
 
 function ResidentsTable({ onSelect, onToast }: { onSelect: (resident: Resident) => void; onToast: Props['onToast'] }) {
   return (
-    <TableShell columns={['Resident Name', 'Unit', 'Property / Building', 'Type', 'Status', 'Open Requests', 'Payment', 'Last Activity', 'Actions']}>
+    <TableShell columns={['Resident Name', 'Unit', 'Site / Building', 'Type', 'Status', 'Open Requests', 'Payment', 'Last Activity', 'Actions']}>
       {residents.map(resident => {
         const unit = getUnit(resident.unitId);
         return (
@@ -432,7 +432,7 @@ function ResidentsTable({ onSelect, onToast }: { onSelect: (resident: Resident) 
               <p className="mt-1 text-[11px] text-[#7A94B4]">{resident.email}</p>
             </td>
             <td className="px-4 py-4 align-top font-mono text-[13px] text-cyan-300">{unit?.unitNumber}</td>
-            <td className="px-4 py-4 align-top text-[13px] text-[#A8B3C7]">{unit?.propertyName}<br /><span className="text-[11px] text-[#7A94B4]">{unit?.building}</span></td>
+            <td className="px-4 py-4 align-top text-[13px] text-[#A8B3C7]">{unit?.siteName}<br /><span className="text-[11px] text-[#7A94B4]">{unit?.building}</span></td>
             <td className="px-4 py-4 align-top text-[13px] text-[#A8B3C7]">{resident.type}</td>
             <td className="px-4 py-4 align-top"><Badge className={residentStatusClass[resident.status]}>{resident.status}</Badge></td>
             <td className="px-4 py-4 align-top font-mono text-[13px] text-[#EEF3FA]">{resident.openRequests}</td>
@@ -650,7 +650,7 @@ function SettingsPanel() {
         </div>
       </div>
       <AiPanel title="Role access assumptions">
-        <p>Superadmin sees all residents and settings. Management is scoped to assigned properties. Contractors only see assigned requests. Resident and owner users only see their own unit, requests, documents, messages, and payments.</p>
+        <p>Superadmin sees all residents and settings. Management is scoped to assigned sites. Contractors only see assigned requests. Resident and owner users only see their own unit, requests, documents, messages, and payments.</p>
       </AiPanel>
     </div>
   );
@@ -687,14 +687,14 @@ export function ResidentPortalDashboard({ onToast }: Props) {
 
   const filteredResidents = residents.filter(resident => `${resident.name} ${resident.email} ${resident.type}`.toLowerCase().includes(query.toLowerCase()));
   const residentBody = query ? (
-    <TableShell columns={['Resident Name', 'Unit', 'Property / Building', 'Type', 'Status', 'Open Requests', 'Payment', 'Last Activity', 'Actions']}>
+    <TableShell columns={['Resident Name', 'Unit', 'Site / Building', 'Type', 'Status', 'Open Requests', 'Payment', 'Last Activity', 'Actions']}>
       {filteredResidents.map(resident => {
         const unit = getUnit(resident.unitId);
         return (
           <tr key={resident.id} onClick={() => setSelectedResident(resident)} className="cursor-pointer border-t border-[rgba(46,127,255,0.08)] bg-[#0A1628]/70 transition-colors hover:bg-white/[0.045]">
             <td className="px-4 py-4 align-top text-[14px] font-black text-[#EEF3FA]">{resident.name}</td>
             <td className="px-4 py-4 align-top font-mono text-[13px] text-cyan-300">{unit?.unitNumber}</td>
-            <td className="px-4 py-4 align-top text-[13px] text-[#A8B3C7]">{unit?.propertyName}</td>
+            <td className="px-4 py-4 align-top text-[13px] text-[#A8B3C7]">{unit?.siteName}</td>
             <td className="px-4 py-4 align-top text-[13px] text-[#A8B3C7]">{resident.type}</td>
             <td className="px-4 py-4 align-top"><Badge className={residentStatusClass[resident.status]}>{resident.status}</Badge></td>
             <td className="px-4 py-4 align-top font-mono text-[#EEF3FA]">{resident.openRequests}</td>

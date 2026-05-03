@@ -115,20 +115,20 @@ export function LoginCard() {
     <section className="auth-card-enter w-full max-w-[560px] rounded-[1.75rem] border border-white/80 bg-white/96 px-5 py-6 text-slate-950 shadow-[0_34px_95px_rgba(8,19,38,0.24)] backdrop-blur-xl sm:px-8 sm:py-8 lg:px-10">
       <div className="mx-auto mb-6 flex flex-col items-center text-center">
         <div className="mb-4 flex items-center justify-center gap-3">
-          <img src="/4c-logo.png" alt="4C360 Properties" className="h-[4.5rem] w-[4.5rem] rounded-2xl object-contain shadow-[0_14px_32px_rgba(15,23,42,0.08)]" />
+          <img src="/4c-logo.png" alt="4C360 Sites" className="h-[4.5rem] w-[4.5rem] rounded-2xl object-contain shadow-[0_14px_32px_rgba(15,23,42,0.08)]" />
           <div className="text-left">
             <div className="text-[2rem] font-bold leading-none text-[#081326]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
               360
             </div>
             <div className="mt-2 text-xs font-bold uppercase text-slate-800">
-              Properties
+              Sites
             </div>
           </div>
         </div>
         <h2 className="text-[2rem] font-bold leading-tight text-[#081326]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
           Welcome back
         </h2>
-        <p className="mt-2 max-w-sm text-sm leading-6 text-slate-500">Sign in to access your 4C360 Properties account</p>
+        <p className="mt-2 max-w-sm text-sm leading-6 text-slate-500">Sign in to access your 4C360 Sites account</p>
       </div>
 
       <form onSubmit={submit} className="space-y-4" noValidate>
@@ -237,7 +237,7 @@ export function LoginCard() {
       </div>
 
       <p className="mt-7 text-center text-sm text-slate-500">
-        New to 4C360 Properties?{' '}
+        New to 4C360 Sites?{' '}
         <a href="/register" className="font-semibold text-blue-600 transition-colors hover:text-blue-700">
           Create an account
         </a>
@@ -332,7 +332,7 @@ export function LoginCard() {
           ) : (
             <div className="px-6 py-5">
               <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-4 text-sm leading-6 text-blue-800">
-                We will send a link to <span className="font-bold">{magicEmail.trim()}</span> if that email is registered with 4C360 Properties.
+                We will send a link to <span className="font-bold">{magicEmail.trim()}</span> if that email is registered with 4C360 Sites.
               </div>
               <button
                 type="button"

@@ -127,7 +127,7 @@ export function ReportPage({ memberToken }: ReportPageProps) {
           description: fullDescription,
           category: selectedCatLabel,
           subCategory: urgency,
-          identifiedAsset: 'Property Area',
+          identifiedAsset: 'Site Area',
           observations: [`Reported by resident: ${selectedCatLabel}`],
           recommendedAction: 'Dispatch maintenance team to inspect and assess.',
           priority: urgency === 'emergency' ? 'high' : urgency === 'urgent' ? 'medium' : 'low',
@@ -181,7 +181,7 @@ export function ReportPage({ memberToken }: ReportPageProps) {
                 DevelopmentX
               </div>
               <div className="text-[10px]" style={{ color: 'rgba(255,255,255,0.45)' }}>
-                Property Operations
+                Site Operations
               </div>
             </div>
           </div>
@@ -642,7 +642,7 @@ function SuccessView({ incidentRef, onAnother }: { incidentRef: string; onAnothe
           </div>
           <div>
             <div className="font-bold text-white text-sm" style={{ fontFamily: 'Georgia, serif' }}>DevelopmentX</div>
-            <div className="text-[10px]" style={{ color: 'rgba(255,255,255,0.45)' }}>Property Operations</div>
+            <div className="text-[10px]" style={{ color: 'rgba(255,255,255,0.45)' }}>Site Operations</div>
           </div>
         </div>
 

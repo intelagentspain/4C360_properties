@@ -26,10 +26,10 @@ export function ManageClients({ onToast }: Props) {
     setDeleting(true);
     try {
       await removeClient(confirmId);
-      onToast('Property deleted successfully', 'success');
+      onToast('Site deleted successfully', 'success');
       setConfirmId(null);
     } catch {
-      onToast('Failed to delete property - please try again', 'error');
+      onToast('Failed to delete site - please try again', 'error');
     } finally {
       setDeleting(false);
     }
@@ -39,8 +39,8 @@ export function ManageClients({ onToast }: Props) {
     <div className="h-full overflow-y-auto custom-scrollbar px-6 py-6">
       <div className="max-w-4xl mx-auto space-y-5">
         <div className="mb-5">
-          <h3 className="text-[#EEF3FA] font-bold text-sm mb-0.5" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Manage Properties</h3>
-          <p className="text-[11px] text-[#7A94B4]">View all properties and permanently remove them from the system.</p>
+          <h3 className="text-[#EEF3FA] font-bold text-sm mb-0.5" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Manage Sites</h3>
+          <p className="text-[11px] text-[#7A94B4]">View all sites and permanently remove them from the system.</p>
         </div>
 
         <div className="bg-[rgba(17,32,64,0.85)] border border-[rgba(46,127,255,0.2)] rounded-xl overflow-hidden">
@@ -56,7 +56,7 @@ export function ManageClients({ onToast }: Props) {
               <tbody>
                 {clients.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-[#7A94B4] text-[11px]">No properties found.</td>
+                    <td colSpan={5} className="px-4 py-8 text-center text-[#7A94B4] text-[11px]">No sites found.</td>
                   </tr>
                 )}
                 {clients.map(client => (
@@ -106,7 +106,7 @@ export function ManageClients({ onToast }: Props) {
             </div>
 
             <h4 className="text-[#EEF3FA] font-bold text-sm mb-2" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-              Delete Property
+              Delete Site
             </h4>
             <p className="text-[#7A94B4] text-[12px] leading-relaxed mb-1">
               Are you sure you want to permanently delete{' '}
@@ -129,7 +129,7 @@ export function ManageClients({ onToast }: Props) {
                 disabled={deleting}
                 className="flex-1 text-[12px] font-bold text-white bg-red-500 hover:bg-red-400 px-4 py-2.5 rounded-xl transition-all disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                {deleting ? 'Deleting...' : 'Delete Property'}
+                {deleting ? 'Deleting...' : 'Delete Site'}
               </button>
             </div>
           </div>

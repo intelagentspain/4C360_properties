@@ -31,7 +31,7 @@ const sections: Array<{ id: ProfileSection; label: string; icon: React.Component
   { id: 'overview', label: 'Overview', icon: LayoutGrid },
   { id: 'team', label: 'Team', icon: Users },
   { id: 'modules', label: 'Modules', icon: SlidersHorizontal },
-  { id: 'clients', label: 'Properties', icon: Building2 },
+  { id: 'clients', label: 'Sites', icon: Building2 },
   { id: 'organisation', label: 'Organisation', icon: Globe2 },
   { id: 'access', label: 'Access', icon: ShieldCheck },
 ];
@@ -134,16 +134,16 @@ const moduleDetails: Record<string, { workflows: string[]; rules: string[]; poli
   'service-desk': {
     workflows: ['Create work order', 'Assign technician', 'Verify completion evidence', 'Close with SLA outcome'],
     rules: ['High severity requires supervisor approval', 'Overdue work orders escalate automatically', 'Evidence required before closure'],
-    policies: ['Contractors see assigned jobs only', 'Property-visible notes require approval', 'Edits are retained in work-order history'],
+    policies: ['Contractors see assigned jobs only', 'Site-visible notes require approval', 'Edits are retained in work-order history'],
   },
   'resident-portal': {
     workflows: ['Resident request intake', 'Owner notification', 'Service tracking update', 'Satisfaction capture'],
-    rules: ['Urgent resident requests notify supervisors', 'Repeated complaints are grouped by property', 'Closed requests trigger satisfaction check'],
-    policies: ['Residents see their own requests only', 'Owner data is organisation controlled', 'Public portal access follows property settings'],
+    rules: ['Urgent resident requests notify supervisors', 'Repeated complaints are grouped by site', 'Closed requests trigger satisfaction check'],
+    policies: ['Residents see their own requests only', 'Owner data is organisation controlled', 'Public portal access follows site settings'],
   },
   'facility-core': {
     workflows: ['Generate PPM schedule', 'Approve intervention window', 'Dispatch preventive task', 'Update asset health'],
-    rules: ['Critical assets cannot skip PPM', 'Overdue PPM affects property risk score', 'Parts shortage blocks auto-dispatch'],
+    rules: ['Critical assets cannot skip PPM', 'Overdue PPM affects site risk score', 'Parts shortage blocks auto-dispatch'],
     policies: ['PPM changes require management role', 'Vendor PPM access is limited by contract', 'Asset history is retained for compliance'],
   },
   'field-ops': {
@@ -153,13 +153,13 @@ const moduleDetails: Record<string, { workflows: string[]; rules: string[]; poli
   },
   'project-command': {
     workflows: ['Create project board', 'Assign milestone owners', 'Approve variation', 'Publish delivery report'],
-    rules: ['Delayed milestones escalate weekly', 'Budget-impacting changes require approval', 'Property-facing reports require management review'],
+    rules: ['Delayed milestones escalate weekly', 'Budget-impacting changes require approval', 'Site-facing reports require management review'],
     policies: ['Project files follow organisation permissions', 'Variation history is retained', 'External partner access is scoped by project'],
   },
   'green-track': {
     workflows: ['Capture sustainability metric', 'Review ESG exception', 'Assign improvement action', 'Publish impact report'],
     rules: ['Energy anomalies create review tasks', 'ESG actions require owner and due date', 'Monthly trend gaps are flagged'],
-    policies: ['ESG reports are management controlled', 'Utility data is property scoped', 'Benchmarks are anonymised where required'],
+    policies: ['ESG reports are management controlled', 'Utility data is site scoped', 'Benchmarks are anonymised where required'],
   },
   'inspect-pro': {
     workflows: ['Create inspection plan', 'Run checklist', 'Log finding', 'Close corrective action'],
@@ -185,8 +185,8 @@ const accessRows = [
     enabled: true,
   },
   {
-    label: 'Property portal self-registration',
-    text: 'Allow property users to request access from the login page.',
+    label: 'Site portal self-registration',
+    text: 'Allow site users to request access from the login page.',
     enabled: false,
   },
 ];
@@ -362,7 +362,7 @@ function ModuleDetailModal({
             <Panel className="p-4">
               <div className="mb-3 flex items-center gap-2">
                 <Building2 size={15} className="text-[#2E7FFF]" />
-                <h4 className="text-[13px] font-bold text-[#EEF3FA]">Property scope</h4>
+                <h4 className="text-[13px] font-bold text-[#EEF3FA]">Site scope</h4>
               </div>
               <div className="grid gap-2 sm:grid-cols-2">
                 {scopedClients.map(client => (
@@ -455,7 +455,7 @@ export function ProfileSettings({ onToast }: Props) {
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatTile label="Team members" value={profiles.length} icon={Users} tone="bg-blue-500/12 text-blue-300" />
         <StatTile label="Active modules" value={`${activeModules.length}/${modules.length}`} icon={LayoutGrid} tone="bg-emerald-500/12 text-emerald-300" />
-        <StatTile label="Properties" value={clients.length} icon={Building2} tone="bg-cyan-500/12 text-cyan-300" />
+        <StatTile label="Sites" value={clients.length} icon={Building2} tone="bg-cyan-500/12 text-cyan-300" />
         <StatTile label="Risk watch" value={riskSummary.watch} icon={ShieldCheck} tone="bg-red-500/12 text-red-300" />
       </div>
 
@@ -481,7 +481,7 @@ export function ProfileSettings({ onToast }: Props) {
           <h4 className="text-[13px] font-bold text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Organisation health</h4>
           <div className="mt-4 space-y-3">
             {[
-              { label: 'Live properties', value: riskSummary.live, total: clients.length || 1 },
+              { label: 'Live sites', value: riskSummary.live, total: clients.length || 1 },
               { label: 'Active users', value: activeMembers.length, total: profiles.length || 1 },
               { label: 'Enabled modules', value: activeModules.length, total: modules.length },
             ].map(row => (
@@ -506,7 +506,7 @@ export function ProfileSettings({ onToast }: Props) {
       <div className="flex flex-col gap-3 border-b border-[rgba(46,127,255,0.12)] p-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h4 className="text-[13px] font-bold text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Team control</h4>
-          <p className="mt-1 text-[11px] text-[#7A94B4]">Review users, roles, perspectives, property assignment, and active status.</p>
+          <p className="mt-1 text-[11px] text-[#7A94B4]">Review users, roles, perspectives, site assignment, and active status.</p>
         </div>
         <div className="relative w-full sm:w-72">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#7A94B4]" />
@@ -569,7 +569,7 @@ export function ProfileSettings({ onToast }: Props) {
           <p className="mt-1 text-[13px] text-[#B8C7DB]">Consistent. Modern. Purpose-driven.</p>
         </div>
         <p className="max-w-sm text-[11px] leading-5 text-[#7A94B4]">
-          Click a module to manage team members, workflows, rules, policies, and property scope.
+          Click a module to manage team members, workflows, rules, policies, and site scope.
         </p>
       </div>
 
@@ -633,15 +633,15 @@ export function ProfileSettings({ onToast }: Props) {
     <Panel className="overflow-hidden">
       <div className="flex flex-col gap-3 border-b border-[rgba(46,127,255,0.12)] p-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h4 className="text-[13px] font-bold text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Property access</h4>
-          <p className="mt-1 text-[11px] text-[#7A94B4]">Control which properties are visible to this organisation profile.</p>
+          <h4 className="text-[13px] font-bold text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Site access</h4>
+          <p className="mt-1 text-[11px] text-[#7A94B4]">Control which sites are visible to this organisation profile.</p>
         </div>
         <div className="relative w-full sm:w-72">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#7A94B4]" />
           <input
             value={clientQuery}
             onChange={event => setClientQuery(event.target.value)}
-            placeholder="Search properties"
+            placeholder="Search sites"
             className="h-9 w-full rounded-lg border border-[rgba(46,127,255,0.2)] bg-[#0A1628] pl-9 pr-3 text-[12px] text-[#EEF3FA] outline-none placeholder:text-[#4A6080] focus:border-[#2E7FFF]"
           />
         </div>
@@ -785,7 +785,7 @@ export function ProfileSettings({ onToast }: Props) {
                 Profile and organisation control
               </div>
               <h3 className="text-[#EEF3FA] font-bold text-sm" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>DevelopmentX profile</h3>
-              <p className="mt-1 text-[11px] text-[#7A94B4]">Control team, modules, properties, organisation identity, and access policies inside Settings.</p>
+              <p className="mt-1 text-[11px] text-[#7A94B4]">Control team, modules, sites, organisation identity, and access policies inside Settings.</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <span className="flex items-center gap-1.5 rounded-full border border-[rgba(46,127,255,0.18)] bg-white/5 px-3 py-1.5 text-[10px] font-bold text-[#B8C7DB]">

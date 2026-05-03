@@ -197,13 +197,13 @@ function App() {
             className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
             style={{ background: 'rgba(46,127,255,0.1)', color: '#7EB8F7' }}
           >
-            Back to Properties
+            Back to Sites
           </button>
         </div>
         <div className="flex-1 overflow-hidden">
           <HospitalityClientView
             onToast={addToast}
-            propertyName={commandClientName ?? undefined}
+            siteName={commandClientName ?? undefined}
             clientId={commandClientId ?? undefined}
             siteId={CLIENT_SITE_MAP[commandClientId ?? ''] ?? undefined}
           />
@@ -221,7 +221,7 @@ function App() {
           <HospitalityClientView
             onToast={addToast}
             guestName={activeMember.name}
-            propertyName={activeMember.propertyName ?? activeMember.assignedClients[0]}
+            siteName={activeMember.siteName ?? activeMember.assignedClients[0]}
             memberToken={memberToken}
             clientId="CLT-001"
             siteId="silicon-oasis"

@@ -18,7 +18,7 @@ export interface Resident {
   phone: string;
   type: ResidentType;
   unitId: string;
-  propertyId: string;
+  siteId: string;
   status: ResidentStatus;
   openRequests: number;
   paymentStatus: PaymentStatus;
@@ -32,8 +32,8 @@ export interface Unit {
   unitNumber: string;
   building: string;
   floor: string;
-  propertyId: string;
-  propertyName: string;
+  siteId: string;
+  siteName: string;
   occupancyStatus: 'Occupied' | 'Vacant' | 'Owner Occupied' | 'Leased';
 }
 
@@ -94,10 +94,10 @@ export interface ResidentDocument {
 }
 
 export const units: Unit[] = [
-  { id: 'unit-a1204', unitNumber: 'A-1204', building: 'Tower A', floor: '12', propertyId: 'lawnz', propertyName: 'Lawnz Residences', occupancyStatus: 'Owner Occupied' },
-  { id: 'unit-b0807', unitNumber: 'B-0807', building: 'Tower B', floor: '8', propertyId: 'bayz', propertyName: 'Bayz 102', occupancyStatus: 'Leased' },
-  { id: 'unit-c0211', unitNumber: 'C-0211', building: 'Cluster C', floor: '2', propertyId: 'verdana', propertyName: 'Verdana Tower', occupancyStatus: 'Occupied' },
-  { id: 'unit-p1401', unitNumber: 'P-1401', building: 'Podium Residences', floor: '14', propertyId: 'lawnz', propertyName: 'Lawnz Residences', occupancyStatus: 'Occupied' },
+  { id: 'unit-a1204', unitNumber: 'A-1204', building: 'Tower A', floor: '12', siteId: 'lawnz', siteName: 'Lawnz Residences', occupancyStatus: 'Owner Occupied' },
+  { id: 'unit-b0807', unitNumber: 'B-0807', building: 'Tower B', floor: '8', siteId: 'bayz', siteName: 'Bayz 102', occupancyStatus: 'Leased' },
+  { id: 'unit-c0211', unitNumber: 'C-0211', building: 'Cluster C', floor: '2', siteId: 'verdana', siteName: 'Verdana Tower', occupancyStatus: 'Occupied' },
+  { id: 'unit-p1401', unitNumber: 'P-1401', building: 'Podium Residences', floor: '14', siteId: 'lawnz', siteName: 'Lawnz Residences', occupancyStatus: 'Occupied' },
 ];
 
 export const residents: Resident[] = [
@@ -108,7 +108,7 @@ export const residents: Resident[] = [
     phone: '+971 50 221 9001',
     type: 'Owner',
     unitId: 'unit-a1204',
-    propertyId: 'lawnz',
+    siteId: 'lawnz',
     status: 'Active',
     openRequests: 2,
     paymentStatus: 'Pending',
@@ -123,7 +123,7 @@ export const residents: Resident[] = [
     phone: '+971 55 018 4012',
     type: 'Tenant',
     unitId: 'unit-b0807',
-    propertyId: 'bayz',
+    siteId: 'bayz',
     status: 'Active',
     openRequests: 1,
     paymentStatus: 'Paid',
@@ -138,7 +138,7 @@ export const residents: Resident[] = [
     phone: '+971 52 700 1440',
     type: 'Owner',
     unitId: 'unit-c0211',
-    propertyId: 'verdana',
+    siteId: 'verdana',
     status: 'Pending',
     openRequests: 0,
     paymentStatus: 'Overdue',
@@ -153,7 +153,7 @@ export const residents: Resident[] = [
     phone: '+971 58 611 2204',
     type: 'Family Member',
     unitId: 'unit-p1401',
-    propertyId: 'lawnz',
+    siteId: 'lawnz',
     status: 'Active',
     openRequests: 1,
     paymentStatus: 'Paid',

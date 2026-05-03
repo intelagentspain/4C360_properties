@@ -89,7 +89,7 @@ const priorityOptions = ['Low', 'Medium', 'High', 'Critical'] as const;
 type SurveyPriority = (typeof priorityOptions)[number];
 const aiPromptCategories: Array<{ category: string; chips: string[] }> = [
   {
-    category: 'Property Operations',
+    category: 'Site Operations',
     chips: [
       'HVAC PPM',
       'Lift Safety Inspection',
@@ -274,7 +274,7 @@ const aiDraftProfiles: Record<string, AiDraftProfile> = {
 };
 
 function getPromptCategory(chip: string) {
-  return aiPromptCategories.find(group => group.chips.includes(chip))?.category ?? 'Property Operations';
+  return aiPromptCategories.find(group => group.chips.includes(chip))?.category ?? 'Site Operations';
 }
 
 function makeGenericDraftProfile(chip: string): AiDraftProfile {
@@ -327,7 +327,7 @@ function makeGenericDraftProfile(chip: string): AiDraftProfile {
       focus: `${chip.toLowerCase()}, resident experience, amenity readiness, service quality, and follow-up actions`,
       evidence: 'condition photos, resident notes, service rating, and follow-up owner',
       questionSections: [
-        { title: 'Resident Context', questions: ['Confirm property, area, unit, or amenity', 'Record resident or community concern where applicable', 'Check service readiness and accessibility'] },
+        { title: 'Resident Context', questions: ['Confirm site, area, unit, or amenity', 'Record resident or community concern where applicable', 'Check service readiness and accessibility'] },
         { title: 'Experience & Condition', questions: ['Rate cleanliness, safety, and presentation', 'Capture any defect or service gap', 'Identify immediate action required'] },
         { title: 'Follow-up', questions: ['Upload photos for service gaps', 'Assign owner for corrective action', 'Confirm resident communication is required'] },
       ],
@@ -386,10 +386,10 @@ function addDays(date: Date, days: number) {
   return next;
 }
 
-function getPropertyScopes(property?: PortfolioClient) {
-  if (!property) return ['Portfolio-wide field scope'];
-  const sites = property.topSites.map(site => site.name);
-  const assets = property.resources.equipment.slice(0, 3).map(asset => `${asset.name} assets`);
+function getSiteScopes(site?: PortfolioClient) {
+  if (!site) return ['Portfolio-wide field scope'];
+  const sites = site.topSites.map(site => site.name);
+  const assets = site.resources.equipment.slice(0, 3).map(asset => `${asset.name} assets`);
   return [...sites, ...assets, 'All sites and common areas'];
 }
 
@@ -400,14 +400,14 @@ function getAssetsForSite(site: string, survey: Survey) {
   return ['Common Areas', 'General Equipment', 'Site Infrastructure'];
 }
 
-function buildAiDescription(type: SurveyType, property?: PortfolioClient, scope = 'selected scope', priority: SurveyPriority = 'High') {
-  const propertyName = property?.name ?? 'the selected property';
-  const sector = property?.sector ? `${property.sector.toLowerCase()} ` : '';
-  const riskNote = property?.riskLevel && property.riskLevel !== 'low'
-    ? ` Include extra checks for ${property.riskLevel} risk items.`
+function buildAiDescription(type: SurveyType, site?: PortfolioClient, scope = 'selected scope', priority: SurveyPriority = 'High') {
+  const siteName = site?.name ?? 'the selected site';
+  const sector = site?.sector ? `${site.sector.toLowerCase()} ` : '';
+  const riskNote = site?.riskLevel && site.riskLevel !== 'low'
+    ? ` Include extra checks for ${site.riskLevel} risk items.`
     : '';
 
-  return `AI suggested scope: run a ${type.toLowerCase()} for ${propertyName}, focused on ${scope}. Capture ${sector}field readings, photo evidence, GPS proof, safety checks, failed-item notes, and supervisor sign-off. Treat ${priority.toLowerCase()} findings as escalation-ready and prepare incident creation for any failed critical item.${riskNote}`;
+  return `AI suggested scope: run a ${type.toLowerCase()} for ${siteName}, focused on ${scope}. Capture ${sector}field readings, photo evidence, GPS proof, safety checks, failed-item notes, and supervisor sign-off. Treat ${priority.toLowerCase()} findings as escalation-ready and prepare incident creation for any failed critical item.${riskNote}`;
 }
 
 function normalizeTemplate(template: { name: string; type: string; duration: string; questions: number; evidence: string }): FieldOpsTemplate {
@@ -499,7 +499,7 @@ function getResponsibleRoleForPrompt(prompt: string, type: SurveyType) {
   if (lower.includes('lift') || lower.includes('elevator')) return 'Lift vendor with facilities manager review';
   if (lower.includes('clean') || lower.includes('housekeeping')) return 'Soft services supervisor';
   if (lower.includes('security') || lower.includes('patrol')) return 'Security supervisor';
-  if (lower.includes('landscape') || lower.includes('irrigation')) return 'Landscape contractor with property manager review';
+  if (lower.includes('landscape') || lower.includes('irrigation')) return 'Landscape contractor with site manager review';
   if (lower.includes('handover') || lower.includes('snag')) return 'Handover lead with QA/QC review';
   if (lower.includes('permit') || lower.includes('environment') || lower.includes('waste')) return 'Compliance lead with site supervisor review';
   if (lower.includes('vendor') || lower.includes('contractor')) return 'FM supervisor with vendor manager review';
@@ -1305,12 +1305,12 @@ function MobilePreview({ survey = surveys[0] }: { survey?: Survey }) {
 function CreateSurveyModal({
   onClose,
   onDesign,
-  properties,
+  sites,
   initialTemplate,
 }: {
   onClose: () => void;
   onDesign: (type: SurveyType) => void;
-  properties: PortfolioClient[];
+  sites: PortfolioClient[];
   initialTemplate?: FieldOpsTemplate | null;
 }) {
   const [wizardStep, setWizardStep] = useState<CreateWizardStep>(initialTemplate ? 'basics' : 'start');
@@ -1323,17 +1323,17 @@ function CreateSurveyModal({
   const [aiDraftPreviewOpen, setAiDraftPreviewOpen] = useState(false);
   const [type, setType] = useState<SurveyType>(initialTemplate?.type ?? 'Preventive Maintenance');
   const [surveyName, setSurveyName] = useState(initialTemplate ? `${initialTemplate.name} survey` : 'Water-cooled chiller PPM checklist');
-  const [propertyId, setPropertyId] = useState(properties[0]?.id ?? '');
-  const selectedProperty = useMemo(() => properties.find(property => property.id === propertyId) ?? properties[0], [properties, propertyId]);
-  const scopeOptions = useMemo(() => getPropertyScopes(selectedProperty), [selectedProperty]);
+  const [siteId, setSiteId] = useState(sites[0]?.id ?? '');
+  const selectedSite = useMemo(() => sites.find(site => site.id === siteId) ?? sites[0], [sites, siteId]);
+  const scopeOptions = useMemo(() => getSiteScopes(selectedSite), [selectedSite]);
   const [scope, setScope] = useState(scopeOptions[0] ?? 'Portfolio-wide field scope');
   const [priority, setPriority] = useState<SurveyPriority>('High');
   const [validFrom, setValidFrom] = useState(() => formatDateInput(new Date()));
   const [validTo, setValidTo] = useState(() => formatDateInput(addDays(new Date(), 30)));
   const [descriptionEdited, setDescriptionEdited] = useState(false);
   const aiDescription = useMemo(
-    () => buildAiDescription(type, selectedProperty, scope, priority),
-    [type, selectedProperty, scope, priority],
+    () => buildAiDescription(type, selectedSite, scope, priority),
+    [type, selectedSite, scope, priority],
   );
   const aiDraftProfile = useMemo(() => getAiDraftProfile(aiPrompt, selectedAiChip), [aiPrompt, selectedAiChip]);
   const aiDraftTemplate = useMemo(() => aiDraftToTemplate(aiPrompt, aiDraftProfile), [aiPrompt, aiDraftProfile]);
@@ -1341,12 +1341,12 @@ function CreateSurveyModal({
   const [description, setDescription] = useState(aiDescription);
 
   useEffect(() => {
-    if (!propertyId && properties[0]) setPropertyId(properties[0].id);
-  }, [properties, propertyId]);
+    if (!siteId && sites[0]) setSiteId(sites[0].id);
+  }, [sites, siteId]);
 
   useEffect(() => {
     setScope(scopeOptions[0] ?? 'Portfolio-wide field scope');
-  }, [propertyId, scopeOptions]);
+  }, [siteId, scopeOptions]);
 
   useEffect(() => {
     if (!descriptionEdited) setDescription(aiDescription);
@@ -1478,7 +1478,7 @@ function CreateSurveyModal({
                             type="button"
                             onClick={() => {
                               setSelectedAiChip(chip);
-                              setAiPrompt(`Create a ${chip.toLowerCase()} checklist for a property development and management portfolio.`);
+                              setAiPrompt(`Create a ${chip.toLowerCase()} checklist for a site development and management portfolio.`);
                               setAiGeneratedPreview(false);
                             }}
                             className={`rounded-full border px-3 py-1.5 text-[10px] font-bold transition ${selectedAiChip === chip ? 'border-[#E11D2E]/70 bg-[#E11D2E]/12 text-white shadow-lg shadow-red-950/20' : 'border-[rgba(46,127,255,0.22)] bg-[#07111F] text-[#B8C7DB] hover:border-[#E11D2E]/45 hover:text-white'}`}
@@ -1569,9 +1569,9 @@ function CreateSurveyModal({
                   </select>
                 </label>
                 <label className="space-y-1.5">
-                  <span className="text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">Property</span>
-                  <select className={`${fieldInput} w-full`} value={propertyId} onChange={event => { setPropertyId(event.target.value); setDescriptionEdited(false); }}>
-                    {properties.map(property => <option key={property.id} value={property.id}>{property.name}</option>)}
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">Site</span>
+                  <select className={`${fieldInput} w-full`} value={siteId} onChange={event => { setSiteId(event.target.value); setDescriptionEdited(false); }}>
+                    {sites.map(site => <option key={site.id} value={site.id}>{site.name}</option>)}
                   </select>
                 </label>
                 <label className="space-y-1.5">
@@ -1606,11 +1606,11 @@ function CreateSurveyModal({
                         <Sparkles size={13} />
                         AI setup brief
                       </div>
-                      <p className="mt-1 text-[12px] text-[#B8C7DB]">Property context, site scope, validity, and priority are used to shape the first survey draft.</p>
+                      <p className="mt-1 text-[12px] text-[#B8C7DB]">Site context, site scope, validity, and priority are used to shape the first survey draft.</p>
                     </div>
                     <div className="flex flex-wrap gap-2 text-[10px] font-bold">
                       {startMode === 'ai' && <span className="rounded-full border border-[#E11D2E]/25 bg-[#E11D2E]/10 px-2.5 py-1 text-red-100">AI draft applied</span>}
-                      <span className="rounded-full border border-emerald-400/25 bg-emerald-400/10 px-2.5 py-1 text-emerald-200">Property loaded</span>
+                      <span className="rounded-full border border-emerald-400/25 bg-emerald-400/10 px-2.5 py-1 text-emerald-200">Site loaded</span>
                       <span className="rounded-full border border-blue-400/25 bg-blue-400/10 px-2.5 py-1 text-blue-200">Scope auto-filled</span>
                       <span className="rounded-full border border-[#E11D2E]/25 bg-[#E11D2E]/10 px-2.5 py-1 text-red-100">Evidence suggested</span>
                     </div>
@@ -2127,7 +2127,7 @@ function ShareSurveyPanel({ survey, onToast }: { survey: Survey; onToast: Props[
 
                 {shareDialog === 'embed' && (
                   <div className="space-y-3">
-                    <p className="text-[12px] leading-5 text-[#B8C7DB]">Use this snippet to embed the mobile survey inside an internal portal or property page.</p>
+                    <p className="text-[12px] leading-5 text-[#B8C7DB]">Use this snippet to embed the mobile survey inside an internal portal or site page.</p>
                     <textarea readOnly value={embedCode} className="min-h-28 w-full rounded-lg border border-[rgba(46,127,255,0.22)] bg-[#07111F] px-3 py-2 font-mono text-[11px] leading-5 text-[#DDE6F8] outline-none" />
                     <button onClick={() => copyText(embedCode, 'Embed code copied')} className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-[#E11D2E] text-[12px] font-bold text-white"><Copy size={14} /> Copy embed code</button>
                   </div>
@@ -2142,7 +2142,7 @@ function ShareSurveyPanel({ survey, onToast }: { survey: Survey; onToast: Props[
 }
 
 export function FieldOpsDashboard({ onToast }: Props) {
-  const { clients: properties } = useClients();
+  const { clients: sites } = useClients();
   const [tab, setTab] = useState<Tab>('surveys');
   const [query, setQuery] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
@@ -2528,7 +2528,7 @@ export function FieldOpsDashboard({ onToast }: Props) {
           </SideDrawer>
         )}
 
-        {createOpen && <CreateSurveyModal properties={properties} initialTemplate={createTemplate} onClose={closeCreateSurvey} onDesign={type => { closeCreateSurvey(); setSelectedSurvey({ ...selectedSurvey, type }); setDrawer('design'); }} />}
+        {createOpen && <CreateSurveyModal sites={sites} initialTemplate={createTemplate} onClose={closeCreateSurvey} onDesign={type => { closeCreateSurvey(); setSelectedSurvey({ ...selectedSurvey, type }); setDrawer('design'); }} />}
 
         {drawer === 'detail' && (
           <SideDrawer title={selectedSurvey.name} onClose={() => setDrawer(null)}>

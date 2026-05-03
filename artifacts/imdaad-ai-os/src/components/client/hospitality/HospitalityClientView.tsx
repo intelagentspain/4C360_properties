@@ -26,7 +26,7 @@ export type ReportingMode = 'camera' | 'upload' | 'voice' | 'ai-chat';
 interface Props {
   onToast: ToastFn;
   guestName?: string;
-  propertyName?: string;
+  siteName?: string;
   memberToken?: string;
   clientId?: string;
   siteId?: string;
@@ -71,7 +71,7 @@ const MODES = [
   },
 ];
 
-export function HospitalityClientView({ onToast, guestName = 'Resident', propertyName = 'Dubai Silicon Oasis', memberToken, clientId, siteId }: Props) {
+export function HospitalityClientView({ onToast, guestName = 'Resident', siteName = 'Dubai Silicon Oasis', memberToken, clientId, siteId }: Props) {
   const [activeMode, setActiveMode] = useState<ReportingMode | null>(null);
   const [incidentRef, setIncidentRef] = useState<string | null>(null);
   const [incidentSla, setIncidentSla] = useState<number>(30);
@@ -175,7 +175,7 @@ export function HospitalityClientView({ onToast, guestName = 'Resident', propert
               className="text-[10px] font-semibold uppercase tracking-widest"
               style={{ color: '#C9A96E', letterSpacing: '0.12em' }}
             >
-              {propertyName}
+              {siteName}
             </div>
             <div className="text-[10px] opacity-45" style={{ color: '#fff' }}>Resident Services · Powered by DevelopmentX</div>
           </div>

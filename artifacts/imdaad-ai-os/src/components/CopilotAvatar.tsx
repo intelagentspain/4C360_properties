@@ -233,7 +233,7 @@ const DEFAULT_CONTEXT: CopilotContextConfig = {
   chips: [
     'Show open incidents',
     'Summarise KPIs',
-    'Review property portfolio',
+    'Review site portfolio',
     'List overdue work orders',
     'Explain current risks',
     'Compare SLA performance',
@@ -247,7 +247,7 @@ const DEFAULT_CONTEXT: CopilotContextConfig = {
 const STRATEGIC_CONTEXTS: Record<CopilotStrategicPage, CopilotContextConfig> = {
   allclients: {
     greetings: DEFAULT_CONTEXT.greetings,
-    chips: ['Show highest-risk properties', 'Compare SLA by property', 'Summarise portfolio KPIs', 'List critical incidents', 'Find properties with overdue work', 'Rank by risk', 'Show live properties', 'Review data coverage', 'Draft portfolio update', 'Spot performance gaps'],
+    chips: ['Show highest-risk sites', 'Compare SLA by site', 'Summarise portfolio KPIs', 'List critical incidents', 'Find sites with overdue work', 'Rank by risk', 'Show live sites', 'Review data coverage', 'Draft portfolio update', 'Spot performance gaps'],
   },
   dashboard: {
     greetings: ['I can read the dashboard signals and turn them into priorities.', 'Want a quick summary, risk view, or action list?', 'Ask me what changed and what needs attention.'],
@@ -255,15 +255,15 @@ const STRATEGIC_CONTEXTS: Record<CopilotStrategicPage, CopilotContextConfig> = {
   },
   team: {
     greetings: ['I can help with coverage, roles, access, and workload balance.', 'Need to know who owns what or who is overloaded?', 'Ask me to review assignments or access in seconds.'],
-    chips: ['Summarise team coverage', 'Find overloaded members', 'Review role assignments', 'Check inactive users', 'Explain property access', 'List contractors', 'Find missing skills', 'Review management users', 'Draft team update', 'Suggest reassignments'],
+    chips: ['Summarise team coverage', 'Find overloaded members', 'Review role assignments', 'Check inactive users', 'Explain site access', 'List contractors', 'Find missing skills', 'Review management users', 'Draft team update', 'Suggest reassignments'],
   },
   incidents: {
     greetings: ['I can triage incidents, spot patterns, and draft next steps.', 'Need severity, SLA, or escalation help?', 'Ask me for a clean incident brief.'],
-    chips: ['Summarise critical incidents', 'Find SLA breaches', 'Draft escalation note', 'Group by property', 'Recommend next actions', 'Find repeat issues', 'Create manager brief', 'Prioritise by severity', 'Show unresolved incidents', 'Explain root cause'],
+    chips: ['Summarise critical incidents', 'Find SLA breaches', 'Draft escalation note', 'Group by site', 'Recommend next actions', 'Find repeat issues', 'Create manager brief', 'Prioritise by severity', 'Show unresolved incidents', 'Explain root cause'],
   },
   tasks: {
     greetings: ['I can help prioritise work orders and clear blockers.', 'Ask me what should move first.', 'I can turn the work list into an action plan.'],
-    chips: ['List overdue work orders', 'Find unassigned tasks', 'Prioritise today', 'Show blocked work', 'Summarise workload', 'Find SLA pressure', 'Group by property', 'Suggest assignments', 'Draft technician notes', 'Review completed work'],
+    chips: ['List overdue work orders', 'Find unassigned tasks', 'Prioritise today', 'Show blocked work', 'Summarise workload', 'Find SLA pressure', 'Group by site', 'Suggest assignments', 'Draft technician notes', 'Review completed work'],
   },
   ppmschedule: {
     greetings: ['I can help plan maintenance before risk becomes incident.', 'Need overdue PPMs, asset risks, or staffing help?', 'Ask me to turn the schedule into a plan.'],
@@ -287,7 +287,7 @@ const STRATEGIC_CONTEXTS: Record<CopilotStrategicPage, CopilotContextConfig> = {
   },
   benchmark: {
     greetings: ['I can compare performance and explain the gaps.', 'Ask me what is ahead, behind, or worth copying.', 'I can turn benchmarks into improvement steps.'],
-    chips: ['Compare properties', 'Explain KPI gaps', 'Find best performers', 'Show weak areas', 'Recommend improvements', 'Rank SLA performance', 'Compare incidents', 'Benchmark vendors', 'Draft improvement plan', 'Spot anomalies'],
+    chips: ['Compare sites', 'Explain KPI gaps', 'Find best performers', 'Show weak areas', 'Recommend improvements', 'Rank SLA performance', 'Compare incidents', 'Benchmark vendors', 'Draft improvement plan', 'Spot anomalies'],
   },
   replay: {
     greetings: ['I can reconstruct what happened and where time was lost.', 'Need a replay summary or lesson learned?', 'Ask me to explain the decision path.'],
@@ -295,7 +295,7 @@ const STRATEGIC_CONTEXTS: Record<CopilotStrategicPage, CopilotContextConfig> = {
   },
   settings: {
     greetings: ['I can help configure access, modules, rules, and policies.', 'Ask me to review setup or explain a setting.', 'I can turn configuration into a simple checklist.'],
-    chips: ['Review active modules', 'Explain AI dispatch rules', 'Check role permissions', 'Summarise access settings', 'Show property access', 'Review policies', 'Check vendor settings', 'Explain user types', 'Draft setup checklist', 'Find inactive modules'],
+    chips: ['Review active modules', 'Explain AI dispatch rules', 'Check role permissions', 'Summarise access settings', 'Show site access', 'Review policies', 'Check vendor settings', 'Explain user types', 'Draft setup checklist', 'Find inactive modules'],
   },
 };
 
@@ -318,7 +318,7 @@ function getCopilotContext(
   if (memberMode) {
     return {
       greetings: ['I can help with your assignments, access, and next actions.', 'Need a quick brief on what matters most?', 'Ask me what to focus on first.'],
-      chips: ['Summarise my dashboard', 'Show assigned properties', 'Explain my access', 'List urgent work', 'What should I do next?', 'Review my role', 'Show open tasks', 'Draft status update', 'Find overdue items', 'Check notifications'],
+      chips: ['Summarise my dashboard', 'Show assigned sites', 'Explain my access', 'List urgent work', 'What should I do next?', 'Review my role', 'Show open tasks', 'Draft status update', 'Find overdue items', 'Check notifications'],
     };
   }
   if (perspective === 'strategic') return STRATEGIC_CONTEXTS[strategicPage] ?? DEFAULT_CONTEXT;
@@ -344,42 +344,42 @@ function getLocalCopilotReply(message: string, config: CopilotContextConfig) {
   if (lower.includes('highest-risk') || lower.includes('high risk') || lower.includes('risk')) {
     return {
       reply: 'Start with JLT North Cluster, then Business Bay Tower Complex. JLT has the sharpest pressure: critical status, 12 incidents, 9 overdue tasks, 67% SLA, and lift safety checks overdue.',
-      suggestions: ['Compare SLA by property', 'List critical incidents', 'Draft escalation note', 'Suggest reassignments'],
+      suggestions: ['Compare SLA by site', 'List critical incidents', 'Draft escalation note', 'Suggest reassignments'],
     };
   }
 
   if (lower.includes('compare') && lower.includes('sla')) {
     return {
       reply: 'SLA attention should go first to JLT North Cluster at 67%, then Business Bay Tower Complex at 81%. Gate Avenue and Downtown Burj Area are the strongest performers at 97% and 96%.',
-      suggestions: ['Show highest-risk properties', 'Find SLA breaches', 'Summarise portfolio KPIs', 'Draft manager brief'],
+      suggestions: ['Show highest-risk sites', 'Find SLA breaches', 'Summarise portfolio KPIs', 'Draft manager brief'],
     };
   }
 
   if (lower.includes('data') || lower.includes('coverage') || lower.includes('source') || lower.includes('sync')) {
     return {
-      reply: 'Review connected systems by property and look for stale or missing feeds first. Power BI sync on Business Bay is the clearest reporting gap to resolve.',
+      reply: 'Review connected systems by site and look for stale or missing feeds first. Power BI sync on Business Bay is the clearest reporting gap to resolve.',
       suggestions: ['Check sync health', 'Find stale sources', 'Review data coverage', 'Draft IT note'],
     };
   }
 
   if (lower.includes('incident') || lower.includes('sla') || lower.includes('critical')) {
     return {
-      reply: 'Start with critical incidents, SLA pressure, and anything unassigned. I can help group them by property, severity, owner, or next action.',
-      suggestions: ['Summarise critical incidents', 'Find SLA breaches', 'Group by property', 'Recommend next actions'],
+      reply: 'Start with critical incidents, SLA pressure, and anything unassigned. I can help group them by site, severity, owner, or next action.',
+      suggestions: ['Summarise critical incidents', 'Find SLA breaches', 'Group by site', 'Recommend next actions'],
     };
   }
 
   if (lower.includes('team') || lower.includes('role') || lower.includes('access') || lower.includes('member')) {
     return {
-      reply: 'Review coverage, role fit, inactive users, and property access. The fastest check is who owns each property and who has too much open work.',
-      suggestions: ['Summarise team coverage', 'Find overloaded members', 'Review role assignments', 'Explain property access'],
+      reply: 'Review coverage, role fit, inactive users, and site access. The fastest check is who owns each site and who has too much open work.',
+      suggestions: ['Summarise team coverage', 'Find overloaded members', 'Review role assignments', 'Explain site access'],
     };
   }
 
-  if (lower.includes('kpi') || lower.includes('performance') || lower.includes('portfolio') || lower.includes('property') || lower.includes('properties')) {
+  if (lower.includes('kpi') || lower.includes('performance') || lower.includes('portfolio') || lower.includes('site') || lower.includes('sites')) {
     return {
       reply: 'Look at SLA, open work, critical incidents, overdue tasks, and connected data coverage. Those signals give the clearest portfolio health picture.',
-      suggestions: ['Summarise portfolio KPIs', 'Compare SLA by property', 'Show highest-risk properties', 'Spot performance gaps'],
+      suggestions: ['Summarise portfolio KPIs', 'Compare SLA by site', 'Show highest-risk sites', 'Spot performance gaps'],
     };
   }
 

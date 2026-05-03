@@ -134,7 +134,7 @@ export function ResidentMobilePortal({ residentId = 'res-001', onToast }: Props)
           <>
             <MobileCard className="bg-[#07111F] text-white">
               <p className="text-[11px] uppercase tracking-[0.18em] text-red-200">Home context</p>
-              <h2 className="mt-2 text-2xl font-black" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{unit?.propertyName}</h2>
+              <h2 className="mt-2 text-2xl font-black" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{unit?.siteName}</h2>
               <p className="mt-1 text-sm text-slate-300">Unit {unit?.unitNumber} - {unit?.building}</p>
               <div className="mt-5 grid grid-cols-3 gap-3 text-center">
                 <div className="rounded-2xl bg-white/8 p-3">
@@ -321,7 +321,7 @@ export function ResidentMobilePortal({ residentId = 'res-001', onToast }: Props)
           <MobileCard>
             <MessageCircle size={28} className="text-[#E11D2E]" />
             <h2 className="mt-4 text-xl font-black">Contact Management</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-600">Send a message to the property management team or attach a photo to an existing request.</p>
+            <p className="mt-2 text-sm leading-6 text-slate-600">Send a message to the site management team or attach a photo to an existing request.</p>
             <textarea rows={5} placeholder="Write your message..." className="mt-4 w-full rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm outline-none focus:border-[#E11D2E]" />
             <button type="button" onClick={() => onToast?.('Message sent to management', 'success')} className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-3xl bg-[#E11D2E] text-sm font-black text-white">
               <Send size={18} />

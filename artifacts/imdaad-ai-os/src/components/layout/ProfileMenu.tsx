@@ -22,7 +22,7 @@ interface Props {
 const profileActions = [
   { label: 'Personal profile', sub: 'Name, photo, title and contact details', icon: UserRound },
   { label: 'Organisation', sub: 'DevelopmentX workspace and company details', icon: Building2 },
-  { label: 'Team access', sub: 'Role, permissions and assigned properties', icon: Users },
+  { label: 'Team access', sub: 'Role, permissions and assigned sites', icon: Users },
   { label: 'Security', sub: 'Password, MFA and active sessions', icon: ShieldCheck },
   { label: 'Preferences', sub: 'Theme, language, timezone and notifications', icon: SlidersHorizontal },
 ];
@@ -112,7 +112,7 @@ export function ProfileMenu({ open, onClose }: Props) {
             <div className="grid grid-cols-3 gap-2 border-b border-[rgba(46,127,255,0.12)] p-3">
               {[
                 { label: 'Role', value: 'Management' },
-                { label: 'Properties', value: '18' },
+                { label: 'Sites', value: '18' },
                 { label: 'Modules', value: '9' },
               ].map(stat => (
                 <div key={stat.label} className="min-w-0 rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#07111F] p-2.5">

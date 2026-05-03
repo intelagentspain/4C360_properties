@@ -56,7 +56,7 @@ const AnalysisSchema = z.object({
 
 type Analysis = z.infer<typeof AnalysisSchema>;
 
-const FM_PROMPT = `You are an expert Facilities Management AI assistant specialized in rapid incident triage for commercial and residential properties in Dubai.
+const FM_PROMPT = `You are an expert Facilities Management AI assistant specialized in rapid incident triage for commercial and residential sites in Dubai.
 
 CRITICAL INSTRUCTION: You MUST respond with ONLY a valid JSON object. No markdown, no code blocks, no explanation text, no preamble. Start your response with { and end with }. Do not include anything outside the JSON object.
 

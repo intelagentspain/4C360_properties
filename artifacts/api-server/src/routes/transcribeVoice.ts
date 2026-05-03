@@ -53,7 +53,7 @@ const AnalysisSchema = z.object({
 
 type Analysis = z.infer<typeof AnalysisSchema>;
 
-const FM_VOICE_PROMPT = `You are an expert Facilities Management AI assistant for residential and commercial properties in Dubai.
+const FM_VOICE_PROMPT = `You are an expert Facilities Management AI assistant for residential and commercial sites in Dubai.
 
 A resident has left a voice note describing a facility issue. The transcript of their recording is provided below.
 
@@ -130,7 +130,7 @@ function getMockVoiceAnalysis(transcript: string): Analysis {
   if (lower.includes("light") || lower.includes("electric") || lower.includes("power") || lower.includes("socket") || lower.includes("switch")) {
     return {
       title: "Electrical Issue Reported",
-      description: `${transcriptSummary(transcript)}An electrical fault has been reported — this may involve a failed light fixture, tripped circuit breaker, or faulty socket/switch. Electrical faults in residential properties require immediate inspection to rule out fire or shock risk.`,
+      description: `${transcriptSummary(transcript)}An electrical fault has been reported — this may involve a failed light fixture, tripped circuit breaker, or faulty socket/switch. Electrical faults in residential sites require immediate inspection to rule out fire or shock risk.`,
       issueType: "Electrical Fault",
       category: "Electrical",
       severity: "medium",
@@ -175,7 +175,7 @@ function getMockVoiceAnalysis(transcript: string): Analysis {
     issueType: "General Wear",
     category: "General Maintenance",
     severity: "low",
-    identifiedAsset: "Property Area",
+    identifiedAsset: "Site Area",
     observations: [
       "Issue reported via resident voice note",
       "Full details captured in transcript",

@@ -20,7 +20,7 @@ export interface MockMemberProfile {
   photo?: string;
   isActive?: boolean;
   clientSector?: string;
-  propertyName?: string;
+  siteName?: string;
 }
 
 export const mockMemberProfiles: MockMemberProfile[] = [
@@ -102,7 +102,7 @@ export const mockMemberProfiles: MockMemberProfile[] = [
     photo: 'team/sara-rashidi.png',
     isActive: true,
     clientSector: 'Hospitality',
-    propertyName: 'Palace Residences Hotel',
+    siteName: 'Palace Residences Hotel',
   },
   {
     id: 'mbr-007',
@@ -790,7 +790,7 @@ export const mockVendorIntelligence: VendorIntelData[] = [
       { title: 'Maintain current SLA terms', detail: 'No renegotiation required — vendor is consistently outperforming SLA targets across all three managed sites.', action: 'review' },
     ],
     dependencyRisk: 'Medium',
-    dependencyNote: '3 sites depend on this vendor — a performance drop would impact 58% of managed properties.',
+    dependencyNote: '3 sites depend on this vendor — a performance drop would impact 58% of managed sites.',
     address: { street: 'Building 7, Dubai Silicon Oasis', city: 'Dubai', country: 'UAE' },
     poc: { name: 'Khalid Al Mansoori', title: 'Operations Director', phone: '+971 50 111 2233', email: 'k.mansoori@developmentxcore.ae' },
     costTrend: [

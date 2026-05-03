@@ -118,7 +118,7 @@ router.post("/fieldops/share-survey-email", async (req, res) => {
           </tr>
           <tr>
             <td style="padding:16px 28px;border-top:1px solid rgba(46,127,255,0.16);">
-              <p style="margin:0;font-size:11px;color:#7A94B4;">Sent via <strong style="color:#B8C7DB;">4C360 Properties FieldOps</strong></p>
+              <p style="margin:0;font-size:11px;color:#7A94B4;">Sent via <strong style="color:#B8C7DB;">4C360 Sites FieldOps</strong></p>
             </td>
           </tr>
         </table>

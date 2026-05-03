@@ -1838,7 +1838,7 @@ export function Incidents({ onToast, initialClientId, initialIncidentId, onIniti
 
       <div className="flex items-center gap-2 px-5 py-2.5 border-b border-[rgba(46,127,255,0.1)] flex-shrink-0 flex-wrap gap-y-2">
         <select value={client} onChange={e => setClient(e.target.value)} className="bg-[#112040] border border-[rgba(46,127,255,0.2)] rounded-lg px-2 py-1.5 text-[11px] text-[#EEF3FA] outline-none cursor-pointer">
-          <option value="All">All properties</option>
+          <option value="All">All sites</option>
           {clients.map(c => (
             <option key={c.id} value={c.id}>{c.name}</option>
           ))}

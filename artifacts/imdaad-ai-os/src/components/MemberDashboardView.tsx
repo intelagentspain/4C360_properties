@@ -22,7 +22,7 @@ const PERSPECTIVE_CONFIG = {
     color: '#2E7FFF',
     bg: 'rgba(46,127,255,0.12)',
     border: 'rgba(46,127,255,0.3)',
-    desc: 'Command-level panels · KPIs · AI dispatch · All assigned properties',
+    desc: 'Command-level panels · KPIs · AI dispatch · All assigned sites',
     icon: <Zap size={11} />,
   },
   Operational: {
@@ -195,7 +195,7 @@ export function MemberDashboardView({ member, onToast, onDismiss }: Props) {
                 <HospitalityClientView
                   onToast={onToast}
                   guestName={member.name}
-                  propertyName={member.propertyName ?? member.assignedClients[0]}
+                  siteName={member.siteName ?? member.assignedClients[0]}
                   memberToken={member.id}
                 />
               </motion.div>

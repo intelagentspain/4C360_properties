@@ -27,8 +27,8 @@ import {
   X,
 } from 'lucide-react';
 
-type Audience = 'Executive' | 'Operations' | 'Property Management' | 'Field Teams' | 'Residents' | 'Compliance' | 'HSE' | 'Marine';
-type SolutionSlug = 'properties' | 'fm' | 'marine' | 'osh';
+type Audience = 'Executive' | 'Operations' | 'Site Management' | 'Field Teams' | 'Residents' | 'Compliance' | 'HSE' | 'Marine';
+type SolutionSlug = 'sites' | 'fm' | 'marine' | 'osh';
 
 interface SolutionModule {
   id: string;
@@ -65,17 +65,17 @@ interface Solution {
 const SOLUTIONS_AGENT_ID = import.meta.env.VITE_ELEVENLABS_SOLUTIONS_AGENT_ID as string | undefined;
 const DEMO_URL = 'https://calendly.com/4c360/intro-meeting';
 
-const audiences: Array<'All' | Audience> = ['All', 'Executive', 'Operations', 'Property Management', 'Field Teams', 'Residents', 'Compliance', 'HSE', 'Marine'];
+const audiences: Array<'All' | Audience> = ['All', 'Executive', 'Operations', 'Site Management', 'Field Teams', 'Residents', 'Compliance', 'HSE', 'Marine'];
 
-const propertiesModules: SolutionModule[] = [
+const sitesModules: SolutionModule[] = [
   {
     id: 'projectcommand',
     name: 'ProjectCommand',
     tagline: 'Predictive project command centre',
-    category: 'Property Development',
+    category: 'Site Development',
     icon: Factory,
     accent: '#7C3AED',
-    audiences: ['Executive', 'Property Management', 'Compliance'],
+    audiences: ['Executive', 'Site Management', 'Compliance'],
     summary: 'A construction intelligence layer for project owners and developers. It combines programme, cost, risk, obligations, evidence, stage gates, and AI forecast views into one operating picture.',
     outcomes: ['Forecast project delays before they become claims', 'Connect programme risk with cost impact', 'Track obligations, evidence, and stage-gate readiness', 'Give leaders one view of delivery confidence'],
     workflows: ['Review AI threat score and top decisions', 'Switch between projects and compare delivery health', 'Track stage gates, obligations, risks, and evidence', 'Run forecast scenarios for handover and final cost'],
@@ -92,8 +92,8 @@ const propertiesModules: SolutionModule[] = [
     icon: ClipboardCheck,
     accent: '#E11D2E',
     audiences: ['Operations', 'Field Teams', 'Compliance'],
-    summary: 'A mobile survey studio for creating, assigning, sharing, capturing, and tracking inspections across properties, assets, teams, vendors, and contractors.',
-    outcomes: ['Standardize field inspections across properties', 'Capture evidence, GPS, readings, and signatures', 'Convert failed checks into incidents', 'Track live submissions from email or QR code'],
+    summary: 'A mobile survey studio for creating, assigning, sharing, capturing, and tracking inspections across sites, assets, teams, vendors, and contractors.',
+    outcomes: ['Standardize field inspections across sites', 'Capture evidence, GPS, readings, and signatures', 'Convert failed checks into incidents', 'Track live submissions from email or QR code'],
     workflows: ['Create a survey with AI, template, or manual flow', 'Assign to teams, vendors, roles, sites, and assets', 'Share by email, QR, WhatsApp, or link', 'Review submitted answers, photos, and issues'],
     aiCapabilities: ['Prompt-based checklist generation', 'AI draft preview by inspection type', 'Copilot guidance for technical checks', 'AI-assisted instructions and readiness checks'],
     kpis: ['Active surveys', 'In progress', 'Completed', 'Overdue', 'Open issues detected', 'Evidence files'],
@@ -107,8 +107,8 @@ const propertiesModules: SolutionModule[] = [
     category: 'Community Services',
     icon: DoorOpen,
     accent: '#2E7FFF',
-    audiences: ['Residents', 'Property Management', 'Operations'],
-    summary: 'A connected resident and owner portal for requests, notices, documents, community services, payments, and communication with property management.',
+    audiences: ['Residents', 'Site Management', 'Operations'],
+    summary: 'A connected resident and owner portal for requests, notices, documents, community services, payments, and communication with site management.',
     outcomes: ['Improve resident satisfaction and transparency', 'Reduce support calls with self-service tracking', 'Connect resident requests to operations', 'Manage notices, documents, and community services'],
     workflows: ['Resident reports an issue with photo or voice note', 'AI classifies and routes the request', 'Management tracks status and communication', 'Resident confirms resolution and rates service'],
     aiCapabilities: ['Issue description assistance', 'Request status summaries', 'Repeat complaint detection', 'Priority and escalation suggestions'],
@@ -123,10 +123,10 @@ const propertiesModules: SolutionModule[] = [
     category: 'Procurement and Partners',
     icon: ShieldCheck,
     accent: '#00B894',
-    audiences: ['Executive', 'Operations', 'Property Management'],
+    audiences: ['Executive', 'Operations', 'Site Management'],
     summary: 'A vendor performance cockpit that connects SLA, quality, evidence, cost, first-time-fix, compliance, and risk into one partner score.',
     outcomes: ['Rank vendors by true operational performance', 'Identify SLA and quality drift early', 'Support renewals and contract reviews with evidence', 'Reduce repeat visits and unmanaged cost leakage'],
-    workflows: ['Review vendor score and AI insights', 'Compare vendors by property and service type', 'Open contract and job performance details', 'Trigger corrective action or escalation'],
+    workflows: ['Review vendor score and AI insights', 'Compare vendors by site and service type', 'Open contract and job performance details', 'Trigger corrective action or escalation'],
     aiCapabilities: ['Performance explanation badges', 'Repeat failure detection', 'Cost efficiency insights', 'Recommended escalation actions'],
     kpis: ['Vendor score', 'SLA compliance', 'First-time fix', 'Evidence compliance', 'Jobs last 30 days', 'Average cost per job'],
     integrations: ['Work orders', 'Contracts', 'ServiceDesk', 'FieldOps evidence', 'ProjectCommand risks'],
@@ -155,8 +155,8 @@ const propertiesModules: SolutionModule[] = [
     category: 'Service Operations',
     icon: TicketCheck,
     accent: '#00C6FF',
-    audiences: ['Operations', 'Property Management', 'Residents'],
-    summary: 'A ticket management layer for reviewing, assigning, escalating, communicating, and closing service requests across properties and vendors.',
+    audiences: ['Operations', 'Site Management', 'Residents'],
+    summary: 'A ticket management layer for reviewing, assigning, escalating, communicating, and closing service requests across sites and vendors.',
     outcomes: ['Control SLA exposure in real time', 'Improve dispatch decisions', 'Keep residents and clients informed', 'Close work with proper evidence'],
     workflows: ['Review incoming requests', 'Assign internal team or vendor', 'Track SLA and escalation rules', 'Close with evidence and confirmation'],
     aiCapabilities: ['Priority suggestions', 'SLA risk warnings', 'Assignment recommendations', 'Closure summary drafting'],
@@ -171,14 +171,14 @@ const propertiesModules: SolutionModule[] = [
     category: 'Operations Backbone',
     icon: Wrench,
     accent: '#C8A020',
-    audiences: ['Operations', 'Field Teams', 'Property Management'],
-    summary: 'The operational backbone for assets, PPM schedules, work orders, site teams, service areas, and property-level maintenance planning.',
+    audiences: ['Operations', 'Field Teams', 'Site Management'],
+    summary: 'The operational backbone for assets, PPM schedules, work orders, site teams, service areas, and site-level maintenance planning.',
     outcomes: ['Know what assets exist and where they are', 'Plan preventive maintenance by asset and risk', 'Coordinate work orders across teams', 'Reduce reactive maintenance through better cadence'],
     workflows: ['Maintain asset registry', 'Create PPM plans and schedules', 'Assign work orders', 'Review completion and evidence'],
     aiCapabilities: ['Asset risk suggestions', 'PPM schedule recommendations', 'Work order preparation', 'Failure pattern detection'],
     kpis: ['Asset count', 'PPM compliance', 'Work order backlog', 'Open defects', 'Mean time to repair'],
     integrations: ['FieldOps', 'ServiceDesk', 'VendorIQ', 'GIS', 'Data sources'],
-    clientValue: 'Creates the operational structure needed to manage properties consistently at scale.',
+    clientValue: 'Creates the operational structure needed to manage sites consistently at scale.',
   },
   {
     id: 'greentrack',
@@ -187,14 +187,14 @@ const propertiesModules: SolutionModule[] = [
     category: 'ESG and Utilities',
     icon: Leaf,
     accent: '#38D98A',
-    audiences: ['Executive', 'Property Management', 'Compliance'],
+    audiences: ['Executive', 'Site Management', 'Compliance'],
     summary: 'A sustainability intelligence module for monitoring utility performance, ESG evidence, initiatives, alerts, and portfolio-wide improvement opportunities.',
-    outcomes: ['Track consumption and efficiency by property', 'Identify anomalies and waste', 'Support ESG reporting with evidence', 'Prioritize sustainability investments'],
-    workflows: ['Review utility and carbon trends', 'Open anomalies by property or asset', 'Track improvement initiatives', 'Export evidence for reporting'],
+    outcomes: ['Track consumption and efficiency by site', 'Identify anomalies and waste', 'Support ESG reporting with evidence', 'Prioritize sustainability investments'],
+    workflows: ['Review utility and carbon trends', 'Open anomalies by site or asset', 'Track improvement initiatives', 'Export evidence for reporting'],
     aiCapabilities: ['Consumption anomaly detection', 'Savings opportunity summaries', 'ESG evidence completeness checks', 'Forecasted utility impact'],
     kpis: ['Energy intensity', 'Water usage', 'Carbon trend', 'Savings forecast', 'Evidence completeness'],
     integrations: ['IoT sensors', 'Utility data', 'Assets', 'Evidence repository', 'Executive dashboard'],
-    clientValue: 'Helps property teams move from passive utility reporting to active sustainability performance management.',
+    clientValue: 'Helps site teams move from passive utility reporting to active sustainability performance management.',
   },
   {
     id: 'inspectpro',
@@ -203,7 +203,7 @@ const propertiesModules: SolutionModule[] = [
     category: 'Compliance and Assurance',
     icon: ClipboardList,
     accent: '#A855F7',
-    audiences: ['Compliance', 'Field Teams', 'Property Management'],
+    audiences: ['Compliance', 'Field Teams', 'Site Management'],
     summary: 'A structured inspection and audit module for evidence, control checks, corrective actions, readiness scoring, and inspection history.',
     outcomes: ['Prepare for audits with confidence', 'Link evidence to controls and obligations', 'Track failed checks and remediation', 'Reduce compliance blind spots'],
     workflows: ['Plan inspection cycle', 'Capture findings and evidence', 'Review exceptions and corrective actions', 'Export audit-ready packs'],
@@ -216,16 +216,16 @@ const propertiesModules: SolutionModule[] = [
 
 const solutions: Solution[] = [
   {
-    slug: 'properties',
-    name: '4C360 Properties',
-    label: 'Property Development & Management',
-    headline: 'One operating system for properties, projects, people, and performance.',
+    slug: 'sites',
+    name: '4C360 Sites',
+    label: 'Site Development & Management',
+    headline: 'One operating system for sites, projects, people, and performance.',
     subheadline: 'Connect development, operations, field teams, vendors, residents, evidence, and AI-assisted decisions in one platform.',
-    audience: 'Property developers, owners, operators, and community managers',
+    audience: 'Site developers, owners, operators, and community managers',
     accent: '#E11D2E',
     icon: Building2,
     stats: [['12+', 'Connected capability areas'], ['AI-first', 'Guidance inside workflows'], ['360', 'Portfolio to field visibility'], ['1 source', 'Evidence and decisions aligned']],
-    modules: propertiesModules,
+    modules: sitesModules,
     organizationValue: [
       ['Leadership', 'Portfolio risk, cost, service, and delivery confidence in one view.'],
       ['Operations', 'Clear workflows for tickets, surveys, vendors, work orders, and evidence.'],
@@ -268,7 +268,7 @@ const solutions: Solution[] = [
         category: 'Service Delivery',
         icon: TicketCheck,
         accent: '#00C6FF',
-        audiences: ['Operations', 'Property Management'],
+        audiences: ['Operations', 'Site Management'],
         summary: 'A service request command layer for intake, assignment, escalation, resident/client communication, and closure.',
         outcomes: ['Protect SLA commitments', 'Improve dispatch speed', 'Reduce missed follow-ups', 'Close jobs with evidence'],
         workflows: ['Receive request', 'Classify priority', 'Assign technician or vendor', 'Close and confirm'],

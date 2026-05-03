@@ -634,7 +634,7 @@ function AddAssetModal({ onClose, onAdd }: { onClose: () => void; onAdd: (a: Ric
           ))}
           {[
             { label: 'Type', key: 'type', options: CATEGORIES },
-            { label: 'Property', key: 'client', options: CLIENTS },
+            { label: 'Site', key: 'client', options: CLIENTS },
             { label: 'Status', key: 'status', options: ['active', 'inactive', 'maintenance', 'warning', 'critical'] },
           ].map(f => (
             <div key={f.key}>

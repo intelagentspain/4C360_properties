@@ -51,7 +51,7 @@ export const evidenceDocuments: EvidenceDocument[] = [
         { label: 'Obligation', value: 'OBL-003' },
       ],
       sections: [
-        { title: 'Registration Confirmation', lines: ['Warranty registration accepted by RERA.', 'Developer representative details verified.', 'Property reference matched against master community record.'] },
+        { title: 'Registration Confirmation', lines: ['Warranty registration accepted by RERA.', 'Developer representative details verified.', 'Site reference matched against master community record.'] },
         { title: 'Evidence Pack', lines: ['Receipt ID, payment confirmation, and submitted warranty schedule are attached.', 'No open RERA exceptions at upload time.'] },
       ],
       signatory: 'Lisa Wang - Compliance Manager',

@@ -14,7 +14,7 @@ const features = [
   {
     icon: Network,
     title: 'Everything connected',
-    text: 'People, processes and properties in one intelligent platform',
+    text: 'People, processes and sites in one intelligent platform',
   },
 ];
 
@@ -32,13 +32,13 @@ export function BrandPanel() {
 
       <div className="relative z-10 flex flex-1 flex-col">
         <div className="mb-10 flex items-center gap-3 lg:mb-16">
-          <img src="/4c-logo.png" alt="4C360 Properties" className="h-14 w-14 rounded-2xl object-contain shadow-[0_18px_34px_rgba(0,0,0,0.22)] lg:h-16 lg:w-16" />
+          <img src="/4c-logo.png" alt="4C360 Sites" className="h-14 w-14 rounded-2xl object-contain shadow-[0_18px_34px_rgba(0,0,0,0.22)] lg:h-16 lg:w-16" />
           <div>
             <div className="text-3xl font-bold text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
               360
             </div>
             <div className="mt-1 text-xs font-bold uppercase text-white/80">
-              Properties
+              Sites
             </div>
           </div>
         </div>
@@ -54,7 +54,7 @@ export function BrandPanel() {
           </h1>
           <div className="mt-7 h-0.5 w-16 bg-[#ef2332]" />
           <p className="mt-7 max-w-[27rem] text-[1.02rem] leading-8 text-slate-200/95">
-            The unified platform for managing properties, people, and performance with real-time intelligence.
+            The unified platform for managing sites, people, and performance with real-time intelligence.
           </p>
         </div>
 

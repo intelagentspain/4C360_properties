@@ -545,7 +545,7 @@ export function CommunityMap({ onToast, selectedClientId }: Props) {
         <div className="flex items-center gap-2 bg-[rgba(10,22,40,0.85)] border border-[rgba(46,127,255,0.3)] rounded-full px-3 py-1 backdrop-blur-md">
           <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
           <span className="text-[11px] text-[#EEF3FA] font-semibold tracking-wide">
-            {focusedClient ? (focusedClient.marketLabel ?? focusedClient.name).toUpperCase() + ' — LIVE' : 'ALL PROPERTIES — LIVE'}
+            {focusedClient ? (focusedClient.marketLabel ?? focusedClient.name).toUpperCase() + ' — LIVE' : 'ALL SITES — LIVE'}
           </span>
         </div>
         <select
@@ -553,7 +553,7 @@ export function CommunityMap({ onToast, selectedClientId }: Props) {
           onChange={e => setFilterClientId(e.target.value)}
           className="bg-[rgba(10,22,40,0.85)] border border-[rgba(46,127,255,0.3)] rounded-full px-3 py-1 text-[11px] text-[#EEF3FA] backdrop-blur-md cursor-pointer outline-none appearance-none"
         >
-          <option value="">All Properties</option>
+          <option value="">All Sites</option>
           {clients.map(c => (
             <option key={c.id} value={c.id}>{c.name}</option>
           ))}
@@ -615,7 +615,7 @@ export function CommunityMap({ onToast, selectedClientId }: Props) {
 
       <div className="absolute bottom-3 right-3 z-[400] bg-[rgba(10,22,40,0.9)] border border-[rgba(46,127,255,0.2)] rounded-lg px-3 py-2 backdrop-blur-md">
         <div className="text-[10px] text-[#7A94B4] space-y-1">
-          <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded bg-blue-400 inline-block" /> Property Market</div>
+          <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded bg-blue-400 inline-block" /> Site Market</div>
           <div className="mt-1 pt-1 border-t border-[rgba(46,127,255,0.15)]">
             <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" /> Available</div>
             <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-400 inline-block" /> On Job</div>
