@@ -2154,6 +2154,15 @@ export function FieldOpsDashboard({ onToast }: Props) {
   const [templatePreview, setTemplatePreview] = useState<FieldOpsTemplate | null>(null);
   const [drawer, setDrawer] = useState<Drawer>(null);
   const [selectedSurvey, setSelectedSurvey] = useState<Survey>(surveys[0]);
+
+  useEffect(() => {
+    if (drawer !== 'detail') return;
+    const handler = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setDrawer(null);
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [drawer]);
   const [selectedSubmission, setSelectedSubmission] = useState<SurveySubmission>(submissions[0]);
   const [aiPrompt, setAiPrompt] = useState(aiGeneratedSurvey.prompt);
   const [aiGenerated, setAiGenerated] = useState(true);
@@ -2534,20 +2543,185 @@ export function FieldOpsDashboard({ onToast }: Props) {
 
         {createOpen && <CreateSurveyModal sites={sites} initialTemplate={createTemplate} onClose={closeCreateSurvey} onDesign={type => { closeCreateSurvey(); setSelectedSurvey({ ...selectedSurvey, type }); setDrawer('design'); }} />}
 
-        {drawer === 'detail' && (
-          <SideDrawer title={selectedSurvey.name} onClose={() => setDrawer(null)}>
-            <div className="space-y-4">
-              <div className="rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#07111F] p-4">
-                <div className="flex items-center justify-between">
-                  <Badge tone={selectedSurvey.status}>{selectedSurvey.status}</Badge>
-                  <span className="text-[11px] text-[#7A94B4]">Updated {selectedSurvey.lastUpdated}</span>
+        {drawer === 'detail' && (() => {
+          const surveyAssignments = assignments.filter(a => a.surveyId === selectedSurvey.id);
+          const surveySubmissions = allSubmissions.filter(s => s.surveyId === selectedSurvey.id);
+          const totalIssues = surveySubmissions.reduce((sum, s) => sum + s.issuesDetected, 0);
+          const avgScore = surveySubmissions.length
+            ? Math.round(surveySubmissions.reduce((sum, s) => sum + s.score, 0) / surveySubmissions.length)
+            : null;
+          const avgProgress = surveyAssignments.length
+            ? Math.round(surveyAssignments.reduce((sum, a) => sum + a.progress, 0) / surveyAssignments.length)
+            : 0;
+          const requiredCount = selectedSurvey.questions.filter(q => q.required).length;
+          const evidenceCount = selectedSurvey.questions.filter(q => q.evidenceRequired).length;
+          return (
+            <div className="fixed inset-0 z-[2400] flex items-center justify-center p-3">
+              <button className="absolute inset-0 bg-black/65 backdrop-blur-sm" onClick={() => setDrawer(null)} aria-label="Close survey detail" />
+              <motion.div role="dialog" aria-modal="true" aria-labelledby="survey-detail-title" initial={{ opacity: 0, y: 12, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 12, scale: 0.97 }} className="relative flex max-h-[calc(100vh-1.5rem)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-[rgba(46,127,255,0.25)] bg-[#0A1628] shadow-2xl">
+                <div className="flex shrink-0 items-start justify-between gap-4 border-b border-[rgba(46,127,255,0.14)] bg-[linear-gradient(135deg,rgba(225,29,46,0.14),rgba(46,127,255,0.06))] px-5 py-4">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#E11D2E]">
+                      <ClipboardCheck size={12} /> Survey detail
+                    </div>
+                    <h3 id="survey-detail-title" className="mt-1 truncate text-lg font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{selectedSurvey.name}</h3>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <Badge tone={selectedSurvey.status}>{selectedSurvey.status}</Badge>
+                      <span className="rounded-full border border-[rgba(46,127,255,0.22)] bg-[#07111F] px-2 py-0.5 text-[10px] font-bold text-[#B8C7DB]">{selectedSurvey.type}</span>
+                      <span className="text-[11px] text-[#7A94B4]">Updated {selectedSurvey.lastUpdated}</span>
+                    </div>
+                  </div>
+                  <button onClick={() => setDrawer(null)} className="rounded-lg p-2 text-[#7A94B4] hover:bg-white/5 hover:text-white"><X size={18} /></button>
                 </div>
-                <p className="mt-3 text-[12px] leading-5 text-[#B8C7DB]">{selectedSurvey.description}</p>
-              </div>
-              <MobilePreview survey={selectedSurvey} />
+                <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto p-5">
+                  <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
+                    <div className="space-y-4">
+                      <div className="rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#07111F] p-4">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-[#7A94B4]">What this survey covers</p>
+                        <p className="mt-2 text-[12px] leading-5 text-[#B8C7DB]">{selectedSurvey.description}</p>
+                        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                          <div className="flex items-start gap-2 text-[11px] text-[#B8C7DB]"><Users size={12} className="mt-0.5 text-[#7EB8F7]" /><span><span className="text-[#7A94B4]">Client:</span> {selectedSurvey.clientId}</span></div>
+                          <div className="flex items-start gap-2 text-[11px] text-[#B8C7DB]"><MapPin size={12} className="mt-0.5 text-[#7EB8F7]" /><span><span className="text-[#7A94B4]">Sites:</span> {selectedSurvey.siteIds.join(', ') || '—'}</span></div>
+                          <div className="flex items-start gap-2 text-[11px] text-[#B8C7DB]"><ShieldCheck size={12} className="mt-0.5 text-[#7EB8F7]" /><span><span className="text-[#7A94B4]">Assets:</span> {selectedSurvey.assetIds.join(', ') || '—'}</span></div>
+                          <div className="flex items-start gap-2 text-[11px] text-[#B8C7DB]"><FileSignature size={12} className="mt-0.5 text-[#7EB8F7]" /><span><span className="text-[#7A94B4]">Capture:</span> {selectedSurvey.captureMethod}</span></div>
+                          <div className="flex items-start gap-2 text-[11px] text-[#B8C7DB]"><PencilRuler size={12} className="mt-0.5 text-[#7EB8F7]" /><span><span className="text-[#7A94B4]">Created by:</span> {selectedSurvey.createdBy} · {selectedSurvey.createdAt}</span></div>
+                          <div className="flex items-start gap-2 text-[11px] text-[#B8C7DB]"><CalendarClock size={12} className="mt-0.5 text-[#7EB8F7]" /><span><span className="text-[#7A94B4]">Last updated:</span> {selectedSurvey.updatedAt}</span></div>
+                        </div>
+                      </div>
+
+                      <div className="grid gap-3 sm:grid-cols-4">
+                        <div className="rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#07111F] p-3">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-[#7A94B4]">Responses</p>
+                          <p className="mt-1 font-mono text-xl font-black text-[#EEF3FA]">{selectedSurvey.responses}</p>
+                        </div>
+                        <div className="rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#07111F] p-3">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-[#7A94B4]">Avg progress</p>
+                          <p className="mt-1 font-mono text-xl font-black text-[#7EB8F7]">{avgProgress}%</p>
+                        </div>
+                        <div className="rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#07111F] p-3">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-[#7A94B4]">Issues open</p>
+                          <p className={`mt-1 font-mono text-xl font-black ${totalIssues > 0 ? 'text-amber-300' : 'text-emerald-300'}`}>{totalIssues}</p>
+                        </div>
+                        <div className="rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#07111F] p-3">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-[#7A94B4]">Avg score</p>
+                          <p className="mt-1 font-mono text-xl font-black text-[#EEF3FA]">{avgScore !== null ? `${avgScore}%` : '—'}</p>
+                        </div>
+                      </div>
+
+                      <div className="rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#07111F] p-4">
+                        <div className="flex items-center justify-between">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-[#7A94B4]">Assignments ({surveyAssignments.length})</p>
+                          <button onClick={() => openDrawer('assign', selectedSurvey)} className="text-[10px] font-bold text-[#7EB8F7] hover:text-white">Manage</button>
+                        </div>
+                        {surveyAssignments.length === 0 ? (
+                          <p className="mt-3 text-[11px] text-[#7A94B4]">No assignments yet — assign this survey to a team, vendor, or role to start collecting responses.</p>
+                        ) : (
+                          <div className="mt-3 space-y-2">
+                            {surveyAssignments.map(a => (
+                              <div key={a.id} className="rounded-lg border border-[rgba(46,127,255,0.12)] bg-[#0A1628] p-3">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <div className="min-w-0">
+                                    <p className="text-[12px] font-bold text-[#EEF3FA]">{a.assignee}</p>
+                                    <p className="text-[10px] text-[#7A94B4]">{a.role} · {a.site} · {a.recurrence}</p>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Badge tone={a.status}>{a.status}</Badge>
+                                    <span className="text-[10px] text-[#7A94B4]">Due {a.dueDate}</span>
+                                  </div>
+                                </div>
+                                <div className="mt-2 flex items-center gap-2">
+                                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[#112040]"><div className="h-full rounded-full bg-[#E11D2E]" style={{ width: `${a.progress}%` }} /></div>
+                                  <span className="font-mono text-[10px] font-bold text-[#B8C7DB]">{a.progress}%</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#07111F] p-4">
+                        <div className="flex items-center justify-between">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-[#7A94B4]">Recent submissions ({surveySubmissions.length})</p>
+                          <button onClick={() => { setDrawer(null); setTab('tracking'); }} className="text-[10px] font-bold text-[#7EB8F7] hover:text-white">Open tracking</button>
+                        </div>
+                        {surveySubmissions.length === 0 ? (
+                          <p className="mt-3 text-[11px] text-[#7A94B4]">No submissions captured yet.</p>
+                        ) : (
+                          <div className="mt-3 space-y-2">
+                            {surveySubmissions.slice(0, 5).map(s => (
+                              <button
+                                key={s.id}
+                                type="button"
+                                onClick={() => { setSelectedSubmission(s); setDrawer('submission'); }}
+                                className="w-full rounded-lg border border-[rgba(46,127,255,0.12)] bg-[#0A1628] p-3 text-left hover:border-[#7EB8F7]/40 hover:bg-white/[0.02]"
+                              >
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <div className="min-w-0">
+                                    <p className="text-[12px] font-bold text-[#EEF3FA]">{s.id}</p>
+                                    <p className="text-[10px] text-[#7A94B4]">{s.submittedBy} · {s.gpsLocation.site} · {s.submittedAt}</p>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Badge tone={s.status}>{s.status}</Badge>
+                                    <span className="font-mono text-[11px] font-bold text-[#B8C7DB]">{s.score}%</span>
+                                    {s.issuesDetected > 0 && (
+                                      <span className="flex items-center gap-1 rounded-full border border-amber-400/30 bg-amber-400/10 px-2 py-0.5 text-[10px] font-bold text-amber-200">
+                                        <AlertTriangle size={10} /> {s.issuesDetected}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#07111F] p-4">
+                        <div className="flex items-center justify-between">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-[#7A94B4]">Checklist ({selectedSurvey.questions.length} questions · {requiredCount} required · {evidenceCount} evidence)</p>
+                          <button onClick={() => openDrawer('design', selectedSurvey)} className="text-[10px] font-bold text-[#7EB8F7] hover:text-white">Edit checklist</button>
+                        </div>
+                        <div className="mt-3 space-y-1.5">
+                          {selectedSurvey.questions.map((q, idx) => (
+                            <div key={q.id} className="flex items-start gap-2 rounded-lg border border-[rgba(46,127,255,0.10)] bg-[#0A1628] px-3 py-2">
+                              {q.type === 'section' ? (
+                                <span className="rounded bg-[#E11D2E]/15 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-red-200">Section</span>
+                              ) : (
+                                <span className="font-mono text-[10px] text-[#7A94B4]">{String(idx).padStart(2, '0')}</span>
+                              )}
+                              <div className="min-w-0 flex-1">
+                                <p className="text-[12px] text-[#EEF3FA]">{q.label}</p>
+                                <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[9px] font-bold uppercase tracking-wide text-[#7A94B4]">
+                                  <span>{q.type.replace(/_/g, ' ')}</span>
+                                  {q.required && <span className="text-red-300">required</span>}
+                                  {q.evidenceRequired && <span className="text-emerald-300">evidence</span>}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <MobilePreview survey={selectedSurvey} />
+                      <div className="rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#07111F] p-4">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-[#7A94B4]">Quick actions</p>
+                        <div className="mt-3 grid gap-2">
+                          <button onClick={() => openDrawer('design', selectedSurvey)} disabled={selectedSurvey.status === 'Completed'} className="flex items-center justify-center gap-2 rounded-lg border border-[rgba(46,127,255,0.22)] bg-[#0A1628] px-3 py-2 text-[11px] font-bold text-[#B8C7DB] hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"><PencilRuler size={12} /> Edit / design</button>
+                          <button onClick={() => openDrawer('assign', selectedSurvey)} className="flex items-center justify-center gap-2 rounded-lg border border-[rgba(46,127,255,0.22)] bg-[#0A1628] px-3 py-2 text-[11px] font-bold text-[#B8C7DB] hover:bg-white/5"><Users size={12} /> Assign</button>
+                          <button onClick={() => openDrawer('share', selectedSurvey)} className="flex items-center justify-center gap-2 rounded-lg border border-[rgba(46,127,255,0.22)] bg-[#0A1628] px-3 py-2 text-[11px] font-bold text-[#B8C7DB] hover:bg-white/5"><Link2 size={12} /> Share link / QR</button>
+                          <button onClick={() => { setDrawer(null); setTab('tracking'); }} className="flex items-center justify-center gap-2 rounded-lg border border-[rgba(46,127,255,0.22)] bg-[#0A1628] px-3 py-2 text-[11px] font-bold text-[#B8C7DB] hover:bg-white/5"><RadioTower size={12} /> Track live</button>
+                          <button onClick={() => onToast('Survey duplicated as draft', 'success')} className="flex items-center justify-center gap-2 rounded-lg border border-[rgba(46,127,255,0.22)] bg-[#0A1628] px-3 py-2 text-[11px] font-bold text-[#B8C7DB] hover:bg-white/5"><Copy size={12} /> Duplicate</button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
             </div>
-          </SideDrawer>
-        )}
+          );
+        })()}
 
         {drawer === 'design' && (
           <div className="fixed inset-0 z-[2400] flex items-center justify-center p-3">
