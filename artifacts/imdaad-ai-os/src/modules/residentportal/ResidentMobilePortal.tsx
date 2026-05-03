@@ -166,7 +166,7 @@ export function ResidentMobilePortal({ residentId = 'res-001', onToast }: Props)
                 <Sparkles size={17} className="text-[#E11D2E]" />
                 <h3 className="text-sm font-black">AI request pulse</h3>
               </div>
-              <p className="mt-3 text-sm leading-6 text-slate-600">Your HVAC request is active and expected today. AI suggests keeping the thermostat photo available for the inspector.</p>
+              <p className="mt-3 text-sm leading-6 text-slate-600">Your hazard report is active and an OSH inspector is expected today. AI suggests keeping the site photo available for the inspector.</p>
             </MobileCard>
           </>
         )}
@@ -204,7 +204,7 @@ export function ResidentMobilePortal({ residentId = 'res-001', onToast }: Props)
                 <Sparkles size={17} />
                 <h3 className="text-sm font-black">AI suggestion</h3>
               </div>
-              <p className="mt-2 text-sm leading-6 text-red-900">Likely category: HVAC / Cooling. Suggested priority: High if cooling is fully unavailable or affecting children/elderly residents.</p>
+              <p className="mt-2 text-sm leading-6 text-red-900">Likely category: Slip / Trip / Fall hazard. Suggested priority: High if the area is in active use or if vulnerable workers are exposed.</p>
             </MobileCard>
             <button type="button" onClick={submitIssue} className="flex h-14 w-full items-center justify-center gap-2 rounded-3xl bg-[#E11D2E] text-sm font-black text-white shadow-lg shadow-red-200">
               <Send size={18} />

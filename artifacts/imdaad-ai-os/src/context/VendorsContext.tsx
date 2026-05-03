@@ -47,7 +47,7 @@ export function buildDefaultVendor(overrides: Partial<VendorIntelData> & { id: s
   return {
     id: overrides.id,
     name: overrides.name,
-    category: overrides.category ?? 'General FM',
+    category: overrides.category ?? 'General OSH Services',
     trend,
     slaCompliance: overrides.slaCompliance ?? 85,
     firstTimeFixRate: overrides.firstTimeFixRate ?? 80,

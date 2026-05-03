@@ -538,7 +538,7 @@ function NoticeCenter({ onCreate }: { onCreate: () => void }) {
         </div>
       </div>
       <AiPanel title="AI notice intelligence">
-        <p>AI flags Tower A cooling notices as high-impact because related HVAC requests are rising. Suggested next action: send maintenance window notice and prepare a post-work satisfaction check.</p>
+        <p>AI flags Tower A safety notices as high-impact because related hazard reports are rising. Suggested next action: send a stand-down notice and schedule a post-walkdown verification check.</p>
       </AiPanel>
     </div>
   );

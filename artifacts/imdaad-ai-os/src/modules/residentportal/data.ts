@@ -178,7 +178,7 @@ export const residentRequests: ResidentRequest[] = [
     sla: '2h remaining',
     createdAt: 'Today, 09:36',
     eta: 'Today, 12:30',
-    aiClassification: 'Likely FCU airflow or actuator issue',
+    aiClassification: 'Likely PPE cabinet stock-out or signage gap',
     aiSummary: 'AI grouped this with two recent Tower A cooling complaints and recommends checking riser airflow before closing.',
     timeline: [
       { label: 'Submitted', at: '09:36', detail: 'Resident submitted via SnapFix mobile with photo evidence.' },
@@ -205,7 +205,7 @@ export const residentRequests: ResidentRequest[] = [
     aiSummary: 'AI detected this is the second similar drain complaint in 30 days and recommends resident confirmation before closure.',
     timeline: [
       { label: 'Submitted', at: 'Yesterday 16:05', detail: 'Resident submitted via portal.' },
-      { label: 'Assigned', at: 'Yesterday 16:22', detail: 'ServiceDesk routed to plumbing vendor.' },
+      { label: 'Assigned', at: 'Yesterday 16:22', detail: 'ServiceDesk routed to OSH inspector on call.' },
       { label: 'Resolved', at: 'Today 08:35', detail: 'Vendor uploaded completion photo and drain test.' },
     ],
     satisfactionRating: 4,
@@ -276,7 +276,7 @@ export const residentDocuments: ResidentDocument[] = [
 export const communityServices = [
   { id: 'amenity', title: 'Amenity Bookings', count: 18, detail: 'Pool, gym, meeting room, and multipurpose hall bookings.' },
   { id: 'visitor', title: 'Visitor Access', count: 42, detail: 'QR visitor passes, security approvals, and access logs.' },
-  { id: 'move', title: 'Move-in / Move-out', count: 6, detail: 'Move permits, lift bookings, and security coordination.' },
+  { id: 'move', title: 'Permit-to-Work Requests', count: 6, detail: 'Hot work, confined-space, and working-at-height permit applications.' },
   { id: 'events', title: 'Community Events', count: 3, detail: 'Resident events, registrations, and attendance tracking.' },
   { id: 'suggestions', title: 'Suggestions', count: 11, detail: 'Community feedback, complaints, and improvement ideas.' },
 ];

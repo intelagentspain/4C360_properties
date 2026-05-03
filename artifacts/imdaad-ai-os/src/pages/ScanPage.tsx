@@ -547,7 +547,7 @@ function ManualFallbackStep({
           <input
             value={title}
             onChange={e => setTitle(e.target.value)}
-            placeholder="e.g. Water leak under kitchen sink"
+            placeholder="e.g. Damaged scaffold guardrail at south face"
             className="w-full bg-[#112040] border border-[rgba(46,127,255,0.25)] rounded-xl px-4 py-3 text-[14px] text-[#EEF3FA] placeholder-[#7A94B4] outline-none focus:border-[#2E7FFF] transition-colors"
           />
         </div>
@@ -584,7 +584,7 @@ function ManualFallbackStep({
         <div>
           <label className="text-[11px] text-[#7A94B4] uppercase tracking-wide mb-1.5 block">Category</label>
           <div className="grid grid-cols-3 gap-2">
-            {['HVAC', 'Plumbing', 'Electrical', 'Safety', 'Structural', 'General'].map(c => (
+            {['LOTO', 'Working at Height', 'Hot Work', 'Confined Space', 'Chemical / HAZMAT', 'PPE / Other'].map(c => (
               <button key={c} onClick={() => setCategory(prev => prev === c ? '' : c)}
                 className={`py-2.5 rounded-xl text-[11px] font-medium border transition-all ${
                   category === c
@@ -725,14 +725,14 @@ function SuccessStep({
         transition={{ delay: 0.7 }}
         className="text-[11px] text-[#7A94B4]"
       >
-        The FM team has been notified and will respond within the SLA window.
+        The HSE team has been notified and will respond within the SLA window.
       </motion.p>
     </div>
   );
 }
 
 const TECH_POOL = [
-  { name: 'Karim R.', id: 'KR', skills: ['HVAC', 'General'], eta: '8 min' },
+  { name: 'Karim R.', id: 'KR', skills: ['Fall Protection', 'General'], eta: '8 min' },
   { name: 'Sara M.',  id: 'SM', skills: ['Electrical', 'Safety'], eta: '12 min' },
   { name: 'Ahmed K.', id: 'AK', skills: ['Plumbing', 'General'], eta: '15 min' },
   { name: 'Faisal N.',id: 'FN', skills: ['Plumbing', 'General'], eta: '10 min' },

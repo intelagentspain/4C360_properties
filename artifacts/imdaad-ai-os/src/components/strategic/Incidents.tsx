@@ -1467,7 +1467,7 @@ function NewIncidentModal({ onClose, onSubmit }: { onClose: () => void; onSubmit
                 <input
                   value={form.title}
                   onChange={e => { set('title', e.target.value); setAiSuggested(p => ({ ...p, title: false })); }}
-                  placeholder="e.g. AC Failure — Villa 12"
+                  placeholder="e.g. Scaffold defect — Block 12"
                   className="w-full bg-[#112040] border border-[rgba(46,127,255,0.2)] rounded-lg px-3 py-2 text-[12px] text-[#EEF3FA] placeholder-[#7A94B4]/50 outline-none focus:border-[#2E7FFF] transition-colors"
                 />
               </div>

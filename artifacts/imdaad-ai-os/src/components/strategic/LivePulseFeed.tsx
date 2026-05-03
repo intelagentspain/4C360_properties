@@ -19,18 +19,18 @@ interface PulseEvent {
 }
 
 const initialEvents: PulseEvent[] = [
-  { id: 'e1', type: 'incident', title: 'AC Failure reported', sub: 'Villa 23, Cluster A · AI Capture', time: '6 min ago', location: 'Silicon Oasis', severity: 'critical', new: true },
-  { id: 'e2', type: 'sla', title: 'SLA breach imminent — Job #SI-298', sub: 'Omar T. · 12 min remaining', time: '8 min ago', location: 'Silicon Oasis', severity: 'high' },
-  { id: 'e3', type: 'ai', title: 'AI auto-dispatched Karim R.', sub: 'INC-SI-001 · HVAC · 0.4km match', time: '10 min ago', severity: 'info' },
-  { id: 'e4', type: 'task', title: 'Work order #SI-2239 closed', sub: 'Faisal N. · Plumbing · Villa 8', time: '14 min ago', severity: 'ok' },
-  { id: 'e5', type: 'incident', title: 'Water leak detected', sub: 'Villa 7, Cluster B · Resident App', time: '18 min ago', location: 'Silicon Oasis', severity: 'medium' },
-  { id: 'e6', type: 'ai', title: 'PPM risk escalated to HIGH', sub: 'Lift — Cluster A, Block 2 · 2 days', time: '22 min ago', severity: 'high' },
-  { id: 'e7', type: 'task', title: 'Parts PO approved', sub: 'PO-2024-1890 · AED 380 · Emirates HVAC', time: '31 min ago', severity: 'ok' },
+  { id: 'e1', type: 'incident', title: 'Slip hazard reported', sub: 'Workshop 23, Cluster A · AI Capture', time: '6 min ago', location: 'Silicon Oasis', severity: 'critical', new: true },
+  { id: 'e2', type: 'sla', title: 'SLA breach imminent — Inspection #SI-298', sub: 'Omar T. · 12 min remaining', time: '8 min ago', location: 'Silicon Oasis', severity: 'high' },
+  { id: 'e3', type: 'ai', title: 'AI auto-dispatched Karim R.', sub: 'INC-SI-001 · Fall Protection · 0.4km match', time: '10 min ago', severity: 'info' },
+  { id: 'e4', type: 'task', title: 'Inspection #SI-2239 closed', sub: 'Faisal N. · Eyewash check · Block 8', time: '14 min ago', severity: 'ok' },
+  { id: 'e5', type: 'incident', title: 'Chemical spill reported', sub: 'Lab 7, Cluster B · Worker Safety App', time: '18 min ago', location: 'Silicon Oasis', severity: 'medium' },
+  { id: 'e6', type: 'ai', title: 'Inspection risk escalated to HIGH', sub: 'Scaffold — Cluster A, Block 2 · 2 days overdue', time: '22 min ago', severity: 'high' },
+  { id: 'e7', type: 'task', title: 'PPE PO approved', sub: 'PO-2024-1890 · AED 380 · Emirates Safety Supplies', time: '31 min ago', severity: 'ok' },
 ];
 
 const incoming: PulseEvent[] = [
-  { id: 'e8', type: 'incident', title: 'Power fluctuation detected', sub: 'Block C, Community Centre · Sensor', time: 'Just now', severity: 'medium', new: true },
-  { id: 'e9', type: 'ai', title: 'AI recommends PPM for Chiller B', sub: 'Runtime threshold exceeded · 96h', time: 'Just now', severity: 'info', new: true },
+  { id: 'e8', type: 'incident', title: 'Gas detector LEL alarm', sub: 'Block C, Plant Room · Fixed sensor', time: 'Just now', severity: 'medium', new: true },
+  { id: 'e9', type: 'ai', title: 'AI recommends recalibration for Gas Detector GD-04', sub: 'Bump-test interval exceeded · 96h', time: 'Just now', severity: 'info', new: true },
 ];
 
 const typeConfig: Record<EventType, { icon: React.ReactNode; color: string; bg: string }> = {

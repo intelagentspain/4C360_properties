@@ -52,7 +52,7 @@ function mergeApiDataWithMock(apiClients: Record<string, unknown>[]): PortfolioC
       recentActivity: mockMatch?.recentActivity ?? [],
       people: mockMatch?.people ?? {
         accountManager: { name: '', role: 'Account Manager', initials: '', status: 'available' },
-        fmManager: { name: '', role: 'FM Manager', initials: '', status: 'available' },
+        fmManager: { name: '', role: 'HSE Manager', initials: '', status: 'available' },
         supervisors: [],
         inspectors: [],
       },

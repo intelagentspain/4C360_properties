@@ -428,7 +428,7 @@ function IncidentProviderInner({ children }: { children: ReactNode }) {
             afterPhotoUrl: data.afterPhotoUrl,
             activityLog: [
               ...inc.activityLog,
-              { time: timeStr, event: `Incident marked resolved by ${data.resolvedBy ?? inc.assignedTech ?? 'FM Engineer'} with photo evidence`, type: 'update' },
+              { time: timeStr, event: `Incident marked resolved by ${data.resolvedBy ?? inc.assignedTech ?? 'OSH Inspector'} with photo evidence`, type: 'update' },
               { time: timeStr, event: `Resolution pending supervisor/AM confirmation`, type: 'dispatch' },
             ],
           }

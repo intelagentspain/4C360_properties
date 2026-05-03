@@ -137,7 +137,7 @@ export const initialDispatchSettings: DispatchSettings = {
     { ticketType: 'Electrical',      severity: 'critical', allowedMode: 'manual', escalationRequired: true,  evidenceRequired: true,  supervisorApproval: true  },
     { ticketType: 'Fire Safety',     severity: 'critical', allowedMode: 'manual', escalationRequired: true,  evidenceRequired: true,  supervisorApproval: true  },
     { ticketType: 'General',         severity: 'low',      allowedMode: 'ai',     escalationRequired: false, evidenceRequired: false, supervisorApproval: false },
-    { ticketType: 'Lift / Elevator', severity: 'high',     allowedMode: 'manual', escalationRequired: true,  evidenceRequired: true,  supervisorApproval: true  },
+    { ticketType: 'Working at Height', severity: 'high',     allowedMode: 'manual', escalationRequired: true,  evidenceRequired: true,  supervisorApproval: true  },
   ],
 
   slaRules: [
