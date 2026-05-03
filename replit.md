@@ -38,6 +38,7 @@ See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and pa
   - Domain term: Client owns Sites; each Site has many Assets (was "Property")
   - Seed/mock data is OSH-themed: scaffold defects, fall protection, confined-space alerts, chemical spills, hot work permits, LOTO breaches, PPE cabinet audits, gas detection, eyewash stations, emergency lighting, etc. (replaces FM concepts like AC failure, lift fault, water leak, HVAC, chiller, AHU, irrigation, Power BI, generator, CCTV, parking barrier)
   - Some KB article body text retains generic FM language; titles/categories are OSH-aligned
+  - Full FM/MEP/HVAC/chiller/lift-safety/plumbing sweep completed in mockData.ts and FieldOpsDashboard.tsx — vendor names, asset histories, smart dispatch, AI classification, FieldOps prompt chips/templates/profiles, role inference, and copilot guidance now use OSH equivalents (gas detection, working at height, scaffold, eyewash, confined space, chemical safety)
 - **Features**:
   - 3 perspectives: Strategic (GIS map, KPIs, PPM, AI dispatch), Operational (mobile technician view with PIN login), Client (request portal with live tracking)
   - Interactive CartoDB Dark Matter map centered on Silicon Oasis, Dubai

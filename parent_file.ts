@@ -91,14 +91,14 @@ const aiPromptCategories: Array<{ category: string; chips: string[] }> = [
   {
     category: 'Site Operations',
     chips: [
-      'Gas Detection Calibration',
-      'Working at Height Inspection',
-      'Housekeeping & Hazard Audit',
+      'HVAC PPM',
+      'Lift Safety Inspection',
+      'Cleaning Audit',
       'Fire System Check',
-      'Eyewash & Safety Shower Check',
-      'Emergency Generator Drill',
-      'Confined Space Pre-Entry Check',
-      'Scaffold Tag Inspection',
+      'Pump Room Inspection',
+      'Generator PPM',
+      'Water Tank Inspection',
+      'Facade & Roof Check',
     ],
   },
   {
@@ -167,30 +167,30 @@ type EditableTemplateSection = {
   checks: EditableTemplateQuestion[];
 };
 const aiDraftProfiles: Record<string, AiDraftProfile> = {
-  'Gas Detection Calibration': {
+  'HVAC PPM': {
     sections: 5,
     questions: 24,
     duration: '18-22 minutes',
     frequency: 'Monthly',
-    focus: 'sensor span check, bump-test response, calibration gas pressure, alarm thresholds, and sign-off',
-    evidence: 'photos, channel readings, calibration gas pressure, GPS proof, and supervisor signature',
+    focus: 'safety isolation, chiller condition, operating readings, cleaning, and sign-off',
+    evidence: 'photos, pressure readings, temperature differential, GPS proof, and supervisor signature',
     questionSections: [
-      { title: 'Pre-Calibration Checks', questions: ['Confirm calibration gas bottle is in date and pressure ≥30%', 'Verify safe access and PPE before opening the detector', 'Confirm no active alarms or active permits-to-work in zone'] },
-      { title: 'Bump Test & Span', questions: ['Apply calibration gas to each channel (LEL, O2, CO, H2S)', 'Record alarm response and span value per channel', 'Capture sensor drift outside ±10%'] },
-      { title: 'Condition & Evidence', questions: ['Inspect inlet filter, regulator, and sample line for damage', 'Upload detector face and calibration certificate photos', 'Supervisor sign-off for any failed bump test'] },
+      { title: 'Safety & Isolation', questions: ['Confirm lockout/tagout is in place', 'Verify safe access and PPE before opening the chiller panel', 'Confirm no active alarms before inspection'] },
+      { title: 'Operational Readings', questions: ['Record chilled water pressure', 'Record entering and leaving water temperatures', 'Capture compressor running status'] },
+      { title: 'Condition & Evidence', questions: ['Inspect insulation, valves, and visible leaks', 'Upload panel and asset condition photos', 'Supervisor sign-off for abnormal readings'] },
     ],
   },
-  'Working at Height Inspection': {
+  'Lift Safety Inspection': {
     sections: 4,
     questions: 18,
     duration: '12-15 minutes',
     frequency: 'Weekly',
-    focus: 'guardrails, fall arrest, scaffold tags, anchor points, and rescue plan',
-    evidence: 'photos, safety pass/fail checks, inspector notes, and signature',
+    focus: 'landing doors, cabin safety, alarms, machine-room checks, and emergency response',
+    evidence: 'photos, safety pass/fail checks, technician notes, and signature',
     questionSections: [
-      { title: 'Edge Protection & Access', questions: ['Inspect guardrails, toe boards, and access ladders', 'Confirm scaffold Scafftag is current and signed', 'Check sole boards and base plates are seated'] },
-      { title: 'Fall Arrest Systems', questions: ['Verify harness inspection tags within 6 months', 'Confirm anchor points rated and certified', 'Check rescue plan is on site and briefed'] },
-      { title: 'Evidence & Sign-off', questions: ['Upload photo of any failed safety item', 'Record inspector notes for defects', 'Collect supervisor signature before submission'] },
+      { title: 'Cabin & Landing Checks', questions: ['Inspect cabin lighting, buttons, and emergency phone', 'Confirm landing doors close cleanly on sampled floors', 'Check lift levelling at each tested landing'] },
+      { title: 'Safety Systems', questions: ['Test alarm and intercom response', 'Confirm overload warning is operational', 'Verify emergency stop and signage condition'] },
+      { title: 'Evidence & Sign-off', questions: ['Upload photo of any failed safety item', 'Record technician notes for defects', 'Collect supervisor signature before submission'] },
     ],
   },
   'Cleaning Audit': {
@@ -201,7 +201,7 @@ const aiDraftProfiles: Record<string, AiDraftProfile> = {
     focus: 'lobbies, corridors, washrooms, amenities, consumables, and quality scoring',
     evidence: 'optional photos for failed areas, score notes, and supervisor review',
     questionSections: [
-      { title: 'Area Quality', questions: ['Score welfare-area cleanliness', 'Score corridor and stairwell condition', 'Confirm washrooms meet hygiene standard'] },
+      { title: 'Area Quality', questions: ['Score lobby cleanliness', 'Score corridor and lift lobby condition', 'Confirm washrooms meet hygiene standard'] },
       { title: 'Consumables & Odour', questions: ['Confirm consumables are stocked', 'Check bins and waste areas', 'Record any odour or pest concern'] },
       { title: 'Exceptions', questions: ['Upload photo for failed area', 'Add corrective action note', 'Flag repeated vendor failure if applicable'] },
     ],
@@ -237,11 +237,11 @@ const aiDraftProfiles: Record<string, AiDraftProfile> = {
     questions: 30,
     duration: '25-35 minutes',
     frequency: 'Per handover batch',
-    focus: 'unit readiness, finishes, plant function, snags, worker-facing evidence, and approval',
+    focus: 'unit readiness, finishes, MEP function, snags, resident-facing evidence, and approval',
     evidence: 'snag photos, QR/unit scan, handover checklist, and QA sign-off',
     questionSections: [
       { title: 'Unit Readiness', questions: ['Scan unit QR and confirm unit number', 'Check walls, flooring, doors, and joinery', 'Confirm cleaning and access readiness'] },
-      { title: 'Plant & Utilities', questions: ['Test lighting, sockets, ventilation, and eyewash fixtures', 'Record failed fixture details', 'Upload photo for every snag'] },
+      { title: 'MEP Function', questions: ['Test lighting, sockets, AC, and plumbing fixtures', 'Record failed fixture details', 'Upload photo for every snag'] },
       { title: 'Approval', questions: ['Capture resident-facing handover notes', 'Confirm all critical snags are logged', 'Collect QA sign-off'] },
     ],
   },
@@ -365,15 +365,15 @@ function makeGenericDraftProfile(chip: string): AiDraftProfile {
   };
 }
 
-const assignableAssignees = ['HSE Inspection Team', 'Fire Safety Vendor', 'Permit-to-Work Team', 'QA/QC Team', 'Confined Space Team', 'Working-at-Height Contractor', 'Mariam Saleh', 'Ahmed Farouk'];
+const assignableAssignees = ['MEP Team', 'Fire Safety Vendor', 'Soft Services Team', 'QA/QC Team', 'Handover Team', 'Arabian FM Contractor', 'Mariam Saleh', 'Ahmed Farouk'];
 const supervisorReviewers = ['Mariam Saleh', 'Sarah Khan', 'Omar Haddad', 'Nadia Karim', 'James Miller'];
 const recurrenceOptions = ['one-time', 'daily', 'weekly', 'monthly', 'quarterly', 'custom'];
 const siteAssetCatalog: Record<string, string[]> = {
-  'Lawnz Residences': ['GD-01 Gas Detector', 'GD-02 Gas Detector', 'L08-L12 Scaffold Bays', 'Tower A Welfare Area', 'Basement Confined Space', 'Podium Permit Zones'],
+  'Lawnz Residences': ['CH-01 Chiller', 'CH-02 Chiller', 'L08-L12 Handover Floors', 'Tower A Lobby', 'Basement Pump Room', 'Podium Common Areas'],
   'Business Bay Tower Complex': ['FSP-03 Fire Pump', 'Basement Fire Doors', 'Tower B Alarm Panel', 'Emergency Exit Route B1', 'Sprinkler Zone 04'],
-  'JLT North Cluster': ['Cluster B Welfare', 'Eyewash Station EW-04', 'Scaffold Bay Level 4', 'Anchor Point Deck', 'Hazardous Waste Store'],
-  'Cluster B': ['Cluster B Welfare', 'Corridor Spine', 'Eyewash Station EW-02', 'Anchor Point Deck'],
-  'All sites and common areas': ['Common Areas', 'Confined Spaces', 'Fire Safety Assets', 'Working-at-Height Zones', 'External Areas'],
+  'JLT North Cluster': ['Cluster B Lobby', 'Washroom Core A', 'Lift Lobby Level 4', 'Amenity Deck', 'Waste Room'],
+  'Cluster B': ['Cluster B Lobby', 'Corridor Spine', 'Washroom Core A', 'Amenity Deck'],
+  'All sites and common areas': ['Common Areas', 'MEP Plant Rooms', 'Fire Safety Assets', 'Lifts and Lobbies', 'External Areas'],
 };
 
 function formatDateInput(date: Date) {
@@ -427,15 +427,15 @@ function inferSurveyTypeFromPrompt(prompt: string): SurveyType {
   if (lower.includes('handover') || lower.includes('snag') || lower.includes('mock-up') || lower.includes('authority')) return 'Handover';
   if (lower.includes('defect') || lower.includes('reactive')) return 'Reactive Maintenance';
   if (lower.includes('asset condition') || lower.includes('condition')) return 'Asset Condition';
-  if (lower.includes('safety') || lower.includes('scaffold') || lower.includes('working at height')) return 'Safety';
-  if (lower.includes('ppm') || lower.includes('preventive') || lower.includes('maintenance') || lower.includes('calibration') || lower.includes('generator') || lower.includes('eyewash') || lower.includes('scaffold')) return 'Preventive Maintenance';
+  if (lower.includes('safety') || lower.includes('lift')) return 'Safety';
+  if (lower.includes('ppm') || lower.includes('preventive') || lower.includes('maintenance') || lower.includes('chiller') || lower.includes('generator') || lower.includes('pump') || lower.includes('tank')) return 'Preventive Maintenance';
   return 'Field Inspection';
 }
 
 function titleFromPrompt(prompt: string, type: SurveyType) {
   const lower = prompt.toLowerCase();
-  if (lower.includes('gas detect') || lower.includes('calibration')) return 'Gas Detection Monthly Calibration';
-  if (lower.includes('scaffold') || lower.includes('working at height') || lower.includes('fall arrest')) return 'Working at Height Inspection';
+  if (lower.includes('chiller')) return 'Water-Cooled Chiller Monthly PPM';
+  if (lower.includes('lift')) return 'Lift Safety Inspection';
   if (lower.includes('clean')) return 'Cleaning Audit Checklist';
   if (lower.includes('fire')) return 'Fire Safety Inspection';
   if (lower.includes('handover')) return 'Handover Inspection Checklist';
@@ -447,14 +447,14 @@ function titleFromPrompt(prompt: string, type: SurveyType) {
 
 function inferAiChipFromPrompt(prompt: string) {
   const lower = prompt.toLowerCase();
-  if (lower.includes('gas detect') || lower.includes('calibration') || lower.includes('bump test')) return 'Gas Detection Calibration';
-  if (lower.includes('scaffold') || lower.includes('working at height') || lower.includes('fall arrest') || lower.includes('harness')) return 'Working at Height Inspection';
-  if (lower.includes('housekeeping') || lower.includes('hazard walk') || lower.includes('janitor')) return 'Housekeeping & Hazard Audit';
+  if (lower.includes('chiller') || lower.includes('hvac') || lower.includes('ahu') || lower.includes('fan coil') || lower.includes('air condition')) return 'HVAC PPM';
+  if (lower.includes('lift') || lower.includes('elevator')) return 'Lift Safety Inspection';
+  if (lower.includes('clean') || lower.includes('housekeeping') || lower.includes('janitor')) return 'Cleaning Audit';
   if (lower.includes('fire') || lower.includes('alarm') || lower.includes('sprinkler') || lower.includes('life safety')) return 'Fire System Check';
-  if (lower.includes('eyewash') || lower.includes('safety shower')) return 'Eyewash & Safety Shower Check';
-  if (lower.includes('generator') || lower.includes('emergency drill')) return 'Emergency Generator Drill';
-  if (lower.includes('confined space') || lower.includes('pre-entry')) return 'Confined Space Pre-Entry Check';
-  if (lower.includes('scafftag') || lower.includes('tag inspection')) return 'Scaffold Tag Inspection';
+  if (lower.includes('pump room') || lower.includes('pump')) return 'Pump Room Inspection';
+  if (lower.includes('generator')) return 'Generator PPM';
+  if (lower.includes('water tank') || lower.includes('tank cleaning') || lower.includes('potable water')) return 'Water Tank Inspection';
+  if (lower.includes('facade') || lower.includes('façade') || lower.includes('roof')) return 'Facade & Roof Check';
   if (lower.includes('pre-handover')) return 'Pre-Handover Inspection';
   if (lower.includes('mock-up') || lower.includes('mockup')) return 'Mock-up Apartment Review';
   if (lower.includes('common area') && lower.includes('handover')) return 'Common Area Handover';
@@ -496,14 +496,14 @@ function getAiDraftProfile(prompt: string, selectedChip: string | null) {
 function getResponsibleRoleForPrompt(prompt: string, type: SurveyType) {
   const lower = prompt.toLowerCase();
   if (lower.includes('fire') || lower.includes('life safety')) return 'Fire safety contractor with HSE review';
-  if (lower.includes('scaffold') || lower.includes('working at height')) return 'Working-at-height contractor with HSE manager review';
-  if (lower.includes('clean') || lower.includes('housekeeping')) return 'Housekeeping supervisor';
+  if (lower.includes('lift') || lower.includes('elevator')) return 'Lift vendor with facilities manager review';
+  if (lower.includes('clean') || lower.includes('housekeeping')) return 'Soft services supervisor';
   if (lower.includes('security') || lower.includes('patrol')) return 'Security supervisor';
   if (lower.includes('landscape') || lower.includes('irrigation')) return 'Landscape contractor with site manager review';
   if (lower.includes('handover') || lower.includes('snag')) return 'Handover lead with QA/QC review';
   if (lower.includes('permit') || lower.includes('environment') || lower.includes('waste')) return 'Compliance lead with site supervisor review';
-  if (lower.includes('vendor') || lower.includes('contractor')) return 'HSE supervisor with vendor manager review';
-  if (type === 'Preventive Maintenance') return 'OSH Engineer with HSE supervisor review';
+  if (lower.includes('vendor') || lower.includes('contractor')) return 'FM supervisor with vendor manager review';
+  if (type === 'Preventive Maintenance') return 'FM Engineer with MEP supervisor review';
   if (type === 'Safety') return 'HSE lead with site supervisor review';
   return 'Assigned field supervisor';
 }
@@ -539,26 +539,26 @@ function nudgePrompt(prompt: string) {
 
 function getTemplatePreview(template: FieldOpsTemplate) {
   const lower = template.name.toLowerCase();
-  if (lower.includes('gas detect') || lower.includes('calibration')) {
+  if (lower.includes('hvac')) {
     return {
       frequency: 'Monthly',
-      responsibleRole: 'OSH Engineer with HSE supervisor review',
+      responsibleRole: 'FM Engineer with MEP supervisor review',
       sections: [
-        { title: 'Safety & Pre-Checks', checks: ['Confirm calibration gas in date and pressure ≥30%', 'Verify zone clear of active permits and PPE worn'] },
-        { title: 'Bump Test & Span', checks: ['Apply gas to each channel and record response time', 'Record span drift outside ±10% tolerance'] },
-        { title: 'Evidence & Sign-off', checks: ['Upload calibration certificate photo', 'Supervisor signature required for failed bump test'] },
+        { title: 'Safety & Isolation', checks: ['Confirm lockout/tagout is in place', 'Verify safe access around equipment'] },
+        { title: 'Operational Readings', checks: ['Record chilled water pressure', 'Record entering and leaving temperature differential'] },
+        { title: 'Evidence & Sign-off', checks: ['Upload panel photo evidence', 'Supervisor signature required for abnormal readings'] },
       ],
-      triggers: ['Failed bump test creates incident', 'Missing safety item blocks submission'],
+      triggers: ['Pressure outside range creates incident', 'Failed safety item blocks submission'],
     };
   }
-  if (lower.includes('scaffold') || lower.includes('working at height') || lower.includes('fall arrest')) {
+  if (lower.includes('lift')) {
     return {
       frequency: 'Weekly',
-      responsibleRole: 'Working-at-height contractor with HSE manager review',
+      responsibleRole: 'Lift vendor with facility manager review',
       sections: [
-        { title: 'Edge Protection', checks: ['Inspect guardrails, toe boards, and ladders', 'Confirm Scafftag current and base plates seated'] },
-        { title: 'Fall Arrest Verification', checks: ['Validate harness tags and anchor certifications', 'Capture photo evidence for defects'] },
-        { title: 'Sign-off', checks: ['Inspector notes', 'Supervisor signature'] },
+        { title: 'Cabin & Landing Checks', checks: ['Inspect doors, buttons, lighting, and emergency phone', 'Confirm landing alignment at sampled floors'] },
+        { title: 'Safety Verification', checks: ['Validate alarm response', 'Capture photo evidence for defects'] },
+        { title: 'Sign-off', checks: ['Technician notes', 'Supervisor signature'] },
       ],
       triggers: ['Failed safety check creates high-priority incident', 'Missing signature keeps submission pending'],
     };
@@ -578,7 +578,7 @@ function getTemplatePreview(template: FieldOpsTemplate) {
   if (lower.includes('clean')) {
     return {
       frequency: 'Daily',
-      responsibleRole: 'Housekeeping supervisor',
+      responsibleRole: 'Soft services supervisor',
       sections: [
         { title: 'Area Condition', checks: ['Rate lobby, corridors, washrooms, and amenities', 'Capture failed area photos'] },
         { title: 'Consumables', checks: ['Confirm supplies stocked', 'Record missing consumables'] },
@@ -608,35 +608,31 @@ function isTechnicalInspectionQuestion(text: string) {
   const lower = text.toLowerCase();
   return [
     'alarm',
-    'anchor',
     'asset',
-    'bump test',
-    'calibration',
-    'channel',
-    'confined',
-    'detector',
+    'chiller',
+    'compressor',
+    'differential',
+    'door',
     'electrical',
     'emergency',
-    'eyewash',
     'fire',
-    'gas',
     'gps',
-    'guardrail',
-    'harness',
+    'hvac',
     'isolation',
+    'lift',
     'lockout',
+    'mep',
     'panel',
     'permit',
     'pressure',
+    'pump',
     'qr',
     'reading',
-    'rescue',
-    'scaffold',
-    'scafftag',
+    'riser',
     'scan',
-    'sensor',
-    'span',
+    'temperature',
     'valve',
+    'waterproofing',
   ].some(keyword => lower.includes(keyword));
 }
 
@@ -646,7 +642,7 @@ function getCopilotGuidance(text: string) {
   if (lower.includes('temperature') || lower.includes('differential')) return 'Measure entering and leaving temperatures after the system stabilises, compare against the expected differential, and note ambient conditions if readings are abnormal.';
   if (lower.includes('lockout') || lower.includes('isolation')) return 'Verify isolation signage, lock/tag reference, responsible person, and stored-energy release before touching equipment. Stop the survey if isolation is unclear.';
   if (lower.includes('fire') || lower.includes('alarm') || lower.includes('pump')) return 'Check panel status, active faults, accessibility, and last service tag. Photograph failed or impaired life-safety equipment and escalate immediately.';
-  if (lower.includes('scaffold') || lower.includes('harness') || lower.includes('emergency')) return 'Test the item safely with the contractor or authorised inspector present. Confirm response, tag/cert validity, signage, and any defect indication before marking pass.';
+  if (lower.includes('lift') || lower.includes('door') || lower.includes('emergency')) return 'Test the item safely with the vendor or authorised technician present. Confirm response, alignment, signage, and any fault indication before marking pass.';
   if (lower.includes('gps') || lower.includes('qr') || lower.includes('scan') || lower.includes('asset')) return 'Stand at the inspected asset or zone, scan the QR if available, confirm the location shown in the app, and correct the asset reference before submitting.';
   if (lower.includes('permit')) return 'Check the permit number, validity window, scope, authorised supervisor, required controls, and work area match before allowing work to continue.';
   if (lower.includes('defect') || lower.includes('failed') || lower.includes('abnormal')) return 'Describe the failure clearly, capture a close-up and wider context photo, record severity, and assign the corrective owner before moving on.';
@@ -1326,7 +1322,7 @@ function CreateSurveyModal({
   const [aiGeneratedPreview, setAiGeneratedPreview] = useState(false);
   const [aiDraftPreviewOpen, setAiDraftPreviewOpen] = useState(false);
   const [type, setType] = useState<SurveyType>(initialTemplate?.type ?? 'Preventive Maintenance');
-  const [surveyName, setSurveyName] = useState(initialTemplate ? `${initialTemplate.name} survey` : 'Gas detection monthly calibration checklist');
+  const [surveyName, setSurveyName] = useState(initialTemplate ? `${initialTemplate.name} survey` : 'Water-cooled chiller PPM checklist');
   const [siteId, setSiteId] = useState(sites[0]?.id ?? '');
   const selectedSite = useMemo(() => sites.find(site => site.id === siteId) ?? sites[0], [sites, siteId]);
   const scopeOptions = useMemo(() => getSiteScopes(selectedSite), [selectedSite]);
@@ -1468,7 +1464,7 @@ function CreateSurveyModal({
                 <textarea
                   value={aiPrompt}
                   onChange={event => { setAiPrompt(event.target.value); setSelectedAiChip(null); setAiGeneratedPreview(false); }}
-                  placeholder="Example: Create a monthly calibration checklist for a fixed gas detection unit in a workshop."
+                  placeholder="Example: Create a preventive maintenance checklist for a water-cooled chiller in a residential tower."
                   className="mt-4 min-h-32 w-full rounded-xl border border-[rgba(46,127,255,0.22)] bg-[#0A1628] p-3 text-[12px] leading-5 text-[#EEF3FA] outline-none placeholder:text-[#4A6080] focus:border-[#E11D2E]"
                 />
                 <div className="mt-3 max-h-64 space-y-3 overflow-y-auto pr-1 custom-scrollbar">
@@ -2015,7 +2011,7 @@ function ShareSurveyPanel({ survey, onToast }: { survey: Survey; onToast: Props[
     { id: 'expiry', label: 'Expiry: 30 Apr 2026' },
     { id: 'maxSubmissions', label: 'Max submissions: 250' },
     { id: 'allowedRoles', label: 'Allowed roles: Engineer, Inspector, Contractor' },
-    { id: 'allowedOrganizations', label: 'Allowed organizations: OSH Authority' },
+    { id: 'allowedOrganizations', label: 'Allowed organizations: DevelopmentX' },
     { id: 'allowedSites', label: `Allowed sites: ${survey.siteIds[0] ?? 'Selected sites'}` },
   ];
 

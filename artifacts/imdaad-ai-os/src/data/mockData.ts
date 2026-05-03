@@ -112,8 +112,8 @@ export const mockMemberProfiles: MockMemberProfile[] = [
     perspective: 'Operational',
     assignedClients: ['Dubai Silicon Oasis'],
     zones: ['Cluster B', 'Block C'],
-    skills: 'Plumbing, Pipe Systems, Eyewash Heater, Gate Systems',
-    responsibilities: 'Handle all plumbing work orders in Cluster B\nRespond to plumbing incidents within 30 min SLA\nLog before and after evidence for every job\nConduct monthly pipe pressure inspections',
+    skills: 'Chemical Safety, Eyewash & Safety Showers, Spill Response, Gas Detection',
+    responsibilities: 'Handle all chemical safety work orders in Cluster B\nRespond to spill and exposure incidents within 30 min SLA\nLog before and after evidence for every job\nConduct monthly eyewash and safety shower flow tests',
     mobile: '+971 50 234 5678',
     availability: 'Full-time',
     shift: 'Business Hours (08:00–17:00)',
@@ -144,8 +144,8 @@ export const mockMemberProfiles: MockMemberProfile[] = [
     perspective: 'Operational',
     assignedClients: ['Dubai Silicon Oasis'],
     zones: ['Cluster A', 'Cluster B', 'Recreation Area'],
-    skills: 'General Maintenance, Lift Safety, Pool & Grounds, Plumbing',
-    responsibilities: 'General maintenance across all cluster zones\nConduct scaffold monthly safety inspections\nManage eyewash station and recreation area upkeep\nAssist with plumbing jobs in Cluster A when Ahmed K. is at capacity',
+    skills: 'Working at Height, Scaffold Inspection, Fall Arrest, General Safety',
+    responsibilities: 'Conduct working-at-height safety inspections across all cluster zones\nInspect scaffold tags, guardrails, and base plates monthly\nManage eyewash station and welfare area upkeep\nAssist with chemical safety jobs in Cluster A when Ahmed K. is at capacity',
     mobile: '+971 52 456 7890',
     availability: 'Full-time',
     shift: 'Morning (06:00–14:00)',
@@ -176,7 +176,7 @@ export const mockMemberProfiles: MockMemberProfile[] = [
     perspective: 'Operational',
     assignedClients: ['Dubai Silicon Oasis'],
     zones: ['Cluster A', 'Cluster B', 'Recreation Area', 'Main Gate'],
-    skills: 'Safety Compliance, General Maintenance, Plumbing, Fire Safety',
+    skills: 'Safety Compliance, Permit-to-Work, Chemical Safety, Fire Safety',
     responsibilities: 'Conduct weekly safety walks across all zones\nManage fire exit compliance and safety inspection records\nAssist with general maintenance jobs across all clusters\nEnsure all inspectors follow safety protocols on site',
     mobile: '+971 54 678 9012',
     availability: 'Full-time',
@@ -187,10 +187,10 @@ export const mockMemberProfiles: MockMemberProfile[] = [
 ];
 
 export const mockInspectors = [
-  { id: 'AK', name: 'Ahmed K.', skill: 'Plumbing', status: 'active', job: '#SI-301', lat: 25.1190, lng: 55.3760, rating: 4.6, jobsCompleted: 98 },
-  { id: 'SM', name: 'Sara M.', skill: 'Electrical', status: 'available', lat: 25.1165, lng: 55.3790, rating: 4.9, jobsCompleted: 210 },
-  { id: 'KR', name: 'Karim R.', skill: 'Safety Equipment', status: 'transit', job: '#SI-2241', lat: 25.1180, lng: 55.3740, rating: 4.8, jobsCompleted: 142 },
-  { id: 'FN', name: 'Faisal N.', skill: 'Plumbing', status: 'available', lat: 25.1155, lng: 55.3800, rating: 4.7, jobsCompleted: 87 },
+  { id: 'AK', name: 'Ahmed K.', skill: 'Chemical Safety', status: 'active', job: '#SI-301', lat: 25.1190, lng: 55.3760, rating: 4.6, jobsCompleted: 98 },
+  { id: 'SM', name: 'Sara M.', skill: 'Electrical Safety', status: 'available', lat: 25.1165, lng: 55.3790, rating: 4.9, jobsCompleted: 210 },
+  { id: 'KR', name: 'Karim R.', skill: 'Fall Protection', status: 'transit', job: '#SI-2241', lat: 25.1180, lng: 55.3740, rating: 4.8, jobsCompleted: 142 },
+  { id: 'FN', name: 'Faisal N.', skill: 'Working at Height', status: 'available', lat: 25.1155, lng: 55.3800, rating: 4.7, jobsCompleted: 87 },
   { id: 'OT', name: 'Omar T.', skill: 'General', status: 'overdue', job: '#SI-298', lat: 25.1200, lng: 55.3770, rating: 4.2, jobsCompleted: 63 },
 ];
 
@@ -200,7 +200,7 @@ export const mockIncidents = [
     severity: 'critical', slaMinutes: 45, elapsed: 6, lat: 25.1185, lng: 55.3755, source: 'AI Capture',
     status: 'dispatched', assignedTech: 'Karim R.', techId: 'KR', closureNotes: null,
     clientId: 'CLT-001', siteId: 'silicon-oasis',
-    description: 'AI detected wet-floor pattern at workshop entrance — coolant pooling near walkway. High slip risk for workers entering the bay. Karim R. dispatched with absorbent and warning signage.',
+    description: 'AI detected wet-floor pattern at workshop entrance — water pooling near walkway. High slip risk for workers entering the bay. Karim R. dispatched with absorbent and warning signage.',
     imageUrl: 'https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=800&q=80',
     capturedAt: '10:08 AM · 11 Apr 2026',
     activityLog: [
@@ -349,8 +349,8 @@ export const mockPPMSchedule = [
     notes: 'Unassigned — requires certified fire safety inspector.',
   },
   {
-    id: 'PPM-S-007', assetId: 'AST-004', asset: 'Eyewash Station EW-02', type: 'Plumbing',
-    task: 'Monthly Inspection', skill: 'Plumbing', location: 'Recreation Area',
+    id: 'PPM-S-007', assetId: 'AST-004', asset: 'Eyewash Station EW-02', type: 'Chemical Safety',
+    task: 'Monthly Inspection', skill: 'Chemical Safety', location: 'Welfare Area',
     daysUntilDue: 18, lastDone: 12, daysScheduled: 30, riskLevel: 'medium',
     tech: 'Ahmed K.', techId: 'AK', condition: 89, nextDueDate: '28 Apr',
     notes: 'Pressure variance detected over 5-day trend — monitor closely.',
@@ -363,8 +363,8 @@ export const mockPPMSchedule = [
     notes: 'No issues — scheduled as planned.',
   },
   {
-    id: 'PPM-S-009', assetId: null, asset: 'Hot Work Permit Register', type: 'Plumbing',
-    task: 'Seasonal Service', skill: 'Plumbing', location: 'Permit-to-Work Zones',
+    id: 'PPM-S-009', assetId: null, asset: 'Hot Work Permit Register', type: 'Compliance',
+    task: 'Seasonal Audit', skill: 'Permit-to-Work', location: 'Permit-to-Work Zones',
     daysUntilDue: 51, lastDone: 219, daysScheduled: 270, riskLevel: 'low',
     tech: 'Faisal N.', techId: 'FN', condition: 85, nextDueDate: '31 May',
     notes: 'Seasonal check — aligned with summer preparation schedule.',
@@ -407,32 +407,32 @@ export const mockPPMHistory: PPMAssetHistory[] = [
       { finding: 'Filter replacement required', occurrences: 4, total: 4 },
     ],
     records: [
-      { id: 'H-001-1', date: '12 Jan 2026', inspector: 'Karim R.', techId: 'KR', result: 'partial', conditionScore: 72, durationMinutes: 140, findings: 'Calibration Gas at 72% nominal — topped up to 89%. Condenser coils cleaned. Filter replaced (Grade F7). Minor belt wear noted.', partsUsed: ['Cal-Gas-410 Calibration Gas 2kg', 'HEPA Filter F7'], onTime: false },
-      { id: 'H-001-2', date: '13 Oct 2025', inspector: 'Karim R.', techId: 'KR', result: 'pass', conditionScore: 81, durationMinutes: 120, findings: 'Quarterly service completed. All readings within spec. Filter replaced. Coils cleaned — light fouling only. Calibration Gas pressure at 94%.', partsUsed: ['HEPA Filter F7'], onTime: true },
-      { id: 'H-001-3', date: '10 Jul 2025', inspector: 'Omar T.', techId: 'OT', result: 'partial', conditionScore: 78, durationMinutes: 175, findings: 'Calibration Gas pressure at 76% — below threshold. Leak suspected at connection joint. Topped up. Joint re-sealed. Recommend follow-up in 30 days.', partsUsed: ['Cal-Gas-410 Calibration Gas 3kg', 'Sealant Kit'], onTime: true },
-      { id: 'H-001-4', date: '14 Apr 2025', inspector: 'Karim R.', techId: 'KR', result: 'pass', conditionScore: 86, durationMinutes: 115, findings: 'Routine quarterly service. All parameters nominal. Filter replaced, coils washed, thermostat calibrated. Asset in good condition.', partsUsed: ['HEPA Filter F7'], onTime: true },
-      { id: 'H-001-5', date: '10 Jan 2025', inspector: 'Karim R.', techId: 'KR', result: 'fail', conditionScore: 63, durationMinutes: 220, findings: 'Calibration Gas critically low at 48%. Compressor showing intermittent fault. Full calibration gas recharge performed. Compressor contacts replaced. Follow-up required.', partsUsed: ['Cal-Gas-410 Calibration Gas 5kg', 'Compressor Contacts'], onTime: false },
-      { id: 'H-001-6', date: '11 Oct 2024', inspector: 'Karim R.', techId: 'KR', result: 'pass', conditionScore: 88, durationMinutes: 110, findings: 'Standard quarterly service. Minor condenser fouling cleared. All readings nominal post-service. Asset operating within specification.', onTime: true },
+      { id: 'H-001-1', date: '12 Jan 2026', inspector: 'Karim R.', techId: 'KR', result: 'partial', conditionScore: 72, durationMinutes: 140, findings: 'Calibration gas pressure at 72% nominal — bottle replaced. Sensor span drift on CH4 channel re-zeroed. Sample pump diaphragm replaced. Bump test passed.', partsUsed: ['Cal-Gas-410 Calibration Gas 2L', 'Sample Pump Diaphragm'], onTime: false },
+      { id: 'H-001-2', date: '13 Oct 2025', inspector: 'Karim R.', techId: 'KR', result: 'pass', conditionScore: 81, durationMinutes: 120, findings: 'Quarterly bump test and span calibration completed. All four channels (LEL, O2, CO, H2S) within ±10% spec. Inlet filter replaced. Calibration gas pressure at 94%.', partsUsed: ['Inlet Filter', 'Calibration Gas Regulator Seal'], onTime: true },
+      { id: 'H-001-3', date: '10 Jul 2025', inspector: 'Omar T.', techId: 'OT', result: 'partial', conditionScore: 78, durationMinutes: 175, findings: 'Calibration gas pressure at 76% — below threshold. Leak suspected at regulator connection. Bottle replaced. Joint re-sealed. Recommend follow-up bump test in 30 days.', partsUsed: ['Cal-Gas-410 Calibration Gas 3L', 'Regulator Seal Kit'], onTime: true },
+      { id: 'H-001-4', date: '14 Apr 2025', inspector: 'Karim R.', techId: 'KR', result: 'pass', conditionScore: 86, durationMinutes: 115, findings: 'Routine quarterly calibration. All parameters nominal. Inlet filter replaced, sensor caps cleaned, alarm thresholds verified. Asset in good condition.', partsUsed: ['Inlet Filter'], onTime: true },
+      { id: 'H-001-5', date: '10 Jan 2025', inspector: 'Karim R.', techId: 'KR', result: 'fail', conditionScore: 63, durationMinutes: 220, findings: 'Calibration gas critically low at 48%. CH4 sensor showing intermittent failed-bump-test. Full sensor replacement performed. Calibration recovered to ±5%. Follow-up required.', partsUsed: ['Cal-Gas-410 Calibration Gas 5L', 'CH4 Sensor Module'], onTime: false },
+      { id: 'H-001-6', date: '11 Oct 2024', inspector: 'Karim R.', techId: 'KR', result: 'pass', conditionScore: 88, durationMinutes: 110, findings: 'Standard quarterly bump test. Minor sensor drift on H2S channel re-zeroed. All readings nominal post-calibration. Unit operating within specification.', onTime: true },
     ],
   },
   {
     assetId: 'AST-002',
-    aiInsight: 'Scaffold Block A Block 2 has a concerning vibration history — motor anomalies were detected in 3 of the last 4 services. The asset compliance rate is 58%, suggesting PPMs are frequently deferred. Given the active IoT vibration alert, the risk of imminent failure is elevated and immediate intervention is recommended.',
+    aiInsight: 'Scaffold Block A Bay 2 has a concerning inspection history — guardrail and base-plate findings flagged in 3 of the last 4 monthly checks. Compliance rate is 58%, suggesting safety re-tag inspections are frequently deferred. Given the active visual defect alert, collapse risk is elevated and immediate hold of the structure is recommended.',
     complianceRate: 58,
     avgDaysBetweenService: 34,
     failureFrequency: 2,
     recurringFindings: [
-      { finding: 'Motor vibration anomaly', occurrences: 3, total: 4 },
-      { finding: 'Guide rail lubrication needed', occurrences: 4, total: 4 },
-      { finding: 'Door sensor misalignment', occurrences: 2, total: 4 },
+      { finding: 'Coupler torque out of spec', occurrences: 3, total: 4 },
+      { finding: 'Toe-board / guardrail gap', occurrences: 4, total: 4 },
+      { finding: 'Base plate / sole board sinking', occurrences: 2, total: 4 },
     ],
     records: [
-      { id: 'H-002-1', date: '9 Mar 2026', inspector: 'Faisal N.', techId: 'FN', result: 'partial', conditionScore: 58, durationMinutes: 95, findings: 'Monthly safety check. Motor vibration at 4.2mm/s — above 3.5mm/s threshold. Guide rails lubricated. Door sensors adjusted. Vibration issue escalated for specialist review.', onTime: false },
-      { id: 'H-002-2', date: '6 Feb 2026', inspector: 'Faisal N.', techId: 'FN', result: 'pass', conditionScore: 64, durationMinutes: 80, findings: 'Monthly check completed. Light vibration noted (3.1mm/s — within tolerance). Rails lubricated. Emergency button tested and functional. Cabin lighting checked.', onTime: false },
-      { id: 'H-002-3', date: '5 Jan 2026', inspector: 'Ahmed K.', techId: 'AK', result: 'fail', conditionScore: 55, durationMinutes: 180, findings: 'Motor overheating detected (82°C — limit is 75°C). Lift taken out of service for 4 hours. Motor cooling fan replaced. Bearings greased. Service resumed after cool-down.', partsUsed: ['Cooling Fan Assembly', 'Bearing Grease 500g'], onTime: true },
-      { id: 'H-002-4', date: '4 Dec 2025', inspector: 'Faisal N.', techId: 'FN', result: 'partial', conditionScore: 62, durationMinutes: 90, findings: 'Motor vibration elevated (3.9mm/s). Door sensor on Floor 3 misaligned — adjusted and re-tested. Guide rails lubricated. Recommend motor inspection next service.', onTime: true },
-      { id: 'H-002-5', date: '2 Nov 2025', inspector: 'Faisal N.', techId: 'FN', result: 'pass', conditionScore: 71, durationMinutes: 75, findings: 'Standard monthly check. All parameters within spec. No anomalies detected. Rails lubricated, emergency lighting tested.', onTime: true },
-      { id: 'H-002-6', date: '1 Oct 2025', inspector: 'Ahmed K.', techId: 'AK', result: 'pass', conditionScore: 75, durationMinutes: 85, findings: 'Monthly safety inspection completed. Cabin interior checked. Safety switches tested. Drive belt tension verified. Asset in satisfactory condition.', onTime: false },
+      { id: 'H-002-1', date: '9 Mar 2026', inspector: 'Faisal N.', techId: 'FN', result: 'partial', conditionScore: 58, durationMinutes: 95, findings: 'Monthly Scafftag check. Two right-angle couplers below 50 Nm torque — re-tightened. Top guardrail gap of 520 mm on Bay 2 (limit 470 mm) — additional ledger added. Issue escalated for supervisor review.', onTime: false },
+      { id: 'H-002-2', date: '6 Feb 2026', inspector: 'Faisal N.', techId: 'FN', result: 'pass', conditionScore: 64, durationMinutes: 80, findings: 'Monthly inspection completed. Minor coupler slip noted on inner standard — re-torqued. All edge protection in place. Toe boards secured. Tag updated to green.', onTime: false },
+      { id: 'H-002-3', date: '5 Jan 2026', inspector: 'Ahmed K.', techId: 'AK', result: 'fail', conditionScore: 55, durationMinutes: 180, findings: 'Base plate on south-east standard sinking into wet ground. Scaffold tagged out for 4 hours. Sole boards installed and base plate re-grouted. Plumb verified before re-tag.', partsUsed: ['Sole Board 230x35x1200', 'Base Plate 150mm'], onTime: true },
+      { id: 'H-002-4', date: '4 Dec 2025', inspector: 'Faisal N.', techId: 'FN', result: 'partial', conditionScore: 62, durationMinutes: 90, findings: 'Coupler torque inconsistent across Bay 2 (range 38–62 Nm). Re-torqued to 50 Nm. Toe boards on north face missing — replaced. Recommend full coupler audit next service.', onTime: true },
+      { id: 'H-002-5', date: '2 Nov 2025', inspector: 'Faisal N.', techId: 'FN', result: 'pass', conditionScore: 71, durationMinutes: 75, findings: 'Standard monthly Scafftag check. All parameters within spec. No defects detected. Edge protection complete, ladders secured, access gate functional.', onTime: true },
+      { id: 'H-002-6', date: '1 Oct 2025', inspector: 'Ahmed K.', techId: 'AK', result: 'pass', conditionScore: 75, durationMinutes: 85, findings: 'Monthly safety inspection completed. Standards plumb. Couplers within torque spec. Diagonal bracing intact. Tag retained green. Structure in satisfactory condition.', onTime: false },
     ],
   },
   {
@@ -506,7 +506,7 @@ export const mockPPMRisks = [...mockPPMSchedule]
 
 export const mockDispatchJobs = [
   { id: 'SI-2241', title: 'Slip Hazard — Workshop 23, Zone A', severity: 'critical', minutesAgo: 6, slaRemaining: 39, aiMatch: { tech: 'Karim R.', distance: '0.4km', reason: 'Fall Protection Certified · No parts needed' } },
-  { id: 'SI-2242', title: 'Chemical Spill — Workshop 7, Zone B', severity: 'medium', minutesAgo: 14, slaRemaining: 106, aiMatch: { tech: 'Faisal N.', distance: '0.6km', reason: 'Plumbing · Tools on hand' } },
+  { id: 'SI-2242', title: 'Chemical Spill — Workshop 7, Zone B', severity: 'medium', minutesAgo: 14, slaRemaining: 106, aiMatch: { tech: 'Faisal N.', distance: '0.6km', reason: 'Spill response certified · Containment kit on hand' } },
   { id: 'SI-2243', title: 'LOTO Breach — Workshop 31', severity: 'low', minutesAgo: 31, slaRemaining: 209, aiMatch: { tech: 'Sara M.', distance: '0.8km', reason: 'Electrical · Available now' } },
 ];
 
@@ -538,16 +538,16 @@ export const mockNotifications = [
 
 export const mockAssets = [
   { id: 'AST-001', name: 'Gas Detection Unit GD-04', type: 'Safety Equipment', location: 'Block C Gym', status: 'warning', lastService: '83 days ago', nextPPM: '8 days', condition: 72, lat: 25.1195, lng: 55.3768 },
-  { id: 'AST-002', name: 'Scaffold — Block A Bay 2', type: 'Lift', location: 'Cluster A, Block 2', status: 'critical', lastService: '29 days ago', nextPPM: '2 days', condition: 58, lat: 25.1188, lng: 55.3758 },
-  { id: 'AST-003', name: 'Emergency Lighting Bank EL-01', type: 'Electrical', location: 'Community Centre', status: 'ok', lastService: '12 days ago', nextPPM: '48 days', condition: 94, lat: 25.1175, lng: 55.3780 },
-  { id: 'AST-004', name: 'Eyewash Station EW-02', type: 'Plumbing', location: 'Recreation Area', status: 'ok', lastService: '5 days ago', nextPPM: '25 days', condition: 89, lat: 25.1168, lng: 55.3762 },
+  { id: 'AST-002', name: 'Scaffold — Block A Bay 2', type: 'Working at Height', location: 'Cluster A, Block 2', status: 'critical', lastService: '29 days ago', nextPPM: '2 days', condition: 58, lat: 25.1188, lng: 55.3758 },
+  { id: 'AST-003', name: 'Emergency Lighting Bank EL-01', type: 'Electrical Safety', location: 'Community Centre', status: 'ok', lastService: '12 days ago', nextPPM: '48 days', condition: 94, lat: 25.1175, lng: 55.3780 },
+  { id: 'AST-004', name: 'Eyewash Station EW-02', type: 'Chemical Safety', location: 'Welfare Area', status: 'ok', lastService: '5 days ago', nextPPM: '25 days', condition: 89, lat: 25.1168, lng: 55.3762 },
   { id: 'AST-005', name: 'Fire Panel FP-01', type: 'Safety', location: 'Community Centre', status: 'ok', lastService: '44 days ago', nextPPM: '136 days', condition: 97, lat: 25.1172, lng: 55.3778 },
 ];
 
 export const mockTasks = [
   { id: 'TSK-2241', title: 'Slip Hazard Remediation — Workshop 23', tech: 'Karim R.', status: 'in-progress', skill: 'Safety Equipment', priority: 'critical', eta: '14 min', lat: 25.1185, lng: 55.3755 },
-  { id: 'TSK-2239', title: 'Plumbing Fix — Villa 7', tech: 'Ahmed K.', status: 'completed', skill: 'Plumbing', priority: 'medium', eta: 'Done', lat: 25.1160, lng: 55.3785 },
-  { id: 'TSK-2242', title: 'Electrical Inspection — Villa 31', tech: 'Sara M.', status: 'assigned', skill: 'Electrical', priority: 'low', eta: '22 min', lat: 25.1170, lng: 55.3750 },
+  { id: 'TSK-2239', title: 'Eyewash Repair — Block 7', tech: 'Ahmed K.', status: 'completed', skill: 'Chemical Safety', priority: 'medium', eta: 'Done', lat: 25.1160, lng: 55.3785 },
+  { id: 'TSK-2242', title: 'LOTO Verification — Workshop 31', tech: 'Sara M.', status: 'assigned', skill: 'Electrical Safety', priority: 'low', eta: '22 min', lat: 25.1170, lng: 55.3750 },
   { id: 'TSK-2243', title: 'Fall Arrest Inspection — Block 2', tech: 'Faisal N.', status: 'pending', skill: 'General', priority: 'high', eta: 'Unscheduled', lat: 25.1190, lng: 55.3762 },
 ];
 
@@ -565,12 +565,12 @@ export const mockPredictedFailures = [
 
 export const mockKanbanTasks = [
   { id: 'KT-001', title: 'Eyewash Station Inspection', asset: 'Fume Hood Block A', location: 'Block A, Floor 2', skill: 'Safety Equipment', priority: 'high', status: 'new', tech: null, slaMinutes: 120, elapsed: 5, reportedBy: 'Worker Safety App', evidence: [] },
-  { id: 'KT-002', title: 'Eyewash Heater Fault', asset: 'WH-Villa 14', location: 'Villa 14, Cluster B', skill: 'Plumbing', priority: 'medium', status: 'new', tech: null, slaMinutes: 180, elapsed: 12, reportedBy: 'WhatsApp', evidence: [] },
+  { id: 'KT-002', title: 'Eyewash Heater Fault', asset: 'EW-Block 14', location: 'Block 14, Cluster B', skill: 'Chemical Safety', priority: 'medium', status: 'new', tech: null, slaMinutes: 180, elapsed: 12, reportedBy: 'WhatsApp', evidence: [] },
   { id: 'KT-003', title: 'Hazard Remediation — Workshop 23', asset: 'Gas Detector GD-04', location: 'Villa 23, Cluster A', skill: 'Safety Equipment', priority: 'critical', status: 'assigned', tech: 'Karim R.', slaMinutes: 45, elapsed: 6, reportedBy: 'AI Capture', evidence: [] },
   { id: 'KT-004', title: 'LOTO Breach — Workshop 31', asset: 'Lockout Panel', location: 'Villa 31', skill: 'Electrical', priority: 'low', status: 'assigned', tech: 'Sara M.', slaMinutes: 240, elapsed: 31, reportedBy: 'Worker Safety App', evidence: [] },
   { id: 'KT-005', title: 'Fall Arrest Inspection', asset: 'Lift-Cluster A', location: 'Cluster A, Block 2', skill: 'General', priority: 'high', status: 'in-progress', tech: 'Faisal N.', slaMinutes: 60, elapsed: 18, reportedBy: 'PPM Schedule', evidence: [] },
-  { id: 'KT-006', title: 'Plumbing Fix — Villa 7', asset: 'Pipe M22', location: 'Villa 7, Cluster B', skill: 'Plumbing', priority: 'medium', status: 'in-progress', tech: 'Ahmed K.', slaMinutes: 120, elapsed: 14, reportedBy: 'AI Capture', evidence: [] },
-  { id: 'KT-007', title: 'Eyewash Station Inspection', asset: 'EW-02', location: 'Recreation Area', skill: 'Plumbing', priority: 'low', status: 'awaiting-evidence', tech: 'Faisal N.', slaMinutes: 360, elapsed: 45, reportedBy: 'PPM Schedule', evidence: [] },
+  { id: 'KT-006', title: 'Eyewash Repair — Block 7', asset: 'EW-Block 7', location: 'Block 7, Cluster B', skill: 'Chemical Safety', priority: 'medium', status: 'in-progress', tech: 'Ahmed K.', slaMinutes: 120, elapsed: 14, reportedBy: 'AI Capture', evidence: [] },
+  { id: 'KT-007', title: 'Eyewash Station Inspection', asset: 'EW-02', location: 'Welfare Area', skill: 'Chemical Safety', priority: 'low', status: 'awaiting-evidence', tech: 'Faisal N.', slaMinutes: 360, elapsed: 45, reportedBy: 'PPM Schedule', evidence: [] },
   { id: 'KT-008', title: 'Fire Panel Annual Check', asset: 'FP-01', location: 'Community Centre', skill: 'Safety', priority: 'high', status: 'awaiting-evidence', tech: 'Sara M.', slaMinutes: 480, elapsed: 120, reportedBy: 'Compliance', evidence: [] },
   { id: 'KT-009', title: 'PPE Cabinet Audit', asset: 'Fume Hood Lab', location: 'Block C Gym', skill: 'Safety Equipment', priority: 'medium', status: 'closed', tech: 'Karim R.', slaMinutes: 240, elapsed: 210, reportedBy: 'PPM Schedule', evidence: ['photo_before.jpg', 'photo_after.jpg'] },
   { id: 'KT-010', title: 'Emergency Call Point Repair', asset: 'IC-Main-Gate', location: 'Main Gate', skill: 'Electrical', priority: 'medium', status: 'closed', tech: 'Ahmed K.', slaMinutes: 180, elapsed: 160, reportedBy: 'Supervisor', evidence: ['intercom_photo.jpg'] },
@@ -592,7 +592,7 @@ export const mockTechPerformance = {
   categories: [
     { label: 'Safety Equipment', count: 11, color: '#2E7FFF' },
     { label: 'General', count: 4, color: '#38D98A' },
-    { label: 'Plumbing', count: 3, color: '#FF9B38' },
+    { label: 'Chemical Safety', count: 3, color: '#FF9B38' },
   ],
   recentJobs: [
     { id: 'SI-2241', title: 'Safety Equipment — Villa 23', status: 'in-progress', sla: 'On Track', date: 'Today' },
@@ -763,7 +763,7 @@ export const mockVendorIntelligence: VendorIntelData[] = [
   {
     id: 'VND-001',
     name: 'OSH Authority Core',
-    category: 'FM & Safety Equipment',
+    category: 'OSH & Safety Equipment',
     trend: 'up',
     slaCompliance: 96,
     firstTimeFixRate: 91,
@@ -812,7 +812,7 @@ export const mockVendorIntelligence: VendorIntelData[] = [
   },
   {
     id: 'VND-002',
-    name: 'Muscat FM',
+    name: 'Muscat HSE',
     category: 'General Safety & PPE',
     trend: 'up',
     slaCompliance: 88,
@@ -839,7 +839,7 @@ export const mockVendorIntelligence: VendorIntelData[] = [
     projectedTrend: 'up',
     recommendations: [
       { title: 'Lock in multi-year renewal', detail: 'Current rate of AED 385/job is the most competitive in portfolio. A 2-year renewal agreement would protect against market rate increases.', action: 'renegotiate' },
-      { title: 'Extend scope to safety inspections', detail: 'Muscat FM\'s safety compliance track record supports taking on additional fire panel and safety walk scope.', action: 'review' },
+      { title: 'Extend scope to safety inspections', detail: 'Muscat HSE\'s safety compliance track record supports taking on additional fire panel and safety walk scope.', action: 'review' },
     ],
     dependencyRisk: 'Low',
     dependencyNote: '2 sites covered — moderate dependency. Alternate vendors available for both sites if needed.',
@@ -864,7 +864,7 @@ export const mockVendorIntelligence: VendorIntelData[] = [
   },
   {
     id: 'VND-003',
-    name: 'Emrill FM',
+    name: 'Emrill Safety',
     category: 'HSE & Electrical Safety',
     trend: 'flat',
     slaCompliance: 85,
@@ -891,7 +891,7 @@ export const mockVendorIntelligence: VendorIntelData[] = [
     predictedRisk30d: 18,
     projectedTrend: 'flat',
     recommendations: [
-      { title: 'Renegotiate cost rate at renewal', detail: 'AED 465/job is above market rate for the services delivered. Benchmark shows Muscat FM delivers comparable quality at 17% lower cost.', action: 'renegotiate' },
+      { title: 'Renegotiate cost rate at renewal', detail: 'AED 465/job is above market rate for the services delivered. Benchmark shows Muscat HSE delivers comparable quality at 17% lower cost.', action: 'renegotiate' },
       { title: 'Request missing performance report', detail: 'Q4 2025 performance report is contractually required per clause 8.3. Issue formal notice and request submission within 14 days.', action: 'review' },
     ],
     dependencyRisk: 'Medium',
@@ -917,7 +917,7 @@ export const mockVendorIntelligence: VendorIntelData[] = [
   },
   {
     id: 'VND-004',
-    name: 'Belhasa Eng.',
+    name: 'Belhasa HSE',
     category: 'Safety Engineering & Civil',
     trend: 'up',
     slaCompliance: 80,
@@ -945,8 +945,8 @@ export const mockVendorIntelligence: VendorIntelData[] = [
     projectedTrend: 'up',
     recommendations: [
       { title: 'Issue performance improvement notice', detail: '3 SLA breaches triggers Clause 11.2 — formal notice must be issued within 30 days. Set 60-day improvement window with measurable KPI targets.', action: 'review' },
-      { title: 'Limit scope to civil works only', detail: 'Redirect M&E tasks to Emrill FM or OSH Authority Core. Engineering-only scope better aligns with Belhasa\'s demonstrated competency.', action: 'limit' },
-      { title: 'Renegotiate day rate at next review', detail: 'AED 530/job is not justified by current performance. Benchmark shows Emrill FM delivers comparable engineering services at AED 465.', action: 'renegotiate' },
+      { title: 'Limit scope to civil works only', detail: 'Redirect electrical-safety tasks to Emrill Safety or OSH Authority Core. Engineering-only scope better aligns with Belhasa\'s demonstrated competency.', action: 'limit' },
+      { title: 'Renegotiate day rate at next review', detail: 'AED 530/job is not justified by current performance. Benchmark shows Emrill Safety delivers comparable engineering services at AED 465.', action: 'renegotiate' },
     ],
     dependencyRisk: 'Low',
     dependencyNote: 'Single site coverage — Business Bay. Alternate engineering vendor available if required.',
@@ -972,7 +972,7 @@ export const mockVendorIntelligence: VendorIntelData[] = [
   {
     id: 'VND-005',
     name: 'TechServ ME',
-    category: 'MEP & Systems',
+    category: 'Plant Safety & Systems',
     trend: 'down',
     slaCompliance: 72,
     firstTimeFixRate: 70,
@@ -1000,11 +1000,11 @@ export const mockVendorIntelligence: VendorIntelData[] = [
     projectedTrend: 'down',
     recommendations: [
       { title: 'Trigger formal vendor review', detail: 'Declining score over 3 consecutive periods triggers the mandatory vendor review clause. Schedule formal review meeting within 21 days with clear KPI targets.', action: 'review' },
-      { title: 'Reassign MEP scope to Emrill FM', detail: 'Consider transitioning 50% of JLT North MEP jobs to Emrill FM as a risk mitigation measure while the review is underway.', action: 'reassign' },
+      { title: 'Reassign plant scope to Emrill Safety', detail: 'Consider transitioning 50% of JLT North plant-safety jobs to Emrill Safety as a risk mitigation measure while the review is underway.', action: 'reassign' },
       { title: 'Request root cause analysis immediately', detail: '12% repeat failure rate with no root cause report is a contract breach. Issue 7-day notice for submission — failure to respond escalates to contract termination proceedings.', action: 'review' },
     ],
     dependencyRisk: 'Medium',
-    dependencyNote: 'Primary MEP vendor for JLT North — transition to alternate vendor would take 4–6 weeks.',
+    dependencyNote: 'Primary plant-safety vendor for JLT North — transition to alternate vendor would take 4–6 weeks.',
     address: { street: 'Office 18B, Latifa Tower, Sheikh Zayed Road', city: 'Dubai', country: 'UAE' },
     poc: { name: 'Tariq Hassan', title: 'Service Delivery Manager', phone: '+971 56 221 4477', email: 't.hassan@techservme.ae' },
     costTrend: [
@@ -1026,7 +1026,7 @@ export const mockVendorIntelligence: VendorIntelData[] = [
   },
   {
     id: 'VND-006',
-    name: 'Farnek Serv.',
+    name: 'Farnek HSE Services',
     category: 'Hygiene & Soft Safety',
     trend: 'down',
     slaCompliance: 63,
@@ -1056,12 +1056,12 @@ export const mockVendorIntelligence: VendorIntelData[] = [
     projectedTrend: 'down',
     recommendations: [
       { title: 'Trigger immediate contract review', detail: 'Multiple contract clauses in breach. Issue formal notice under Clause 9.1 and schedule a review meeting within 14 days with executive attendance.', action: 'review' },
-      { title: 'Reassign Gate Avenue scope', detail: 'Transition Gate Avenue soft FM scope to Muscat FM within 30 days. Gate Avenue represents higher-visibility client — risk of client satisfaction impact is significant.', action: 'reassign' },
+      { title: 'Reassign Gate Avenue scope', detail: 'Transition Gate Avenue soft-services scope to Muscat HSE within 30 days. Gate Avenue represents higher-visibility client — risk of client satisfaction impact is significant.', action: 'reassign' },
       { title: 'Begin replacement vendor sourcing', detail: 'With contract expiry in 4 months and At Risk status, begin RFP for replacement vendor immediately. Shortlist at least 2 alternates.', action: 'renegotiate' },
-      { title: 'Limit active job allocation', detail: 'Cap new job assignments to Farnek to essential soft FM only while review proceeds. Do not assign any hard FM or compliance-critical tasks.', action: 'limit' },
+      { title: 'Limit active job allocation', detail: 'Cap new job assignments to Farnek to essential soft-services tasks only while review proceeds. Do not assign any hard-services or compliance-critical tasks.', action: 'limit' },
     ],
     dependencyRisk: 'High',
-    dependencyNote: 'Covers 2 sites for soft FM. No ready alternate for full-scope replacement — transition risk is significant without 60-day notice.',
+    dependencyNote: 'Covers 2 sites for soft services. No ready alternate for full-scope replacement — transition risk is significant without 60-day notice.',
     address: { street: 'P.O. Box 37848, Al Garhoud', city: 'Dubai', country: 'UAE' },
     poc: { name: 'Layla Al Farsi', title: 'Client Relations Manager', phone: '+971 50 663 9102', email: 'l.alfarsi@farnekserv.ae' },
     costTrend: [
@@ -1094,8 +1094,8 @@ export const mockBenchmarkData = {
   vendors: [
     { name: 'OSH Authority Core',  slaBreaches: 2,  avgResolution: 38, repeatFailure: 4,  rating: 4.8 },
     { name: 'TechServ ME',  slaBreaches: 8,  avgResolution: 62, repeatFailure: 12, rating: 3.9 },
-    { name: 'Emrill FM',    slaBreaches: 5,  avgResolution: 47, repeatFailure: 7,  rating: 4.2 },
-    { name: 'Farnek Serv.', slaBreaches: 11, avgResolution: 71, repeatFailure: 15, rating: 3.6 },
+    { name: 'Emrill Safety', slaBreaches: 5,  avgResolution: 47, repeatFailure: 7,  rating: 4.2 },
+    { name: 'Farnek HSE Services', slaBreaches: 11, avgResolution: 71, repeatFailure: 15, rating: 3.6 },
   ],
   regions: [
     { name: 'Dubai East',    incidentDensity: 4.2, riskScore: 68, trend: +12 },
@@ -1124,16 +1124,16 @@ export const mockReplayEvents = [
 ];
 
 export const mockAiClassification = {
-  category: 'AC / Safety Equipment',
-  subCategory: 'Calibration Gas / Cooling Failure',
+  category: 'Safety Equipment / Gas Detection',
+  subCategory: 'Calibration Drift / Sensor Failure',
   confidence: 94,
   priority: 'critical' as const,
   slaWindow: '2 hours',
   reasoning:
-    'Frost pattern on evaporator coil detected. Compressor vibration signature visible in photo metadata. Consistent with low calibration gas pressure.',
+    'Failed bump-test signature detected on CH4 channel. Calibration gas pressure metadata shows steady decline. Consistent with regulator leak and overdue span calibration.',
   signals: [
-    { label: 'Visual signal', value: 'Frost on coil unit', match: 97 },
-    { label: 'Pattern match', value: 'Cal-Gas-410 shortage profile', match: 91 },
+    { label: 'Visual signal', value: 'Red fault LED on detector face', match: 97 },
+    { label: 'Pattern match', value: 'Cal-Gas-410 depletion profile', match: 91 },
     { label: 'Asset history', value: 'Last serviced 83 days ago', match: 88 },
   ],
 };
@@ -1146,7 +1146,7 @@ export const mockSmartDispatch = [
     slaRemaining: 39,
     recommendations: [
       { tech: 'Karim R.', techId: 'KR', skill: 'Safety Equipment', distance: '0.4 km', eta: '4 min', skillMatch: 98, availability: 'en-route', reason: 'Fall protection certified · Nearest available · No parts needed' },
-      { tech: 'Ahmed K.', techId: 'AK', skill: 'Plumbing', distance: '1.1 km', eta: '9 min', skillMatch: 52, availability: 'busy', reason: 'Partial skill match · Currently on another job' },
+      { tech: 'Ahmed K.', techId: 'AK', skill: 'Chemical Safety', distance: '1.1 km', eta: '9 min', skillMatch: 52, availability: 'busy', reason: 'Partial skill match · Currently on another job' },
     ],
   },
   {
@@ -1155,8 +1155,8 @@ export const mockSmartDispatch = [
     severity: 'medium',
     slaRemaining: 106,
     recommendations: [
-      { tech: 'Faisal N.', techId: 'FN', skill: 'Plumbing', distance: '0.6 km', eta: '6 min', skillMatch: 100, availability: 'available', reason: 'Plumbing specialist · Tools on hand · Fully available' },
-      { tech: 'Ahmed K.', techId: 'AK', skill: 'Plumbing', distance: '0.9 km', eta: '8 min', skillMatch: 95, availability: 'busy', reason: 'Strong match · Currently finishing Job SI-301' },
+      { tech: 'Faisal N.', techId: 'FN', skill: 'Chemical Safety', distance: '0.6 km', eta: '6 min', skillMatch: 100, availability: 'available', reason: 'Spill response specialist · Containment kit on hand · Fully available' },
+      { tech: 'Ahmed K.', techId: 'AK', skill: 'Chemical Safety', distance: '0.9 km', eta: '8 min', skillMatch: 95, availability: 'busy', reason: 'Strong match · Currently finishing Job SI-301' },
     ],
   },
   {
@@ -1178,7 +1178,7 @@ export const mockAICaptures = [
     capturedAt: '10:08 AM', status: 'confirmed' as const,
     linkedIncident: 'INC-SI-001', linkedJob: 'KT-003',
     signals: [
-      { label: 'Coolant pooling on workshop floor', match: 97 },
+      { label: 'Water pooling on workshop floor', match: 97 },
       { label: 'Pedestrian path proximity', match: 91 },
       { label: 'No warning signage detected', match: 88 },
     ],
@@ -1201,7 +1201,7 @@ export const mockAICaptures = [
   },
   {
     id: 'AIC-003', category: 'Mechanical Hazard', subCategory: 'Hoist Motor Anomaly',
-    title: 'Scaffold Tagged Out — Floor Gap Detected', location: 'Block C, Lift 2',
+    title: 'Scaffold Tagged Out — Floor Gap Detected', location: 'Block C, Bay 2',
     severity: 'high', confidence: 88, source: 'IoT Sensor Alert',
     capturedAt: '09:58 AM', status: 'confirmed' as const,
     linkedIncident: 'INC-SI-003', linkedJob: 'KT-005',
@@ -1406,7 +1406,7 @@ export const mockPortfolioClients: PortfolioClient[] = [
       ],
       inspectors: [
         { name: 'Karim R.', role: 'Fall Protection Specialist', initials: 'KR', status: 'on-site', skill: 'Safety Equipment', jobsThisMonth: 18, slaRate: 94 },
-        { name: 'Ahmed K.', role: 'Plumber', initials: 'AK', status: 'transit', skill: 'Plumbing', jobsThisMonth: 12, slaRate: 91 },
+        { name: 'Ahmed K.', role: 'Chemical Safety Tech', initials: 'AK', status: 'transit', skill: 'Chemical Safety', jobsThisMonth: 12, slaRate: 91 },
         { name: 'Sara M.', role: 'Electrician', initials: 'SM', status: 'available', skill: 'Electrical', jobsThisMonth: 15, slaRate: 97 },
         { name: 'Faisal N.', role: 'General Tech', initials: 'FN', status: 'on-site', skill: 'General', jobsThisMonth: 10, slaRate: 88 },
       ],
@@ -1488,7 +1488,7 @@ export const mockPortfolioClients: PortfolioClient[] = [
         { name: 'Amira Haddad', role: 'Operations Supervisor', initials: 'AH', status: 'on-site', skill: 'Retail Safety' },
       ],
       inspectors: [
-        { name: 'Omar T.', role: 'MEP Inspector', initials: 'OT', status: 'on-site', skill: 'Electrical', jobsThisMonth: 14, slaRate: 99 },
+        { name: 'Omar T.', role: 'Electrical Safety Inspector', initials: 'OT', status: 'on-site', skill: 'Electrical', jobsThisMonth: 14, slaRate: 99 },
         { name: 'Bilal S.', role: 'Safety Inspector', initials: 'BS', status: 'available', skill: 'Safety Equipment', jobsThisMonth: 11, slaRate: 97 },
         { name: 'Nour A.', role: 'General Tech', initials: 'NA', status: 'available', skill: 'General', jobsThisMonth: 9, slaRate: 96 },
       ],
@@ -1565,13 +1565,13 @@ export const mockPortfolioClients: PortfolioClient[] = [
       accountManager: { name: 'Khaled Badawi', role: 'Account Manager', initials: 'KB', status: 'available' },
       fmManager: { name: 'Fatima Aziz', role: 'HSE Manager', initials: 'FA', status: 'on-site' },
       supervisors: [
-        { name: 'Yusuf Rahimi', role: 'Operations Supervisor', initials: 'YR', status: 'on-site', skill: 'MEP' },
+        { name: 'Yusuf Rahimi', role: 'Operations Supervisor', initials: 'YR', status: 'on-site', skill: 'Plant Safety' },
         { name: 'Dana Saleh', role: 'Safety Supervisor', initials: 'DS', status: 'off-duty', skill: 'Safety' },
       ],
       inspectors: [
         { name: 'Rami B.', role: 'Electrical Tech', initials: 'RB', status: 'on-site', skill: 'Electrical', jobsThisMonth: 16, slaRate: 78 },
         { name: 'Ali M.', role: 'Fall Protection Specialist', initials: 'AM', status: 'transit', skill: 'Safety Equipment', jobsThisMonth: 14, slaRate: 82 },
-        { name: 'Hassan T.', role: 'Plumber', initials: 'HT', status: 'off-duty', skill: 'Plumbing', jobsThisMonth: 8, slaRate: 75 },
+        { name: 'Hassan T.', role: 'Chemical Safety Tech', initials: 'HT', status: 'off-duty', skill: 'Chemical Safety', jobsThisMonth: 8, slaRate: 75 },
       ],
     },
     resources: {
@@ -1733,7 +1733,7 @@ export const mockPortfolioClients: PortfolioClient[] = [
         { name: 'Adel Farouk', role: 'Safety Lead', initials: 'AF', status: 'available', skill: 'Safety & Compliance' },
       ],
       inspectors: [
-        { name: 'Malik R.', role: 'Plumber', initials: 'MR', status: 'on-site', skill: 'Plumbing', jobsThisMonth: 13, slaRate: 87 },
+        { name: 'Malik R.', role: 'Chemical Safety Tech', initials: 'MR', status: 'on-site', skill: 'Chemical Safety', jobsThisMonth: 13, slaRate: 87 },
         { name: 'Jad T.', role: 'General Tech', initials: 'JT', status: 'transit', skill: 'General', jobsThisMonth: 11, slaRate: 84 },
         { name: 'Rana H.', role: 'Electrician', initials: 'RH', status: 'available', skill: 'Electrical', jobsThisMonth: 9, slaRate: 91 },
       ],
@@ -1772,7 +1772,7 @@ export const mockPortfolioClients: PortfolioClient[] = [
         { severity: 'Low',      target: '< 24 hrs' },
       ],
       vendorManager: 'Zaid Al-Hamdan — OSH Authority HQ',
-      notes: 'Community management board review every 6 months. Permit-to-work KPIs tracked separately to FM KPIs.',
+      notes: 'Community management board review every 6 months. Permit-to-work KPIs tracked separately to compliance KPIs.',
     },
     lat: 25.0550,
     lng: 55.2100,
@@ -1812,7 +1812,7 @@ export const mockPortfolioClients: PortfolioClient[] = [
       accountManager: { name: 'Leila Mahmoud', role: 'Account Manager', initials: 'LM', status: 'available' },
       fmManager: { name: 'Samir Haddad', role: 'HSE Manager', initials: 'SH', status: 'available' },
       supervisors: [
-        { name: 'Camille Raza', role: 'Luxury Standards Supervisor', initials: 'CR', status: 'on-site', skill: 'MEP & Safety Concierge' },
+        { name: 'Camille Raza', role: 'Luxury Standards Supervisor', initials: 'CR', status: 'on-site', skill: 'Premium Safety Concierge' },
         { name: 'Nabil Oueida', role: 'Engineering Supervisor', initials: 'NO', status: 'available', skill: 'Fall Protection & BMS' },
       ],
       inspectors: [
@@ -2199,7 +2199,7 @@ export const mockKBResources: KBResource[] = [
   },
   {
     id: 'KB-009',
-    title: 'Eyewash Station Installation — Plumbing & Flow Setup',
+    title: 'Eyewash Station Installation — Connection & Flow Setup',
     category: 'video',
     description: 'Video walkthrough covering supply pipe sizing, tepid-water mixing, drain provision, and commissioning flow tests for a new eyewash installation.',
     estimatedTime: '12 min watch',
