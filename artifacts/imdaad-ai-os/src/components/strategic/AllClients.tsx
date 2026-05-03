@@ -134,7 +134,7 @@ function PortfolioSummaryStrip({ clients }: { clients: PortfolioClient[] }) {
 
   const kpis = [
     { label: 'Total Sites',     value: clients.length,  icon: <Users size={13} />,    color: 'text-blue-400',    bg: 'bg-blue-500/10 border-blue-500/20' },
-    { label: 'Total Buildings',      value: totalSites,      icon: <MapPin size={13} />,   color: 'text-cyan-400',    bg: 'bg-cyan-500/10 border-cyan-500/20' },
+    { label: 'Total Assets',         value: totalSites,      icon: <MapPin size={13} />,   color: 'text-cyan-400',    bg: 'bg-cyan-500/10 border-cyan-500/20' },
     { label: 'Active Work Orders',   value: totalWO,         icon: <Activity size={13} />, color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/20' },
     { label: 'Critical Incidents',   value: criticalInc,     icon: <AlertTriangle size={13} />, color: criticalInc > 0 ? 'text-red-400' : 'text-emerald-400', bg: criticalInc > 0 ? 'bg-red-500/10 border-red-500/20' : 'bg-emerald-500/10 border-emerald-500/20' },
     { label: 'Avg SLA',              value: `${avgSLA}%`,    icon: <Shield size={13} />,   color: avgSLA >= 90 ? 'text-emerald-400' : avgSLA >= 80 ? 'text-amber-400' : 'text-red-400', bg: avgSLA >= 90 ? 'bg-emerald-500/10 border-emerald-500/20' : avgSLA >= 80 ? 'bg-amber-500/10 border-amber-500/20' : 'bg-red-500/10 border-red-500/20' },
