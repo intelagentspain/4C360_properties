@@ -16,7 +16,7 @@ import { useClients } from '@/context/ClientsContext';
 import { useIncidents } from '@/context/IncidentContext';
 
 const REGIONS   = ['All', 'Dubai East', 'Downtown', 'Business Bay', 'Dubai Marina', 'Jumeirah'];
-const SECTORS   = ['All', 'Mixed-Use Residential', 'Commercial Retail', 'Commercial Office', 'Residential Community', 'Luxury Residential'];
+const SECTORS   = ['All', 'Mixed-Use Workplace', 'Commercial Retail Workforce', 'Commercial Office Workforce', 'Workforce Community', 'Executive Workplace'];
 const STATUSES  = ['All', 'live', 'warning', 'critical'];
 const RISK_LVLS = ['All', 'low', 'medium', 'high', 'critical'];
 const SORT_OPTS = [
@@ -99,13 +99,13 @@ interface PulseEvent {
 }
 
 const PULSE_EVENTS: PulseEvent[] = [
-  { id: 'p1', client: 'JLT North Cluster',       title: 'CRITICAL: Lift fault — 3 residents stranded',    sub: 'Cluster N1, Tower 5 · Escalated',             time: '1 min ago',  severity: 'critical' },
+  { id: 'p1', client: 'JLT North Cluster',       title: 'CRITICAL: scaffold defect — 3 residents stranded',    sub: 'Cluster N1, Tower 5 · Escalated',             time: '1 min ago',  severity: 'critical' },
   { id: 'p2', client: 'Business Bay Tower',       title: 'SLA breach cascade — 4 jobs simultaneously',     sub: 'Tower A floors 8–12 · Supervisor notified',   time: '5 min ago',  severity: 'critical' },
-  { id: 'p3', client: 'JLT North Cluster',        title: 'AI flag: Technician shortage detected',          sub: '9 overdue tasks · Reassignment required',      time: '10 min ago', severity: 'high'     },
-  { id: 'p4', client: 'Business Bay Tower',       title: 'Power BI sync failure — reporting gap',          sub: 'Token expired · IT Ops alerted',               time: '14 min ago', severity: 'high'     },
-  { id: 'p5', client: 'Jumeirah Village Circle',  title: 'Irrigation seasonal service overdue 18 days',    sub: 'District 10 · Compliance risk',                time: '20 min ago', severity: 'medium'   },
-  { id: 'p6', client: 'Dubai Silicon Oasis',      title: 'IoT: Chiller C-04 predictive flag raised',       sub: 'Refrigerant 72% · Service within 6 days',     time: '28 min ago', severity: 'medium'   },
-  { id: 'p7', client: 'Downtown Burj Area',       title: 'AI prevented HVAC fault — PPM dispatched',       sub: 'Residence Tower 1 · Proactive response',       time: '35 min ago', severity: 'info'     },
+  { id: 'p3', client: 'JLT North Cluster',        title: 'AI flag: HSE Inspector shortage detected',          sub: '9 overdue tasks · Reassignment required',      time: '10 min ago', severity: 'high'     },
+  { id: 'p4', client: 'Business Bay Tower',       title: 'Audit dashboard sync failure — reporting gap',          sub: 'Token expired · IT Ops alerted',               time: '14 min ago', severity: 'high'     },
+  { id: 'p5', client: 'Jumeirah Village Circle',  title: 'Hot work permit audit overdue 18 days',    sub: 'District 10 · Compliance risk',                time: '20 min ago', severity: 'medium'   },
+  { id: 'p6', client: 'Dubai Silicon Oasis',      title: 'IoT: Gas Detector GD-04 predictive flag raised',       sub: 'Calibration Gas 72% · Service within 6 days',     time: '28 min ago', severity: 'medium'   },
+  { id: 'p7', client: 'Downtown Burj Area',       title: 'AI prevented safety hazard — PPM dispatched',       sub: 'Residence Tower 1 · Proactive response',       time: '35 min ago', severity: 'info'     },
 ];
 
 const PULSE_SEV_BORDER: Record<string, string> = {

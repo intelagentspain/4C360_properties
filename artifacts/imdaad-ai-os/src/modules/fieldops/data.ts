@@ -104,7 +104,7 @@ export const surveyTypes: SurveyType[] = [
 ];
 
 export const templateOptions: Record<SurveyType, string[]> = {
-  'Preventive Maintenance': ['HVAC PPM', 'Lift PPM', 'Fire System PPM', 'Pump PPM', 'Generator PPM', 'Electrical Panel PPM'],
+  'Preventive Maintenance': ['Safety Equipment PPM', 'Lift PPM', 'Fire System PPM', 'Pump PPM', 'Generator PPM', 'Electrical Panel PPM'],
   'Field Inspection': ['General Site Inspection', 'Common Area Inspection', 'Asset Condition Check', 'Safety Walkthrough', 'Defect Inspection'],
   'Reactive Maintenance': ['Issue Diagnosis', 'Corrective Action Verification', 'Before/After Evidence', 'Root Cause Capture'],
   Custom: ['Blank builder'],
@@ -132,10 +132,10 @@ export const questionPalette: Array<{ type: QuestionType; label: string; helper:
 
 export const surveys: Survey[] = [
   {
-    id: 'srv-hvac-ppm',
-    name: 'HVAC Chiller PPM - Tower A',
+    id: 'srv-fall-protection-inspection',
+    name: 'Safety Equipment Gas Detector PPM - Tower A',
     type: 'Preventive Maintenance',
-    description: 'Monthly chiller preventive maintenance checklist with readings and photo evidence.',
+    description: 'Monthly gas detector preventive maintenance checklist with readings and photo evidence.',
     clientId: 'Danube Properties',
     siteIds: ['Lawnz Residences'],
     assetIds: ['CH-01', 'CH-02'],
@@ -224,11 +224,11 @@ export const surveys: Survey[] = [
 export const assignments: SurveyAssignment[] = [
   {
     id: 'asg-001',
-    surveyId: 'srv-hvac-ppm',
+    surveyId: 'srv-fall-protection-inspection',
     assignedToType: 'team',
     assignedToId: 'mep-team',
     assignee: 'MEP Team',
-    role: 'FM Engineer',
+    role: 'Safety Inspector',
     site: 'Lawnz Residences',
     dueDate: '2026-04-30',
     recurrence: 'monthly',
@@ -269,7 +269,7 @@ export const assignments: SurveyAssignment[] = [
 export const submissions: SurveySubmission[] = [
   {
     id: 'SUB-2026-0418',
-    surveyId: 'srv-hvac-ppm',
+    surveyId: 'srv-fall-protection-inspection',
     assignmentId: 'asg-001',
     submittedBy: 'Ahmed Farouk',
     answers: [
@@ -305,7 +305,7 @@ export const submissions: SurveySubmission[] = [
 ];
 
 export const templates = [
-  { name: 'HVAC PPM', type: 'Preventive Maintenance', duration: '18 min', questions: 24, evidence: 'Photos + readings' },
+  { name: 'Safety Equipment PPM', type: 'Preventive Maintenance', duration: '18 min', questions: 24, evidence: 'Photos + readings' },
   { name: 'Lift Inspection', type: 'Field Inspection', duration: '12 min', questions: 18, evidence: 'Photos + signature' },
   { name: 'Fire Safety Inspection', type: 'Fire Safety', duration: '20 min', questions: 28, evidence: 'Photos + GPS' },
   { name: 'Cleaning Audit', type: 'Cleaning Audit', duration: '9 min', questions: 16, evidence: 'Photos optional' },
@@ -316,16 +316,16 @@ export const templates = [
 ];
 
 export const aiGeneratedSurvey = {
-  prompt: 'Create a preventive maintenance checklist for a water-cooled chiller',
+  prompt: 'Create a preventive maintenance checklist for a water-cooled gas detector',
   frequency: 'Monthly during summer, quarterly during low-load periods',
-  responsibleRole: 'FM Engineer with MEP supervisor review',
+  responsibleRole: 'Safety Inspector with MEP supervisor review',
   sections: [
     {
       title: 'Visual Inspection',
       questions: [
         'Check asset exterior condition - Pass/Fail - mandatory',
         'Confirm no visible corrosion, leaks, or panel damage - Yes/No - mandatory',
-        'Upload photo evidence of chiller exterior - required',
+        'Upload photo evidence of gas detector exterior - required',
       ],
     },
     {

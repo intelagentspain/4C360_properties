@@ -32,7 +32,12 @@ See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and pa
 - **Type**: react-vite
 - **Preview Path**: `/` (root)
 - **Stack**: React 18, TypeScript, Tailwind CSS, react-leaflet, Framer Motion, Lucide React
-- **Description**: High-fidelity SaaS demo for Imdaad facility management platform powered by 4C360
+- **Description**: High-fidelity SaaS demo for OSH Authority (Occupational Safety & Health) platform powered by 4C360
+- **Domain rebrand notes**:
+  - Top bar reads "OSH Authority" (was "Imdaad")
+  - Domain term: Client owns Sites; each Site has many Assets (was "Property")
+  - Seed/mock data is OSH-themed: scaffold defects, fall protection, confined-space alerts, chemical spills, hot work permits, LOTO breaches, PPE cabinet audits, gas detection, eyewash stations, emergency lighting, etc. (replaces FM concepts like AC failure, lift fault, water leak, HVAC, chiller, AHU, irrigation, Power BI, generator, CCTV, parking barrier)
+  - Some KB article body text retains generic FM language; titles/categories are OSH-aligned
 - **Features**:
   - 3 perspectives: Strategic (GIS map, KPIs, PPM, AI dispatch), Operational (mobile technician view with PIN login), Client (request portal with live tracking)
   - Interactive CartoDB Dark Matter map centered on Silicon Oasis, Dubai

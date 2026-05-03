@@ -74,7 +74,7 @@ export const initialDispatchSettings: DispatchSettings = {
 
   modeOverrides: [
     { condition: 'Critical severity — any ticket type', mode: 'manual' },
-    { condition: 'HVAC Failure — SLA < 30 min remaining', mode: 'ai' },
+    { condition: 'Slip Hazard — SLA < 30 min remaining', mode: 'ai' },
     { condition: 'Fire safety incident — any severity', mode: 'manual' },
     { condition: 'Off-hours (22:00–06:00) — low/medium tickets', mode: 'ai' },
   ],
@@ -96,18 +96,18 @@ export const initialDispatchSettings: DispatchSettings = {
   autoAssignRules: [
     {
       id: 'AR-001',
-      category: 'HVAC',
+      category: 'Safety Equipment',
       severity: 'critical',
       site: 'All Sites',
       timeOfDay: 'Any',
-      assetType: 'Chiller / AHU',
+      assetType: 'Gas Detector / Fume Hood',
       slaThreshold: '< 45 min',
-      target: 'Nearest HVAC-certified tech',
+      target: 'Nearest Safety Equipment-certified tech',
       requireConfirmation: false,
     },
     {
       id: 'AR-002',
-      category: 'Plumbing',
+      category: 'Chemical Safety',
       severity: 'medium',
       site: 'Silicon Oasis',
       timeOfDay: 'Business hours',
@@ -118,7 +118,7 @@ export const initialDispatchSettings: DispatchSettings = {
     },
     {
       id: 'AR-003',
-      category: 'Electrical',
+      category: 'Electrical Safety',
       severity: 'low',
       site: 'All Sites',
       timeOfDay: 'Off-hours',
@@ -131,8 +131,8 @@ export const initialDispatchSettings: DispatchSettings = {
 
   severityRules: [
     { ticketType: 'Cleaning',        severity: 'low',      allowedMode: 'ai',     escalationRequired: false, evidenceRequired: false, supervisorApproval: false },
-    { ticketType: 'HVAC',            severity: 'medium',   allowedMode: 'hybrid', escalationRequired: false, evidenceRequired: true,  supervisorApproval: false },
-    { ticketType: 'HVAC',            severity: 'critical', allowedMode: 'manual', escalationRequired: true,  evidenceRequired: true,  supervisorApproval: true  },
+    { ticketType: 'Safety Equipment',            severity: 'medium',   allowedMode: 'hybrid', escalationRequired: false, evidenceRequired: true,  supervisorApproval: false },
+    { ticketType: 'Safety Equipment',            severity: 'critical', allowedMode: 'manual', escalationRequired: true,  evidenceRequired: true,  supervisorApproval: true  },
     { ticketType: 'Plumbing',        severity: 'high',     allowedMode: 'hybrid', escalationRequired: false, evidenceRequired: true,  supervisorApproval: false },
     { ticketType: 'Electrical',      severity: 'critical', allowedMode: 'manual', escalationRequired: true,  evidenceRequired: true,  supervisorApproval: true  },
     { ticketType: 'Fire Safety',     severity: 'critical', allowedMode: 'manual', escalationRequired: true,  evidenceRequired: true,  supervisorApproval: true  },
@@ -194,13 +194,13 @@ export const initialDispatchSettings: DispatchSettings = {
   eligibilityRules: [
     {
       id: 'ELG-001',
-      name: 'Emirates HVAC Co.',
+      name: 'Emirates Safety Equipment Co.',
       type: 'vendor',
-      skillFilter: 'HVAC',
+      skillFilter: 'Safety Equipment',
       regionFilter: 'Dubai',
       siteFilter: 'Silicon Oasis',
-      assetTypeFilter: 'Chiller / AHU',
-      serviceLines: ['Chiller Service', 'AHU Maintenance', 'Refrigeration'],
+      assetTypeFilter: 'Gas Detector / Fume Hood',
+      serviceLines: ['Gas Detector Service', 'Fume Hood Maintenance', 'Refrigeration'],
       preference: 'preferred',
     },
     {
@@ -233,14 +233,14 @@ export const initialDispatchSettings: DispatchSettings = {
       regionFilter: 'All Regions',
       siteFilter: 'All Sites',
       assetTypeFilter: 'Any',
-      serviceLines: ['General FM'],
+      serviceLines: ['General HSE'],
       preference: 'restricted',
     },
     {
       id: 'ELG-005',
       name: 'DevelopmentX In-House Team B',
       type: 'inhouse',
-      skillFilter: 'HVAC',
+      skillFilter: 'Safety Equipment',
       regionFilter: 'Dubai',
       siteFilter: 'Gate Avenue',
       assetTypeFilter: 'Lift',
