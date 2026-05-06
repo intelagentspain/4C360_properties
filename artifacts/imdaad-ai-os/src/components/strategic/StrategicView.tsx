@@ -89,14 +89,14 @@ function Dashboard({ onToast, selectedClientId, onNavigateToIncident, onNavigate
   );
 }
 
-type SettingsTab = 'profile' | 'dispatch' | 'clients' | 'assets' | 'roles' | 'rules' | 'vendors';
+type SettingsTab = 'profile' | 'dispatch' | 'clients' | 'assets' | 'roles' | 'rules' | 'vendors' | 'aicapture' | 'datasources';
 
 function SettingsPage({ onToast, dispatchSettings, setDispatchSettings }: { onToast: ToastFn; dispatchSettings: DispatchSettings; setDispatchSettings: (s: DispatchSettings) => void }) {
   const [tab, setTab] = useState<SettingsTab>('profile');
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <div className="flex-shrink-0 px-6 pt-5 pb-0 border-b border-[rgba(46,127,255,0.12)]">
-        <div className="flex gap-1">
+        <div className="flex flex-wrap gap-1">
           {([
             { id: 'profile',  label: 'Profile'           },
             { id: 'dispatch', label: 'AI Dispatch Rules' },
@@ -105,6 +105,8 @@ function SettingsPage({ onToast, dispatchSettings, setDispatchSettings }: { onTo
             { id: 'roles',    label: 'Roles'            },
             { id: 'rules',    label: 'Rules'            },
             { id: 'vendors',  label: 'Vendors'          },
+            { id: 'aicapture', label: 'AI Capture'       },
+            { id: 'datasources', label: 'Data Sources'   },
           ] as { id: SettingsTab; label: string }[]).map(t => (
             <button
               key={t.id}
@@ -141,6 +143,12 @@ function SettingsPage({ onToast, dispatchSettings, setDispatchSettings }: { onTo
         )}
         {tab === 'vendors' && (
           <VendorsSettings onToast={onToast} />
+        )}
+        {tab === 'aicapture' && (
+          <AICapture onToast={onToast} />
+        )}
+        {tab === 'datasources' && (
+          <DataSources onToast={onToast} />
         )}
       </div>
     </div>

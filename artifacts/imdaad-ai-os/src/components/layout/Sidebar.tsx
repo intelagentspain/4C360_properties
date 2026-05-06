@@ -21,8 +21,6 @@ const strategicItems: NavItem[] = [
   { icon: AlertTriangle,   label: 'Incidents',          page: 'incidents' },
   { icon: CheckSquare,     label: 'Work Orders',        page: 'tasks' },
   { icon: Calendar,        label: 'PPM Schedule',       page: 'ppmschedule' },
-  { icon: Camera,          label: 'AI Capture',         page: 'aicapture' },
-  { icon: Database,        label: 'Data Sources',       page: 'datasources' },
   { icon: ShieldCheck,     label: 'Vendor Intelligence', page: 'vendorintelligence' },
   { icon: BriefcaseBusiness, label: 'ProjectCommand',   page: 'projectcommand' },
   { icon: DoorOpen,        label: 'ResidentPortal',     page: 'residentportal' },
