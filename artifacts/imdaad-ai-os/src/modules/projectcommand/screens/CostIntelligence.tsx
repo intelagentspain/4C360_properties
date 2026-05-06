@@ -102,16 +102,55 @@ function StatusPill({ children, tone = 'blue' }: { children: React.ReactNode; to
 }
 
 function MoneyFlow({ items }: { items: string[] }) {
+  const groups = [
+    {
+      title: '1. Set the budget',
+      detail: 'Created when the project is set up.',
+      items: items.slice(0, 3),
+      tone: 'border-[#7C3AED]/28 bg-[#7C3AED]/10 text-[#E9D5FF]',
+    },
+    {
+      title: '2. Capture what changes',
+      detail: 'Updated by contracts, invoices, and approved changes.',
+      items: items.slice(3, 6),
+      tone: 'border-[#C8A020]/28 bg-[#C8A020]/10 text-[#FDE68A]',
+    },
+    {
+      title: '3. Decide what to do',
+      detail: 'Used by cashflow, AI forecast, and manager actions.',
+      items: items.slice(6),
+      tone: 'border-[#00B894]/28 bg-[#00B894]/10 text-[#A7F3D0]',
+    },
+  ];
+
   return (
-    <div className="mt-4 grid gap-2 lg:grid-cols-9">
-      {items.map((item, index) => (
-        <div key={item} className="flex items-center gap-2 lg:contents">
-          <div className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#07111F] px-3 py-2 text-center text-[10px] font-black uppercase tracking-[0.12em] text-[#B8C7DB]">
-            {item}
+    <div className="mt-4 rounded-2xl border border-[rgba(46,127,255,0.14)] bg-[#07111F]/80 p-4">
+      <div className="mb-4">
+        <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[#7EB8F7]">Budget Control Map</div>
+        <p className="mt-1 text-[12px] leading-5 text-[#B8C7DB]">
+          This shows the simple journey behind every cost number: the project budget is created, live cost movement is captured, then AI turns it into forecast and action.
+        </p>
+      </div>
+      <div className="grid gap-3 xl:grid-cols-3">
+        {groups.map((group, groupIndex) => (
+          <div key={group.title} className={`rounded-2xl border p-4 ${group.tone}`}>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-black" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{group.title}</h3>
+                <p className="mt-1 text-[11px] leading-4 text-[#B8C7DB]">{group.detail}</p>
+              </div>
+              {groupIndex < groups.length - 1 && <ArrowRight className="mt-1 hidden shrink-0 text-[#7A94B4] xl:block" size={16} />}
+            </div>
+            <div className="mt-3 space-y-2">
+              {group.items.map(item => (
+                <div key={item} className="rounded-xl border border-[rgba(46,127,255,0.12)] bg-[#07111F]/80 px-3 py-2">
+                  <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#EEF3FA]">{item}</div>
+                </div>
+              ))}
+            </div>
           </div>
-          {index < items.length - 1 && <ArrowRight className="hidden text-[#5A6E88] lg:block lg:self-center" size={14} />}
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }
