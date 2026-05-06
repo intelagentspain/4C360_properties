@@ -629,7 +629,7 @@ function AiProjectSetupStep({
           />
         </LabeledField>
       </div>
-      <div className="mt-5 flex flex-col gap-3 rounded-2xl border border-[#7C3AED]/25 bg-[linear-gradient(135deg,rgba(124,58,237,0.16),rgba(17,32,64,0.76))] p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="sticky bottom-0 mt-5 flex flex-col gap-3 rounded-2xl border border-[#7C3AED]/25 bg-[linear-gradient(135deg,rgba(124,58,237,0.22),rgba(9,21,42,0.98))] p-4 shadow-[0_-18px_36px_rgba(3,8,18,0.72)] backdrop-blur sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2 text-sm font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
           <Sparkles size={16} className="text-[#C4B5FD]" />
