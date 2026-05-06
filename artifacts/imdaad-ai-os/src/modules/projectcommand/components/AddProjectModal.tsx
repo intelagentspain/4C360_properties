@@ -25,7 +25,7 @@ import type { Phase } from '../data/phases';
 import type { Risk } from '../data/risks';
 
 type ProjectSetupMode = 'ai' | 'manual';
-type WizardStep = 'setup' | 'generating' | 'baseline' | 'review';
+type WizardStep = 'setup' | 'budget' | 'generating' | 'baseline' | 'review';
 type ProjectType =
   | 'Residential Tower'
   | 'Villa Community'
@@ -47,6 +47,11 @@ type Currency = 'AED' | 'SAR' | 'USD' | 'EUR';
 type BudgetStructureMethod = 'AI suggested work packages' | 'Upload budget breakdown' | 'Manual entry';
 type CostTrackingLevel = 'Project level' | 'Phase/package level' | 'Vendor/contract level' | 'Cost code level';
 type ReportingFrequency = 'Weekly' | 'Monthly' | 'Custom';
+type CommitmentTracking = 'Vendor contracts' | 'PO / commitment register' | 'Manual commitments';
+type ActualCostSource = 'Manual actuals' | 'ERP sync' | 'Invoice upload' | 'Vendor claims';
+type VariationControl = 'Manager approval' | 'Client approval workflow' | 'Commercial review board';
+type CashflowBasis = 'Baseline schedule + package progress' | 'Approved payment certificates' | 'Contract milestones + forecast risks';
+type AiForecastMode = 'Actuals + variations + risks' | 'Actuals only' | 'Scenario forecast';
 
 type ProjectFormState = {
   name: string;
@@ -61,6 +66,11 @@ type ProjectFormState = {
   budgetStructureMethod: BudgetStructureMethod;
   costTrackingLevel: CostTrackingLevel;
   reportingFrequency: ReportingFrequency;
+  commitmentTracking: CommitmentTracking;
+  actualCostSource: ActualCostSource;
+  variationControl: VariationControl;
+  cashflowBasis: CashflowBasis;
+  aiForecastMode: AiForecastMode;
   stage: ProjectStage;
   prompt: string;
 };
@@ -123,6 +133,11 @@ const currencies: Currency[] = ['AED', 'SAR', 'USD', 'EUR'];
 const budgetStructureMethods: BudgetStructureMethod[] = ['AI suggested work packages', 'Upload budget breakdown', 'Manual entry'];
 const costTrackingLevels: CostTrackingLevel[] = ['Project level', 'Phase/package level', 'Vendor/contract level', 'Cost code level'];
 const reportingFrequencies: ReportingFrequency[] = ['Weekly', 'Monthly', 'Custom'];
+const commitmentTrackingOptions: CommitmentTracking[] = ['Vendor contracts', 'PO / commitment register', 'Manual commitments'];
+const actualCostSourceOptions: ActualCostSource[] = ['Manual actuals', 'ERP sync', 'Invoice upload', 'Vendor claims'];
+const variationControlOptions: VariationControl[] = ['Manager approval', 'Client approval workflow', 'Commercial review board'];
+const cashflowBasisOptions: CashflowBasis[] = ['Baseline schedule + package progress', 'Approved payment certificates', 'Contract milestones + forecast risks'];
+const aiForecastModeOptions: AiForecastMode[] = ['Actuals + variations + risks', 'Actuals only', 'Scenario forecast'];
 const loadingSteps = [
   'Understanding project scope',
   'Creating work breakdown structure',
@@ -145,6 +160,11 @@ const initialForm: ProjectFormState = {
   budgetStructureMethod: 'AI suggested work packages',
   costTrackingLevel: 'Phase/package level',
   reportingFrequency: 'Monthly',
+  commitmentTracking: 'Vendor contracts',
+  actualCostSource: 'Invoice upload',
+  variationControl: 'Commercial review board',
+  cashflowBasis: 'Baseline schedule + package progress',
+  aiForecastMode: 'Actuals + variations + risks',
   stage: 'Concept',
   prompt: '48-floor residential tower in Dubai Sports City with basement parking, podium amenities, MEP, fit-out, and handover target in Q4.',
 };
@@ -481,10 +501,10 @@ function SectionCard({ title, icon: Icon, children }: { title: string; icon: Luc
 }
 
 function ProgressSteps({ step }: { step: WizardStep }) {
-  const activeIndex = step === 'setup' || step === 'generating' ? 0 : step === 'baseline' ? 1 : 2;
+  const activeIndex = step === 'setup' ? 0 : step === 'budget' ? 1 : step === 'generating' || step === 'baseline' ? 2 : 3;
   return (
-    <div className="grid grid-cols-3 gap-2">
-      {['Setup', 'AI Baseline', 'Review'].map((label, index) => (
+    <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+      {['Project Basics', 'Budget Control', 'AI Baseline', 'Review'].map((label, index) => (
         <div key={label} className={`rounded-xl border px-3 py-2 text-[11px] font-bold transition-colors ${index <= activeIndex ? 'border-[#7C3AED]/40 bg-[#7C3AED]/15 text-[#E9D5FF]' : 'border-[rgba(46,127,255,0.12)] bg-[#07111F] text-[#5A6E88]'}`}>
           <div className="flex items-center gap-2">
             <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] ${index <= activeIndex ? 'bg-[#7C3AED] text-white' : 'bg-[#122240] text-[#7A94B4]'}`}>{index + 1}</span>
@@ -553,12 +573,12 @@ function AiProjectSetupStep({
   form,
   setForm,
   mode,
-  onGenerate,
+  onContinue,
 }: {
   form: ProjectFormState;
   setForm: (form: ProjectFormState) => void;
   mode: ProjectSetupMode;
-  onGenerate: () => void;
+  onContinue: () => void;
 }) {
   const update = <K extends keyof ProjectFormState>(key: K, value: ProjectFormState[K]) => setForm({ ...form, [key]: value });
 
@@ -595,36 +615,105 @@ function AiProjectSetupStep({
         <LabeledField label="Target handover date">
           <input type="date" className={`${fieldInput} w-full`} value={form.targetHandover} onChange={event => update('targetHandover', event.target.value)} />
         </LabeledField>
-        <LabeledField label="Contract value / approved budget">
-          <input className={`${fieldInput} w-full`} value={form.budget} onChange={event => update('budget', event.target.value)} />
+        <LabeledField label="Current stage">
+          <select className={`${fieldInput} w-full`} value={form.stage} onChange={event => update('stage', event.target.value as ProjectStage)}>
+            {projectStages.map(stage => <option key={stage}>{stage}</option>)}
+          </select>
         </LabeledField>
-        <div className="grid grid-cols-2 gap-3">
-          <LabeledField label="Currency">
-            <select className={`${fieldInput} w-full`} value={form.currency} onChange={event => update('currency', event.target.value as Currency)}>
-              {currencies.map(currency => <option key={currency}>{currency}</option>)}
-            </select>
-          </LabeledField>
-          <LabeledField label="Current stage">
-            <select className={`${fieldInput} w-full`} value={form.stage} onChange={event => update('stage', event.target.value as ProjectStage)}>
-              {projectStages.map(stage => <option key={stage}>{stage}</option>)}
-            </select>
-          </LabeledField>
-        </div>
-        <div className="md:col-span-2 rounded-2xl border border-[#7C3AED]/22 bg-[linear-gradient(135deg,rgba(124,58,237,0.12),rgba(7,17,31,0.78))] p-4">
-          <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.16em] text-[#C4B5FD]">
-                <DollarSign size={14} />
-                Budget Setup
-              </div>
-              <p className="mt-1 text-[12px] leading-5 text-[#7A94B4]">This controls how Budget Control creates packages, links vendors, and tracks actuals after project creation.</p>
-            </div>
-            <AiBadge>{form.budgetStructureMethod === 'AI suggested work packages' ? 'AI baseline' : 'Budget source'}</AiBadge>
+        <LabeledField label="Describe the project briefly" span>
+          <textarea
+            className={`${fieldInput} min-h-[96px] w-full resize-none py-3 leading-5`}
+            value={form.prompt}
+            placeholder="48-floor residential tower in Dubai Sports City with basement parking, podium amenities, MEP, fit-out, and handover target in Q4."
+            onChange={event => update('prompt', event.target.value)}
+          />
+        </LabeledField>
+      </div>
+      <div className="mt-5 flex flex-col gap-3 rounded-2xl border border-[#7C3AED]/25 bg-[linear-gradient(135deg,rgba(124,58,237,0.16),rgba(17,32,64,0.76))] p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="flex items-center gap-2 text-sm font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+          <Sparkles size={16} className="text-[#C4B5FD]" />
+            {mode === 'ai' ? 'Project context ready' : 'Manual project context ready'}
           </div>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <LabeledField label="Contingency %">
-              <input className={`${fieldInput} w-full`} value={form.contingency} onChange={event => update('contingency', event.target.value)} />
+          <p className="mt-1 text-[12px] text-[#B8C7DB]">Next, set how the budget will be controlled so the Cost tab can trace every number back to a source.</p>
+        </div>
+        <button
+          type="button"
+          onClick={onContinue}
+          className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#7C3AED] px-5 text-[12px] font-black text-white shadow-lg shadow-violet-950/25 transition-colors hover:bg-[#6D28D9]"
+        >
+          <ArrowRight size={15} />
+          Continue to Budget Control
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function BudgetControlSetupStep({
+  form,
+  setForm,
+  mode,
+  onBack,
+  onGenerate,
+}: {
+  form: ProjectFormState;
+  setForm: (form: ProjectFormState) => void;
+  mode: ProjectSetupMode;
+  onBack: () => void;
+  onGenerate: () => void;
+}) {
+  const update = <K extends keyof ProjectFormState>(key: K, value: ProjectFormState[K]) => setForm({ ...form, [key]: value });
+  const controlPath = [
+    ['Set budget', 'Approved budget, contingency, packages, cost codes'],
+    ['Capture changes', 'Contracts, actuals, invoices, claims, variations'],
+    ['Decide actions', 'Cashflow, forecast, approvals, manager actions'],
+  ];
+
+  return (
+    <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto p-5">
+      <div className="mb-4 rounded-3xl border border-[#7C3AED]/25 bg-[linear-gradient(135deg,rgba(124,58,237,0.18),rgba(7,17,31,0.84))] p-5">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <AiBadge>{mode === 'ai' ? 'Budget intelligence' : 'Budget control'}</AiBadge>
+            <h3 className="mt-3 text-xl font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Create the Budget Control model</h3>
+            <p className="mt-1 max-w-3xl text-[12px] leading-5 text-[#B8C7DB]">
+              This is the source of truth for the Cost tab. It tells ProjectCommand what was approved, how costs will be captured, and how AI should forecast drift.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-[#C8A020]/25 bg-[#C8A020]/10 px-4 py-3 text-[11px] font-bold text-[#FDE68A]">
+            Budget map will feed Cost Control immediately after creation.
+          </div>
+        </div>
+        <div className="mt-5 grid gap-3 lg:grid-cols-3">
+          {controlPath.map(([title, detail], index) => (
+            <div key={title} className="rounded-2xl border border-[rgba(46,127,255,0.16)] bg-[#07111F]/80 p-4">
+              <div className="mb-2 flex items-center gap-2">
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#7C3AED]/18 text-[11px] font-black text-[#C4B5FD]">{index + 1}</span>
+                <p className="text-[12px] font-black uppercase tracking-[0.12em] text-[#EEF3FA]">{title}</p>
+              </div>
+              <p className="text-[11px] leading-5 text-[#7A94B4]">{detail}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-3">
+        <SectionCard title="1. Set The Budget" icon={DollarSign}>
+          <div className="grid gap-3">
+            <LabeledField label="Contract value / approved budget">
+              <input className={`${fieldInput} w-full`} value={form.budget} onChange={event => update('budget', event.target.value)} />
             </LabeledField>
+            <div className="grid grid-cols-2 gap-3">
+              <LabeledField label="Currency">
+                <select className={`${fieldInput} w-full`} value={form.currency} onChange={event => update('currency', event.target.value as Currency)}>
+                  {currencies.map(currency => <option key={currency}>{currency}</option>)}
+                </select>
+              </LabeledField>
+              <LabeledField label="Contingency %">
+                <input className={`${fieldInput} w-full`} value={form.contingency} onChange={event => update('contingency', event.target.value)} />
+              </LabeledField>
+            </div>
             <LabeledField label="Budget structure method">
               <select className={`${fieldInput} w-full`} value={form.budgetStructureMethod} onChange={event => update('budgetStructureMethod', event.target.value as BudgetStructureMethod)}>
                 {budgetStructureMethods.map(method => <option key={method}>{method}</option>)}
@@ -641,31 +730,69 @@ function AiProjectSetupStep({
               </select>
             </LabeledField>
           </div>
-        </div>
-        <LabeledField label="Describe the project briefly" span>
-          <textarea
-            className={`${fieldInput} min-h-[96px] w-full resize-none py-3 leading-5`}
-            value={form.prompt}
-            placeholder="48-floor residential tower in Dubai Sports City with basement parking, podium amenities, MEP, fit-out, and handover target in Q4."
-            onChange={event => update('prompt', event.target.value)}
-          />
-        </LabeledField>
-      </div>
-      <div className="mt-5 flex flex-col gap-3 rounded-2xl border border-[#7C3AED]/25 bg-[linear-gradient(135deg,rgba(124,58,237,0.16),rgba(17,32,64,0.76))] p-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex items-center gap-2 text-sm font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-            <Sparkles size={16} className="text-[#C4B5FD]" />
-            {mode === 'ai' ? 'Ready to generate an operating model' : 'Ready to validate manual setup'}
+        </SectionCard>
+
+        <SectionCard title="2. Capture What Changes" icon={ClipboardCheck}>
+          <div className="grid gap-3">
+            <LabeledField label="Commitments source">
+              <select className={`${fieldInput} w-full`} value={form.commitmentTracking} onChange={event => update('commitmentTracking', event.target.value as CommitmentTracking)}>
+                {commitmentTrackingOptions.map(option => <option key={option}>{option}</option>)}
+              </select>
+            </LabeledField>
+            <LabeledField label="Actual cost source">
+              <select className={`${fieldInput} w-full`} value={form.actualCostSource} onChange={event => update('actualCostSource', event.target.value as ActualCostSource)}>
+                {actualCostSourceOptions.map(option => <option key={option}>{option}</option>)}
+              </select>
+            </LabeledField>
+            <LabeledField label="Variation control">
+              <select className={`${fieldInput} w-full`} value={form.variationControl} onChange={event => update('variationControl', event.target.value as VariationControl)}>
+                {variationControlOptions.map(option => <option key={option}>{option}</option>)}
+              </select>
+            </LabeledField>
+            <div className="rounded-2xl border border-[rgba(46,127,255,0.12)] bg-[#0A1628] p-3">
+              <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#7A94B4]">Data traceability</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {['Contracts', 'Actuals', 'Invoices', 'Claims', 'Variations', 'Evidence'].map(item => (
+                  <span key={item} className="rounded-full border border-emerald-400/18 bg-emerald-400/8 px-2 py-1 text-[9px] font-black uppercase tracking-[0.08em] text-emerald-100">{item}</span>
+                ))}
+              </div>
+            </div>
           </div>
-          <p className="mt-1 text-[12px] text-[#B8C7DB]">AI will prepare work packages, budget structure, risks, milestones, vendors, teams, and KPIs.</p>
-        </div>
+        </SectionCard>
+
+        <SectionCard title="3. Decide What To Do" icon={BrainCircuit}>
+          <div className="grid gap-3">
+            <LabeledField label="Cashflow basis">
+              <select className={`${fieldInput} w-full`} value={form.cashflowBasis} onChange={event => update('cashflowBasis', event.target.value as CashflowBasis)}>
+                {cashflowBasisOptions.map(option => <option key={option}>{option}</option>)}
+              </select>
+            </LabeledField>
+            <LabeledField label="AI forecast mode">
+              <select className={`${fieldInput} w-full`} value={form.aiForecastMode} onChange={event => update('aiForecastMode', event.target.value as AiForecastMode)}>
+                {aiForecastModeOptions.map(option => <option key={option}>{option}</option>)}
+              </select>
+            </LabeledField>
+            <div className="rounded-2xl border border-[#7C3AED]/20 bg-[#7C3AED]/10 p-3">
+              <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#C4B5FD]">Manager action queue</p>
+              <div className="mt-2 grid gap-2">
+                {['Approve variations', 'Review over-budget packages', 'Escalate vendor claims', 'Protect contingency'].map(item => (
+                  <div key={item} className="rounded-xl bg-[#07111F]/80 px-3 py-2 text-[11px] font-bold text-[#DDE6F8]">{item}</div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </SectionCard>
+      </div>
+
+      <div className="sticky bottom-0 mt-5 flex flex-col gap-2 border-t border-[rgba(46,127,255,0.12)] bg-[#09152A]/95 py-4 backdrop-blur sm:flex-row sm:justify-end">
+        <button onClick={onBack} className="rounded-xl border border-[rgba(46,127,255,0.22)] px-4 py-2 text-[12px] font-bold text-[#B8C7DB] hover:bg-white/5">Back</button>
         <button
           type="button"
           onClick={onGenerate}
           className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#7C3AED] px-5 text-[12px] font-black text-white shadow-lg shadow-violet-950/25 transition-colors hover:bg-[#6D28D9]"
         >
           <WandSparkles size={15} />
-          {mode === 'ai' ? 'Generate Project Baseline' : 'Build Manual Baseline'}
+          {mode === 'ai' ? 'Generate Budget Baseline' : 'Build Budget Baseline'}
         </button>
       </div>
     </div>
@@ -826,13 +953,13 @@ function ProjectBaselinePreview({
               Budget Baseline Created
             </div>
             <p className="mt-1 text-[12px] leading-5 text-[#B8C7DB]">
-              {form.budgetStructureMethod} created {baseline.budgetBreakdown.length} packages linked to programme phases and vendor categories.
+              {form.budgetStructureMethod} created {baseline.budgetBreakdown.length} packages linked to programme phases, vendor categories, commitments, actual cost sources, and variation controls.
             </p>
             <p className="mt-2 max-w-3xl text-[12px] leading-5 text-[#DDE6F8]">
               This baseline will populate Budget Control with approved budget, revised budget, commitments, actuals, variations, cashflow, cost risks, CPI/SPI/EAC, and manager actions.
             </p>
           </div>
-          <div className="grid gap-2 sm:grid-cols-4">
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
             {[
               ['Approved budget', money(Number(form.budget) || 0, form.currency)],
               ['Contingency', `${form.contingency}%`],
@@ -846,13 +973,19 @@ function ProjectBaselinePreview({
             ))}
           </div>
         </div>
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          {['Approved budget', 'Cost packages', 'Vendor links', 'Programme phases', 'Variations', 'Cashflow', 'AI forecast'].map((item, index) => (
-            <div key={item} className="flex items-center gap-2">
-              <div className="rounded-xl border border-emerald-400/14 bg-[#07111F]/80 px-3 py-2 text-center text-[9px] font-black uppercase tracking-[0.12em] text-emerald-100">
-                {item}
+        <div className="mt-4 grid gap-3 lg:grid-cols-3">
+          {[
+            ['Set budget', ['Approved budget', 'Cost packages', 'Programme phases', form.costTrackingLevel]],
+            ['Capture changes', [form.commitmentTracking, form.actualCostSource, form.variationControl, 'Evidence links']],
+            ['Decide actions', [form.cashflowBasis, form.aiForecastMode, 'Cost risks', 'Manager action queue']],
+          ].map(([title, items]) => (
+            <div key={title as string} className="rounded-2xl border border-emerald-400/14 bg-[#07111F]/80 p-3">
+              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-emerald-200">{title}</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {(items as string[]).map(item => (
+                  <span key={item} className="rounded-full border border-[rgba(46,127,255,0.14)] bg-[#0A1628] px-2 py-1 text-[9px] font-bold text-[#B8C7DB]">{item}</span>
+                ))}
               </div>
-              {index < 6 && <ArrowRight className="hidden self-center text-emerald-200/50 sm:block" size={13} />}
             </div>
           ))}
         </div>
@@ -926,6 +1059,13 @@ function ProjectReviewStep({
     ['Project type', form.type],
     ['Total budget', money(Number(form.budget) || 0, form.currency)],
     ['Target handover', baseline.summary.handoverTarget],
+    ['Budget structure', form.budgetStructureMethod],
+    ['Cost tracking', form.costTrackingLevel],
+    ['Commitments source', form.commitmentTracking],
+    ['Actuals source', form.actualCostSource],
+    ['Variation control', form.variationControl],
+    ['Cashflow basis', form.cashflowBasis],
+    ['AI forecast mode', form.aiForecastMode],
     ['Phases created', baseline.components.length],
     ['Team roles created', baseline.teamRoles.length],
     ['Vendor categories created', baseline.vendorCategories.length],
@@ -1050,13 +1190,18 @@ export function AddProjectModal({
           <AnimatePresence mode="wait">
             {step === 'setup' && (
               <motion.div key="setup" className="min-h-0 flex-1" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
-                <AiProjectSetupStep form={form} setForm={setForm} mode={mode} onGenerate={() => setStep('generating')} />
+                <AiProjectSetupStep form={form} setForm={setForm} mode={mode} onContinue={() => setStep('budget')} />
+              </motion.div>
+            )}
+            {step === 'budget' && (
+              <motion.div key="budget" className="min-h-0 flex-1" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
+                <BudgetControlSetupStep form={form} setForm={setForm} mode={mode} onBack={() => setStep('setup')} onGenerate={() => setStep('generating')} />
               </motion.div>
             )}
             {step === 'generating' && <motion.div key="generating" className="min-h-0 flex-1" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><GenerationLoading index={loadingIndex} /></motion.div>}
             {step === 'baseline' && baseline && (
               <motion.div key="baseline" className="min-h-0 flex-1" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
-                <ProjectBaselinePreview baseline={baseline} form={form} onApply={() => setStep('review')} onRegenerate={() => setStep('generating')} onEdit={() => { setMode('manual'); setStep('setup'); }} />
+                <ProjectBaselinePreview baseline={baseline} form={form} onApply={() => setStep('review')} onRegenerate={() => setStep('generating')} onEdit={() => { setMode('manual'); setStep('budget'); }} />
               </motion.div>
             )}
             {step === 'review' && baseline && (
