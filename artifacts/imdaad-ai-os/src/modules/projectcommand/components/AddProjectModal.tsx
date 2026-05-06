@@ -19,6 +19,7 @@ import {
   WandSparkles,
   X,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { projectCommandDatasets, type ProjectCommandDataset, type ProjectCommandProject } from '../data/portfolio';
 import type { Phase } from '../data/phases';
 import type { Risk } from '../data/risks';
@@ -43,6 +44,9 @@ type ProjectStage =
   | 'Fit-out'
   | 'Handover';
 type Currency = 'AED' | 'SAR' | 'USD' | 'EUR';
+type BudgetStructureMethod = 'AI suggested work packages' | 'Upload budget breakdown' | 'Manual entry';
+type CostTrackingLevel = 'Project level' | 'Phase/package level' | 'Vendor/contract level' | 'Cost code level';
+type ReportingFrequency = 'Weekly' | 'Monthly' | 'Custom';
 
 type ProjectFormState = {
   name: string;
@@ -53,6 +57,10 @@ type ProjectFormState = {
   targetHandover: string;
   budget: string;
   currency: Currency;
+  contingency: string;
+  budgetStructureMethod: BudgetStructureMethod;
+  costTrackingLevel: CostTrackingLevel;
+  reportingFrequency: ReportingFrequency;
   stage: ProjectStage;
   prompt: string;
 };
@@ -68,6 +76,11 @@ type BudgetPackage = {
   label: string;
   percent: number;
   amount: number;
+  plannedStart: string;
+  plannedEnd: string;
+  vendor: string;
+  riskAllowance: number;
+  linkedProgrammePhase: string;
 };
 
 type StarterRisk = {
@@ -107,6 +120,9 @@ const projectTypes: ProjectType[] = [
 
 const projectStages: ProjectStage[] = ['Concept', 'Design', 'Enabling Works', 'Substructure', 'Superstructure', 'MEP', 'Fit-out', 'Handover'];
 const currencies: Currency[] = ['AED', 'SAR', 'USD', 'EUR'];
+const budgetStructureMethods: BudgetStructureMethod[] = ['AI suggested work packages', 'Upload budget breakdown', 'Manual entry'];
+const costTrackingLevels: CostTrackingLevel[] = ['Project level', 'Phase/package level', 'Vendor/contract level', 'Cost code level'];
+const reportingFrequencies: ReportingFrequency[] = ['Weekly', 'Monthly', 'Custom'];
 const loadingSteps = [
   'Understanding project scope',
   'Creating work breakdown structure',
@@ -125,6 +141,10 @@ const initialForm: ProjectFormState = {
   targetHandover: '2027-12-15',
   budget: '320',
   currency: 'AED',
+  contingency: '8',
+  budgetStructureMethod: 'AI suggested work packages',
+  costTrackingLevel: 'Phase/package level',
+  reportingFrequency: 'Monthly',
   stage: 'Concept',
   prompt: '48-floor residential tower in Dubai Sports City with basement parking, podium amenities, MEP, fit-out, and handover target in Q4.',
 };
@@ -192,6 +212,7 @@ function vendorCategories(type: ProjectType) {
 
 function generateBaseline(form: ProjectFormState): ProjectBaseline {
   const budget = Number(form.budget) || 280;
+  const contingency = clamp(Number(form.contingency) || 8, 3, 18);
   const stageIndex = projectStages.indexOf(form.stage);
   const completion = stageProgress(form.stage);
   const hasBasement = /basement|parking/i.test(form.prompt + form.size);
@@ -209,14 +230,18 @@ function generateBaseline(form: ProjectFormState): ProjectBaseline {
     };
   });
 
-  const contingency = complexityScore >= 5 ? 9 : 7;
   const budgetBreakdown: BudgetPackage[] = [
-    { label: 'Design & approvals', percent: 7, amount: budget * 0.07 },
-    { label: 'Structure', percent: form.type === 'Infrastructure' ? 26 : 34, amount: budget * (form.type === 'Infrastructure' ? 0.26 : 0.34) },
-    { label: 'MEP', percent: form.type === 'Infrastructure' ? 22 : 24, amount: budget * (form.type === 'Infrastructure' ? 0.22 : 0.24) },
-    { label: form.type === 'Villa Community' ? 'Landscape & amenities' : 'Facade', percent: 12, amount: budget * 0.12 },
-    { label: 'Fit-out', percent: form.type === 'Infrastructure' ? 10 : 16, amount: budget * (form.type === 'Infrastructure' ? 0.1 : 0.16) },
-    { label: 'Contingency', percent: contingency, amount: budget * (contingency / 100) },
+    { label: 'Preliminaries', percent: 8, amount: budget * 0.08, plannedStart: 'Month 1', plannedEnd: 'Month 24', vendor: 'Project Controls Office', riskAllowance: budget * 0.01, linkedProgrammePhase: 'Design & Approvals' },
+    { label: 'Design & approvals', percent: 7, amount: budget * 0.07, plannedStart: 'Month 1', plannedEnd: 'Month 4', vendor: 'Design Consultant', riskAllowance: budget * 0.006, linkedProgrammePhase: 'Design & Approvals' },
+    { label: 'Enabling Works', percent: 6, amount: budget * 0.06, plannedStart: 'Month 3', plannedEnd: 'Month 6', vendor: 'Enabling Contractor', riskAllowance: budget * 0.005, linkedProgrammePhase: 'Enabling Works' },
+    { label: 'Substructure', percent: 14, amount: budget * 0.14, plannedStart: 'Month 5', plannedEnd: 'Month 10', vendor: 'Main Contractor', riskAllowance: budget * 0.014, linkedProgrammePhase: 'Substructure' },
+    { label: 'Superstructure', percent: form.type === 'Infrastructure' ? 18 : 21, amount: budget * (form.type === 'Infrastructure' ? 0.18 : 0.21), plannedStart: 'Month 8', plannedEnd: 'Month 16', vendor: 'Main Contractor', riskAllowance: budget * 0.018, linkedProgrammePhase: 'Superstructure' },
+    { label: form.type === 'Villa Community' ? 'Landscape & amenities' : 'Facade', percent: 10, amount: budget * 0.1, plannedStart: 'Month 12', plannedEnd: 'Month 19', vendor: form.type === 'Villa Community' ? 'Landscape Contractor' : 'Facade Contractor', riskAllowance: budget * 0.01, linkedProgrammePhase: 'Fit-out & Finishing' },
+    { label: 'MEP', percent: form.type === 'Infrastructure' ? 18 : 16, amount: budget * (form.type === 'Infrastructure' ? 0.18 : 0.16), plannedStart: 'Month 10', plannedEnd: 'Month 20', vendor: 'MEP Contractor', riskAllowance: budget * 0.016, linkedProgrammePhase: 'MEP Rough-in' },
+    { label: 'Fit-out', percent: form.type === 'Infrastructure' ? 6 : 7, amount: budget * (form.type === 'Infrastructure' ? 0.06 : 0.07), plannedStart: 'Month 16', plannedEnd: 'Month 22', vendor: 'Fit-out Contractor', riskAllowance: budget * 0.008, linkedProgrammePhase: 'Fit-out & Finishing' },
+    { label: 'Testing & Commissioning', percent: 2, amount: budget * 0.02, plannedStart: 'Month 21', plannedEnd: 'Month 23', vendor: 'Commissioning Authority', riskAllowance: budget * 0.004, linkedProgrammePhase: 'Handover & Snagging' },
+    { label: 'Handover & Snagging', percent: 1, amount: budget * 0.01, plannedStart: 'Month 22', plannedEnd: 'Month 24', vendor: 'Handover Team', riskAllowance: budget * 0.003, linkedProgrammePhase: 'Handover & Snagging' },
+    { label: 'Contingency', percent: contingency, amount: budget * (contingency / 100), plannedStart: 'Controlled reserve', plannedEnd: 'Project close', vendor: 'Commercial Manager', riskAllowance: budget * (contingency / 100), linkedProgrammePhase: 'All phases' },
   ];
 
   const locationRisk = /dubai|uae|abu dhabi/i.test(form.location) ? 'authority approval and inspection sequencing' : 'local authority approval sequencing';
@@ -440,7 +465,7 @@ function AiBadge({ children = 'AI generated' }: { children?: ReactNode }) {
   );
 }
 
-function SectionCard({ title, icon: Icon, children }: { title: string; icon: typeof BrainCircuit; children: ReactNode }) {
+function SectionCard({ title, icon: Icon, children }: { title: string; icon: LucideIcon; children: ReactNode }) {
   return (
     <div className="rounded-2xl border border-[rgba(46,127,255,0.16)] bg-[#07111F]/70 p-4">
       <div className="mb-3 flex items-center justify-between gap-3">
@@ -570,7 +595,7 @@ function AiProjectSetupStep({
         <LabeledField label="Target handover date">
           <input type="date" className={`${fieldInput} w-full`} value={form.targetHandover} onChange={event => update('targetHandover', event.target.value)} />
         </LabeledField>
-        <LabeledField label="Estimated budget">
+        <LabeledField label="Contract value / approved budget">
           <input className={`${fieldInput} w-full`} value={form.budget} onChange={event => update('budget', event.target.value)} />
         </LabeledField>
         <div className="grid grid-cols-2 gap-3">
@@ -584,6 +609,38 @@ function AiProjectSetupStep({
               {projectStages.map(stage => <option key={stage}>{stage}</option>)}
             </select>
           </LabeledField>
+        </div>
+        <div className="md:col-span-2 rounded-2xl border border-[#7C3AED]/22 bg-[linear-gradient(135deg,rgba(124,58,237,0.12),rgba(7,17,31,0.78))] p-4">
+          <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.16em] text-[#C4B5FD]">
+                <DollarSign size={14} />
+                Budget Setup
+              </div>
+              <p className="mt-1 text-[12px] leading-5 text-[#7A94B4]">This controls how Budget Control creates packages, links vendors, and tracks actuals after project creation.</p>
+            </div>
+            <AiBadge>{form.budgetStructureMethod === 'AI suggested work packages' ? 'AI baseline' : 'Budget source'}</AiBadge>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <LabeledField label="Contingency %">
+              <input className={`${fieldInput} w-full`} value={form.contingency} onChange={event => update('contingency', event.target.value)} />
+            </LabeledField>
+            <LabeledField label="Budget structure method">
+              <select className={`${fieldInput} w-full`} value={form.budgetStructureMethod} onChange={event => update('budgetStructureMethod', event.target.value as BudgetStructureMethod)}>
+                {budgetStructureMethods.map(method => <option key={method}>{method}</option>)}
+              </select>
+            </LabeledField>
+            <LabeledField label="Cost tracking level">
+              <select className={`${fieldInput} w-full`} value={form.costTrackingLevel} onChange={event => update('costTrackingLevel', event.target.value as CostTrackingLevel)}>
+                {costTrackingLevels.map(level => <option key={level}>{level}</option>)}
+              </select>
+            </LabeledField>
+            <LabeledField label="Reporting frequency">
+              <select className={`${fieldInput} w-full`} value={form.reportingFrequency} onChange={event => update('reportingFrequency', event.target.value as ReportingFrequency)}>
+                {reportingFrequencies.map(frequency => <option key={frequency}>{frequency}</option>)}
+              </select>
+            </LabeledField>
+          </div>
         </div>
         <LabeledField label="Describe the project briefly" span>
           <textarea
@@ -679,12 +736,29 @@ function BudgetBreakdownCard({ items, currency }: { items: BudgetPackage[]; curr
   return (
     <div className="space-y-3">
       {items.map(item => (
-        <div key={item.label}>
-          <div className="mb-1 flex items-center justify-between text-[11px]">
-            <span className="font-bold text-[#DDE6F8]">{item.label}</span>
-            <span className="font-mono text-[#C4B5FD]">{item.percent}% - {money(item.amount, currency)}</span>
+        <div key={item.label} className="rounded-xl border border-[rgba(46,127,255,0.12)] bg-[#0A1628] p-3">
+          <div className="mb-2 flex items-start justify-between gap-3 text-[11px]">
+            <div>
+              <span className="font-bold text-[#DDE6F8]">{item.label}</span>
+              <p className="mt-0.5 text-[10px] text-[#7A94B4]">{item.plannedStart} to {item.plannedEnd}</p>
+            </div>
+            <span className="font-mono text-right text-[#C4B5FD]">{item.percent}% - {money(item.amount, currency)}</span>
           </div>
           <div className="h-1.5 rounded-full bg-[#122240]"><div className="h-full rounded-full bg-[#C8A020]" style={{ width: `${item.percent}%` }} /></div>
+          <div className="mt-2 grid gap-2 sm:grid-cols-3">
+            <div className="rounded-lg bg-[#07111F] px-2 py-1.5">
+              <p className="text-[8px] font-black uppercase tracking-wide text-[#5A6E88]">Linked phase</p>
+              <p className="mt-0.5 text-[10px] font-bold text-[#B8C7DB]">{item.linkedProgrammePhase}</p>
+            </div>
+            <div className="rounded-lg bg-[#07111F] px-2 py-1.5">
+              <p className="text-[8px] font-black uppercase tracking-wide text-[#5A6E88]">Vendor category</p>
+              <p className="mt-0.5 text-[10px] font-bold text-[#B8C7DB]">{item.vendor}</p>
+            </div>
+            <div className="rounded-lg bg-[#07111F] px-2 py-1.5">
+              <p className="text-[8px] font-black uppercase tracking-wide text-[#5A6E88]">Risk allowance</p>
+              <p className="mt-0.5 text-[10px] font-bold text-[#B8C7DB]">{money(item.riskAllowance, currency)}</p>
+            </div>
+          </div>
         </div>
       ))}
     </div>
@@ -742,6 +816,45 @@ function ProjectBaselinePreview({
               </div>
             ))}
           </div>
+        </div>
+      </div>
+      <div className="mb-4 rounded-2xl border border-emerald-400/20 bg-emerald-400/8 p-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.16em] text-emerald-200">
+              <CheckCircle2 size={14} />
+              Budget Baseline Created
+            </div>
+            <p className="mt-1 text-[12px] leading-5 text-[#B8C7DB]">
+              {form.budgetStructureMethod} created {baseline.budgetBreakdown.length} packages linked to programme phases and vendor categories.
+            </p>
+            <p className="mt-2 max-w-3xl text-[12px] leading-5 text-[#DDE6F8]">
+              This baseline will populate Budget Control with approved budget, revised budget, commitments, actuals, variations, cashflow, cost risks, CPI/SPI/EAC, and manager actions.
+            </p>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-4">
+            {[
+              ['Approved budget', money(Number(form.budget) || 0, form.currency)],
+              ['Contingency', `${form.contingency}%`],
+              ['Tracking level', form.costTrackingLevel],
+              ['Reporting', form.reportingFrequency],
+            ].map(([label, value]) => (
+              <div key={label} className="rounded-xl border border-emerald-400/14 bg-[#07111F]/80 px-3 py-2">
+                <p className="text-[9px] font-black uppercase tracking-[0.12em] text-[#7A94B4]">{label}</p>
+                <p className="mt-1 text-[11px] font-black text-[#EEF3FA]">{value}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          {['Approved budget', 'Cost packages', 'Vendor links', 'Programme phases', 'Variations', 'Cashflow', 'AI forecast'].map((item, index) => (
+            <div key={item} className="flex items-center gap-2">
+              <div className="rounded-xl border border-emerald-400/14 bg-[#07111F]/80 px-3 py-2 text-center text-[9px] font-black uppercase tracking-[0.12em] text-emerald-100">
+                {item}
+              </div>
+              {index < 6 && <ArrowRight className="hidden self-center text-emerald-200/50 sm:block" size={13} />}
+            </div>
+          ))}
         </div>
       </div>
       <div className="grid gap-4 xl:grid-cols-2">

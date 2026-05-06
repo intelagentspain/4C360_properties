@@ -11,7 +11,17 @@ export type MetricName =
   | 'PV / BCWS'
   | 'AC / ACWP'
   | 'EV / BCWP'
-  | 'Cost Variance';
+  | 'Cost Variance'
+  | 'Approved Budget'
+  | 'Revised Budget'
+  | 'Committed Cost'
+  | 'Actual Cost'
+  | 'Forecast at Completion'
+  | 'Pending Variations'
+  | 'Contingency Remaining'
+  | 'Pending Exposure'
+  | 'EAC'
+  | 'TCPI';
 
 export type MetricInsight = {
   metricName: MetricName;
@@ -184,6 +194,120 @@ export function useMetricInsight(metricName: MetricName, value: string | number)
           ],
           interpretation: evmSummary.cv < 0 ? 'Cost performance needs intervention because current spend is not being matched by earned progress.' : 'Cost performance is favorable at this point in the project.',
           recommendation: evmSummary.cv < 0 ? 'Challenge rework, pending VOs, and package productivity immediately, then simulate whether acceleration costs worsen the EAC.' : 'Protect the current variance and continue tracking pending change orders.',
+        };
+      case 'Approved Budget':
+        return {
+          metricName,
+          valueLabel,
+          severity: 'positive',
+          summary: `${valueLabel} is the approved baseline budget created when the project was set up.`,
+          rationale: [
+            'Source is the project baseline / contract value.',
+            'This is the anchor used to measure revised budget, commitments, actuals, and forecast variance.',
+            `Current AI forecast is ${formatMoney(project.forecastCost)}.`,
+          ],
+          interpretation: 'This is the starting financial commitment the project team is accountable to protect.',
+          recommendation: 'Keep this locked as the baseline and route all scope growth through approved variation orders.',
+        };
+      case 'Revised Budget':
+        return {
+          metricName,
+          valueLabel,
+          severity: scoreSeverity(project.forecastCost > project.contractValue * 1.08, project.forecastCost > project.contractValue),
+          summary: `${valueLabel} combines the approved baseline with approved change orders.`,
+          rationale: [
+            'Source is baseline budget plus approved variations.',
+            'It is compared against commitments, actual cost, and forecast at completion.',
+            `Forecast is ${formatMoney(project.forecastCost)} against original contract value of ${formatMoney(project.contractValue)}.`,
+          ],
+          interpretation: 'This shows how much the authorized budget has moved since project creation.',
+          recommendation: 'Review pending variations before they become revised budget and test programme impact before approval.',
+        };
+      case 'Committed Cost':
+        return {
+          metricName,
+          valueLabel,
+          severity: 'monitor',
+          summary: `${valueLabel} is the value already committed through vendor contracts and purchase commitments.`,
+          rationale: [
+            'Source is vendor contracts and commitment records.',
+            'Commitments should always be lower than or equal to revised budget unless scope has leaked.',
+            'High commitments with low earned progress can signal productivity or claim risk.',
+          ],
+          interpretation: 'This is money the project is already commercially exposed to, even if not yet paid.',
+          recommendation: 'Match commitments against package budgets and challenge vendors with claims but weak evidence.',
+        };
+      case 'Actual Cost':
+        return {
+          metricName,
+          valueLabel,
+          severity: project.cpi < 1 ? 'monitor' : 'positive',
+          summary: `${valueLabel} is the approved cost booked from invoices, ERP syncs, manual actuals, vendor claims, and approved VOs.`,
+          rationale: [
+            `Actual cost is compared with earned value to calculate CPI of ${project.cpi.toFixed(2)}.`,
+            'Source tags show whether each cost came from ERP sync, upload, manual entry, vendor claim, or approved variation.',
+            'Pending actuals should not drive final EAC until approved.',
+          ],
+          interpretation: 'This is what has really been spent or approved to date.',
+          recommendation: 'Keep actuals current by package and block unverified claims from inflating the forecast.',
+        };
+      case 'Forecast at Completion':
+      case 'EAC':
+        return {
+          metricName,
+          valueLabel,
+          severity: scoreSeverity(project.forecastCost > project.contractValue * 1.1, project.forecastCost > project.contractValue),
+          summary: `${valueLabel} is the AI estimate of the final cost if current actuals, variations, and risks continue.`,
+          rationale: [
+            `Contract value is ${formatMoney(project.contractValue)}.`,
+            `CPI is ${project.cpi.toFixed(2)}, so cost efficiency is ${project.cpi < 1 ? 'below target' : 'on or above target'}.`,
+            'AI uses package variance, pending VOs, open claims, and programme-driven exposure.',
+          ],
+          interpretation: project.forecastCost > project.contractValue ? 'The project is trending above its approved financial baseline.' : 'The project is currently forecast within budget.',
+          recommendation: project.forecastCost > project.contractValue ? 'Freeze non-critical variations, review vendor claims, and protect contingency until the EAC returns to tolerance.' : 'Continue monitoring risk exposure and keep approved variations current.',
+        };
+      case 'TCPI':
+        return {
+          metricName,
+          valueLabel,
+          severity: scoreSeverity(evmSummary.tcpi > 1.08, evmSummary.tcpi > 1),
+          summary: `TCPI is ${evmSummary.tcpi.toFixed(2)}, showing the cost efficiency needed from now to complete on target.`,
+          rationale: [
+            'A TCPI above 1.00 means future work must outperform the current budget plan.',
+            `Current CPI is ${evmSummary.cpi.toFixed(2)}.`,
+            `Variance at completion is ${evmSummary.vac < 0 ? '-' : '+'}${formatMillions(evmSummary.vac)}.`,
+          ],
+          interpretation: evmSummary.tcpi > 1 ? 'Recovery requires tighter future cost performance than the project is currently achieving.' : 'Future cost performance requirements are achievable if controls stay active.',
+          recommendation: evmSummary.tcpi > 1 ? 'Target the top over-budget packages and approve only variations that protect critical path or reduce larger exposure.' : 'Maintain current package controls and keep risk allowance protected.',
+        };
+      case 'Pending Variations':
+      case 'Pending Exposure':
+        return {
+          metricName,
+          valueLabel,
+          severity: 'monitor',
+          summary: `${valueLabel} is exposure sitting in variation/change order workflow before final budget treatment.`,
+          rationale: [
+            'Source is the VO pipeline and pending vendor claims.',
+            'Pending exposure can become revised budget, rejected savings, or disputed commercial risk.',
+            'Some variations also carry programme impact and should be reviewed with schedule recovery actions.',
+          ],
+          interpretation: 'This is the main decision queue affecting the next cost forecast.',
+          recommendation: 'Approve, reject, or request evidence on open variations before the next payment cycle.',
+        };
+      case 'Contingency Remaining':
+        return {
+          metricName,
+          valueLabel,
+          severity: String(valueLabel).startsWith('-') ? 'critical' : 'monitor',
+          summary: `${valueLabel} is the remaining reserve after forecast pressure and pending exposure.`,
+          rationale: [
+            'Source is project contingency minus forecast overrun pressure and weighted pending variations.',
+            'Low contingency reduces the project’s ability to absorb rework, procurement escalation, or authority delays.',
+            `AI forecast is ${formatMoney(project.forecastCost)}.`,
+          ],
+          interpretation: String(valueLabel).startsWith('-') ? 'The project has consumed more exposure than the reserve can comfortably absorb.' : 'There is still reserve, but it should be protected for critical path exposure.',
+          recommendation: 'Protect contingency by freezing soft scope growth and escalating only variations with clear risk-reduction value.',
         };
       default:
         return {
