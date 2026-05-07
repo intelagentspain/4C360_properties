@@ -31,7 +31,8 @@ type CopilotStrategicPage =
   | 'allclients'
   | 'team'
   | 'vendorintelligence'
-  | 'projectcommand';
+  | 'projectcommand'
+  | 'residentportal';
 
 interface VoiceSession {
   endSession(): Promise<void>;
@@ -284,6 +285,10 @@ const STRATEGIC_CONTEXTS: Record<CopilotStrategicPage, CopilotContextConfig> = {
   projectcommand: {
     greetings: ['I can help forecast handover, cost exposure, critical path risk, and next decisions.', 'Ask me what will happen next and what action protects the project.', 'I can turn programme, cost, and risk signals into a project brief.'],
     chips: ['Biggest handover risk', 'Forecast final cost', 'Explain CPI and SPI', 'Show critical path risk', 'Compare scenarios', 'Draft PM decision brief', 'What if MEP slips?', 'List top actions', 'Summarise risk exposure', 'Review waterproofing impact'],
+  },
+  residentportal: {
+    greetings: ['I can help connect resident experience, service requests, payments, amenities, and handover risk.', 'Ask me which residents or communities need attention.', 'I can turn portal signals into resident outreach and operations tasks.'],
+    chips: ['Show at-risk residents', 'Summarise open requests', 'Draft resident notice', 'Find overdue requests', 'Review amenity demand', 'Explain payment risk', 'Show handover blockers', 'Recommend outreach', 'Spot HVAC patterns', 'Create community task'],
   },
   benchmark: {
     greetings: ['I can compare performance and explain the gaps.', 'Ask me what is ahead, behind, or worth copying.', 'I can turn benchmarks into improvement steps.'],

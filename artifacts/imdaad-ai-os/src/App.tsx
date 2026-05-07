@@ -44,7 +44,7 @@ function getInitialStrategicPage(): StrategicPage {
 }
 
 function isResidentPortalRoute(): boolean {
-  return window.location.pathname === '/resident' || window.location.pathname.startsWith('/resident/');
+  return window.location.pathname === '/resident' || window.location.pathname.startsWith('/resident/') || window.location.pathname === '/resident-portal' || window.location.pathname.startsWith('/resident-portal/');
 }
 
 function getFieldOpsCaptureSurveyId(): string | null {
