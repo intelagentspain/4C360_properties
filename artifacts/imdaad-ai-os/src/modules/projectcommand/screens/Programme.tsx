@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Check, ChevronDown } from 'lucide-react';
+import { Bell, Check, ChevronDown, FileText, Mail, MessageCircle, Mic, Send, Sparkles, X } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GanttChart } from '../components/GanttChart';
@@ -15,6 +15,112 @@ function formatShortDate(value: string) {
   return new Date(value).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
 }
 
+function ProgrammeAgentModal({ onClose }: { onClose: () => void }) {
+  const agentChannels = [
+    { label: 'Voice brief', detail: 'Talk through progress, constraints, and site updates.', icon: Mic },
+    { label: 'Chat', detail: 'Ask what changed, what is late, and what to recover first.', icon: MessageCircle },
+    { label: 'Email', detail: 'Draft weekly programme updates for stakeholders.', icon: Mail },
+    { label: 'WhatsApp', detail: 'Prepare short reminders for contractors and field teams.', icon: Send },
+  ];
+
+  const programmeSkills = [
+    { title: 'Take a programme brief', detail: 'Capture spoken updates and turn them into phase notes, blockers, and recovery actions.' },
+    { title: 'Advise on critical path', detail: 'Explain which activities are driving handover risk and where float is being consumed.' },
+    { title: 'Create reminders', detail: 'Prepare follow-ups for overdue approvals, contractor submissions, and upcoming milestones.' },
+    { title: 'Generate reports', detail: 'Draft a weekly look-ahead, delay summary, executive note, or contractor action list.' },
+  ];
+
+  const quickPrompts = [
+    'Summarise this week’s critical path risk',
+    'What should I ask the main contractor?',
+    'Draft a 2-week look-ahead report',
+    'Create reminders for overdue approvals',
+    'Explain the impact of a 14-day MEP delay',
+    'Prepare a recovery meeting agenda',
+  ];
+
+  return (
+    <div className="fixed inset-0 z-[2600] flex items-center justify-center p-4">
+      <button className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} aria-label="Close Programme Agent" />
+      <div className="relative flex max-h-[calc(100vh-2rem)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-[rgba(46,127,255,0.24)] bg-[#0A1628] shadow-2xl">
+        <div className="flex shrink-0 items-start justify-between border-b border-[rgba(46,127,255,0.14)] bg-[linear-gradient(135deg,rgba(124,58,237,0.18),rgba(9,21,42,0.96),rgba(217,43,28,0.08))] px-5 py-4">
+          <div>
+            <div className="text-[10px] font-black uppercase tracking-widest text-[#C4B5FD]">Dedicated AI agent</div>
+            <h3 className="mt-1 text-xl font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Programme Agent</h3>
+            <p className="mt-1 max-w-2xl text-[12px] leading-5 text-[#8EA7C7]">Listen to progress briefs, speak back with schedule advice, create reminders, draft reports, and help managers protect the critical path.</p>
+          </div>
+          <button onClick={onClose} className="rounded-lg p-2 text-[#8EA7C7] hover:bg-white/5 hover:text-white" aria-label="Close Programme Agent"><X size={18} /></button>
+        </div>
+
+        <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto p-5">
+          <div className="mb-4 grid gap-3 md:grid-cols-4">
+            {agentChannels.map(({ label, detail, icon: Icon }) => (
+              <button key={label} className="rounded-2xl border border-[#7C3AED]/24 bg-[#7C3AED]/10 p-4 text-left transition-colors hover:border-[#7C3AED]/55 hover:bg-[#7C3AED]/16">
+                <span className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-[#7C3AED]/22 text-[#C4B5FD]"><Icon size={16} /></span>
+                <p className="text-[12px] font-black text-[#EEF3FA]">{label}</p>
+                <p className="mt-1 text-[10px] leading-4 text-[#8EA7C7]">{detail}</p>
+              </button>
+            ))}
+          </div>
+
+          <div className="grid gap-4 xl:grid-cols-[1fr_0.9fr]">
+            <div className="rounded-2xl border border-[rgba(46,127,255,0.16)] bg-[#07111F] p-4">
+              <div className="mb-4 flex items-center gap-2 text-[14px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+                <Sparkles size={16} className="text-[#C4B5FD]" />
+                What this agent can do
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {programmeSkills.map(item => (
+                  <div key={item.title} className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#0A1628] p-3">
+                    <p className="text-[12px] font-black text-[#DDE6F8]">{item.title}</p>
+                    <p className="mt-1 text-[11px] leading-5 text-[#8EA7C7]">{item.detail}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-[#C8A020]/20 bg-[#C8A020]/8 p-4">
+                <div className="mb-3 flex items-center gap-2 text-[14px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+                  <Bell size={16} className="text-[#FDE68A]" />
+                  Reminder setup
+                </div>
+                <div className="space-y-2">
+                  {['Waterproofing sign-off due in 3 days', 'MEP drawing approval pending', 'Contractor look-ahead required every Thursday'].map(item => (
+                    <label key={item} className="flex items-center gap-2 rounded-xl bg-[#07111F]/80 px-3 py-2 text-[11px] font-bold text-[#B8C7DB]">
+                      <input type="checkbox" defaultChecked className="h-4 w-4 accent-[#C8A020]" />
+                      {item}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-[rgba(46,127,255,0.16)] bg-[#07111F] p-4">
+                <div className="mb-3 flex items-center gap-2 text-[14px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+                  <FileText size={16} className="text-cyan-300" />
+                  Quick prompts
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {quickPrompts.map(prompt => (
+                    <button key={prompt} className="rounded-full border border-[rgba(46,127,255,0.18)] bg-[#0A1628] px-3 py-1.5 text-[10px] font-bold text-[#B8C7DB] hover:border-[#7C3AED]/45 hover:text-white">
+                      {prompt}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex shrink-0 justify-end gap-2 border-t border-[rgba(46,127,255,0.14)] bg-[#09152A] px-5 py-4">
+          <button onClick={onClose} className="rounded-xl border border-[rgba(46,127,255,0.22)] px-4 py-2 text-[12px] font-bold text-[#B8C7DB] hover:bg-white/5">Close</button>
+          <button onClick={onClose} className="inline-flex items-center gap-2 rounded-xl bg-[#7C3AED] px-5 py-2 text-[12px] font-black text-white hover:bg-[#6D28D9]"><Mic size={14} /> Start voice brief</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function Programme() {
   const { aiContent, phases, project } = useSelectedProjectCommandData();
   const [zoom, setZoom] = useState<'Week' | 'Month' | 'Quarter'>('Month');
@@ -23,6 +129,7 @@ export function Programme() {
   const [contractorOpen, setContractorOpen] = useState(false);
   const [selectedContractors, setSelectedContractors] = useState<string[]>(['All contractors']);
   const [whatIfOpen, setWhatIfOpen] = useState(false);
+  const [showProgrammeAgent, setShowProgrammeAgent] = useState(false);
   const [delayDays, setDelayDays] = useState(14);
   const contractorOptions = useMemo(() => ['All contractors', project.mainContractor, 'MEP Contractor', 'Facade Vendor', 'Specialist Subcontractor'], [project.mainContractor]);
   const allContractorsSelected = selectedContractors.includes('All contractors') || selectedContractors.length === 0;
@@ -116,7 +223,18 @@ export function Programme() {
           <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-lg font-black" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Construction Programme</h2>
-              <span className="rounded-full border border-[rgba(46,127,255,0.35)] bg-[#0A1628] px-3 py-1 text-[11px] font-bold text-[#B8C7DB]">Zoom: {zoom}</span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowProgrammeAgent(true)}
+                  className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-[linear-gradient(135deg,#3B82F6,#7C3AED)] px-3 text-[11px] font-black text-white shadow-[0_0_22px_rgba(124,58,237,0.32)] transition-transform hover:scale-[1.03]"
+                  aria-label="Open Programme AI Agent"
+                >
+                  <Sparkles size={14} />
+                  AI
+                </button>
+                <span className="rounded-full border border-[rgba(46,127,255,0.35)] bg-[#0A1628] px-3 py-1 text-[11px] font-bold text-[#B8C7DB]">Zoom: {zoom}</span>
+              </div>
             </div>
             <GanttChart phases={phases} mode="full" showBaseline={baseline} showCriticalPath={critical} showWeather />
           </section>
@@ -177,6 +295,13 @@ export function Programme() {
               <div className="mt-3 text-[12px] text-[#B8C7DB]">Estimated cost impact: AED {(delayDays * 0.11).toFixed(1)}M</div>
             </div>
             <AIPanel title="AI Recovery Suggestion"><p className="text-[12px] leading-5 text-[#DDE6F8]">{aiContent.programmeInsights.rescheduleSuggestion}</p></AIPanel>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {showProgrammeAgent && (
+          <motion.div key="programme-agent" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <ProgrammeAgentModal onClose={() => setShowProgrammeAgent(false)} />
           </motion.div>
         )}
       </AnimatePresence>

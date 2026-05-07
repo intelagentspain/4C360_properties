@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { AlertTriangle, CalendarClock, CheckCircle2, ShieldAlert, Target, UserRound, X } from 'lucide-react';
+import { AlertTriangle, BookOpen, CalendarClock, CheckCircle2, FileText, GitBranch, Mail, MessageCircle, Mic, Plus, Settings2, ShieldAlert, Sparkles, Target, UserRound, X } from 'lucide-react';
 import { useSelectedProjectCommandData } from '../useProjectCommandData';
 
 type GateStatus = 'Clear' | 'At Risk' | 'Blocked';
@@ -114,9 +114,158 @@ function GateIssuesModal({ row, onClose }: { row: GateRow; onClose: () => void }
   );
 }
 
+function GateAgentModal({ onClose }: { onClose: () => void }) {
+  const ruleCards = [
+    { title: 'Authority approval rules', detail: 'Require evidence packs before a gate can move from At Risk to Clear.', active: true },
+    { title: 'Blocker escalation', detail: 'Escalate unresolved critical blockers after 48 hours to the project director.', active: true },
+    { title: 'Evidence completeness', detail: 'Prevent handover gate clearance when required documents are missing.', active: true },
+  ];
+  const knowledgeItems = [
+    'Stage gate operating procedure',
+    'Handover evidence checklist',
+    'Authority inspection guide',
+    'Warranty control playbook',
+  ];
+  const docItems = [
+    'Fire Safety Certificate template',
+    'Commissioning pack index',
+    'O&M manual acceptance form',
+  ];
+  const workflowItems = [
+    'Commissioning Ready approval workflow',
+    'Handover Go/No-Go workflow',
+    'Warranty Control review workflow',
+  ];
+
+  return (
+    <div className="fixed inset-0 z-[2600] flex items-center justify-center p-4">
+      <button className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} aria-label="Close gate configuration" />
+      <div className="relative flex max-h-[calc(100vh-2rem)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-[rgba(46,127,255,0.24)] bg-[#0A1628] shadow-2xl">
+        <div className="flex shrink-0 items-start justify-between border-b border-[rgba(46,127,255,0.14)] bg-[linear-gradient(135deg,rgba(124,58,237,0.16),rgba(9,21,42,0.96),rgba(217,43,28,0.1))] px-5 py-4">
+          <div>
+            <div className="text-[10px] font-black uppercase tracking-widest text-[#C4B5FD]">Dedicated AI agent</div>
+            <h3 className="mt-1 text-xl font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Stage Gate Agent</h3>
+            <p className="mt-1 max-w-2xl text-[12px] leading-5 text-[#8EA7C7]">Ask the agent to explain blockers, check required evidence, draft escalation notes, build workflows, or prepare updates for gate owners.</p>
+          </div>
+          <button onClick={onClose} className="rounded-lg p-2 text-[#8EA7C7] hover:bg-white/5 hover:text-white" aria-label="Close Stage Gate Agent"><X size={18} /></button>
+        </div>
+        <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto p-5">
+          <div className="mb-4 grid gap-3 md:grid-cols-4">
+            {[
+              ['Chat', 'Ask about gate blockers and evidence gaps', MessageCircle],
+              ['Voice', 'Talk through gate decisions live', Mic],
+              ['Email', 'Draft gate owner updates and escalations', Mail],
+              ['WhatsApp', 'Prepare short action messages for field teams', MessageCircle],
+            ].map(([label, detail, Icon]) => (
+              <button key={label as string} className="rounded-2xl border border-[#7C3AED]/24 bg-[#7C3AED]/10 p-4 text-left transition-colors hover:border-[#7C3AED]/55 hover:bg-[#7C3AED]/16">
+                <span className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-[#7C3AED]/22 text-[#C4B5FD]"><Icon size={16} /></span>
+                <p className="text-[12px] font-black text-[#EEF3FA]">{label as string}</p>
+                <p className="mt-1 text-[10px] leading-4 text-[#8EA7C7]">{detail as string}</p>
+              </button>
+            ))}
+          </div>
+          <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-[rgba(46,127,255,0.16)] bg-[#07111F] p-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 text-[14px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+                    <Settings2 size={16} className="text-[#C4B5FD]" />
+                    What this agent can manage
+                  </div>
+                  <button className="inline-flex items-center gap-1 rounded-lg border border-[#7C3AED]/35 bg-[#7C3AED]/12 px-3 py-1.5 text-[10px] font-black text-[#C4B5FD] hover:bg-[#7C3AED]/18">
+                    <Plus size={12} />
+                    Add rule
+                  </button>
+                </div>
+                <div className="grid gap-3">
+                  {ruleCards.map(rule => (
+                    <div key={rule.title} className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#0A1628] p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-[12px] font-black text-[#DDE6F8]">{rule.title}</p>
+                          <p className="mt-1 text-[11px] leading-5 text-[#8EA7C7]">{rule.detail}</p>
+                        </div>
+                        <span className="rounded-full border border-emerald-400/25 bg-emerald-400/10 px-2 py-1 text-[9px] font-black uppercase text-emerald-200">{rule.active ? 'Active' : 'Draft'}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <ConfigList title="Knowledge base" icon={<BookOpen size={15} className="text-cyan-300" />} action="Add article" items={knowledgeItems} />
+                <ConfigList title="Required documents" icon={<FileText size={15} className="text-emerald-300" />} action="Add document" items={docItems} />
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-[#7C3AED]/22 bg-[linear-gradient(135deg,rgba(124,58,237,0.16),rgba(7,17,31,0.82))] p-4">
+                <div className="mb-3 flex items-center gap-2 text-[14px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+                  <GitBranch size={16} className="text-[#C4B5FD]" />
+                  Workflows
+                </div>
+                <div className="space-y-2">
+                  {workflowItems.map(item => (
+                    <button key={item} className="w-full rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#07111F]/80 px-3 py-2 text-left text-[11px] font-bold text-[#DDE6F8] hover:border-[#7C3AED]/45 hover:bg-[#7C3AED]/12">
+                      {item}
+                    </button>
+                  ))}
+                </div>
+                <button className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#7C3AED] px-4 py-2.5 text-[12px] font-black text-white hover:bg-[#6D28D9]">
+                  <Plus size={14} />
+                  Create workflow
+                </button>
+              </div>
+
+              <div className="rounded-2xl border border-[rgba(46,127,255,0.16)] bg-[#07111F] p-4">
+                <p className="text-[13px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>AI gate checks</p>
+                <p className="mt-2 text-[11px] leading-5 text-[#8EA7C7]">ProjectCommand uses these settings to explain blockers, recommend evidence, and decide which gates need escalation.</p>
+                <div className="mt-3 grid gap-2">
+                  {['Use knowledge base in blocker explanations', 'Require linked evidence before clearance', 'Auto-draft escalation notes', 'Show missing document warnings'].map(item => (
+                    <label key={item} className="flex items-center gap-2 rounded-xl bg-[#0A1628] px-3 py-2 text-[11px] font-bold text-[#B8C7DB]">
+                      <input type="checkbox" defaultChecked className="h-4 w-4 accent-[#7C3AED]" />
+                      {item}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="flex shrink-0 justify-end gap-2 border-t border-[rgba(46,127,255,0.14)] bg-[#09152A] px-5 py-4">
+          <button onClick={onClose} className="rounded-xl border border-[rgba(46,127,255,0.22)] px-4 py-2 text-[12px] font-bold text-[#B8C7DB] hover:bg-white/5">Close</button>
+          <button onClick={onClose} className="inline-flex items-center gap-2 rounded-xl bg-[#7C3AED] px-5 py-2 text-[12px] font-black text-white hover:bg-[#6D28D9]"><MessageCircle size={14} /> Start chat</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ConfigList({ title, icon, action, items }: { title: string; icon: ReactNode; action: string; items: string[] }) {
+  return (
+    <div className="rounded-2xl border border-[rgba(46,127,255,0.16)] bg-[#07111F] p-4">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-[14px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+          {icon}
+          {title}
+        </div>
+        <button className="rounded-lg border border-[rgba(46,127,255,0.18)] bg-[#0A1628] px-2 py-1 text-[9px] font-black uppercase text-[#8EA7C7] hover:text-white">{action}</button>
+      </div>
+      <div className="space-y-2">
+        {items.map(item => (
+          <button key={item} className="w-full rounded-xl border border-[rgba(46,127,255,0.12)] bg-[#0A1628] px-3 py-2 text-left text-[11px] font-bold text-[#B8C7DB] hover:border-cyan-300/35 hover:text-white">
+            {item}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function StageGateStatus() {
   const { project, risks } = useSelectedProjectCommandData();
   const [selectedRow, setSelectedRow] = useState<GateRow | null>(null);
+  const [showAgent, setShowAgent] = useState(false);
   const highRisks = risks.filter(risk => risk.severity === 'high' || risk.severity === 'critical');
   const criticalRisk = highRisks[0]?.title ?? 'Fire Safety Compliance';
   const programmeRisk = highRisks.find(risk => risk.category === 'programme')?.title ?? 'Building Completion Delay';
@@ -246,6 +395,15 @@ export function StageGateStatus() {
             </span>
             Stage Gate Status &amp; Blockers
           </div>
+          <button
+            type="button"
+            onClick={() => setShowAgent(true)}
+            className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-[linear-gradient(135deg,#3B82F6,#7C3AED)] px-3 text-[11px] font-black text-white shadow-[0_0_22px_rgba(124,58,237,0.32)] transition-transform hover:scale-[1.03]"
+            aria-label="Open Stage Gate AI Agent"
+          >
+            <Sparkles size={14} />
+            AI
+          </button>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] text-left">
@@ -320,6 +478,7 @@ export function StageGateStatus() {
         </Panel>
       </div>
       {selectedRow && <GateIssuesModal row={selectedRow} onClose={() => setSelectedRow(null)} />}
+      {showAgent && <GateAgentModal onClose={() => setShowAgent(false)} />}
     </div>
   );
 }
