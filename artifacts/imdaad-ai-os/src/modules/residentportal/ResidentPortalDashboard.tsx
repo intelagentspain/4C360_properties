@@ -1708,6 +1708,7 @@ export function ResidentPortalDashboard({ onToast }: Props) {
   const [noticeModalOpen, setNoticeModalOpen] = useState(false);
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
   const [communityWizardOpen, setCommunityWizardOpen] = useState(false);
+  const [addResidentMenuOpen, setAddResidentMenuOpen] = useState(false);
 
   const kpiIcons = useMemo(() => [Users, Home, Wrench, AlertTriangle, CreditCard, CalendarClock, BellRing, Star, ShieldCheck], []);
   const visibleKpis = useMemo(() => getScopedKpis(selectedResidenceId), [selectedResidenceId]);
@@ -1739,8 +1740,48 @@ export function ResidentPortalDashboard({ onToast }: Props) {
                 {communities.map(community => <option key={community.id} value={community.id}>{community.name}</option>)}
               </select>
             </label>
-            <PrimaryButton icon={Plus} onClick={() => onToast('Add Resident workflow ready', 'info')}>Add Resident</PrimaryButton>
-            <SecondaryButton icon={Upload} onClick={() => setBulkModalOpen(true)}>Bulk Upload</SecondaryButton>
+            <div className="relative">
+              <PrimaryButton icon={Plus} onClick={() => setAddResidentMenuOpen(open => !open)}>Add Resident</PrimaryButton>
+              {addResidentMenuOpen && (
+                <>
+                  <button type="button" aria-label="Close resident action menu" className="fixed inset-0 z-20 cursor-default" onClick={() => setAddResidentMenuOpen(false)} />
+                  <div className="absolute right-0 top-12 z-30 w-[260px] rounded-xl border border-[rgba(46,127,255,0.22)] bg-[#07111F] p-2 shadow-2xl shadow-black/45">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAddResidentMenuOpen(false);
+                        onToast('Individual resident form ready', 'info');
+                      }}
+                      className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left transition-colors hover:bg-white/5"
+                    >
+                      <span className="grid h-9 w-9 place-items-center rounded-lg bg-[#E11D2E]/16 text-red-100">
+                        <Plus size={16} />
+                      </span>
+                      <span>
+                        <span className="block text-[13px] font-black text-[#EEF3FA]">Add individually</span>
+                        <span className="mt-0.5 block text-[11px] text-[#7A94B4]">Create one resident profile</span>
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAddResidentMenuOpen(false);
+                        setBulkModalOpen(true);
+                      }}
+                      className="mt-1 flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left transition-colors hover:bg-white/5"
+                    >
+                      <span className="grid h-9 w-9 place-items-center rounded-lg bg-cyan-300/10 text-cyan-300">
+                        <Upload size={16} />
+                      </span>
+                      <span>
+                        <span className="block text-[13px] font-black text-[#EEF3FA]">Bulk upload</span>
+                        <span className="mt-0.5 block text-[11px] text-[#7A94B4]">Import CSV or Excel residents</span>
+                      </span>
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
             <SecondaryButton icon={Building2} onClick={() => setCommunityWizardOpen(true)}>Create Community</SecondaryButton>
           </div>
         </div>
