@@ -531,29 +531,31 @@ function ProjectSetupWizard({
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="space-y-4 border-b border-[rgba(46,127,255,0.12)] p-5">
         <ProgressSteps step={step} />
-        <div className="grid gap-3 md:grid-cols-2">
-          <button
-            type="button"
-            onClick={() => onModeChange('ai')}
-            className={`rounded-2xl border p-4 text-left transition-all ${mode === 'ai' ? 'border-[#7C3AED]/55 bg-[linear-gradient(135deg,rgba(124,58,237,0.28),rgba(225,29,46,0.12))] shadow-[0_0_28px_rgba(124,58,237,0.18)]' : 'border-[rgba(46,127,255,0.14)] bg-[#07111F]/80 hover:border-[#7C3AED]/35'}`}
-          >
-            <div className="mb-3 flex items-center justify-between">
-              <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#7C3AED]/20 text-[#C4B5FD]"><WandSparkles size={19} /></span>
-              {mode === 'ai' && <AiBadge>Recommended</AiBadge>}
-            </div>
-            <h4 className="text-base font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Start with AI</h4>
-            <p className="mt-1 text-[12px] leading-5 text-[#B8C7DB]">Generate phases, vendors, risks, milestones, budget structure, and KPIs in minutes.</p>
-          </button>
-          <button
-            type="button"
-            onClick={() => onModeChange('manual')}
-            className={`rounded-2xl border p-4 text-left transition-colors ${mode === 'manual' ? 'border-[#E11D2E]/50 bg-[#E11D2E]/10' : 'border-[rgba(46,127,255,0.14)] bg-[#07111F]/70 hover:border-[rgba(46,127,255,0.28)]'}`}
-          >
-            <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#E11D2E]/12 text-red-200"><SlidersHorizontal size={19} /></div>
-            <h4 className="text-base font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Manual Setup</h4>
-            <p className="mt-1 text-[12px] leading-5 text-[#7A94B4]">Enter details yourself, then let AI validate readiness before creation.</p>
-          </button>
-        </div>
+        {step === 'setup' && (
+          <div className="grid gap-3 md:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => onModeChange('ai')}
+              className={`rounded-2xl border p-4 text-left transition-all ${mode === 'ai' ? 'border-[#7C3AED]/55 bg-[linear-gradient(135deg,rgba(124,58,237,0.28),rgba(225,29,46,0.12))] shadow-[0_0_28px_rgba(124,58,237,0.18)]' : 'border-[rgba(46,127,255,0.14)] bg-[#07111F]/80 hover:border-[#7C3AED]/35'}`}
+            >
+              <div className="mb-3 flex items-center justify-between">
+                <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#7C3AED]/20 text-[#C4B5FD]"><WandSparkles size={19} /></span>
+                {mode === 'ai' && <AiBadge>Recommended</AiBadge>}
+              </div>
+              <h4 className="text-base font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Start with AI</h4>
+              <p className="mt-1 text-[12px] leading-5 text-[#B8C7DB]">Generate phases, vendors, risks, milestones, budget structure, and KPIs in minutes.</p>
+            </button>
+            <button
+              type="button"
+              onClick={() => onModeChange('manual')}
+              className={`rounded-2xl border p-4 text-left transition-colors ${mode === 'manual' ? 'border-[#E11D2E]/50 bg-[#E11D2E]/10' : 'border-[rgba(46,127,255,0.14)] bg-[#07111F]/70 hover:border-[rgba(46,127,255,0.28)]'}`}
+            >
+              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#E11D2E]/12 text-red-200"><SlidersHorizontal size={19} /></div>
+              <h4 className="text-base font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Manual Setup</h4>
+              <p className="mt-1 text-[12px] leading-5 text-[#7A94B4]">Enter details yourself, then let AI validate readiness before creation.</p>
+            </button>
+          </div>
+        )}
       </div>
       {children}
     </div>
