@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { AlertTriangle, CalendarClock, CheckCircle2, ShieldAlert, Target, UserRound, X } from 'lucide-react';
+import { StageGateStatusCopilotButton } from './ProjectCommandCopilot';
 import { useSelectedProjectCommandData } from '../useProjectCommandData';
 
 type GateStatus = 'Clear' | 'At Risk' | 'Blocked';
@@ -69,7 +70,7 @@ function GateIssuesModal({ row, onClose }: { row: GateRow; onClose: () => void }
           <div>
             <div className="text-[10px] font-black uppercase tracking-widest text-red-200">Stage gate blockers</div>
             <h3 className="mt-1 text-xl font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{row.gate}</h3>
-            <p className="mt-1 text-[12px] text-[#8EA7C7]">{row.projectName} · {row.issues.length} active {row.issues.length === 1 ? 'issue' : 'issues'}</p>
+            <p className="mt-1 text-[12px] text-[#8EA7C7]">{row.projectName} - {row.issues.length} active {row.issues.length === 1 ? 'issue' : 'issues'}</p>
           </div>
           <button onClick={onClose} className="rounded-lg p-2 text-[#8EA7C7] hover:bg-white/5 hover:text-white"><X size={18} /></button>
         </div>
@@ -239,13 +240,14 @@ export function StageGateStatus() {
   return (
     <div className="space-y-4">
       <div className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#111318] p-4">
-        <div className="mb-5 flex items-center gap-3">
+        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3 text-lg font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
             <span className="flex h-8 w-8 items-center justify-center rounded-full text-cyan-300">
               <Target size={22} />
             </span>
             Stage Gate Status &amp; Blockers
           </div>
+          <StageGateStatusCopilotButton />
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] text-left">

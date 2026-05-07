@@ -879,3 +879,41 @@ export function ProjectCommandCopilotButton({
     </>
   );
 }
+
+export function StageGateStatusCopilotButton() {
+  const [open, setOpen] = useState(false);
+  const context = useProjectCommandCopilotContext('stagegates');
+  const criticalCount = context.insights.filter(item => item.urgency === 'critical').length;
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="inline-flex h-9 items-center gap-2 rounded-xl bg-[linear-gradient(135deg,#3B82F6,#7C3AED)] px-3 text-[11px] font-black text-white shadow-[0_0_22px_rgba(124,58,237,0.32)] transition-transform hover:scale-[1.03]"
+        aria-label="Open Stage Gate AI Copilot"
+      >
+        <Sparkles size={14} />
+        AI Gate Copilot
+        <span className="rounded-full border border-white/20 bg-white/14 px-2 py-0.5 text-[9px] font-black">
+          {criticalCount > 0 ? `${criticalCount} critical` : context.badge}
+        </span>
+      </button>
+      <AnimatePresence>
+        {open && (
+          <>
+            <motion.button
+              className="fixed inset-0 z-[2550] bg-black/30 backdrop-blur-[1px]"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setOpen(false)}
+              aria-label="Close Stage Gate AI Copilot overlay"
+            />
+            <ProjectCommandCopilotPanel screen="stagegates" onClose={() => setOpen(false)} onNavigate={() => undefined} />
+          </>
+        )}
+      </AnimatePresence>
+    </>
+  );
+}

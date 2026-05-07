@@ -4,7 +4,6 @@ import { AnimatePresence } from 'framer-motion';
 import { BarChart3, BrainCircuit, Building2, CalendarRange, FileText, FolderOpen, Plus, ShieldAlert, Target } from 'lucide-react';
 import type { ProjectCommandProjectId } from './data/portfolio';
 import { AddProjectModal } from './components/AddProjectModal';
-import { ProjectCommandCopilotButton } from './components/ProjectCommandCopilot';
 import { CommandCenter } from './screens/CommandCenter';
 import { Programme } from './screens/Programme';
 import { StageGates } from './screens/StageGates';
@@ -136,7 +135,6 @@ export function ProjectCommand({ onToast }: { onToast?: (message: string, type?:
           />
         )}
       </AnimatePresence>
-      <ProjectCommandCopilotButton screen={screen} onNavigate={goTo} />
     </div>
   );
 }
