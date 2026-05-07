@@ -1707,7 +1707,6 @@ export function ResidentPortalDashboard({ onToast }: Props) {
             <PrimaryButton icon={Plus} onClick={() => onToast('Add Resident workflow ready', 'info')}>Add Resident</PrimaryButton>
             <SecondaryButton icon={Upload} onClick={() => setBulkModalOpen(true)}>Bulk Upload</SecondaryButton>
             <SecondaryButton icon={Building2} onClick={() => setCommunityWizardOpen(true)}>Create Community</SecondaryButton>
-            <SecondaryButton icon={Send} onClick={() => setNoticeModalOpen(true)}>Send Notice</SecondaryButton>
           </div>
         </div>
       </div>
