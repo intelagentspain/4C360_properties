@@ -583,53 +583,55 @@ function AiProjectSetupStep({
   const update = <K extends keyof ProjectFormState>(key: K, value: ProjectFormState[K]) => setForm({ ...form, [key]: value });
 
   return (
-    <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto p-5">
-      {mode === 'manual' && (
-        <div className="mb-4 rounded-2xl border border-[rgba(46,127,255,0.16)] bg-[#07111F]/70 p-4">
-          <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#C4B5FD]">Manual setup sections</p>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-            {['Basic Details', 'Budget', 'Components / Phases', 'Team', 'Vendors', 'Milestones', 'Risk Settings', 'Review'].map(item => (
-              <div key={item} className="rounded-xl border border-[rgba(46,127,255,0.12)] bg-[#0A1628] px-3 py-2 text-[11px] font-bold text-[#B8C7DB]">{item}</div>
-            ))}
+    <div className="min-h-0 flex flex-1 flex-col">
+      <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto p-5 pb-4">
+        {mode === 'manual' && (
+          <div className="mb-4 rounded-2xl border border-[rgba(46,127,255,0.16)] bg-[#07111F]/70 p-4">
+            <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#C4B5FD]">Manual setup sections</p>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              {['Basic Details', 'Budget', 'Components / Phases', 'Team', 'Vendors', 'Milestones', 'Risk Settings', 'Review'].map(item => (
+                <div key={item} className="rounded-xl border border-[rgba(46,127,255,0.12)] bg-[#0A1628] px-3 py-2 text-[11px] font-bold text-[#B8C7DB]">{item}</div>
+              ))}
+            </div>
           </div>
+        )}
+        <div className="grid gap-4 md:grid-cols-2">
+          <LabeledField label="Project name">
+            <input className={`${fieldInput} w-full`} value={form.name} onChange={event => update('name', event.target.value)} />
+          </LabeledField>
+          <LabeledField label="Client / organization">
+            <input className={`${fieldInput} w-full`} value={form.client} onChange={event => update('client', event.target.value)} />
+          </LabeledField>
+          <LabeledField label="Location">
+            <input className={`${fieldInput} w-full`} value={form.location} onChange={event => update('location', event.target.value)} />
+          </LabeledField>
+          <LabeledField label="Project type">
+            <select className={`${fieldInput} w-full`} value={form.type} onChange={event => update('type', event.target.value as ProjectType)}>
+              {projectTypes.map(type => <option key={type}>{type}</option>)}
+            </select>
+          </LabeledField>
+          <LabeledField label="Estimated size">
+            <input className={`${fieldInput} w-full`} value={form.size} onChange={event => update('size', event.target.value)} />
+          </LabeledField>
+          <LabeledField label="Target handover date">
+            <input type="date" className={`${fieldInput} w-full`} value={form.targetHandover} onChange={event => update('targetHandover', event.target.value)} />
+          </LabeledField>
+          <LabeledField label="Current stage">
+            <select className={`${fieldInput} w-full`} value={form.stage} onChange={event => update('stage', event.target.value as ProjectStage)}>
+              {projectStages.map(stage => <option key={stage}>{stage}</option>)}
+            </select>
+          </LabeledField>
+          <LabeledField label="Describe the project briefly" span>
+            <textarea
+              className={`${fieldInput} min-h-[96px] w-full resize-none py-3 leading-5`}
+              value={form.prompt}
+              placeholder="48-floor residential tower in Dubai Sports City with basement parking, podium amenities, MEP, fit-out, and handover target in Q4."
+              onChange={event => update('prompt', event.target.value)}
+            />
+          </LabeledField>
         </div>
-      )}
-      <div className="grid gap-4 md:grid-cols-2">
-        <LabeledField label="Project name">
-          <input className={`${fieldInput} w-full`} value={form.name} onChange={event => update('name', event.target.value)} />
-        </LabeledField>
-        <LabeledField label="Client / organization">
-          <input className={`${fieldInput} w-full`} value={form.client} onChange={event => update('client', event.target.value)} />
-        </LabeledField>
-        <LabeledField label="Location">
-          <input className={`${fieldInput} w-full`} value={form.location} onChange={event => update('location', event.target.value)} />
-        </LabeledField>
-        <LabeledField label="Project type">
-          <select className={`${fieldInput} w-full`} value={form.type} onChange={event => update('type', event.target.value as ProjectType)}>
-            {projectTypes.map(type => <option key={type}>{type}</option>)}
-          </select>
-        </LabeledField>
-        <LabeledField label="Estimated size">
-          <input className={`${fieldInput} w-full`} value={form.size} onChange={event => update('size', event.target.value)} />
-        </LabeledField>
-        <LabeledField label="Target handover date">
-          <input type="date" className={`${fieldInput} w-full`} value={form.targetHandover} onChange={event => update('targetHandover', event.target.value)} />
-        </LabeledField>
-        <LabeledField label="Current stage">
-          <select className={`${fieldInput} w-full`} value={form.stage} onChange={event => update('stage', event.target.value as ProjectStage)}>
-            {projectStages.map(stage => <option key={stage}>{stage}</option>)}
-          </select>
-        </LabeledField>
-        <LabeledField label="Describe the project briefly" span>
-          <textarea
-            className={`${fieldInput} min-h-[96px] w-full resize-none py-3 leading-5`}
-            value={form.prompt}
-            placeholder="48-floor residential tower in Dubai Sports City with basement parking, podium amenities, MEP, fit-out, and handover target in Q4."
-            onChange={event => update('prompt', event.target.value)}
-          />
-        </LabeledField>
       </div>
-      <div className="sticky bottom-0 mt-5 flex flex-col gap-3 rounded-2xl border border-[#7C3AED]/25 bg-[linear-gradient(135deg,rgba(124,58,237,0.22),rgba(9,21,42,0.98))] p-4 shadow-[0_-18px_36px_rgba(3,8,18,0.72)] backdrop-blur sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex shrink-0 flex-col gap-3 border-t border-[#7C3AED]/25 bg-[linear-gradient(135deg,rgba(124,58,237,0.22),rgba(9,21,42,0.98))] p-4 shadow-[0_-18px_36px_rgba(3,8,18,0.72)] backdrop-blur sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2 text-sm font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
           <Sparkles size={16} className="text-[#C4B5FD]" />
@@ -1160,7 +1162,7 @@ export function AddProjectModal({
 
   return (
     <motion.div
-      className="fixed inset-0 z-[2500] flex items-center justify-center bg-black/62 p-3 backdrop-blur-sm sm:p-5"
+      className="fixed inset-0 z-[2500] flex items-center justify-center bg-black/62 p-2 backdrop-blur-sm sm:p-4"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -1170,9 +1172,9 @@ export function AddProjectModal({
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 20, scale: 0.98 }}
         transition={{ type: 'spring', stiffness: 260, damping: 28 }}
-        className="flex max-h-[94vh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl border border-[rgba(46,127,255,0.24)] bg-[#09152A] shadow-2xl shadow-black/50"
+        className="flex max-h-[96vh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl border border-[rgba(46,127,255,0.24)] bg-[#09152A] shadow-2xl shadow-black/50"
       >
-        <div className="flex flex-col gap-4 border-b border-[rgba(46,127,255,0.12)] bg-[linear-gradient(135deg,rgba(124,58,237,0.18),rgba(9,21,42,0.98)_48%,rgba(225,29,46,0.08))] p-5 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex flex-col gap-4 border-b border-[rgba(46,127,255,0.12)] bg-[linear-gradient(135deg,rgba(124,58,237,0.18),rgba(9,21,42,0.98)_48%,rgba(225,29,46,0.08))] p-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[#7C3AED]/35 bg-[#7C3AED]/12 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-[#C4B5FD]">
               <BrainCircuit size={12} />
