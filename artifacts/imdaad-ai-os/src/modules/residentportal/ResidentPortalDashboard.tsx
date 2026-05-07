@@ -142,6 +142,122 @@ const riskClass: Record<RiskLevel, string> = {
   High: 'border-red-400/30 bg-red-400/10 text-red-300',
 };
 
+type ResidenceScope = 'all' | string;
+
+const closedRequestStatuses: RequestStatus[] = ['Resolved', 'Resident Confirmed', 'Closed'];
+
+function matchesResidence(residenceId: ResidenceScope, communityId?: string | null) {
+  return residenceId === 'all' || communityId === residenceId;
+}
+
+function getResidenceLabel(residenceId: ResidenceScope) {
+  return residenceId === 'all' ? 'All residences' : getCommunity(residenceId)?.name ?? 'Selected residence';
+}
+
+function isRequestOpen(request: ResidentRequest) {
+  return !closedRequestStatuses.includes(request.status);
+}
+
+function noticeMatchesResidence(notice: Notice, residenceId: ResidenceScope) {
+  if (residenceId === 'all') return true;
+  const community = getCommunity(residenceId);
+  const text = `${notice.title} ${notice.message} ${notice.audience}`.toLowerCase();
+  if (!community) return false;
+  if (text.includes('all residents') || text.includes(community.name.toLowerCase())) return true;
+  if (community.id === 'jumeirah-heights' && (text.includes('tower b') || text.includes('tower a') || text.includes('ac'))) return true;
+  if (community.id === 'bayz-102' && (text.includes('bayz') || text.includes('service charge') || text.includes('41 units'))) return true;
+  if (community.id === 'marina-residences' && text.includes('marina')) return true;
+  return false;
+}
+
+function insightMatchesResidence(insight: Insight, residenceId: ResidenceScope) {
+  if (residenceId === 'all') return true;
+  const community = getCommunity(residenceId);
+  const text = `${insight.title} ${insight.affected} ${insight.reason} ${insight.recommendedAction}`.toLowerCase();
+  if (!community) return false;
+  if (text.includes(community.name.toLowerCase())) return true;
+  if (community.id === 'jumeirah-heights' && (text.includes('tower b') || text.includes('hvac') || text.includes('pool') || text.includes('gym'))) return true;
+  if (community.id === 'bayz-102' && (text.includes('bayz') || text.includes('collections') || text.includes('handover') || text.includes('warranty'))) return true;
+  if (community.id === 'marina-residences' && (text.includes('engagement') || text.includes('event'))) return true;
+  return false;
+}
+
+function getScopedLifecycleStages(residenceId: ResidenceScope) {
+  if (residenceId === 'all') return lifecycleStages;
+  const community = getCommunity(residenceId);
+  if (!community) return lifecycleStages;
+  return lifecycleStages.map(stage => ({
+    ...stage,
+    count: Math.max(1, Math.round((community.residents * stage.conversion) / 100)),
+  }));
+}
+
+function getScopedOperationsPulse(residenceId: ResidenceScope) {
+  if (residenceId === 'all') return operationsPulse;
+  const community = getCommunity(residenceId);
+  if (!community) return operationsPulse;
+  const scoped = operationsPulse.filter(item => {
+    const text = item.toLowerCase();
+    return (
+      text.includes(community.name.toLowerCase()) ||
+      (community.id === 'jumeirah-heights' && (text.includes('tower b') || text.includes('ac') || text.includes('pool'))) ||
+      (community.id === 'bayz-102' && (text.includes('bayz') || text.includes('warranty') || text.includes('payment'))) ||
+      (community.id === 'marina-residences' && text.includes('booking'))
+    );
+  });
+  return scoped.length > 0 ? scoped : [`${community.name} has no urgent resident operations alerts right now`];
+}
+
+function getScopedAiCommunityInsights(residenceId: ResidenceScope) {
+  if (residenceId === 'all') return aiCommunityInsights;
+  const community = getCommunity(residenceId);
+  if (!community) return aiCommunityInsights;
+  const scoped = aiCommunityInsights.filter(item => {
+    const text = item.toLowerCase();
+    return (
+      text.includes(community.name.toLowerCase()) ||
+      (community.id === 'jumeirah-heights' && (text.includes('tower b') || text.includes('hvac') || text.includes('gym'))) ||
+      (community.id === 'bayz-102' && (text.includes('payment') || text.includes('risk'))) ||
+      (community.id === 'marina-residences' && text.includes('booking'))
+    );
+  });
+  return scoped.length > 0 ? scoped : [`${community.name} is stable; AI recommends routine engagement checks this week`];
+}
+
+function getScopedKpis(residenceId: ResidenceScope): typeof kpis {
+  if (residenceId === 'all') return kpis;
+  const community = getCommunity(residenceId);
+  if (!community) return kpis;
+
+  const scopedResidents = residents.filter(resident => matchesResidence(residenceId, resident.communityId));
+  const scopedRequests = residentRequests.filter(request => matchesResidence(residenceId, request.communityId));
+  const scopedBookingsToday = amenityBookings.filter(booking => matchesResidence(residenceId, getUnit(booking.unitId)?.communityId) && booking.dateTime.toLowerCase().startsWith('today')).length;
+  const scopedNotices = notices.filter(notice => noticeMatchesResidence(notice, residenceId));
+  const openRequests = community.openRequests;
+  const overdueFactor = community.risk === 'High' ? 0.24 : community.risk === 'Medium' ? 0.13 : 0.06;
+  const atRiskFactor = community.risk === 'High' ? 0.036 : community.risk === 'Medium' ? 0.018 : 0.008;
+  const overdueRequests = Math.max(
+    scopedRequests.filter(request => isRequestOpen(request) && (request.priority === 'Critical' || request.sla.toLowerCase().includes('overdue'))).length,
+    Math.round(openRequests * overdueFactor),
+  );
+  const atRiskResidents = Math.max(scopedResidents.filter(resident => resident.risk === 'High').length, Math.round(community.residents * atRiskFactor));
+  const readRate = scopedNotices.length > 0
+    ? Math.round(scopedNotices.reduce((total, notice) => total + notice.readRate, 0) / scopedNotices.length)
+    : Math.max(65, community.satisfaction - 6);
+
+  return [
+    { label: 'Total Residents', value: community.residents.toLocaleString(), delta: `${scopedResidents.length} records` },
+    { label: 'Active Units', value: community.units.toLocaleString(), delta: `${community.towers} towers` },
+    { label: 'Open Requests', value: openRequests.toString(), delta: `${scopedRequests.filter(isRequestOpen).length} active` },
+    { label: 'Overdue Requests', value: overdueRequests.toString(), delta: community.risk === 'High' ? 'SLA risk' : 'Scoped' },
+    { label: 'Pending Payments', value: community.pendingPayments, delta: community.risk === 'High' ? 'Needs action' : 'Scoped' },
+    { label: 'Amenity Bookings Today', value: Math.max(scopedBookingsToday, Math.round(community.residents * 0.045)).toString(), delta: 'Today' },
+    { label: 'Notices Read Rate', value: `${readRate}%`, delta: 'Scoped' },
+    { label: 'Satisfaction Score', value: `${community.satisfaction}%`, delta: community.risk === 'High' ? 'Watch' : '+local' },
+    { label: 'At-Risk Residents', value: atRiskResidents.toString(), delta: community.risk === 'High' ? 'Needs care' : 'Monitor' },
+  ];
+}
+
 function Badge({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-black ${className ?? 'border-[rgba(46,127,255,0.2)] bg-white/5 text-[#B8C7DB]'}`}>
@@ -255,10 +371,10 @@ function DrawerShell({ title, subtitle, onClose, children }: { title: string; su
 
 function ModalShell({ title, subtitle, onClose, children }: { title: string; subtitle?: string; onClose: () => void; children: ReactNode }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-black/60 p-2 backdrop-blur-sm sm:p-4">
       <button type="button" aria-label="Dismiss modal" className="absolute inset-0 cursor-default" onClick={onClose} />
-      <section className="custom-scrollbar relative z-10 max-h-[92vh] w-full max-w-[860px] overflow-y-auto rounded-2xl border border-[rgba(46,127,255,0.22)] bg-[#07111F] p-5 shadow-2xl shadow-black/60">
-        <div className="flex items-start justify-between gap-4">
+      <section className="relative z-10 flex max-h-[calc(100vh-1rem)] w-full max-w-[860px] flex-col overflow-hidden rounded-2xl border border-[rgba(46,127,255,0.22)] bg-[#07111F] shadow-2xl shadow-black/60 sm:max-h-[calc(100vh-2rem)]">
+        <div className="flex flex-shrink-0 items-start justify-between gap-4 border-b border-[rgba(46,127,255,0.14)] bg-[#07111F] p-5">
           <div>
             <h2 className="text-2xl font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{title}</h2>
             {subtitle && <p className="mt-2 text-[13px] leading-5 text-[#8FA6C3]">{subtitle}</p>}
@@ -267,7 +383,9 @@ function ModalShell({ title, subtitle, onClose, children }: { title: string; sub
             <X size={20} />
           </button>
         </div>
-        {children}
+        <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto px-5 pb-5">
+          {children}
+        </div>
       </section>
     </div>
   );
@@ -311,12 +429,13 @@ function AiPanel({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-function ResidentLifecycleFunnel() {
+function ResidentLifecycleFunnel({ residenceId = 'all' }: { residenceId?: ResidenceScope }) {
+  const scopedLifecycleStages = getScopedLifecycleStages(residenceId);
   return (
     <SectionCard>
-      <SectionTitle title="Resident Lifecycle Funnel" subtitle="Invite to handover completion across active communities." icon={Users} />
+      <SectionTitle title="Resident Lifecycle Funnel" subtitle={`Invite to handover completion ${residenceId === 'all' ? 'across active communities' : `for ${getResidenceLabel(residenceId)}`}.`} icon={Users} />
       <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
-        {lifecycleStages.map(stage => (
+        {scopedLifecycleStages.map(stage => (
           <div key={stage.stage} className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#0A1628] p-4">
             <p className="text-[12px] font-bold text-[#8FA6C3]">{stage.stage}</p>
             <p className="mt-3 text-2xl font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{stage.count}</p>
@@ -331,12 +450,13 @@ function ResidentLifecycleFunnel() {
   );
 }
 
-function CommunityHealthCards() {
+function CommunityHealthCards({ residenceId = 'all' }: { residenceId?: ResidenceScope }) {
+  const visibleCommunities = communities.filter(community => matchesResidence(residenceId, community.id));
   return (
     <SectionCard>
       <SectionTitle title="Community Health" subtitle="Portfolio -> Community -> Building/Tower -> Floor -> Unit -> Resident." icon={Building2} />
       <div className="grid gap-3 lg:grid-cols-2">
-        {communities.map(community => (
+        {visibleCommunities.map(community => (
           <div key={community.id} className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#0A1628] p-4">
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -354,21 +474,24 @@ function CommunityHealthCards() {
             </div>
           </div>
         ))}
+        {visibleCommunities.length === 0 && <p className="text-[13px] text-[#7A94B4]">No residence matches this filter.</p>}
       </div>
     </SectionCard>
   );
 }
 
-function ResidentOverview() {
+function ResidentOverview({ residenceId = 'all' }: { residenceId?: ResidenceScope }) {
+  const scopedPulse = getScopedOperationsPulse(residenceId);
+  const scopedInsights = getScopedAiCommunityInsights(residenceId);
   return (
     <div className="space-y-4">
-      <ResidentLifecycleFunnel />
-      <CommunityHealthCards />
+      <ResidentLifecycleFunnel residenceId={residenceId} />
+      <CommunityHealthCards residenceId={residenceId} />
       <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
         <SectionCard>
           <SectionTitle title="Operations Pulse" subtitle="Live signals from ResidentPortal, SnapFix, ServiceDesk, FieldOps, and payments." icon={CalendarClock} />
           <div className="space-y-3">
-            {operationsPulse.map(item => (
+            {scopedPulse.map(item => (
               <div key={item} className="flex items-start gap-3 rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#0A1628] p-4">
                 <span className="mt-1 h-2.5 w-2.5 rounded-full bg-[#E11D2E]" />
                 <p className="text-[13px] leading-5 text-[#BCC8DC]">{item}</p>
@@ -379,7 +502,7 @@ function ResidentOverview() {
         <SectionCard>
           <SectionTitle title="AI Community Insights" subtitle="Pattern detection, risk prediction, and next best actions." icon={Sparkles} />
           <div className="grid gap-3 md:grid-cols-2">
-            {aiCommunityInsights.map(item => (
+            {scopedInsights.map(item => (
               <div key={item} className="rounded-xl border border-violet-300/20 bg-violet-300/10 p-4 text-[13px] leading-5 text-[#E5D9FF]">{item}</div>
             ))}
           </div>
@@ -554,10 +677,11 @@ function ResidentProfileDrawer({ resident, onClose, onToast }: { resident: Resid
   );
 }
 
-function ResidentsTable({ query, onSelect, onToast }: { query: string; onSelect: (resident: Resident) => void; onToast: Props['onToast'] }) {
+function ResidentsTable({ query, residenceId = 'all', onSelect, onToast }: { query: string; residenceId?: ResidenceScope; onSelect: (resident: Resident) => void; onToast: Props['onToast'] }) {
   const filtered = residents.filter(resident => {
     const unit = getUnit(resident.unitId);
     const community = getCommunity(resident.communityId);
+    if (!matchesResidence(residenceId, resident.communityId)) return false;
     return `${resident.name} ${resident.email} ${resident.type} ${unit?.unitNumber} ${community?.name}`.toLowerCase().includes(query.toLowerCase());
   });
 
@@ -591,11 +715,17 @@ function ResidentsTable({ query, onSelect, onToast }: { query: string; onSelect:
           </tr>
         );
       })}
+      {filtered.length === 0 && (
+        <tr className="border-t border-[rgba(46,127,255,0.08)] bg-[#0A1628]/70">
+          <td colSpan={11} className="px-4 py-10 text-center text-[13px] text-[#7A94B4]">No residents match this residence filter.</td>
+        </tr>
+      )}
     </TableShell>
   );
 }
 
-function CommunitiesTab({ onCreate }: { onCreate: () => void }) {
+function CommunitiesTab({ residenceId = 'all', onCreate }: { residenceId?: ResidenceScope; onCreate: () => void }) {
+  const visibleCommunities = communities.filter(community => matchesResidence(residenceId, community.id));
   return (
     <div className="space-y-4">
       <SectionCard>
@@ -604,7 +734,7 @@ function CommunitiesTab({ onCreate }: { onCreate: () => void }) {
           <PrimaryButton icon={Plus} onClick={onCreate}>Create Community</PrimaryButton>
         </div>
         <div className="grid gap-3 lg:grid-cols-2">
-          {communities.map(community => (
+          {visibleCommunities.map(community => (
             <div key={community.id} className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#0A1628] p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -622,6 +752,7 @@ function CommunitiesTab({ onCreate }: { onCreate: () => void }) {
               <div className="mt-4 flex flex-wrap gap-2">{community.amenities.map(item => <Badge key={item}>{item}</Badge>)}</div>
             </div>
           ))}
+          {visibleCommunities.length === 0 && <p className="text-[13px] text-[#7A94B4]">No community structure matches the current residence filter.</p>}
         </div>
       </SectionCard>
     </div>
@@ -684,10 +815,11 @@ function RequestDetailDrawer({ request, onClose, onToast }: { request: ResidentR
   );
 }
 
-function ResidentRequestsTable({ onSelect, onToast }: { onSelect: (request: ResidentRequest) => void; onToast: Props['onToast'] }) {
+function ResidentRequestsTable({ residenceId = 'all', onSelect, onToast }: { residenceId?: ResidenceScope; onSelect: (request: ResidentRequest) => void; onToast: Props['onToast'] }) {
+  const visibleRequests = residentRequests.filter(request => matchesResidence(residenceId, request.communityId));
   return (
     <TableShell columns={['Request ID', 'Resident', 'Unit', 'Community', 'Category', 'Priority', 'Status', 'Assigned To', 'SLA', 'Source', 'Satisfaction', 'Actions']} minWidth="1420px">
-      {residentRequests.map(request => {
+      {visibleRequests.map(request => {
         const resident = getResident(request.residentId);
         const unit = getUnit(request.unitId);
         const community = getCommunity(request.communityId);
@@ -715,6 +847,11 @@ function ResidentRequestsTable({ onSelect, onToast }: { onSelect: (request: Resi
           </tr>
         );
       })}
+      {visibleRequests.length === 0 && (
+        <tr className="border-t border-[rgba(46,127,255,0.08)] bg-[#0A1628]/70">
+          <td colSpan={12} className="px-4 py-10 text-center text-[13px] text-[#7A94B4]">No resident requests match this residence filter.</td>
+        </tr>
+      )}
     </TableShell>
   );
 }
@@ -1023,7 +1160,7 @@ function ResidentIncidentDetailDrawer({ incident, onClose, onToast }: { incident
   );
 }
 
-function ResidentIncidentsManager({ onToast }: { onToast: Props['onToast'] }) {
+function ResidentIncidentsManager({ residenceId = 'all', onToast }: { residenceId?: ResidenceScope; onToast: Props['onToast'] }) {
   const { incidents } = useIncidents();
   const [query, setQuery] = useState('');
   const [severity, setSeverity] = useState('All');
@@ -1032,7 +1169,10 @@ function ResidentIncidentsManager({ onToast }: { onToast: Props['onToast'] }) {
   const [community, setCommunity] = useState('All');
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
 
-  const residentIncidents = useMemo(() => incidents.filter(isResidentRaisedIncident), [incidents]);
+  const residentIncidents = useMemo(() => incidents.filter(incident => {
+    if (!isResidentRaisedIncident(incident)) return false;
+    return matchesResidence(residenceId, getResidentIncidentContext(incident).community?.id);
+  }), [incidents, residenceId]);
 
   const filtered = useMemo(() => residentIncidents.filter(incident => {
     const context = getResidentIncidentContext(incident);
@@ -1040,14 +1180,15 @@ function ResidentIncidentsManager({ onToast }: { onToast: Props['onToast'] }) {
     if (severity !== 'All' && incident.severity !== severity) return false;
     if (status !== 'All' && incident.status !== status) return false;
     if (source !== 'All' && incident.source !== source) return false;
-    if (community !== 'All' && context.community?.id !== community) return false;
+    if (residenceId === 'all' && community !== 'All' && context.community?.id !== community) return false;
     if (query && !haystack.includes(query.toLowerCase())) return false;
     return true;
-  }), [residentIncidents, severity, status, source, community, query]);
+  }), [residentIncidents, severity, status, source, community, query, residenceId]);
 
   const selectedCurrent = selectedIncident ? incidents.find(incident => incident.id === selectedIncident.id) ?? selectedIncident : null;
   const uniqueSources = Array.from(new Set(residentIncidents.map(incident => incident.source))).sort();
   const uniqueStatuses = Array.from(new Set(residentIncidents.map(incident => incident.status))).sort();
+  const communityOptions = residenceId === 'all' ? communities : communities.filter(item => matchesResidence(residenceId, item.id));
   const counts = {
     resident: residentIncidents.length,
     critical: residentIncidents.filter(incident => incident.severity === 'critical').length,
@@ -1097,9 +1238,9 @@ function ResidentIncidentsManager({ onToast }: { onToast: Props['onToast'] }) {
             <option>All</option>
             {uniqueSources.map(item => <option key={item}>{item}</option>)}
           </select>
-          <select value={community} onChange={event => setCommunity(event.target.value)} className="h-10 rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#0A1628] px-3 text-[13px] text-[#EEF3FA] outline-none focus:border-[#E11D2E]">
-            <option value="All">All communities</option>
-            {communities.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+          <select value={residenceId === 'all' ? community : residenceId} onChange={event => setCommunity(event.target.value)} disabled={residenceId !== 'all'} className="h-10 rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#0A1628] px-3 text-[13px] text-[#EEF3FA] outline-none focus:border-[#E11D2E] disabled:opacity-70">
+            {residenceId === 'all' && <option value="All">All communities</option>}
+            {communityOptions.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
           </select>
         </div>
       </SectionCard>
@@ -1155,8 +1296,9 @@ function AmenityBookingCalendar({ amenity }: { amenity: Amenity }) {
   );
 }
 
-function AmenitiesManager({ onToast }: { onToast: Props['onToast'] }) {
+function AmenitiesManager({ residenceId = 'all', onToast }: { residenceId?: ResidenceScope; onToast: Props['onToast'] }) {
   const [selectedAmenity, setSelectedAmenity] = useState<Amenity | null>(amenities[0]);
+  const visibleBookings = amenityBookings.filter(booking => matchesResidence(residenceId, getUnit(booking.unitId)?.communityId));
   return (
     <div className="grid gap-4 xl:grid-cols-[1fr_360px]">
       <SectionCard>
@@ -1182,7 +1324,7 @@ function AmenitiesManager({ onToast }: { onToast: Props['onToast'] }) {
         </div>
         <div className="mt-5">
           <TableShell columns={['Booking ID', 'Resident', 'Unit', 'Amenity', 'Date/Time', 'Status', 'Payment', 'Access QR', 'Actions']} minWidth="1050px">
-            {amenityBookings.map(booking => {
+            {visibleBookings.map(booking => {
               const resident = getResident(booking.residentId);
               const unit = getUnit(booking.unitId);
               return (
@@ -1199,6 +1341,11 @@ function AmenitiesManager({ onToast }: { onToast: Props['onToast'] }) {
                 </tr>
               );
             })}
+            {visibleBookings.length === 0 && (
+              <tr className="border-t border-[rgba(46,127,255,0.08)] bg-[#0A1628]/70">
+                <td colSpan={9} className="px-4 py-10 text-center text-[13px] text-[#7A94B4]">No amenity bookings match this residence filter.</td>
+              </tr>
+            )}
           </TableShell>
         </div>
       </SectionCard>
@@ -1221,7 +1368,8 @@ function AmenitiesManager({ onToast }: { onToast: Props['onToast'] }) {
   );
 }
 
-function NoticesCenter({ onCreate, onToast }: { onCreate: () => void; onToast: Props['onToast'] }) {
+function NoticesCenter({ residenceId = 'all', onCreate, onToast }: { residenceId?: ResidenceScope; onCreate: () => void; onToast: Props['onToast'] }) {
+  const visibleNotices = notices.filter(notice => noticeMatchesResidence(notice, residenceId));
   return (
     <div className="grid gap-4 xl:grid-cols-[1fr_340px]">
       <SectionCard>
@@ -1230,7 +1378,7 @@ function NoticesCenter({ onCreate, onToast }: { onCreate: () => void; onToast: P
           <PrimaryButton icon={Send} onClick={onCreate}>Create Notice</PrimaryButton>
         </div>
         <TableShell columns={['Title', 'Audience', 'Channel', 'Sent Date', 'Delivery Rate', 'Read Rate', 'Reactions/Sentiment', 'Actions']} minWidth="1050px">
-          {notices.map(notice => (
+          {visibleNotices.map(notice => (
             <tr key={notice.id} className="border-t border-[rgba(46,127,255,0.08)] bg-[#0A1628]/70">
               <td className="px-4 py-4"><p className="text-[13px] font-black text-[#EEF3FA]">{notice.title}</p><p className="mt-1 text-[11px] text-[#7A94B4]">{notice.category}</p></td>
               <td className="px-4 py-4 text-[13px] text-[#A8B3C7]">{notice.audience}</td>
@@ -1242,6 +1390,11 @@ function NoticesCenter({ onCreate, onToast }: { onCreate: () => void; onToast: P
               <td className="px-4 py-4 text-right"><ActionButton label="AI Draft" icon={Sparkles} onClick={() => onToast(`AI rewrote ${notice.title}`, 'info')} /></td>
             </tr>
           ))}
+          {visibleNotices.length === 0 && (
+            <tr className="border-t border-[rgba(46,127,255,0.08)] bg-[#0A1628]/70">
+              <td colSpan={8} className="px-4 py-10 text-center text-[13px] text-[#7A94B4]">No notices match this residence filter.</td>
+            </tr>
+          )}
         </TableShell>
       </SectionCard>
       <AiPanel title="AI notice intelligence">
@@ -1273,13 +1426,14 @@ function CreateNoticeModal({ onClose, onToast }: { onClose: () => void; onToast:
   );
 }
 
-function PaymentsManager({ onToast }: { onToast: Props['onToast'] }) {
+function PaymentsManager({ residenceId = 'all', onToast }: { residenceId?: ResidenceScope; onToast: Props['onToast'] }) {
+  const visiblePayments = payments.filter(payment => matchesResidence(residenceId, getUnit(payment.unitId)?.communityId));
   return (
     <div className="grid gap-4 xl:grid-cols-[1fr_340px]">
       <SectionCard>
         <SectionTitle title="Payments and Service Charges" subtitle="Service charges, amenity fees, penalties, maintenance charges, handover payments, and community fees." icon={CreditCard} />
         <TableShell columns={['Invoice ID', 'Resident', 'Unit', 'Amount', 'Due Date', 'Status', 'Category', 'Method', 'Actions']} minWidth="1120px">
-          {payments.map(payment => {
+          {visiblePayments.map(payment => {
             const resident = getResident(payment.residentId);
             const unit = getUnit(payment.unitId);
             return (
@@ -1303,6 +1457,11 @@ function PaymentsManager({ onToast }: { onToast: Props['onToast'] }) {
               </tr>
             );
           })}
+          {visiblePayments.length === 0 && (
+            <tr className="border-t border-[rgba(46,127,255,0.08)] bg-[#0A1628]/70">
+              <td colSpan={9} className="px-4 py-10 text-center text-[13px] text-[#7A94B4]">No payments match this residence filter.</td>
+            </tr>
+          )}
         </TableShell>
       </SectionCard>
       <AiPanel title="AI payment intelligence">
@@ -1312,7 +1471,8 @@ function PaymentsManager({ onToast }: { onToast: Props['onToast'] }) {
   );
 }
 
-function DocumentsVault({ onToast }: { onToast: Props['onToast'] }) {
+function DocumentsVault({ residenceId = 'all', onToast }: { residenceId?: ResidenceScope; onToast: Props['onToast'] }) {
+  const visibleDocuments = residentDocuments.filter(document => matchesResidence(residenceId, document.linkedCommunityId));
   return (
     <div className="grid gap-4 xl:grid-cols-[1fr_340px]">
       <SectionCard>
@@ -1321,7 +1481,7 @@ function DocumentsVault({ onToast }: { onToast: Props['onToast'] }) {
           <PrimaryButton icon={Upload} onClick={() => onToast('Document upload flow opened', 'info')}>Upload Document</PrimaryButton>
         </div>
         <TableShell columns={['Document', 'Category', 'Resident / Unit', 'Visibility', 'Expiry', 'Signature', 'Status', 'Actions']} minWidth="1120px">
-          {residentDocuments.map(document => {
+          {visibleDocuments.map(document => {
             const resident = getResident(document.linkedResidentId);
             const unit = getUnit(document.linkedUnitId);
             return (
@@ -1343,6 +1503,11 @@ function DocumentsVault({ onToast }: { onToast: Props['onToast'] }) {
               </tr>
             );
           })}
+          {visibleDocuments.length === 0 && (
+            <tr className="border-t border-[rgba(46,127,255,0.08)] bg-[#0A1628]/70">
+              <td colSpan={8} className="px-4 py-10 text-center text-[13px] text-[#7A94B4]">No documents match this residence filter.</td>
+            </tr>
+          )}
         </TableShell>
       </SectionCard>
       <AiPanel title="AI document intelligence">
@@ -1352,13 +1517,15 @@ function DocumentsVault({ onToast }: { onToast: Props['onToast'] }) {
   );
 }
 
-function HandoverWarrantyCenter({ onToast }: { onToast: Props['onToast'] }) {
+function HandoverWarrantyCenter({ residenceId = 'all', onToast }: { residenceId?: ResidenceScope; onToast: Props['onToast'] }) {
+  const visibleHandovers = handovers.filter(item => matchesResidence(residenceId, getUnit(item.unitId)?.communityId));
+  const visibleWarrantyClaims = warrantyClaims.filter(claim => matchesResidence(residenceId, getUnit(claim.unitId)?.communityId));
   return (
     <div className="space-y-4">
       <SectionCard>
         <SectionTitle title="Handover & Warranty" subtitle="Appointments, handover checklists, snagging, DLP tracking, signatures, and move-in readiness." icon={ClipboardCheck} />
         <TableShell columns={['Unit', 'Resident/Owner', 'Handover Date', 'Checklist Status', 'Snags Open', 'Documents Signed', 'Warranty Status', 'Move-in Status', 'Actions']} minWidth="1120px">
-          {handovers.map((item: HandoverRecord) => {
+          {visibleHandovers.map((item: HandoverRecord) => {
             const unit = getUnit(item.unitId);
             const resident = getResident(item.residentId);
             return (
@@ -1375,13 +1542,18 @@ function HandoverWarrantyCenter({ onToast }: { onToast: Props['onToast'] }) {
               </tr>
             );
           })}
+          {visibleHandovers.length === 0 && (
+            <tr className="border-t border-[rgba(46,127,255,0.08)] bg-[#0A1628]/70">
+              <td colSpan={9} className="px-4 py-10 text-center text-[13px] text-[#7A94B4]">No handover records match this residence filter.</td>
+            </tr>
+          )}
         </TableShell>
       </SectionCard>
       <div className="grid gap-4 xl:grid-cols-[1fr_340px]">
         <SectionCard>
           <SectionTitle title="Warranty Claims" subtitle="Claim status, warranty validity, assigned vendor, and closure evidence." />
           <TableShell columns={['Claim ID', 'Category', 'Unit', 'Reported Date', 'Warranty Valid?', 'Assigned Vendor', 'Status', 'Evidence']} minWidth="950px">
-            {warrantyClaims.map(claim => (
+            {visibleWarrantyClaims.map(claim => (
               <tr key={claim.id} className="border-t border-[rgba(46,127,255,0.08)] bg-[#0A1628]/70">
                 <td className="px-4 py-4 font-mono text-[13px] font-black text-cyan-300">{claim.id}</td>
                 <td className="px-4 py-4 text-[13px] text-[#A8B3C7]">{claim.category}</td>
@@ -1393,6 +1565,11 @@ function HandoverWarrantyCenter({ onToast }: { onToast: Props['onToast'] }) {
                 <td className="px-4 py-4 text-[12px] text-[#8FA6C3]">{claim.evidence}</td>
               </tr>
             ))}
+            {visibleWarrantyClaims.length === 0 && (
+              <tr className="border-t border-[rgba(46,127,255,0.08)] bg-[#0A1628]/70">
+                <td colSpan={8} className="px-4 py-10 text-center text-[13px] text-[#7A94B4]">No warranty claims match this residence filter.</td>
+              </tr>
+            )}
           </TableShell>
         </SectionCard>
         <AiPanel title="AI handover intelligence">
@@ -1424,7 +1601,7 @@ function InsightCard({ insight, onToast }: { insight: Insight; onToast: Props['o
   );
 }
 
-function ResidentAIInsights({ onToast }: { onToast: Props['onToast'] }) {
+function ResidentAIInsights({ residenceId = 'all', onToast }: { residenceId?: ResidenceScope; onToast: Props['onToast'] }) {
   const groups: Array<{ id: Insight['section']; title: string; subtitle: string }> = [
     { id: 'satisfaction', title: 'Resident Satisfaction Intelligence', subtitle: 'Satisfaction score, at-risk residents, sentiment trend, and top complaint drivers.' },
     { id: 'operations', title: 'Operational Pattern Detection', subtitle: 'Repeated issues by tower, recurring asset complaints, noisy categories, and SLA risk.' },
@@ -1432,6 +1609,7 @@ function ResidentAIInsights({ onToast }: { onToast: Props['onToast'] }) {
     { id: 'revenue', title: 'Revenue / Payment Risk', subtitle: 'Overdue payments, high-risk residents, recommended reminders, and collection forecasts.' },
     { id: 'actions', title: 'Recommended Actions', subtitle: 'Call resident, send notice, inspect asset, escalate vendor, offer payment plan, or schedule maintenance.' },
   ];
+  const visibleInsights = insights.filter(insight => insightMatchesResidence(insight, residenceId));
 
   return (
     <div className="space-y-4">
@@ -1439,7 +1617,10 @@ function ResidentAIInsights({ onToast }: { onToast: Props['onToast'] }) {
         <SectionCard key={group.id}>
           <SectionTitle title={group.title} subtitle={group.subtitle} icon={Sparkles} />
           <div className="space-y-3">
-            {insights.filter(insight => insight.section === group.id).map(insight => <InsightCard key={insight.id} insight={insight} onToast={onToast} />)}
+            {visibleInsights.filter(insight => insight.section === group.id).map(insight => <InsightCard key={insight.id} insight={insight} onToast={onToast} />)}
+            {visibleInsights.filter(insight => insight.section === group.id).length === 0 && (
+              <p className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#0A1628] p-4 text-[13px] text-[#7A94B4]">No AI insight is currently flagged for {getResidenceLabel(residenceId)} in this category.</p>
+            )}
           </div>
         </SectionCard>
       ))}
@@ -1486,6 +1667,7 @@ function ResidentPortalSettings() {
 export function ResidentPortalDashboard({ onToast }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [query, setQuery] = useState('');
+  const [selectedResidenceId, setSelectedResidenceId] = useState<ResidenceScope>('all');
   const [selectedResident, setSelectedResident] = useState<Resident | null>(null);
   const [selectedRequest, setSelectedRequest] = useState<ResidentRequest | null>(null);
   const [noticeModalOpen, setNoticeModalOpen] = useState(false);
@@ -1493,6 +1675,7 @@ export function ResidentPortalDashboard({ onToast }: Props) {
   const [communityWizardOpen, setCommunityWizardOpen] = useState(false);
 
   const kpiIcons = useMemo(() => [Users, Home, Wrench, AlertTriangle, CreditCard, CalendarClock, BellRing, Star, ShieldCheck], []);
+  const visibleKpis = useMemo(() => getScopedKpis(selectedResidenceId), [selectedResidenceId]);
   const showSearch = activeTab === 'residents';
 
   return (
@@ -1507,7 +1690,20 @@ export function ResidentPortalDashboard({ onToast }: Props) {
             <h1 className="text-3xl font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>ResidentPortal</h1>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-[#8FA6C3]">Resident lifecycle, community operations, requests, communications, and experience intelligence.</p>
           </div>
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="inline-flex h-10 min-w-[230px] items-center gap-2 rounded-xl border border-cyan-300/25 bg-cyan-300/10 px-3 text-[12px] font-black text-cyan-300">
+              <Building2 size={16} />
+              <span className="hidden text-[10px] uppercase tracking-[0.08em] text-[#7A94B4] sm:inline">Residence</span>
+              <select
+                value={selectedResidenceId}
+                onChange={event => setSelectedResidenceId(event.target.value as ResidenceScope)}
+                aria-label="Filter ResidentPortal by residence"
+                className="min-w-0 flex-1 bg-transparent text-[12px] font-black text-cyan-300 outline-none"
+              >
+                <option value="all">All residences</option>
+                {communities.map(community => <option key={community.id} value={community.id}>{community.name}</option>)}
+              </select>
+            </label>
             <PrimaryButton icon={Plus} onClick={() => onToast('Add Resident workflow ready', 'info')}>Add Resident</PrimaryButton>
             <SecondaryButton icon={Upload} onClick={() => setBulkModalOpen(true)}>Bulk Upload</SecondaryButton>
             <SecondaryButton icon={Building2} onClick={() => setCommunityWizardOpen(true)}>Create Community</SecondaryButton>
@@ -1517,7 +1713,7 @@ export function ResidentPortalDashboard({ onToast }: Props) {
       </div>
 
       <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5 2xl:grid-cols-9">
-        {kpis.map((kpi, index) => <KpiCard key={kpi.label} label={kpi.label} value={kpi.value} delta={kpi.delta} icon={kpiIcons[index]} />)}
+        {visibleKpis.map((kpi, index) => <KpiCard key={kpi.label} label={kpi.label} value={kpi.value} delta={kpi.delta} icon={kpiIcons[index]} />)}
       </div>
 
       <div className="mt-4 rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-3">
@@ -1547,17 +1743,17 @@ export function ResidentPortalDashboard({ onToast }: Props) {
       )}
 
       <div className="mt-4">
-        {activeTab === 'overview' && <ResidentOverview />}
-        {activeTab === 'residents' && <ResidentsTable query={query} onSelect={setSelectedResident} onToast={onToast} />}
-        {activeTab === 'communities' && <CommunitiesTab onCreate={() => setCommunityWizardOpen(true)} />}
-        {activeTab === 'requests' && <ResidentRequestsTable onSelect={setSelectedRequest} onToast={onToast} />}
-        {activeTab === 'incidents' && <ResidentIncidentsManager onToast={onToast} />}
-        {activeTab === 'amenities' && <AmenitiesManager onToast={onToast} />}
-        {activeTab === 'notices' && <NoticesCenter onCreate={() => setNoticeModalOpen(true)} onToast={onToast} />}
-        {activeTab === 'payments' && <PaymentsManager onToast={onToast} />}
-        {activeTab === 'documents' && <DocumentsVault onToast={onToast} />}
-        {activeTab === 'handover' && <HandoverWarrantyCenter onToast={onToast} />}
-        {activeTab === 'ai' && <ResidentAIInsights onToast={onToast} />}
+        {activeTab === 'overview' && <ResidentOverview residenceId={selectedResidenceId} />}
+        {activeTab === 'residents' && <ResidentsTable query={query} residenceId={selectedResidenceId} onSelect={setSelectedResident} onToast={onToast} />}
+        {activeTab === 'communities' && <CommunitiesTab residenceId={selectedResidenceId} onCreate={() => setCommunityWizardOpen(true)} />}
+        {activeTab === 'requests' && <ResidentRequestsTable residenceId={selectedResidenceId} onSelect={setSelectedRequest} onToast={onToast} />}
+        {activeTab === 'incidents' && <ResidentIncidentsManager residenceId={selectedResidenceId} onToast={onToast} />}
+        {activeTab === 'amenities' && <AmenitiesManager residenceId={selectedResidenceId} onToast={onToast} />}
+        {activeTab === 'notices' && <NoticesCenter residenceId={selectedResidenceId} onCreate={() => setNoticeModalOpen(true)} onToast={onToast} />}
+        {activeTab === 'payments' && <PaymentsManager residenceId={selectedResidenceId} onToast={onToast} />}
+        {activeTab === 'documents' && <DocumentsVault residenceId={selectedResidenceId} onToast={onToast} />}
+        {activeTab === 'handover' && <HandoverWarrantyCenter residenceId={selectedResidenceId} onToast={onToast} />}
+        {activeTab === 'ai' && <ResidentAIInsights residenceId={selectedResidenceId} onToast={onToast} />}
         {activeTab === 'settings' && <ResidentPortalSettings />}
       </div>
 
