@@ -1,8 +1,10 @@
 import { useMemo, useState, type ComponentType, type ReactNode } from 'react';
 import {
+  Activity,
   AlertTriangle,
   BellRing,
   Bot,
+  Briefcase,
   Building2,
   CalendarClock,
   CheckCircle2,
@@ -63,12 +65,14 @@ import {
   type ResidentStatus,
   type RiskLevel,
 } from './data';
+import { useIncidents, type CreateWorkOrderInput, type Incident } from '@/context/IncidentContext';
 
 type Tab =
   | 'overview'
   | 'residents'
   | 'communities'
   | 'requests'
+  | 'incidents'
   | 'amenities'
   | 'notices'
   | 'payments'
@@ -86,6 +90,7 @@ const tabs: Array<{ id: Tab; label: string }> = [
   { id: 'residents', label: 'Residents' },
   { id: 'communities', label: 'Communities' },
   { id: 'requests', label: 'Requests' },
+  { id: 'incidents', label: 'Incidents' },
   { id: 'amenities', label: 'Amenities' },
   { id: 'notices', label: 'Notices' },
   { id: 'payments', label: 'Payments' },
@@ -714,6 +719,429 @@ function ResidentRequestsTable({ onSelect, onToast }: { onSelect: (request: Resi
   );
 }
 
+const residentIncidentSources = new Set(['Resident App', 'AI Capture', 'QR Scan', 'Photo upload', 'Voice note', 'Chat assistant']);
+
+const siteCommunityMap: Record<string, string> = {
+  'silicon-oasis': 'jumeirah-heights',
+  'gate-avenue': 'bayz-102',
+  'business-bay': 'bayz-102',
+  'jlt-north': 'marina-residences',
+  'difc-tower': 'creek-view-towers',
+};
+
+const incidentSeverityClass: Record<string, string> = {
+  critical: 'border-red-400/30 bg-red-400/10 text-red-300',
+  high: 'border-orange-400/30 bg-orange-400/10 text-orange-300',
+  medium: 'border-amber-400/30 bg-amber-400/10 text-amber-300',
+  low: 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300',
+};
+
+const incidentStatusClass: Record<string, string> = {
+  open: 'border-slate-400/30 bg-slate-400/10 text-slate-300',
+  dispatched: 'border-blue-400/30 bg-blue-400/10 text-blue-300',
+  assigned: 'border-blue-400/30 bg-blue-400/10 text-blue-300',
+  'in-progress': 'border-cyan-400/30 bg-cyan-400/10 text-cyan-300',
+  overdue: 'border-red-400/30 bg-red-400/10 text-red-300',
+  resolved: 'border-amber-400/30 bg-amber-400/10 text-amber-300',
+  closed: 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300',
+};
+
+function normalize(text?: string | null) {
+  return (text ?? '').toLowerCase();
+}
+
+function isResidentRaisedIncident(incident: Incident) {
+  const source = incident.source ?? '';
+  const activityText = incident.activityLog.map(item => `${item.event} ${item.type}`).join(' ').toLowerCase();
+  const metadataText = [
+    incident.aiMetadata?.reporterName,
+    incident.aiMetadata?.reporterRole,
+    incident.aiMetadata?.issueType,
+    incident.aiMetadata?.category,
+  ].filter(Boolean).join(' ').toLowerCase();
+
+  return (
+    residentIncidentSources.has(source) ||
+    activityText.includes('resident') ||
+    activityText.includes('snapfix') ||
+    activityText.includes('photo') ||
+    activityText.includes('voice') ||
+    activityText.includes('qr') ||
+    metadataText.includes('resident') ||
+    metadataText.includes('owner') ||
+    metadataText.includes('tenant')
+  );
+}
+
+function getResidentIncidentContext(incident: Incident) {
+  const haystack = normalize(`${incident.id} ${incident.title} ${incident.description} ${incident.location} ${incident.siteId} ${incident.aiMetadata?.category} ${incident.aiMetadata?.issueType}`);
+  const siteCommunityId = incident.siteId ? siteCommunityMap[incident.siteId] : undefined;
+  const matchedCommunity =
+    communities.find(community => haystack.includes(community.name.toLowerCase())) ??
+    (siteCommunityId ? getCommunity(siteCommunityId) : undefined) ??
+    communities.find(community => haystack.includes(community.id));
+
+  const directResident = residents.find(resident => {
+    const unit = getUnit(resident.unitId);
+    return haystack.includes(resident.name.toLowerCase()) || (unit ? haystack.includes(unit.unitNumber.toLowerCase()) : false);
+  });
+
+  const category = normalize(`${incident.title} ${incident.aiMetadata?.category} ${incident.aiMetadata?.issueType}`);
+  const fallbackResident =
+    directResident ??
+    (category.includes('hvac') || category.includes('ac') || category.includes('cooling')
+      ? residents.find(resident => resident.id === (haystack.includes('tower b') ? 'res-lina' : 'res-ahmad'))
+      : category.includes('water') || category.includes('leak') || category.includes('plumb')
+        ? residents.find(resident => resident.id === 'res-sara')
+        : category.includes('gym') || category.includes('access') || category.includes('gate') || category.includes('intercom')
+          ? residents.find(resident => resident.id === 'res-noura')
+          : undefined) ??
+    residents.find(resident => matchedCommunity && resident.communityId === matchedCommunity.id) ??
+    residents[0];
+
+  const unit = fallbackResident ? getUnit(fallbackResident.unitId) : undefined;
+  const community = unit ? getCommunity(unit.communityId) : matchedCommunity;
+  const linkedRequest = residentRequests.find(request => {
+    const sameResident = fallbackResident && request.residentId === fallbackResident.id;
+    const issueMatch = category.includes(request.category.toLowerCase()) || request.category.toLowerCase().includes(category.split(' ')[0] ?? '');
+    return sameResident && issueMatch;
+  }) ?? residentRequests.find(request => fallbackResident && request.residentId === fallbackResident.id);
+
+  return {
+    resident: fallbackResident,
+    unit,
+    community,
+    linkedRequest,
+  };
+}
+
+function getIncidentSlaTone(incident: Incident) {
+  const elapsed = Number.isFinite(incident.elapsed) ? incident.elapsed : 0;
+  const slaMinutes = Number.isFinite(incident.slaMinutes) && incident.slaMinutes > 0 ? incident.slaMinutes : 60;
+  const percent = Math.min(100, Math.round((elapsed / slaMinutes) * 100));
+  const left = Math.max(0, slaMinutes - elapsed);
+  const overdue = incident.status === 'overdue' || elapsed > slaMinutes;
+
+  if (overdue) {
+    return { percent: 100, label: 'Overdue', text: 'text-red-300', bar: 'bg-red-400', pill: 'border-red-400/30 bg-red-400/10 text-red-300' };
+  }
+  if (percent >= 80) {
+    return { percent, label: `${left}m left`, text: 'text-amber-300', bar: 'bg-amber-400', pill: 'border-amber-400/30 bg-amber-400/10 text-amber-300' };
+  }
+  return { percent, label: `${left}m left`, text: 'text-emerald-300', bar: 'bg-emerald-400', pill: 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300' };
+}
+
+function deriveIncidentSkill(incident: Incident) {
+  const category = normalize(`${incident.title} ${incident.description} ${incident.aiMetadata?.category} ${incident.aiMetadata?.issueType}`);
+  if (category.includes('hvac') || category.includes('ac') || category.includes('cooling') || category.includes('chiller')) return 'HVAC';
+  if (category.includes('plumb') || category.includes('water') || category.includes('leak') || category.includes('pipe')) return 'Plumbing';
+  if (category.includes('electrical') || category.includes('power') || category.includes('lift') || category.includes('intercom') || category.includes('gate')) return 'Electrical';
+  if (category.includes('fire') || category.includes('safety')) return 'Safety';
+  return 'General';
+}
+
+function buildIncidentWorkOrderInput(incident: Incident): CreateWorkOrderInput {
+  return {
+    title: incident.title,
+    location: incident.location,
+    priority: ['critical', 'high', 'medium', 'low'].includes(incident.severity) ? incident.severity : 'medium',
+    asset: incident.aiMetadata?.identifiedAsset ?? incident.title,
+    skill: deriveIncidentSkill(incident),
+    description: incident.description,
+    siteId: incident.siteId,
+  };
+}
+
+function IncidentStatusBadge({ status }: { status: string }) {
+  return <Badge className={incidentStatusClass[status] ?? 'border-slate-400/30 bg-slate-400/10 text-slate-300'}>{status.replace('-', ' ')}</Badge>;
+}
+
+function IncidentSeverityBadge({ severity }: { severity: string }) {
+  return <Badge className={incidentSeverityClass[severity] ?? 'border-slate-400/30 bg-slate-400/10 text-slate-300'}>{severity}</Badge>;
+}
+
+function IncidentSlaCell({ incident }: { incident: Incident }) {
+  const tone = getIncidentSlaTone(incident);
+  return (
+    <div className="min-w-[120px]">
+      <div className="h-1.5 overflow-hidden rounded-full bg-[#07111F]">
+        <div className={`h-full rounded-full ${tone.bar}`} style={{ width: `${tone.percent}%` }} />
+      </div>
+      <div className="mt-1 flex items-center justify-between text-[10px]">
+        <span className={tone.text}>{tone.label}</span>
+        <span className="text-[#7A94B4]">{incident.elapsed}m / {incident.slaMinutes}m</span>
+      </div>
+    </div>
+  );
+}
+
+function ResidentIncidentDetailDrawer({ incident, onClose, onToast }: { incident: Incident; onClose: () => void; onToast: Props['onToast'] }) {
+  const { approveTicket, rejectTicket, createWorkOrder, resolveIncident, confirmResolution } = useIncidents();
+  const [busyAction, setBusyAction] = useState<string | null>(null);
+  const context = getResidentIncidentContext(incident);
+  const sla = getIncidentSlaTone(incident);
+  const ai = incident.aiMetadata;
+
+  const runAction = async (label: string, action: () => Promise<void> | void, success: string) => {
+    setBusyAction(label);
+    try {
+      await action();
+      onToast(success, 'success');
+    } catch (error) {
+      onToast(error instanceof Error ? error.message : `${label} failed`, 'error');
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const canCreateWo = !incident.workOrderId && incident.status !== 'closed';
+  const canResolve = !['resolved', 'closed'].includes(incident.status);
+  const canConfirm = incident.status === 'resolved';
+  const pendingApproval = incident.ticketState === 'pending_approval';
+
+  return (
+    <DrawerShell title={incident.id} subtitle={`${incident.title} - ${context.community?.name ?? 'Resident community'} - ${context.unit?.unitNumber ?? incident.location}`} onClose={onClose}>
+      <div className="grid gap-4 md:grid-cols-4">
+        <DetailCard label="Severity" value={<IncidentSeverityBadge severity={incident.severity} />} />
+        <DetailCard label="Status" value={<IncidentStatusBadge status={incident.status} />} />
+        <DetailCard label="SLA" value={<Badge className={sla.pill}>{sla.label}</Badge>} />
+        <DetailCard label="Source" value={incident.source} />
+      </div>
+
+      <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_1fr]">
+        <SectionCard>
+          <SectionTitle title="Resident Context" icon={Users} />
+          <div className="grid gap-3 md:grid-cols-2">
+            <DetailCard label="Resident" value={context.resident?.name ?? 'Unmatched'} />
+            <DetailCard label="Unit" value={context.unit?.unitNumber ?? incident.location} />
+            <DetailCard label="Community" value={context.community?.name ?? 'Unmatched'} />
+            <DetailCard label="Linked request" value={context.linkedRequest?.id ?? 'No matching request'} />
+          </div>
+        </SectionCard>
+        <SectionCard>
+          <SectionTitle title="SLA and Dispatch" icon={CalendarClock} />
+          <IncidentSlaCell incident={incident} />
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            <DetailCard label="Assigned tech" value={incident.assignedTech ?? 'Unassigned'} />
+            <DetailCard label="Work order" value={incident.workOrderId ?? 'Not created'} />
+          </div>
+        </SectionCard>
+      </div>
+
+      <SectionCard className="mt-5">
+        <SectionTitle title="Overview" icon={AlertTriangle} />
+        <p className="text-[14px] leading-6 text-[#BCC8DC]">{incident.description}</p>
+      </SectionCard>
+
+      <div className="mt-5 grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
+        <SectionCard>
+          <SectionTitle title="Evidence" icon={FileText} />
+          {incident.imageUrl ? (
+            <img src={incident.imageUrl} alt="Incident evidence" className="max-h-56 w-full rounded-xl border border-[rgba(46,127,255,0.16)] object-cover" />
+          ) : (
+            <div className="rounded-xl border border-dashed border-[rgba(46,127,255,0.22)] bg-[#07111F] p-5 text-center text-[13px] text-[#7A94B4]">
+              No photo evidence attached to this resident incident.
+            </div>
+          )}
+          <div className="mt-3 grid gap-2">
+            {(ai?.observations ?? ['Resident-submitted incident is visible in the shared IncidentOS workflow.']).map(item => (
+              <div key={item} className="rounded-lg bg-[#07111F] p-3 text-[12px] leading-5 text-[#BCC8DC]">{item}</div>
+            ))}
+          </div>
+        </SectionCard>
+
+        <SectionCard>
+          <SectionTitle title="AI Analysis" icon={Sparkles} />
+          <div className="grid gap-3 md:grid-cols-2">
+            <DetailCard label="Category" value={ai?.category ?? deriveIncidentSkill(incident)} />
+            <DetailCard label="Issue type" value={ai?.issueType ?? 'Resident reported issue'} />
+            <DetailCard label="Identified asset" value={ai?.identifiedAsset ?? incident.title} />
+            <DetailCard label="Confidence" value={ai?.confidence != null ? `${ai.confidence}%` : 'Pending'} />
+          </div>
+          <p className="mt-4 text-[13px] leading-6 text-[#E5D9FF]">{ai?.recommendedAction ?? 'Review evidence, confirm resident impact, then approve ticket or create a work order from the existing incident workflow.'}</p>
+        </SectionCard>
+      </div>
+
+      <SectionCard className="mt-5">
+        <SectionTitle title="Timeline" icon={Activity} />
+        <div className="space-y-4">
+          {incident.activityLog.length > 0 ? incident.activityLog.map((item, index) => (
+            <div key={`${item.time}-${index}`} className="flex gap-3">
+              <span className="mt-1 h-2.5 w-2.5 rounded-full bg-cyan-300" />
+              <div>
+                <p className="text-[13px] font-black text-[#EEF3FA]">{item.type} <span className="font-mono text-[11px] text-[#7A94B4]">{item.time}</span></p>
+                <p className="mt-1 text-[12px] leading-5 text-[#8FA6C3]">{item.event}</p>
+              </div>
+            </div>
+          )) : (
+            <p className="text-[13px] text-[#7A94B4]">No activity log available.</p>
+          )}
+        </div>
+      </SectionCard>
+
+      <SectionCard className="mt-5">
+        <SectionTitle title="Actions" subtitle="Uses the existing IncidentOS, ticket, and work-order workflow." icon={Briefcase} />
+        <div className="flex flex-wrap gap-3">
+          {pendingApproval && (
+            <>
+              <PrimaryButton icon={CheckCircle2} onClick={() => runAction('approve', () => approveTicket(incident.id, 'ResidentPortal'), `Ticket ${incident.id} approved and work order created`)}>
+                {busyAction === 'approve' ? 'Approving...' : 'Approve Ticket'}
+              </PrimaryButton>
+              <SecondaryButton icon={X} onClick={() => runAction('reject', () => rejectTicket(incident.id, 'ResidentPortal requested more resident evidence', 'ResidentPortal'), `Ticket ${incident.id} rejected`)}>
+                {busyAction === 'reject' ? 'Rejecting...' : 'Reject Ticket'}
+              </SecondaryButton>
+            </>
+          )}
+          {canCreateWo && (
+            <SecondaryButton icon={Briefcase} onClick={() => runAction('work order', () => {
+              const workOrder = createWorkOrder(incident.id, buildIncidentWorkOrderInput(incident));
+              onToast(`Work Order ${workOrder.id} created from ${incident.id}`, 'success');
+            }, `Work order workflow updated for ${incident.id}`)}>
+              Create Work Order
+            </SecondaryButton>
+          )}
+          {canResolve && (
+            <SecondaryButton icon={FileCheck2} onClick={() => runAction('resolve', () => resolveIncident(incident.id, {
+              resolvedBy: 'ResidentPortal',
+              resolutionNotes: 'Resolved through ResidentPortal incident management with resident evidence reviewed.',
+              beforePhotoUrl: incident.imageUrl,
+              afterPhotoUrl: incident.afterPhotoUrl ?? 'residentportal-resolution-evidence.jpg',
+            }), `${incident.id} marked resolved`)}>
+              Resolve with Evidence
+            </SecondaryButton>
+          )}
+          {canConfirm && (
+            <PrimaryButton icon={ShieldCheck} onClick={() => runAction('confirm', () => confirmResolution(incident.id, 'ResidentPortal'), `${incident.id} confirmed and closed`)}>
+              Confirm Resolution
+            </PrimaryButton>
+          )}
+          <SecondaryButton icon={AlertTriangle} onClick={() => onToast(`${incident.id} escalated to community operations`, 'warning')}>Escalate</SecondaryButton>
+          <SecondaryButton icon={MessageCircle} onClick={() => onToast(`Resident update drafted for ${context.resident?.name ?? incident.id}`, 'info')}>Message Resident</SecondaryButton>
+        </div>
+      </SectionCard>
+    </DrawerShell>
+  );
+}
+
+function ResidentIncidentsManager({ onToast }: { onToast: Props['onToast'] }) {
+  const { incidents } = useIncidents();
+  const [query, setQuery] = useState('');
+  const [severity, setSeverity] = useState('All');
+  const [status, setStatus] = useState('All');
+  const [source, setSource] = useState('All');
+  const [community, setCommunity] = useState('All');
+  const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
+
+  const residentIncidents = useMemo(() => incidents.filter(isResidentRaisedIncident), [incidents]);
+
+  const filtered = useMemo(() => residentIncidents.filter(incident => {
+    const context = getResidentIncidentContext(incident);
+    const haystack = `${incident.id} ${incident.title} ${incident.location} ${incident.source} ${context.resident?.name ?? ''} ${context.unit?.unitNumber ?? ''} ${context.community?.name ?? ''}`.toLowerCase();
+    if (severity !== 'All' && incident.severity !== severity) return false;
+    if (status !== 'All' && incident.status !== status) return false;
+    if (source !== 'All' && incident.source !== source) return false;
+    if (community !== 'All' && context.community?.id !== community) return false;
+    if (query && !haystack.includes(query.toLowerCase())) return false;
+    return true;
+  }), [residentIncidents, severity, status, source, community, query]);
+
+  const selectedCurrent = selectedIncident ? incidents.find(incident => incident.id === selectedIncident.id) ?? selectedIncident : null;
+  const uniqueSources = Array.from(new Set(residentIncidents.map(incident => incident.source))).sort();
+  const uniqueStatuses = Array.from(new Set(residentIncidents.map(incident => incident.status))).sort();
+  const counts = {
+    resident: residentIncidents.length,
+    critical: residentIncidents.filter(incident => incident.severity === 'critical').length,
+    open: residentIncidents.filter(incident => ['open', 'assigned', 'dispatched', 'in-progress'].includes(incident.status)).length,
+    overdue: residentIncidents.filter(incident => incident.status === 'overdue' || incident.elapsed > incident.slaMinutes).length,
+    pendingApproval: residentIncidents.filter(incident => incident.ticketState === 'pending_approval').length,
+    workOrders: residentIncidents.filter(incident => incident.workOrderId || incident.ticketState === 'work_order_created').length,
+  };
+
+  return (
+    <div className="space-y-4">
+      <SectionCard>
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+          <SectionTitle title="Resident-Raised Incidents" subtitle="Formal SnapFix and resident-app incidents from the existing IncidentOS workflow." icon={AlertTriangle} />
+          <div className="flex flex-wrap gap-2">
+            <Badge>{counts.resident} resident incidents</Badge>
+            <Badge className="border-red-400/30 bg-red-400/10 text-red-300">{counts.critical} critical</Badge>
+            <Badge className="border-sky-400/30 bg-sky-400/10 text-sky-300">{counts.open} open</Badge>
+            <Badge className="border-amber-400/30 bg-amber-400/10 text-amber-300">{counts.pendingApproval} pending approval</Badge>
+            <Badge className="border-violet-400/30 bg-violet-400/10 text-violet-200">{counts.workOrders} work orders</Badge>
+          </div>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+          <DetailCard label="Resident incidents" value={counts.resident} />
+          <DetailCard label="Critical" value={counts.critical} />
+          <DetailCard label="Open" value={counts.open} />
+          <DetailCard label="Overdue" value={counts.overdue} />
+          <DetailCard label="Pending approval" value={counts.pendingApproval} />
+          <DetailCard label="Work orders" value={counts.workOrders} />
+        </div>
+      </SectionCard>
+
+      <SectionCard>
+        <div className="grid gap-3 lg:grid-cols-[1.2fr_0.8fr_0.8fr_0.9fr_1fr]">
+          <label className="relative block">
+            <Search size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#7A94B4]" />
+            <input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search incident, resident, unit, community..." className="h-10 w-full rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#0A1628] pl-11 pr-4 text-[13px] text-[#EEF3FA] outline-none placeholder:text-[#5A6E88] focus:border-[#E11D2E]" />
+          </label>
+          <select value={severity} onChange={event => setSeverity(event.target.value)} className="h-10 rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#0A1628] px-3 text-[13px] text-[#EEF3FA] outline-none focus:border-[#E11D2E]">
+            {['All', 'critical', 'high', 'medium', 'low'].map(item => <option key={item}>{item}</option>)}
+          </select>
+          <select value={status} onChange={event => setStatus(event.target.value)} className="h-10 rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#0A1628] px-3 text-[13px] text-[#EEF3FA] outline-none focus:border-[#E11D2E]">
+            <option>All</option>
+            {uniqueStatuses.map(item => <option key={item}>{item}</option>)}
+          </select>
+          <select value={source} onChange={event => setSource(event.target.value)} className="h-10 rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#0A1628] px-3 text-[13px] text-[#EEF3FA] outline-none focus:border-[#E11D2E]">
+            <option>All</option>
+            {uniqueSources.map(item => <option key={item}>{item}</option>)}
+          </select>
+          <select value={community} onChange={event => setCommunity(event.target.value)} className="h-10 rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#0A1628] px-3 text-[13px] text-[#EEF3FA] outline-none focus:border-[#E11D2E]">
+            <option value="All">All communities</option>
+            {communities.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+          </select>
+        </div>
+      </SectionCard>
+
+      <TableShell columns={['Incident ID', 'Title', 'Resident / Unit', 'Community', 'Source', 'Severity', 'Status', 'SLA', 'AI Category', 'Assigned Tech', 'Work Order', 'Actions']} minWidth="1480px">
+        {filtered.map(incident => {
+          const context = getResidentIncidentContext(incident);
+          return (
+            <tr key={incident.id} onClick={() => setSelectedIncident(incident)} className="cursor-pointer border-t border-[rgba(46,127,255,0.08)] bg-[#0A1628]/70 transition-colors hover:bg-white/[0.045]">
+              <td className="px-4 py-4 align-top font-mono text-[13px] font-black text-cyan-300">{incident.id}</td>
+              <td className="px-4 py-4 align-top"><p className="text-[13px] font-black text-[#EEF3FA]">{incident.title}</p><p className="mt-1 text-[11px] text-[#7A94B4]">{incident.location}</p></td>
+              <td className="px-4 py-4 align-top text-[13px] text-[#A8B3C7]">{context.resident?.name ?? 'Unmatched'}<br /><span className="font-mono text-[11px] text-cyan-300">{context.unit?.unitNumber ?? '-'}</span></td>
+              <td className="px-4 py-4 align-top text-[13px] text-[#A8B3C7]">{context.community?.name ?? '-'}</td>
+              <td className="px-4 py-4 align-top"><Badge>{incident.source}</Badge></td>
+              <td className="px-4 py-4 align-top"><IncidentSeverityBadge severity={incident.severity} /></td>
+              <td className="px-4 py-4 align-top"><IncidentStatusBadge status={incident.status} /></td>
+              <td className="px-4 py-4 align-top"><IncidentSlaCell incident={incident} /></td>
+              <td className="px-4 py-4 align-top text-[12px] text-[#A8B3C7]">{incident.aiMetadata?.category ?? deriveIncidentSkill(incident)}</td>
+              <td className="px-4 py-4 align-top text-[12px] text-[#A8B3C7]">{incident.assignedTech ?? 'Unassigned'}</td>
+              <td className="px-4 py-4 align-top text-[12px] text-[#A8B3C7]">{incident.workOrderId ?? (incident.ticketState === 'work_order_created' ? 'Created' : 'Not created')}</td>
+              <td className="px-4 py-4 align-top">
+                <div className="flex justify-end gap-1">
+                  <ActionButton label="Open" icon={ChevronRight} onClick={() => setSelectedIncident(incident)} />
+                  <ActionButton label="Create Work Order" icon={Briefcase} onClick={() => onToast(`Open ${incident.id} to create a work order from IncidentOS`, 'info')} />
+                  <ActionButton label="Escalate" icon={AlertTriangle} danger onClick={() => onToast(`${incident.id} escalation drafted`, 'warning')} />
+                </div>
+              </td>
+            </tr>
+          );
+        })}
+        {filtered.length === 0 && (
+          <tr className="border-t border-[rgba(46,127,255,0.08)] bg-[#0A1628]/70">
+            <td colSpan={12} className="px-4 py-10 text-center text-[13px] text-[#7A94B4]">No resident-raised incidents match the current filters.</td>
+          </tr>
+        )}
+      </TableShell>
+
+      {selectedCurrent && <ResidentIncidentDetailDrawer incident={selectedCurrent} onClose={() => setSelectedIncident(null)} onToast={onToast} />}
+    </div>
+  );
+}
+
 function AmenityBookingCalendar({ amenity }: { amenity: Amenity }) {
   const slots = ['06:00', '08:00', '10:00', '14:00', '18:00', '20:00'];
   return (
@@ -1123,6 +1551,7 @@ export function ResidentPortalDashboard({ onToast }: Props) {
         {activeTab === 'residents' && <ResidentsTable query={query} onSelect={setSelectedResident} onToast={onToast} />}
         {activeTab === 'communities' && <CommunitiesTab onCreate={() => setCommunityWizardOpen(true)} />}
         {activeTab === 'requests' && <ResidentRequestsTable onSelect={setSelectedRequest} onToast={onToast} />}
+        {activeTab === 'incidents' && <ResidentIncidentsManager onToast={onToast} />}
         {activeTab === 'amenities' && <AmenitiesManager onToast={onToast} />}
         {activeTab === 'notices' && <NoticesCenter onCreate={() => setNoticeModalOpen(true)} onToast={onToast} />}
         {activeTab === 'payments' && <PaymentsManager onToast={onToast} />}
