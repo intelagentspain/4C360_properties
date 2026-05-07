@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   ArrowRight,
@@ -27,6 +27,8 @@ type CopilotInsight = {
   detail: string;
   urgency: Urgency;
   signal: string;
+  dependencyChain?: string[];
+  confidence?: number;
 };
 
 type CopilotRecommendation = {
@@ -39,12 +41,24 @@ type CopilotRecommendation = {
   kind: ActionKind;
   targetScreen?: ProjectCommandScreen;
   draft?: string;
+  confidence?: number;
+  effect?: string;
 };
 
 type CopilotContext = {
   tabLabel: string;
   monitoringLabel: string;
   badge: string;
+  prediction: {
+    handoverRisk: string;
+    unresolvedAfterDate: string;
+    confidence: number;
+    primaryBlocker: string;
+    daysAtRisk: number;
+    costExposure: string;
+    confidenceGainIfResolved: number;
+    riskAfterResolved: string;
+  };
   insights: CopilotInsight[];
   recommendations: CopilotRecommendation[];
   facts: { label: string; value: string }[];
@@ -143,6 +157,17 @@ function buildContext(screen: ProjectCommandScreen, dataset: ProjectCommandDatas
     { label: 'Float', value: `${project.floatRemaining} days` },
   ];
 
+  const prediction: CopilotContext['prediction'] = {
+    handoverRisk: 'Moderate',
+    unresolvedAfterDate: '15 Aug',
+    confidence: 92,
+    primaryBlocker: 'Missing authority approval',
+    daysAtRisk: 8,
+    costExposure: 'AED 3.2M',
+    confidenceGainIfResolved: 6,
+    riskAfterResolved: 'Medium',
+  };
+
   const commonActions: CopilotRecommendation[] = [
     {
       id: 'waterproofing-escalation',
@@ -152,6 +177,8 @@ function buildContext(screen: ProjectCommandScreen, dataset: ProjectCommandDatas
       linkedObject: 'Substructure / critical path',
       cta: 'Draft escalation',
       kind: 'draft',
+      confidence: 91,
+      effect: 'Recover 2d',
       draft: `Subject: Critical recovery action required\n\nThe current waterproofing delay is consuming available float and exposing downstream programme phases. Please confirm the recovery crew plan, revised dates, and daily output targets by close of business today.\n\nRequired action: submit an updated recovery programme and evidence plan.\nDeadline: today.`,
     },
     {
@@ -162,11 +189,13 @@ function buildContext(screen: ProjectCommandScreen, dataset: ProjectCommandDatas
       linkedObject: 'Commissioning Ready gate',
       cta: 'Draft request',
       kind: 'draft',
+      confidence: 92,
+      effect: '+6% confidence',
       draft: `Subject: Missing authority approval evidence\n\nPlease upload the authority approval certificate and supporting inspection evidence for the Commissioning Ready gate. The gate cannot move to Clear until the evidence pack is complete and verified.\n\nRequired documents: authority approval certificate, fire system commissioning report, lift inspection sign-off.\nDeadline: within 24 hours.`,
     },
   ];
 
-  const contexts: Record<ProjectCommandScreen, CopilotContext> = {
+  const contexts: Record<ProjectCommandScreen, Omit<CopilotContext, 'prediction'>> = {
     overview: {
       tabLabel,
       monitoringLabel: 'Monitoring health, threats, gates, cost drift, and milestones',
@@ -231,9 +260,9 @@ function buildContext(screen: ProjectCommandScreen, dataset: ProjectCommandDatas
       monitoringLabel: 'Monitoring gates, blockers, approvals, evidence, and owners',
       badge: 'Gate Risk',
       insights: [
-        { title: 'Commissioning Ready gate is at risk due to missing authority approval evidence.', detail: 'The gate should not clear until the required certificate and commissioning pack are verified.', urgency: 'high', signal: 'Gate evidence' },
-        { title: 'Handover Go/No-Go is blocked by unresolved closeout items.', detail: 'Snags and missing sign-offs can prevent final clearance.', urgency: 'critical', signal: 'Blocked gate' },
-        { title: 'Evidence pack is 72% complete. 4 documents are missing.', detail: 'Authority approval certificate, fire system commissioning report, lift inspection sign-off, and vendor warranty pack are still open.', urgency: 'high', signal: 'Evidence completeness' },
+        { title: 'Commissioning Ready gate is at risk due to missing authority approval evidence.', detail: 'The gate should not clear until the required certificate and commissioning pack are verified.', urgency: 'high', signal: 'Gate evidence', confidence: 92, dependencyChain: ['Authority approval', 'Commissioning Ready', 'Handover Review', 'Final Occupancy Permit'] },
+        { title: 'Handover Go/No-Go is blocked by unresolved closeout items.', detail: 'Snags and missing sign-offs can prevent final clearance.', urgency: 'critical', signal: 'Blocked gate', confidence: 90, dependencyChain: ['Closeout items', 'Handover Go/No-Go', 'Resident move-in readiness', 'Final handover'] },
+        { title: 'Evidence pack is 72% complete. 4 documents are missing.', detail: 'Authority approval certificate, fire system commissioning report, lift inspection sign-off, and vendor warranty pack are still open.', urgency: 'high', signal: 'Evidence completeness', confidence: 92, dependencyChain: ['Missing evidence', 'Gate validation failure', 'Stage gate blocked', 'Project manager escalation'] },
         { title: 'Warranty Control review needs explicit owner confirmation.', detail: 'Owner assignment should be locked before handover readiness review.', urgency: 'medium', signal: 'Owner gap' },
       ],
       recommendations: [
@@ -246,6 +275,8 @@ function buildContext(screen: ProjectCommandScreen, dataset: ProjectCommandDatas
           linkedObject: 'Stage Gates',
           cta: 'Create task',
           kind: 'task',
+          confidence: 88,
+          effect: 'Reduce aging',
         },
         {
           id: 'closeout-task',
@@ -255,6 +286,8 @@ function buildContext(screen: ProjectCommandScreen, dataset: ProjectCommandDatas
           linkedObject: 'Handover Go/No-Go',
           cta: 'Create task',
           kind: 'task',
+          confidence: 89,
+          effect: 'Recover 2d',
         },
         {
           id: 'warranty-pack',
@@ -264,6 +297,8 @@ function buildContext(screen: ProjectCommandScreen, dataset: ProjectCommandDatas
           linkedObject: 'Warranty Control Review',
           cta: 'Prepare message',
           kind: 'message',
+          confidence: 86,
+          effect: 'Unlock review',
           draft: `Please provide the vendor warranty pack for ${project.name}, including signed warranty certificates, asset references, and handover documentation. This is required before the Warranty Control Review can progress.`,
         },
       ],
@@ -413,7 +448,7 @@ function buildContext(screen: ProjectCommandScreen, dataset: ProjectCommandDatas
     },
   };
 
-  return contexts[screen];
+  return { ...contexts[screen], prediction };
 }
 
 function useProjectCommandCopilotContext(screen: ProjectCommandScreen) {
@@ -445,10 +480,25 @@ function getPlainOutcome(action: CopilotRecommendation) {
 }
 
 function getActionChipLabel(action: CopilotRecommendation) {
-  if (action.id.includes('gate-owner')) return 'Schedule gate owner review';
+  if (action.id.includes('gate-owner')) return 'Assign gate owner';
   if (action.id.includes('warranty')) return 'Request warranty pack';
   if (action.id.includes('closeout')) return 'Create closeout task';
+  if (action.id.includes('authority')) return 'Upload authority approval';
   return action.title;
+}
+
+function getActionEffect(action: CopilotRecommendation) {
+  if (action.effect) return action.effect;
+  if (action.id.includes('authority')) return '+6% confidence';
+  if (action.id.includes('gate-owner')) return 'Reduce aging';
+  if (action.id.includes('closeout')) return 'Recover 2d';
+  if (action.id.includes('warranty')) return 'Unlock review';
+  if (action.id.includes('variation')) return 'Reduce risk';
+  return 'Reduce risk';
+}
+
+function getConfidence(action?: CopilotRecommendation | CopilotInsight | null) {
+  return action?.confidence ?? 92;
 }
 
 function getPriorityWhy(action: CopilotRecommendation) {
@@ -472,6 +522,7 @@ function getBlockerDisplay(insight: CopilotInsight, index: number) {
       why: 'Commissioning cannot be cleared without proof from the authority.',
       evidence: 'Authority approval certificate and inspection pack.',
       action: 'Request approval',
+      chain: insight.dependencyChain ?? ['Authority approval', 'Commissioning Ready', 'Handover Review', 'Final Occupancy Permit'],
     },
     {
       title: 'Handover closeout unresolved',
@@ -479,6 +530,7 @@ function getBlockerDisplay(insight: CopilotInsight, index: number) {
       why: 'The gate should not move while snags, owner sign-offs, or closeout tasks remain open.',
       evidence: 'Snag closure list, owner sign-off, and final closeout evidence.',
       action: 'Create closeout task',
+      chain: insight.dependencyChain ?? ['Closeout items', 'Handover Go/No-Go', 'Resident move-in readiness', 'Final handover'],
     },
     {
       title: 'Evidence pack 72% complete',
@@ -486,6 +538,7 @@ function getBlockerDisplay(insight: CopilotInsight, index: number) {
       why: 'The review team cannot validate readiness without the full evidence pack.',
       evidence: 'Fire report, lift sign-off, authority approval, and warranty pack.',
       action: 'Request missing files',
+      chain: insight.dependencyChain ?? ['Missing evidence', 'Gate validation failure', 'Stage gate blocked', 'Project manager escalation'],
     },
   ];
 
@@ -495,6 +548,7 @@ function getBlockerDisplay(insight: CopilotInsight, index: number) {
     why: insight.detail,
     evidence: 'Linked project evidence and owner confirmation.',
     action: 'Prepare action',
+    chain: insight.dependencyChain ?? [insight.signal, 'Manager review', 'Decision action', 'Project control update'],
   };
 }
 
@@ -532,8 +586,114 @@ function CopilotContextHeader({
   );
 }
 
-function CopilotAskBar({ onAsk }: { onAsk: (question: string) => void }) {
+function AIConfidenceBadge({ value = 92 }: { value?: number }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-cyan-300/8 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.08em] text-cyan-100 ring-1 ring-cyan-300/14">
+      <span className="h-1.5 w-1.5 rounded-full bg-cyan-300 shadow-[0_0_10px_rgba(103,232,249,0.45)]" />
+      AI {value}%
+    </span>
+  );
+}
+
+function CopilotMonitoringStrip({ context }: { context: CopilotContext }) {
+  const signals = ['Gates', 'Float', 'Evidence', 'Variations', 'Contractors'];
+
+  return (
+    <div className="border-b border-[rgba(46,127,255,0.10)] bg-[#07111F]/78 px-5 py-3.5">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="inline-flex items-center gap-2 rounded-full bg-[#0A1628] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-[#C4B5FD] ring-1 ring-[rgba(46,127,255,0.12)]">
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-300 opacity-40" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-300" />
+          </span>
+          Live scan
+        </span>
+        {signals.map(item => (
+          <span key={item} className="rounded-full bg-white/[0.035] px-2.5 py-1 text-[10px] font-bold text-[#8EA7C7]">
+            {item}
+          </span>
+        ))}
+      </div>
+      <motion.p
+        className="mt-3 rounded-2xl bg-amber-300/7 px-3 py-2 text-[11px] font-semibold leading-5 text-[#DCE8F8] ring-1 ring-amber-300/12"
+        initial={{ opacity: 0.75 }}
+        animate={{ opacity: [0.75, 1, 0.75] }}
+        transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
+      >
+        Prediction: {context.prediction.handoverRisk} handover risk if blockers remain after <span className="font-black text-amber-100">{context.prediction.unresolvedAfterDate}</span>.
+      </motion.p>
+    </div>
+  );
+}
+
+function ConsequenceSimulation({ context }: { context: CopilotContext }) {
+  return (
+    <div className="mt-4">
+      <p className="mb-2 text-[10px] font-black uppercase tracking-[0.14em] text-[#8EA7C7]">Predicted consequence</p>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <div className="rounded-2xl bg-red-400/7 p-3 ring-1 ring-red-300/12">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[10px] font-black uppercase tracking-[0.12em] text-red-200">If unresolved</p>
+            <span className="rounded-full bg-red-300/10 px-2 py-0.5 text-[9px] font-black text-red-100">High risk</span>
+          </div>
+          <p className="mt-2 text-[20px] font-black text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{context.prediction.daysAtRisk}d slip</p>
+          <p className="mt-1 text-[10px] font-bold leading-4 text-[#FECACA]">MEP start exposed. Cost exposure {context.prediction.costExposure}.</p>
+        </div>
+        <div className="rounded-2xl bg-emerald-300/7 p-3 ring-1 ring-emerald-300/12">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[10px] font-black uppercase tracking-[0.12em] text-emerald-200">If resolved today</p>
+            <span className="rounded-full bg-emerald-300/10 px-2 py-0.5 text-[9px] font-black text-emerald-100">Risk down</span>
+          </div>
+          <p className="mt-2 text-[20px] font-black text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>+{context.prediction.confidenceGainIfResolved}%</p>
+          <p className="mt-1 text-[10px] font-bold leading-4 text-emerald-100">Gate risk moves to {context.prediction.riskAfterResolved}. Review can proceed tomorrow.</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DependencyChain({ items }: { items: string[] }) {
+  return (
+    <div className="mt-3">
+      <p className="mb-2 text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">Dependency path</p>
+      <div className="rounded-xl bg-[#07111F]/72 p-2">
+        {items.map((item, index) => (
+          <div key={`${item}-${index}`} className="grid grid-cols-[18px_1fr] gap-2">
+            <div className="flex flex-col items-center">
+              <span className={`mt-0.5 h-2.5 w-2.5 rounded-full ${index === 0 ? 'bg-red-300' : index === items.length - 1 ? 'bg-emerald-300' : 'bg-[#5A6E88]'}`} />
+              {index < items.length - 1 && <span className="my-1 h-4 w-px bg-[rgba(142,167,199,0.22)]" />}
+            </div>
+            <p className="pb-1 text-[10px] font-bold leading-4 text-[#DCE8F8]">{item}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const askPrompts: Record<ProjectCommandScreen, string[]> = {
+  overview: ['Ask what matters most now...', 'Ask for the executive project risk summary...', 'Ask which action protects handover...'],
+  programme: ['Ask what is consuming float...', 'Ask which phase threatens handover...', 'Ask what recovers the most time...'],
+  stagegates: ['Ask why this gate is blocked...', 'Ask what evidence is missing...', 'Ask how to clear this gate fastest...'],
+  cost: ['Ask what is driving cost variance...', 'Ask why CPI is below target...', 'Ask how to reduce forecast overrun...'],
+  risk: ['Ask which risks need escalation...', 'Ask what happens if this risk is ignored...', 'Ask which mitigation is missing...'],
+  obligations: ['Ask which obligation is most exposed...', 'Ask what notice should be sent...', 'Ask what proof is missing...'],
+  evidence: ['Ask which documents are missing...', 'Ask whether this evidence is sufficient...', 'Ask what blocks verification...'],
+  forecast: ['Ask which scenario is most likely...', 'Ask what shifts the forecast...', 'Ask what improves confidence...'],
+};
+
+function CopilotAskBar({ screen, onAsk }: { screen: ProjectCommandScreen; onAsk: (question: string) => void }) {
   const [value, setValue] = useState('');
+  const [promptIndex, setPromptIndex] = useState(0);
+  const prompts = askPrompts[screen] ?? askPrompts.overview;
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setPromptIndex(current => (current + 1) % prompts.length);
+    }, 4200);
+    return () => window.clearInterval(interval);
+  }, [screen, prompts.length]);
+
   const submit = () => {
     const question = value.trim();
     if (!question) return;
@@ -545,19 +705,19 @@ function CopilotAskBar({ onAsk }: { onAsk: (question: string) => void }) {
     <div className="border-t border-[rgba(46,127,255,0.12)] bg-[#07111F]/96 p-4 shadow-[0_-18px_54px_rgba(0,0,0,0.22)]">
       <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#C4B5FD]">
         <Sparkles size={13} />
-        Ask a question
+        Ask Copilot
       </label>
-      <div className="mt-2 flex gap-2">
+      <div className="mt-2 flex gap-2 rounded-2xl bg-[#0A1628] p-1.5 ring-1 ring-[rgba(46,127,255,0.14)] focus-within:ring-[#7C3AED]/45">
         <input
           value={value}
           onChange={event => setValue(event.target.value)}
           onKeyDown={event => {
             if (event.key === 'Enter') submit();
           }}
-          placeholder="Ask why this is blocked, what to do next, or draft an update..."
-          className="min-w-0 flex-1 rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#0A1628] px-3 py-3 text-[12px] font-semibold text-[#EEF3FA] outline-none transition-colors placeholder:text-[#5A6E88] focus:border-[#7C3AED]"
+          placeholder={prompts[promptIndex]}
+          className="min-w-0 flex-1 rounded-xl bg-transparent px-3 py-2.5 text-[12px] font-semibold text-[#EEF3FA] outline-none placeholder:text-[#5A6E88]"
         />
-        <button onClick={submit} className="inline-flex h-11 w-12 items-center justify-center rounded-xl bg-[#7C3AED] text-white hover:bg-[#6D28D9]" aria-label="Ask Copilot">
+        <button onClick={submit} className="inline-flex h-10 w-11 items-center justify-center rounded-xl bg-[#7C3AED] text-white shadow-[0_10px_24px_rgba(124,58,237,0.25)] hover:bg-[#6D28D9]" aria-label="Ask Copilot">
           <Send size={16} />
         </button>
       </div>
@@ -581,7 +741,7 @@ function CopilotAttentionList({
       <div className="mb-2 flex items-center justify-between">
         <h4 className="text-[12px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>What is stopping progress</h4>
       </div>
-      <div className="divide-y divide-[rgba(46,127,255,0.12)] overflow-hidden rounded-2xl bg-[#07111F]/62">
+      <div className="divide-y divide-[rgba(46,127,255,0.10)] overflow-hidden rounded-2xl bg-[#07111F]/62">
         {insights.slice(0, 3).map((insight, index) => {
           const blocker = getBlockerDisplay(insight, index);
           const rowAction = getBlockerAction(index, actions);
@@ -600,7 +760,7 @@ function CopilotAttentionList({
               <div className="min-w-0">
                 <div className="mb-1 flex flex-wrap items-center gap-1.5">
                   <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black uppercase ${urgencyStyles[insight.urgency]}`}>{insight.urgency}</span>
-                  <span className="text-[10px] font-bold text-[#7A94B4]">{blocker.title}</span>
+                  <span className="text-[10px] font-black text-[#DCE8F8]">{blocker.title}</span>
                 </div>
                 <p className="text-[12px] font-semibold leading-5 text-[#B8C7DB]">{blocker.summary}</p>
               </div>
@@ -615,9 +775,13 @@ function CopilotAttentionList({
                   className="overflow-hidden"
                 >
                   <div className="px-3 pb-3 text-[11px] leading-5 text-[#9FB2CD]">
-                    <div className="rounded-xl bg-[#0A1628]/78 p-3">
-                      <p><span className="font-black text-white">Why: </span>{blocker.why}</p>
-                      <p className="mt-1"><span className="font-black text-white">Required: </span>{blocker.evidence}</p>
+                    <div className="rounded-2xl bg-[#0A1628]/70 p-3">
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <p><span className="font-black text-white">Why: </span>{blocker.why}</p>
+                        <AIConfidenceBadge value={getConfidence(insight)} />
+                      </div>
+                      <p><span className="font-black text-white">Required: </span>{blocker.evidence}</p>
+                      <DependencyChain items={blocker.chain} />
                       <button
                         type="button"
                         onClick={() => rowAction && onSelect(rowAction)}
@@ -642,28 +806,34 @@ function CopilotAttentionList({
 function CopilotNextActionCard({
   recommendation,
   alternateActions,
+  context,
   onSelect,
 }: {
   recommendation: CopilotRecommendation;
   alternateActions: CopilotRecommendation[];
+  context: CopilotContext;
   onSelect: (recommendation: CopilotRecommendation) => void;
 }) {
   return (
-    <section className="rounded-[22px] bg-[linear-gradient(135deg,rgba(124,58,237,0.18),rgba(7,17,31,0.96))] p-4 shadow-[0_18px_44px_rgba(0,0,0,0.2)] ring-1 ring-[#7C3AED]/18">
+    <section className="rounded-[24px] bg-[linear-gradient(135deg,rgba(124,58,237,0.16),rgba(7,17,31,0.96))] p-4 shadow-[0_18px_44px_rgba(0,0,0,0.18)] ring-1 ring-[#7C3AED]/16">
       <div className="mb-3 flex items-center justify-between gap-2">
         <span className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#C4B5FD]">
           <Zap size={13} />
           Do this first
         </span>
-        <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black uppercase ${urgencyStyles[recommendation.urgency]}`}>{recommendation.urgency}</span>
+        <div className="flex items-center gap-1.5">
+          <AIConfidenceBadge value={getConfidence(recommendation)} />
+          <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black uppercase ${urgencyStyles[recommendation.urgency]}`}>{recommendation.urgency}</span>
+        </div>
       </div>
-      <h4 className="text-[15px] font-black leading-5 text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{recommendation.title}</h4>
-      <div className="mt-3 space-y-2 text-[12px] leading-5 text-[#DCE8F8]">
-        <p><span className="font-black text-white">Why: </span>{getPriorityWhy(recommendation)}</p>
-        <p><span className="font-black text-white">Next: </span>{getPriorityNext(recommendation)}</p>
+      <h4 className="text-[16px] font-black leading-5 text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{recommendation.title}</h4>
+      <div className="mt-3 grid gap-2 text-[12px] leading-5 text-[#DCE8F8]">
+        <p className="rounded-2xl bg-white/[0.035] px-3 py-2"><span className="font-black text-white">Why: </span>{getPriorityWhy(recommendation)}</p>
+        <p className="rounded-2xl bg-white/[0.035] px-3 py-2"><span className="font-black text-white">Next: </span>{getPriorityNext(recommendation)}</p>
       </div>
+      <ConsequenceSimulation context={context} />
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
-        <button onClick={() => onSelect(recommendation)} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#7C3AED] px-4 py-2.5 text-[12px] font-black text-white hover:bg-[#6D28D9]">
+        <button onClick={() => onSelect(recommendation)} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#7C3AED] px-4 py-2.5 text-[12px] font-black text-white shadow-[0_12px_26px_rgba(124,58,237,0.25)] hover:bg-[#6D28D9]">
           {getPlainActionLabel(recommendation)}
           <ArrowRight size={13} />
         </button>
@@ -686,16 +856,17 @@ function CopilotActionChips({
 }) {
   return (
     <section>
-      <h4 className="mb-2 text-[12px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Suggested next actions</h4>
+      <h4 className="mb-2 text-[12px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Fastest recovery actions</h4>
       <div className="flex flex-wrap gap-2">
         {recommendations.slice(0, 3).map(item => (
           <button
             key={item.id}
             type="button"
             onClick={() => onSelect(item)}
-            className="rounded-full border border-[rgba(46,127,255,0.14)] bg-[#07111F]/72 px-3 py-2 text-[10px] font-black text-[#DCE8F8] transition-colors hover:border-[#7C3AED]/45 hover:bg-[#7C3AED]/14"
+            className="group inline-flex items-center gap-2 rounded-full bg-[#07111F]/72 px-3 py-2 text-[10px] font-black text-[#DCE8F8] ring-1 ring-[rgba(46,127,255,0.12)] transition-colors hover:bg-[#7C3AED]/12 hover:ring-[#7C3AED]/35"
           >
             {getActionChipLabel(item)}
+            <span className="rounded-full bg-emerald-300/10 px-2 py-0.5 text-[9px] text-emerald-100 group-hover:bg-emerald-300/14">{getActionEffect(item)}</span>
           </button>
         ))}
       </div>
@@ -718,11 +889,11 @@ function CopilotResponse({
   const nextAction = getProjectCommandCopilotRecommendations(context)[0];
 
   const title = handover
-    ? 'Handover risk is driven by float loss and clearance dependencies.'
+    ? 'Handover is exposed by float loss and gate dependencies.'
     : cost
       ? 'Cost drift is being driven by efficiency loss and pending exposure.'
       : evidence
-        ? 'Evidence completeness is the main clearance dependency.'
+        ? 'Evidence gaps are blocking reliable gate clearance.'
         : primary.title;
 
   const whatISee = handover
@@ -735,22 +906,29 @@ function CopilotResponse({
 
   return (
     <div className="rounded-2xl border border-[#7C3AED]/24 bg-[linear-gradient(135deg,rgba(124,58,237,0.14),rgba(7,17,31,0.94))] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.25)]">
-      <div className="mb-3 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.14em] text-[#C4B5FD]">
-        <Bot size={14} />
-        Answer
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.14em] text-[#C4B5FD]">
+          <Bot size={14} />
+          Answer
+        </div>
+        <AIConfidenceBadge value={context.prediction.confidence} />
       </div>
       <h4 className="text-[14px] font-black leading-5 text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{title}</h4>
       <div className="mt-3 space-y-3 text-[11px] leading-5 text-[#B8C7DB]">
         <div>
-          <p className="font-black text-white">What I see</p>
+          <p className="font-black text-white">Evidence / signals</p>
           <ul className="mt-1 space-y-1">
             {whatISee.slice(0, 3).map(item => <li key={item}>- {item}</li>)}
           </ul>
         </div>
+        <div>
+          <p className="font-black text-white">If ignored</p>
+          <p className="mt-1">MEP completion and handover review could slip by {context.prediction.daysAtRisk} days, with estimated exposure of {context.prediction.costExposure}.</p>
+        </div>
         <div className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#07111F] px-3 py-2">
-          <p className="font-black text-white">Do next</p>
+          <p className="font-black text-white">Recommended action</p>
           <p className="mt-1 text-[#DCE8F8]">{nextAction?.title}: {nextAction?.why}</p>
-          <p className="mt-2 text-[10px] font-bold text-[#7A94B4]">Sources: {context.sourceSignals.slice(0, 3).join(' - ')}</p>
+          <p className="mt-2 text-[10px] font-bold text-[#7A94B4]">Sources: {context.sourceSignals.slice(0, 3).join(' - ')} - Confidence {context.prediction.confidence}%</p>
         </div>
       </div>
     </div>
@@ -769,6 +947,7 @@ function CopilotActionComposer({
   const [copied, setCopied] = useState(false);
   const [done, setDone] = useState(false);
   const isTask = action.kind === 'task';
+  const [editing, setEditing] = useState(isTask);
   const text = action.draft ?? `${action.title}\n\nWhy it matters: ${action.why}\nLinked item: ${action.linkedObject}\nRecommended action: ${action.cta}`;
 
   if (action.kind === 'navigate' && action.targetScreen) {
@@ -816,6 +995,34 @@ function CopilotActionComposer({
             Create task
           </button>
         </div>
+      ) : !editing ? (
+        <div className="space-y-3">
+          <div className="rounded-2xl bg-[#0A1628] p-3 ring-1 ring-[rgba(46,127,255,0.12)]">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <p className="text-[12px] font-black text-white">{action.title}</p>
+              <span className="rounded-full bg-emerald-300/10 px-2 py-0.5 text-[9px] font-black text-emerald-100">Ready</span>
+            </div>
+            <div className="grid gap-1.5 text-[10px] font-bold leading-4 text-[#8EA7C7] sm:grid-cols-2">
+              <p><span className="text-[#DCE8F8]">To</span> Authority / vendor contact</p>
+              <p><span className="text-[#DCE8F8]">Due</span> 48h</p>
+              <p><span className="text-[#DCE8F8]">Channel</span> Email / WhatsApp</p>
+              <p><span className="text-[#DCE8F8]">Purpose</span> Clear blocker</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <button onClick={() => setDone(true)} className="rounded-xl bg-[#7C3AED] px-3 py-2.5 text-[12px] font-black text-white hover:bg-[#6D28D9]">Send</button>
+            <button onClick={() => setEditing(true)} className="rounded-xl bg-white/[0.04] px-3 py-2.5 text-[12px] font-black text-[#DCE8F8] hover:bg-white/[0.07]">Edit</button>
+            <button
+              onClick={() => {
+                navigator.clipboard?.writeText(text).catch(() => undefined);
+                setCopied(true);
+              }}
+              className="rounded-xl bg-white/[0.04] px-3 py-2.5 text-[12px] font-black text-[#DCE8F8] hover:bg-white/[0.07]"
+            >
+              {copied ? 'Copied' : 'Copy'}
+            </button>
+          </div>
+        </div>
       ) : (
         <div className="space-y-3">
           <div className="grid grid-cols-[1fr_132px] gap-2">
@@ -839,6 +1046,7 @@ function CopilotActionComposer({
               Send
             </button>
           </div>
+          <button onClick={() => setEditing(false)} className="w-full rounded-xl border border-[rgba(46,127,255,0.16)] px-4 py-2 text-[11px] font-black text-[#8EA7C7] hover:bg-white/5">Collapse message</button>
         </div>
       )}
     </div>
@@ -877,14 +1085,16 @@ function ProjectCommandCopilotPanel({
           <X size={17} />
         </button>
       </div>
+      <CopilotMonitoringStrip context={context} />
       <div className="custom-scrollbar min-h-0 flex-1 space-y-5 overflow-y-auto p-5 pb-6">
-        {primaryAction && <CopilotNextActionCard recommendation={primaryAction} alternateActions={alternateActions} onSelect={setActiveAction} />}
+        {primaryAction && <CopilotNextActionCard recommendation={primaryAction} alternateActions={alternateActions} context={context} onSelect={setActiveAction} />}
         {activeAction && <CopilotActionComposer action={activeAction} onClose={() => setActiveAction(null)} onNavigate={next => { onNavigate(next); onClose(); }} />}
         <CopilotAttentionList insights={context.insights} actions={recommendations} onSelect={setActiveAction} />
         <CopilotActionChips recommendations={alternateActions} onSelect={setActiveAction} />
         {question && <CopilotResponse question={question} context={context} />}
       </div>
       <CopilotAskBar
+        screen={screen}
         onAsk={nextQuestion => {
           setQuestion(nextQuestion);
           setActiveAction(null);
