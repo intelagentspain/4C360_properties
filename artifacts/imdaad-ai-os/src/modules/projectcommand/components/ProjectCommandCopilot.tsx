@@ -1,8 +1,6 @@
 import { useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
-  Activity,
-  AlertTriangle,
   ArrowRight,
   Bot,
   CheckCircle2,
@@ -12,7 +10,6 @@ import {
   MessageSquare,
   PenLine,
   Send,
-  ShieldCheck,
   Sparkles,
   X,
   Zap,
@@ -122,22 +119,8 @@ const urgencyRank: Record<Urgency, number> = {
   info: 3,
 };
 
-const urgencyAccent: Record<Urgency, string> = {
-  critical: 'from-red-400/75 to-red-400/0',
-  high: 'from-amber-400/75 to-amber-400/0',
-  medium: 'from-cyan-300/70 to-cyan-300/0',
-  info: 'from-violet-400/70 to-violet-400/0',
-};
-
 function money(value: number) {
   return `AED ${Math.round(value / 1_000_000)}M`;
-}
-
-function getNextMove(insight: CopilotInsight) {
-  if (insight.urgency === 'critical') return 'Assign an owner, deadline, and recovery action before the next review.';
-  if (insight.urgency === 'high') return 'Request evidence or a decision owner and keep it in the manager action queue.';
-  if (insight.urgency === 'medium') return 'Track the signal and confirm whether it should become a formal task.';
-  return 'Keep monitoring and use it as context for the next project update.';
 }
 
 function buildContext(screen: ProjectCommandScreen, dataset: ProjectCommandDataset): CopilotContext {
@@ -256,6 +239,24 @@ function buildContext(screen: ProjectCommandScreen, dataset: ProjectCommandDatas
       recommendations: [
         commonActions[1],
         {
+          id: 'gate-owner-review',
+          title: 'Schedule gate owner review',
+          why: 'Gate blockers need a named owner and decision date.',
+          urgency: 'high',
+          linkedObject: 'Stage Gates',
+          cta: 'Create task',
+          kind: 'task',
+        },
+        {
+          id: 'closeout-task',
+          title: 'Create closeout task',
+          why: 'Handover closeout items need an owner before the next gate review.',
+          urgency: 'high',
+          linkedObject: 'Handover Go/No-Go',
+          cta: 'Create task',
+          kind: 'task',
+        },
+        {
           id: 'warranty-pack',
           title: 'Ask vendor for warranty pack',
           why: 'Closure cannot be verified without the vendor warranty evidence.',
@@ -264,15 +265,6 @@ function buildContext(screen: ProjectCommandScreen, dataset: ProjectCommandDatas
           cta: 'Prepare message',
           kind: 'message',
           draft: `Please provide the vendor warranty pack for ${project.name}, including signed warranty certificates, asset references, and handover documentation. This is required before the Warranty Control Review can progress.`,
-        },
-        {
-          id: 'gate-owner-review',
-          title: 'Schedule gate owner review',
-          why: 'Gate blockers need a named owner and decision date.',
-          urgency: 'high',
-          linkedObject: 'Stage Gates',
-          cta: 'Create task',
-          kind: 'task',
         },
       ],
       facts: [...baseFacts, { label: 'Evidence completeness', value: '72%' }],
@@ -433,17 +425,12 @@ function getProjectCommandCopilotRecommendations(context: CopilotContext) {
   return [...context.recommendations].sort((a, b) => urgencyRank[a.urgency] - urgencyRank[b.urgency]);
 }
 
-function getReadablePanelTitle(screen: ProjectCommandScreen, lensLabel: string) {
-  if (screen === 'stagegates') return 'Stage Gate Assistant';
-  if (screen === 'programme') return 'Programme Assistant';
-  if (screen === 'cost') return 'Budget Control Assistant';
-  return `${lensLabel} Assistant`;
-}
-
 function getPlainActionLabel(action: CopilotRecommendation) {
-  if (action.id.includes('authority')) return 'Request approval evidence';
+  if (action.id.includes('authority')) return 'Request approval';
   if (action.id.includes('warranty')) return 'Request warranty pack';
-  if (action.kind === 'task') return 'Assign action owner';
+  if (action.id.includes('closeout')) return 'Create closeout task';
+  if (action.id.includes('gate-owner')) return 'Assign owner';
+  if (action.kind === 'task') return 'Create task';
   if (action.kind === 'navigate') return 'Open section';
   if (action.kind === 'message') return 'Prepare message';
   return action.cta;
@@ -457,6 +444,67 @@ function getPlainOutcome(action: CopilotRecommendation) {
   return 'A ready-to-send message will be prepared for the responsible party.';
 }
 
+function getActionChipLabel(action: CopilotRecommendation) {
+  if (action.id.includes('gate-owner')) return 'Schedule gate owner review';
+  if (action.id.includes('warranty')) return 'Request warranty pack';
+  if (action.id.includes('closeout')) return 'Create closeout task';
+  return action.title;
+}
+
+function getPriorityWhy(action: CopilotRecommendation) {
+  if (action.id.includes('authority')) return 'Commissioning Ready gate cannot move forward without approval evidence.';
+  if (action.id.includes('warranty')) return 'Warranty Control cannot close without the vendor warranty pack.';
+  return action.why;
+}
+
+function getPriorityNext(action: CopilotRecommendation) {
+  if (action.id.includes('authority')) return 'Upload or request the approval pack before the next gate review.';
+  if (action.id.includes('warranty')) return 'Request the signed warranty pack and attach it to the evidence register.';
+  if (action.kind === 'task') return 'Assign an owner, deadline, and review date.';
+  return getPlainOutcome(action);
+}
+
+function getBlockerDisplay(insight: CopilotInsight, index: number) {
+  const stageGateBlockers = [
+    {
+      title: 'Missing authority approval',
+      summary: 'Blocked because approval evidence is missing.',
+      why: 'Commissioning cannot be cleared without proof from the authority.',
+      evidence: 'Authority approval certificate and inspection pack.',
+      action: 'Request approval',
+    },
+    {
+      title: 'Handover closeout unresolved',
+      summary: 'Open closeout items are preventing handover readiness.',
+      why: 'The gate should not move while snags, owner sign-offs, or closeout tasks remain open.',
+      evidence: 'Snag closure list, owner sign-off, and final closeout evidence.',
+      action: 'Create closeout task',
+    },
+    {
+      title: 'Evidence pack 72% complete',
+      summary: 'Four proof items are still missing.',
+      why: 'The review team cannot validate readiness without the full evidence pack.',
+      evidence: 'Fire report, lift sign-off, authority approval, and warranty pack.',
+      action: 'Request missing files',
+    },
+  ];
+
+  return stageGateBlockers[index] ?? {
+    title: insight.signal,
+    summary: insight.title,
+    why: insight.detail,
+    evidence: 'Linked project evidence and owner confirmation.',
+    action: 'Prepare action',
+  };
+}
+
+function getBlockerAction(index: number, actions: CopilotRecommendation[]) {
+  if (index === 0) return actions.find(action => action.id.includes('authority')) ?? actions[0];
+  if (index === 1) return actions.find(action => action.id.includes('closeout')) ?? actions.find(action => action.kind === 'task') ?? actions[0];
+  if (index === 2) return actions.find(action => action.id.includes('warranty')) ?? actions.find(action => action.id.includes('authority')) ?? actions[0];
+  return actions[index] ?? actions[0];
+}
+
 function CopilotContextHeader({
   context,
   projectName,
@@ -466,28 +514,19 @@ function CopilotContextHeader({
   projectName: string;
   screen: ProjectCommandScreen;
 }) {
-  const lens = controlLens[screen];
-  const title = getReadablePanelTitle(screen, lens.label);
-  const explainer = screen === 'stagegates'
-    ? 'This checks whether a stage gate can move forward. If evidence, approvals, owners, or blockers are missing, the gate should stay blocked.'
-    : `This watches ${lens.focus} and turns the most important signal into a manager action.`;
+  const health = context.facts.find(fact => fact.label === 'Health score')?.value ?? '74/100';
+  const completion = context.facts.find(fact => fact.label === 'Completion')?.value ?? '43%';
 
   return (
-    <div className="border-b border-[rgba(46,127,255,0.14)] bg-[linear-gradient(135deg,rgba(124,58,237,0.18),rgba(9,21,42,0.96),rgba(217,43,28,0.08))] px-5 py-4">
-      <div className="flex items-start justify-between gap-3">
+    <div className="border-b border-[rgba(46,127,255,0.12)] bg-[linear-gradient(135deg,rgba(124,58,237,0.12),rgba(9,21,42,0.97))] px-5 py-4">
+      <div className="flex items-start justify-between gap-4">
         <div>
           <div className="text-[10px] font-black uppercase tracking-[0.22em] text-[#C4B5FD]">ProjectCommand Copilot</div>
-          <h3 className="mt-1 text-lg font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{title}</h3>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            <span className="rounded-full border border-[#7C3AED]/35 bg-[#7C3AED]/14 px-2.5 py-1 text-[10px] font-black text-violet-100">{projectName}</span>
-            <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-2.5 py-1 text-[10px] font-bold text-cyan-100">{screenLabels[screen]}</span>
-            <span className="rounded-full border border-red-300/20 bg-red-400/10 px-2.5 py-1 text-[10px] font-black text-red-100">{context.badge}</span>
-          </div>
+          <p className="mt-2 text-[12px] font-bold leading-5 text-[#B8C7DB]">
+            {projectName} - {screenLabels[screen]} - Health {health} - {completion} complete
+          </p>
         </div>
-      </div>
-      <div className="mt-3 flex items-start gap-2 rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#07111F]/65 px-3 py-2 text-[11px] font-bold leading-5 text-[#B8C7DB]">
-        <Activity size={13} className="text-cyan-300" />
-        <span>{explainer}</span>
+        <span className="mt-1 shrink-0 rounded-full border border-red-300/22 bg-red-400/10 px-2.5 py-1 text-[10px] font-black text-red-100">{context.badge}</span>
       </div>
     </div>
   );
@@ -503,7 +542,7 @@ function CopilotAskBar({ onAsk }: { onAsk: (question: string) => void }) {
   };
 
   return (
-    <div className="rounded-2xl border border-[#7C3AED]/24 bg-[#07111F] p-3 shadow-[0_14px_44px_rgba(0,0,0,0.22)]">
+    <div className="border-t border-[rgba(46,127,255,0.12)] bg-[#07111F]/96 p-4 shadow-[0_-18px_54px_rgba(0,0,0,0.22)]">
       <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#C4B5FD]">
         <Sparkles size={13} />
         Ask a question
@@ -515,48 +554,86 @@ function CopilotAskBar({ onAsk }: { onAsk: (question: string) => void }) {
           onKeyDown={event => {
             if (event.key === 'Enter') submit();
           }}
-          placeholder="Example: why is this gate blocked?"
-          className="min-w-0 flex-1 rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#0A1628] px-3 py-2 text-[12px] font-semibold text-[#EEF3FA] outline-none transition-colors placeholder:text-[#5A6E88] focus:border-[#7C3AED]"
+          placeholder="Ask why this is blocked, what to do next, or draft an update..."
+          className="min-w-0 flex-1 rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#0A1628] px-3 py-3 text-[12px] font-semibold text-[#EEF3FA] outline-none transition-colors placeholder:text-[#5A6E88] focus:border-[#7C3AED]"
         />
-        <button onClick={submit} className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#7C3AED] text-white hover:bg-[#6D28D9]" aria-label="Ask Copilot">
-          <Send size={15} />
+        <button onClick={submit} className="inline-flex h-11 w-12 items-center justify-center rounded-xl bg-[#7C3AED] text-white hover:bg-[#6D28D9]" aria-label="Ask Copilot">
+          <Send size={16} />
         </button>
       </div>
     </div>
   );
 }
 
-function CopilotAttentionList({ insights }: { insights: CopilotInsight[] }) {
+function CopilotAttentionList({
+  insights,
+  actions,
+  onSelect,
+}: {
+  insights: CopilotInsight[];
+  actions: CopilotRecommendation[];
+  onSelect: (recommendation: CopilotRecommendation) => void;
+}) {
+  const [expanded, setExpanded] = useState<number | null>(null);
+
   return (
     <section>
       <div className="mb-2 flex items-center justify-between">
         <h4 className="text-[12px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>What is stopping progress</h4>
-        <span className="rounded-full border border-cyan-300/18 bg-cyan-300/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-cyan-100">Checked now</span>
       </div>
-      <div className="space-y-2">
-        {insights.slice(0, 3).map((insight, index) => (
-          <motion.div
+      <div className="divide-y divide-[rgba(46,127,255,0.12)] overflow-hidden rounded-2xl bg-[#07111F]/62">
+        {insights.slice(0, 3).map((insight, index) => {
+          const blocker = getBlockerDisplay(insight, index);
+          const rowAction = getBlockerAction(index, actions);
+          const isOpen = expanded === index;
+
+          return (
+          <div
             key={insight.title}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.04 }}
-            className="relative overflow-hidden rounded-2xl border border-[rgba(46,127,255,0.14)] bg-[#0A1628] p-3"
+            className="relative"
           >
-            <div className={`absolute inset-y-0 left-0 w-1 bg-gradient-to-b ${urgencyAccent[insight.urgency]}`} />
-            <div className="ml-1 flex items-start gap-3">
-              <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-[rgba(46,127,255,0.14)] bg-[#07111F] text-[11px] font-black text-[#C4B5FD]">{index + 1}</span>
+            <button
+              type="button"
+              onClick={() => setExpanded(isOpen ? null : index)}
+              className="flex w-full items-center gap-3 px-3 py-3 text-left transition-colors hover:bg-white/[0.025]"
+            >
               <div className="min-w-0">
                 <div className="mb-1 flex flex-wrap items-center gap-1.5">
                   <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black uppercase ${urgencyStyles[insight.urgency]}`}>{insight.urgency}</span>
-                  <span className="text-[10px] font-bold text-[#7A94B4]">{insight.signal}</span>
+                  <span className="text-[10px] font-bold text-[#7A94B4]">{blocker.title}</span>
                 </div>
-                <p className="text-[12px] font-black leading-5 text-[#EEF3FA]">{insight.title}</p>
-                <p className="mt-1 text-[11px] font-semibold leading-5 text-[#8EA7C7]">{getNextMove(insight)}</p>
+                <p className="text-[12px] font-semibold leading-5 text-[#B8C7DB]">{blocker.summary}</p>
               </div>
-              {insight.urgency === 'critical' && <AlertTriangle size={14} className="ml-auto shrink-0 text-red-300" />}
-            </div>
-          </motion.div>
-        ))}
+              <ArrowRight size={15} className={`ml-auto shrink-0 text-[#7A94B4] transition-transform ${isOpen ? 'rotate-90' : ''}`} />
+            </button>
+            <AnimatePresence initial={false}>
+              {isOpen && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  className="overflow-hidden"
+                >
+                  <div className="px-3 pb-3 text-[11px] leading-5 text-[#9FB2CD]">
+                    <div className="rounded-xl bg-[#0A1628]/78 p-3">
+                      <p><span className="font-black text-white">Why: </span>{blocker.why}</p>
+                      <p className="mt-1"><span className="font-black text-white">Required: </span>{blocker.evidence}</p>
+                      <button
+                        type="button"
+                        onClick={() => rowAction && onSelect(rowAction)}
+                        className="mt-3 inline-flex items-center gap-2 rounded-lg bg-[#7C3AED] px-3 py-2 text-[10px] font-black text-white hover:bg-[#6D28D9]"
+                      >
+                        {blocker.action}
+                        <ArrowRight size={12} />
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+          );
+        })}
       </div>
     </section>
   );
@@ -572,7 +649,7 @@ function CopilotNextActionCard({
   onSelect: (recommendation: CopilotRecommendation) => void;
 }) {
   return (
-    <section className="rounded-2xl border border-[#7C3AED]/30 bg-[linear-gradient(135deg,rgba(124,58,237,0.18),rgba(7,17,31,0.96))] p-4 shadow-[0_18px_54px_rgba(0,0,0,0.28)]">
+    <section className="rounded-[22px] bg-[linear-gradient(135deg,rgba(124,58,237,0.18),rgba(7,17,31,0.96))] p-4 shadow-[0_18px_44px_rgba(0,0,0,0.2)] ring-1 ring-[#7C3AED]/18">
       <div className="mb-3 flex items-center justify-between gap-2">
         <span className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#C4B5FD]">
           <Zap size={13} />
@@ -581,19 +658,9 @@ function CopilotNextActionCard({
         <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black uppercase ${urgencyStyles[recommendation.urgency]}`}>{recommendation.urgency}</span>
       </div>
       <h4 className="text-[15px] font-black leading-5 text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{recommendation.title}</h4>
-      <div className="mt-3 grid gap-2">
-        <div className="rounded-xl border border-[rgba(46,127,255,0.12)] bg-[#07111F]/75 px-3 py-2">
-          <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">Why this blocks progress</p>
-          <p className="mt-1 text-[12px] font-semibold leading-5 text-[#DCE8F8]">{recommendation.why}</p>
-        </div>
-        <div className="rounded-xl border border-[rgba(46,127,255,0.12)] bg-[#07111F]/75 px-3 py-2">
-          <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">What happens next</p>
-          <p className="mt-1 text-[12px] font-semibold leading-5 text-[#DCE8F8]">{getPlainOutcome(recommendation)}</p>
-        </div>
-        <div className="flex items-center gap-2 rounded-xl border border-[rgba(46,127,255,0.12)] bg-[#07111F]/75 px-3 py-2 text-[10px] font-bold text-[#8EA7C7]">
-          <ShieldCheck size={13} className="text-cyan-300" />
-          Gate item: {recommendation.linkedObject}
-        </div>
+      <div className="mt-3 space-y-2 text-[12px] leading-5 text-[#DCE8F8]">
+        <p><span className="font-black text-white">Why: </span>{getPriorityWhy(recommendation)}</p>
+        <p><span className="font-black text-white">Next: </span>{getPriorityNext(recommendation)}</p>
       </div>
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
         <button onClick={() => onSelect(recommendation)} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#7C3AED] px-4 py-2.5 text-[12px] font-black text-white hover:bg-[#6D28D9]">
@@ -610,36 +677,29 @@ function CopilotNextActionCard({
   );
 }
 
-function CopilotRecommendationCard({
-  recommendation,
-  priority,
+function CopilotActionChips({
+  recommendations,
   onSelect,
 }: {
-  recommendation: CopilotRecommendation;
-  priority: number;
+  recommendations: CopilotRecommendation[];
   onSelect: (recommendation: CopilotRecommendation) => void;
 }) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: priority * 0.04 }}
-      className="rounded-2xl border border-[rgba(46,127,255,0.14)] bg-[#07111F] p-3"
-    >
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-3">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-[#7C3AED]/30 bg-[#7C3AED]/14 text-[11px] font-black text-violet-100">{priority + 2}</div>
-          <div className="min-w-0">
-            <p className="truncate text-[12px] font-black text-[#EEF3FA]">{recommendation.title}</p>
-            <p className="mt-0.5 truncate text-[10px] font-semibold text-[#7A94B4]">{recommendation.linkedObject}</p>
-          </div>
-        </div>
-        <button onClick={() => onSelect(recommendation)} className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-[#7C3AED]/32 bg-[#7C3AED]/14 px-2.5 py-1.5 text-[10px] font-black text-violet-100 hover:bg-[#7C3AED]/22">
-          {getPlainActionLabel(recommendation)}
-          <ArrowRight size={12} />
-        </button>
+    <section>
+      <h4 className="mb-2 text-[12px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Suggested next actions</h4>
+      <div className="flex flex-wrap gap-2">
+        {recommendations.slice(0, 3).map(item => (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => onSelect(item)}
+            className="rounded-full border border-[rgba(46,127,255,0.14)] bg-[#07111F]/72 px-3 py-2 text-[10px] font-black text-[#DCE8F8] transition-colors hover:border-[#7C3AED]/45 hover:bg-[#7C3AED]/14"
+          >
+            {getActionChipLabel(item)}
+          </button>
+        ))}
       </div>
-    </motion.div>
+    </section>
   );
 }
 
@@ -708,7 +768,6 @@ function CopilotActionComposer({
 }) {
   const [copied, setCopied] = useState(false);
   const [done, setDone] = useState(false);
-  const [channel, setChannel] = useState<'Email' | 'WhatsApp' | 'Internal note'>('Email');
   const isTask = action.kind === 'task';
   const text = action.draft ?? `${action.title}\n\nWhy it matters: ${action.why}\nLinked item: ${action.linkedObject}\nRecommended action: ${action.cta}`;
 
@@ -727,7 +786,7 @@ function CopilotActionComposer({
   }
 
   return (
-    <div className="rounded-2xl border border-[#7C3AED]/24 bg-[#07111F] p-4">
+    <div className="rounded-[22px] bg-[#07111F] p-4 ring-1 ring-[#7C3AED]/20">
       <div className="mb-3 flex items-start justify-between gap-3">
         <div>
           <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#C4B5FD]">
@@ -741,7 +800,7 @@ function CopilotActionComposer({
       </div>
       {done && (
         <div className="mb-3 rounded-xl border border-emerald-300/20 bg-emerald-300/10 px-3 py-2 text-[11px] font-black text-emerald-100">
-          {isTask ? 'Task created in the manager action queue.' : `${channel} message marked as sent.`}
+          {isTask ? 'Task created in the manager action queue.' : 'Message marked as sent.'}
         </div>
       )}
       {isTask ? (
@@ -759,12 +818,11 @@ function CopilotActionComposer({
         </div>
       ) : (
         <div className="space-y-3">
-          <div className="flex flex-wrap gap-2">
-            {(['Email', 'WhatsApp', 'Internal note'] as const).map(item => (
-              <button key={item} onClick={() => setChannel(item)} className={`rounded-full border px-3 py-1.5 text-[10px] font-black ${channel === item ? 'border-[#7C3AED]/45 bg-[#7C3AED]/18 text-violet-100' : 'border-[rgba(46,127,255,0.16)] bg-[#0A1628] text-[#8EA7C7]'}`}>{item}</button>
-            ))}
+          <div className="grid grid-cols-[1fr_132px] gap-2">
+            <input className="rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#0A1628] px-3 py-2 text-[12px] font-semibold text-white outline-none" defaultValue="Authority / vendor contact" aria-label="Recipient" />
+            <input type="date" className="rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#0A1628] px-3 py-2 text-[12px] font-semibold text-white outline-none" aria-label="Deadline" />
           </div>
-          <textarea className="min-h-[150px] w-full rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#0A1628] px-3 py-2 text-[12px] font-semibold leading-5 text-white outline-none" defaultValue={text} />
+          <textarea className="min-h-[116px] w-full rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#0A1628] px-3 py-2 text-[12px] font-semibold leading-5 text-white outline-none" defaultValue={text} />
           <div className="grid grid-cols-2 gap-2">
             <button
               onClick={() => {
@@ -778,7 +836,7 @@ function CopilotActionComposer({
             </button>
             <button onClick={() => setDone(true)} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#7C3AED] px-4 py-2.5 text-[12px] font-black text-white hover:bg-[#6D28D9]">
               <Clock3 size={13} />
-              Send / log
+              Send
             </button>
           </div>
         </div>
@@ -810,45 +868,28 @@ function ProjectCommandCopilotPanel({
       animate={{ x: 0, opacity: 1 }}
       exit={{ x: 560, opacity: 0 }}
       transition={{ type: 'spring', stiffness: 260, damping: 30 }}
-      className="fixed bottom-0 right-0 top-0 z-[2600] flex w-full max-w-[520px] flex-col border-l border-[#7C3AED]/28 bg-[#09152A] shadow-2xl shadow-black/45 sm:w-[500px]"
+      className="fixed bottom-0 right-0 top-0 z-[2600] flex w-full max-w-[520px] flex-col border-l border-[#7C3AED]/20 bg-[#09152A] shadow-2xl shadow-black/45 sm:w-[500px]"
     >
-      <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_20%_10%,rgba(124,58,237,0.18),transparent_32%),radial-gradient(circle_at_95%_20%,rgba(225,29,46,0.12),transparent_26%)]" />
+      <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_10%_5%,rgba(124,58,237,0.12),transparent_30%)]" />
       <div className="flex items-start justify-between">
         <CopilotContextHeader context={context} projectName={dataset.project.name} screen={screen} />
         <button onClick={onClose} className="absolute right-4 top-4 rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#0A1628] p-2 text-[#8EA7C7] hover:bg-white/5 hover:text-white" aria-label="Close ProjectCommand Copilot">
           <X size={17} />
         </button>
       </div>
-      <div className="custom-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
+      <div className="custom-scrollbar min-h-0 flex-1 space-y-5 overflow-y-auto p-5 pb-6">
         {primaryAction && <CopilotNextActionCard recommendation={primaryAction} alternateActions={alternateActions} onSelect={setActiveAction} />}
         {activeAction && <CopilotActionComposer action={activeAction} onClose={() => setActiveAction(null)} onNavigate={next => { onNavigate(next); onClose(); }} />}
-        <CopilotAttentionList insights={context.insights} />
-        <section>
-          <div className="mb-2 flex items-center justify-between">
-            <h4 className="text-[12px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Other ways to clear the gate</h4>
-            <span className="text-[10px] font-bold text-[#7A94B4]">{alternateActions.length} ready</span>
-          </div>
-          <div className="space-y-2">
-            {alternateActions.slice(0, 3).map((item, index) => (
-              <CopilotRecommendationCard key={item.id} recommendation={item} priority={index} onSelect={setActiveAction} />
-            ))}
-          </div>
-        </section>
-        <CopilotAskBar
-          onAsk={nextQuestion => {
-            setQuestion(nextQuestion);
-            setActiveAction(null);
-          }}
-        />
+        <CopilotAttentionList insights={context.insights} actions={recommendations} onSelect={setActiveAction} />
+        <CopilotActionChips recommendations={alternateActions} onSelect={setActiveAction} />
         {question && <CopilotResponse question={question} context={context} />}
-        <div className="flex flex-wrap gap-2 rounded-2xl border border-[rgba(46,127,255,0.14)] bg-[#07111F] p-3">
-          {context.facts.slice(0, 4).map(fact => (
-            <span key={fact.label} className="rounded-full border border-[rgba(46,127,255,0.14)] bg-[#0A1628] px-3 py-1.5 text-[10px] font-bold text-[#8EA7C7]">
-              {fact.label}: <span className="text-[#EEF3FA]">{fact.value}</span>
-            </span>
-          ))}
-        </div>
       </div>
+      <CopilotAskBar
+        onAsk={nextQuestion => {
+          setQuestion(nextQuestion);
+          setActiveAction(null);
+        }}
+      />
     </motion.aside>
   );
 }
