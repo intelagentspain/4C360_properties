@@ -592,7 +592,7 @@ function BulkResidentUploadModal({ onClose, onToast }: { onClose: () => void; on
       </div>
       <div className="mt-5 flex justify-end gap-3">
         <SecondaryButton onClick={onClose}>Cancel</SecondaryButton>
-        <PrimaryButton icon={Send} onClick={() => { onToast('284 invitations sent and residents set to Invited', 'success'); onClose(); }}>Send Invitations</PrimaryButton>
+        <PrimaryButton icon={Send} onClick={() => { onToast('284 residents added and invitations sent', 'success'); onClose(); }}>Add Residents</PrimaryButton>
       </div>
     </ModalShell>
   );
