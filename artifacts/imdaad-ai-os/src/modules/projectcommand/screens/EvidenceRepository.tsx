@@ -186,7 +186,7 @@ function DetailCard({ label, value }: { label: string; value: string }) {
 
 function buildEvidenceAiSummary(document: EvidenceDocument) {
   const evidenceCoverage = document.preview.sections.flatMap(section => section.lines).slice(0, 4);
-  const riskTone = document.status === 'Expired' ? 'critical' : document.blockchainVerified ? 'positive' : 'monitor';
+  const riskTone: 'positive' | 'monitor' | 'critical' = document.status === 'Expired' ? 'critical' : document.blockchainVerified ? 'positive' : 'monitor';
 
   return {
     tone: riskTone,
