@@ -433,6 +433,30 @@ function getProjectCommandCopilotRecommendations(context: CopilotContext) {
   return [...context.recommendations].sort((a, b) => urgencyRank[a.urgency] - urgencyRank[b.urgency]);
 }
 
+function getReadablePanelTitle(screen: ProjectCommandScreen, lensLabel: string) {
+  if (screen === 'stagegates') return 'Stage Gate Assistant';
+  if (screen === 'programme') return 'Programme Assistant';
+  if (screen === 'cost') return 'Budget Control Assistant';
+  return `${lensLabel} Assistant`;
+}
+
+function getPlainActionLabel(action: CopilotRecommendation) {
+  if (action.id.includes('authority')) return 'Request approval evidence';
+  if (action.id.includes('warranty')) return 'Request warranty pack';
+  if (action.kind === 'task') return 'Assign action owner';
+  if (action.kind === 'navigate') return 'Open section';
+  if (action.kind === 'message') return 'Prepare message';
+  return action.cta;
+}
+
+function getPlainOutcome(action: CopilotRecommendation) {
+  if (action.id.includes('authority')) return 'The gate can be reviewed once the approval is uploaded and verified.';
+  if (action.id.includes('warranty')) return 'The handover pack can move forward once vendor warranty evidence is received.';
+  if (action.kind === 'task') return 'A named owner and due date will be added to the manager action queue.';
+  if (action.kind === 'navigate') return 'You will jump to the relevant section to review the underlying records.';
+  return 'A ready-to-send message will be prepared for the responsible party.';
+}
+
 function CopilotContextHeader({
   context,
   projectName,
@@ -443,23 +467,27 @@ function CopilotContextHeader({
   screen: ProjectCommandScreen;
 }) {
   const lens = controlLens[screen];
+  const title = getReadablePanelTitle(screen, lens.label);
+  const explainer = screen === 'stagegates'
+    ? 'This checks whether a stage gate can move forward. If evidence, approvals, owners, or blockers are missing, the gate should stay blocked.'
+    : `This watches ${lens.focus} and turns the most important signal into a manager action.`;
 
   return (
     <div className="border-b border-[rgba(46,127,255,0.14)] bg-[linear-gradient(135deg,rgba(124,58,237,0.18),rgba(9,21,42,0.96),rgba(217,43,28,0.08))] px-5 py-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-[10px] font-black uppercase tracking-[0.22em] text-[#C4B5FD]">ProjectCommand Copilot</div>
-          <h3 className="mt-1 text-lg font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{lens.label}</h3>
+          <h3 className="mt-1 text-lg font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{title}</h3>
           <div className="mt-2 flex flex-wrap gap-1.5">
             <span className="rounded-full border border-[#7C3AED]/35 bg-[#7C3AED]/14 px-2.5 py-1 text-[10px] font-black text-violet-100">{projectName}</span>
-            <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-2.5 py-1 text-[10px] font-bold text-cyan-100">{lens.watch}</span>
+            <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-2.5 py-1 text-[10px] font-bold text-cyan-100">{screenLabels[screen]}</span>
             <span className="rounded-full border border-red-300/20 bg-red-400/10 px-2.5 py-1 text-[10px] font-black text-red-100">{context.badge}</span>
           </div>
         </div>
       </div>
-      <div className="mt-3 flex items-center gap-2 rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#07111F]/65 px-3 py-2 text-[11px] font-bold text-[#B8C7DB]">
+      <div className="mt-3 flex items-start gap-2 rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#07111F]/65 px-3 py-2 text-[11px] font-bold leading-5 text-[#B8C7DB]">
         <Activity size={13} className="text-cyan-300" />
-        <span className="truncate">{context.monitoringLabel}</span>
+        <span>{explainer}</span>
       </div>
     </div>
   );
@@ -478,7 +506,7 @@ function CopilotAskBar({ onAsk }: { onAsk: (question: string) => void }) {
     <div className="rounded-2xl border border-[#7C3AED]/24 bg-[#07111F] p-3 shadow-[0_14px_44px_rgba(0,0,0,0.22)]">
       <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#C4B5FD]">
         <Sparkles size={13} />
-        Ask
+        Ask a question
       </label>
       <div className="mt-2 flex gap-2">
         <input
@@ -487,7 +515,7 @@ function CopilotAskBar({ onAsk }: { onAsk: (question: string) => void }) {
           onKeyDown={event => {
             if (event.key === 'Enter') submit();
           }}
-          placeholder="Ask: what blocks this gate?"
+          placeholder="Example: why is this gate blocked?"
           className="min-w-0 flex-1 rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#0A1628] px-3 py-2 text-[12px] font-semibold text-[#EEF3FA] outline-none transition-colors placeholder:text-[#5A6E88] focus:border-[#7C3AED]"
         />
         <button onClick={submit} className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#7C3AED] text-white hover:bg-[#6D28D9]" aria-label="Ask Copilot">
@@ -502,8 +530,8 @@ function CopilotAttentionList({ insights }: { insights: CopilotInsight[] }) {
   return (
     <section>
       <div className="mb-2 flex items-center justify-between">
-        <h4 className="text-[12px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Signals</h4>
-        <span className="rounded-full border border-cyan-300/18 bg-cyan-300/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-cyan-100">Live</span>
+        <h4 className="text-[12px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>What is stopping progress</h4>
+        <span className="rounded-full border border-cyan-300/18 bg-cyan-300/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-cyan-100">Checked now</span>
       </div>
       <div className="space-y-2">
         {insights.slice(0, 3).map((insight, index) => (
@@ -516,10 +544,14 @@ function CopilotAttentionList({ insights }: { insights: CopilotInsight[] }) {
           >
             <div className={`absolute inset-y-0 left-0 w-1 bg-gradient-to-b ${urgencyAccent[insight.urgency]}`} />
             <div className="ml-1 flex items-start gap-3">
-              <span className={`mt-0.5 shrink-0 rounded-full border px-2 py-0.5 text-[9px] font-black uppercase ${urgencyStyles[insight.urgency]}`}>{insight.signal}</span>
+              <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-[rgba(46,127,255,0.14)] bg-[#07111F] text-[11px] font-black text-[#C4B5FD]">{index + 1}</span>
               <div className="min-w-0">
-                <p className="line-clamp-2 text-[12px] font-black leading-5 text-[#EEF3FA]">{insight.title}</p>
-                <p className="mt-1 line-clamp-1 text-[11px] font-semibold text-[#8EA7C7]">{getNextMove(insight)}</p>
+                <div className="mb-1 flex flex-wrap items-center gap-1.5">
+                  <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black uppercase ${urgencyStyles[insight.urgency]}`}>{insight.urgency}</span>
+                  <span className="text-[10px] font-bold text-[#7A94B4]">{insight.signal}</span>
+                </div>
+                <p className="text-[12px] font-black leading-5 text-[#EEF3FA]">{insight.title}</p>
+                <p className="mt-1 text-[11px] font-semibold leading-5 text-[#8EA7C7]">{getNextMove(insight)}</p>
               </div>
               {insight.urgency === 'critical' && <AlertTriangle size={14} className="ml-auto shrink-0 text-red-300" />}
             </div>
@@ -544,24 +576,33 @@ function CopilotNextActionCard({
       <div className="mb-3 flex items-center justify-between gap-2">
         <span className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#C4B5FD]">
           <Zap size={13} />
-          Next best action
+          Do this first
         </span>
         <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black uppercase ${urgencyStyles[recommendation.urgency]}`}>{recommendation.urgency}</span>
       </div>
       <h4 className="text-[15px] font-black leading-5 text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{recommendation.title}</h4>
-      <p className="mt-2 text-[12px] font-semibold leading-5 text-[#B8C7DB]">{recommendation.why}</p>
-      <div className="mt-3 flex items-center gap-2 rounded-xl border border-[rgba(46,127,255,0.12)] bg-[#07111F]/75 px-3 py-2 text-[10px] font-bold text-[#8EA7C7]">
-        <ShieldCheck size={13} className="text-cyan-300" />
-        Linked to {recommendation.linkedObject}
+      <div className="mt-3 grid gap-2">
+        <div className="rounded-xl border border-[rgba(46,127,255,0.12)] bg-[#07111F]/75 px-3 py-2">
+          <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">Why this blocks progress</p>
+          <p className="mt-1 text-[12px] font-semibold leading-5 text-[#DCE8F8]">{recommendation.why}</p>
+        </div>
+        <div className="rounded-xl border border-[rgba(46,127,255,0.12)] bg-[#07111F]/75 px-3 py-2">
+          <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">What happens next</p>
+          <p className="mt-1 text-[12px] font-semibold leading-5 text-[#DCE8F8]">{getPlainOutcome(recommendation)}</p>
+        </div>
+        <div className="flex items-center gap-2 rounded-xl border border-[rgba(46,127,255,0.12)] bg-[#07111F]/75 px-3 py-2 text-[10px] font-bold text-[#8EA7C7]">
+          <ShieldCheck size={13} className="text-cyan-300" />
+          Gate item: {recommendation.linkedObject}
+        </div>
       </div>
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
         <button onClick={() => onSelect(recommendation)} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#7C3AED] px-4 py-2.5 text-[12px] font-black text-white hover:bg-[#6D28D9]">
-          {recommendation.cta}
+          {getPlainActionLabel(recommendation)}
           <ArrowRight size={13} />
         </button>
         {alternateActions.slice(0, 1).map(action => (
           <button key={action.id} onClick={() => onSelect(action)} className="inline-flex items-center justify-center gap-2 rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#0A1628] px-4 py-2.5 text-[12px] font-black text-[#DCE8F8] hover:bg-white/5">
-            {action.cta}
+            {getPlainActionLabel(action)}
           </button>
         ))}
       </div>
@@ -594,7 +635,7 @@ function CopilotRecommendationCard({
           </div>
         </div>
         <button onClick={() => onSelect(recommendation)} className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-[#7C3AED]/32 bg-[#7C3AED]/14 px-2.5 py-1.5 text-[10px] font-black text-violet-100 hover:bg-[#7C3AED]/22">
-          {recommendation.cta}
+          {getPlainActionLabel(recommendation)}
           <ArrowRight size={12} />
         </button>
       </div>
@@ -691,16 +732,16 @@ function CopilotActionComposer({
         <div>
           <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#C4B5FD]">
             {isTask ? <PenLine size={13} /> : <MessageSquare size={13} />}
-            Prepared control action
+            {isTask ? 'Task ready' : 'Message ready'}
           </p>
           <h4 className="mt-1 text-[14px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{action.title}</h4>
-          <p className="mt-1 text-[11px] leading-5 text-[#8EA7C7]">{action.why}</p>
+          <p className="mt-1 text-[11px] leading-5 text-[#8EA7C7]">{getPlainOutcome(action)}</p>
         </div>
         <button onClick={onClose} className="rounded-lg p-1.5 text-[#7A94B4] hover:bg-white/5 hover:text-white" aria-label="Close action composer"><X size={15} /></button>
       </div>
       {done && (
         <div className="mb-3 rounded-xl border border-emerald-300/20 bg-emerald-300/10 px-3 py-2 text-[11px] font-black text-emerald-100">
-          {isTask ? 'Task created in the manager action queue.' : `${channel} action prepared and logged.`}
+          {isTask ? 'Task created in the manager action queue.' : `${channel} message marked as sent.`}
         </div>
       )}
       {isTask ? (
@@ -784,7 +825,7 @@ function ProjectCommandCopilotPanel({
         <CopilotAttentionList insights={context.insights} />
         <section>
           <div className="mb-2 flex items-center justify-between">
-            <h4 className="text-[12px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Other actions</h4>
+            <h4 className="text-[12px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Other ways to clear the gate</h4>
             <span className="text-[10px] font-bold text-[#7A94B4]">{alternateActions.length} ready</span>
           </div>
           <div className="space-y-2">
