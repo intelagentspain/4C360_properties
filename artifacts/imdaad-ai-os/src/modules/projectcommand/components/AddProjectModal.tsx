@@ -1191,23 +1191,23 @@ export function AddProjectModal({
         <ProjectSetupWizard mode={mode} onModeChange={setMode} step={step}>
           <AnimatePresence mode="wait">
             {step === 'setup' && (
-              <motion.div key="setup" className="min-h-0 flex-1" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
+              <motion.div key="setup" className="flex min-h-0 flex-1 flex-col overflow-hidden" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
                 <AiProjectSetupStep form={form} setForm={setForm} mode={mode} onContinue={() => setStep('budget')} />
               </motion.div>
             )}
             {step === 'budget' && (
-              <motion.div key="budget" className="min-h-0 flex-1" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
+              <motion.div key="budget" className="flex min-h-0 flex-1 flex-col overflow-hidden" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
                 <BudgetControlSetupStep form={form} setForm={setForm} mode={mode} onBack={() => setStep('setup')} onGenerate={() => setStep('generating')} />
               </motion.div>
             )}
-            {step === 'generating' && <motion.div key="generating" className="min-h-0 flex-1" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><GenerationLoading index={loadingIndex} /></motion.div>}
+            {step === 'generating' && <motion.div key="generating" className="flex min-h-0 flex-1 flex-col overflow-hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><GenerationLoading index={loadingIndex} /></motion.div>}
             {step === 'baseline' && baseline && (
-              <motion.div key="baseline" className="min-h-0 flex-1" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
+              <motion.div key="baseline" className="flex min-h-0 flex-1 flex-col overflow-hidden" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
                 <ProjectBaselinePreview baseline={baseline} form={form} onApply={() => setStep('review')} onRegenerate={() => setStep('generating')} onEdit={() => { setMode('manual'); setStep('budget'); }} />
               </motion.div>
             )}
             {step === 'review' && baseline && (
-              <motion.div key="review" className="min-h-0 flex-1" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
+              <motion.div key="review" className="flex min-h-0 flex-1 flex-col overflow-hidden" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
                 <ProjectReviewStep form={form} baseline={baseline} onBack={() => setStep('baseline')} onCreate={handleCreate} onSaveDraft={handleSaveDraft} />
               </motion.div>
             )}
