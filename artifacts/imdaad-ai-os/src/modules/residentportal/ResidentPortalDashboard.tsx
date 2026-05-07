@@ -371,9 +371,9 @@ function DrawerShell({ title, subtitle, onClose, children }: { title: string; su
 
 function ModalShell({ title, subtitle, onClose, children }: { title: string; subtitle?: string; onClose: () => void; children: ReactNode }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-black/60 p-2 backdrop-blur-sm sm:p-4">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-hidden bg-black/60 px-2 pb-3 pt-12 backdrop-blur-sm sm:px-4 sm:pb-4 sm:pt-14">
       <button type="button" aria-label="Dismiss modal" className="absolute inset-0 cursor-default" onClick={onClose} />
-      <section className="relative z-10 flex max-h-[calc(100vh-1rem)] w-full max-w-[860px] flex-col overflow-hidden rounded-2xl border border-[rgba(46,127,255,0.22)] bg-[#07111F] shadow-2xl shadow-black/60 sm:max-h-[calc(100vh-2rem)]">
+      <section className="relative z-10 flex max-h-[calc(100dvh-3.75rem)] w-full max-w-[860px] flex-col overflow-hidden rounded-2xl border border-[rgba(46,127,255,0.22)] bg-[#07111F] shadow-2xl shadow-black/60 sm:max-h-[calc(100dvh-4.5rem)]">
         <div className="flex flex-shrink-0 items-start justify-between gap-4 border-b border-[rgba(46,127,255,0.14)] bg-[#07111F] p-5">
           <div>
             <h2 className="text-2xl font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{title}</h2>
