@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '@/lib/api';
 
-function urlBase64ToUint8Array(base64String: string): Uint8Array {
+function urlBase64ToArrayBuffer(base64String: string): ArrayBuffer {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
   const rawData = atob(base64);
@@ -9,7 +9,7 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   for (let i = 0; i < rawData.length; ++i) {
     outputArray[i] = rawData.charCodeAt(i);
   }
-  return outputArray;
+  return outputArray.buffer;
 }
 
 export type PushState = 'unsupported' | 'default' | 'subscribed' | 'denied' | 'loading';
@@ -54,7 +54,7 @@ export function usePushNotifications(email?: string) {
       const registration = await navigator.serviceWorker.ready;
 
       const { publicKey } = await api.push.getPublicKey();
-      const applicationServerKey = urlBase64ToUint8Array(publicKey);
+      const applicationServerKey = urlBase64ToArrayBuffer(publicKey);
 
       const permission = await Notification.requestPermission();
       if (permission !== 'granted') {

@@ -15,7 +15,10 @@ function staticDatasets() {
 export function useSelectedProjectCommandData() {
   const { createdProjectDatasets, selectedProjectId } = useProjectCommandStore();
   const createdDataset = createdProjectDatasets.find(dataset => dataset.id === selectedProjectId);
-  return createdDataset ?? projectCommandDatasets[selectedProjectId as keyof typeof projectCommandDatasets] ?? projectCommandDatasets[defaultProjectCommandProjectId];
+  const staticDataset = Object.prototype.hasOwnProperty.call(projectCommandDatasets, selectedProjectId)
+    ? projectCommandDatasets[selectedProjectId as keyof typeof projectCommandDatasets]
+    : undefined;
+  return createdDataset ?? staticDataset ?? projectCommandDatasets[defaultProjectCommandProjectId as keyof typeof projectCommandDatasets];
 }
 
 export function useProjectCommandProjectOptions(propertyId?: ProjectCommandPropertyId) {

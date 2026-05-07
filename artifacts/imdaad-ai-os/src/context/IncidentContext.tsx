@@ -18,6 +18,7 @@ export type Incident = {
   techId: string | null;
   closureNotes: string | null;
   description: string;
+  asset?: string;
   activityLog: { time: string; event: string; type: string }[];
   imageUrl?: string;
   siteId?: string;

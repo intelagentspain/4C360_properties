@@ -17,7 +17,7 @@ interface NavItem {
 const strategicItems: NavItem[] = [
   { icon: LayoutGrid,      label: 'Properties',         page: 'allclients' },
   { icon: Map,             label: 'GIS Map',            page: 'dashboard' },
-  { icon: Users,           label: 'Team',               page: 'team' },
+  { icon: Users,           label: 'Workforce Intelligence', page: 'team' },
   { icon: AlertTriangle,   label: 'Incidents',          page: 'incidents' },
   { icon: CheckSquare,     label: 'Work Orders',        page: 'tasks' },
   { icon: Calendar,        label: 'PPM Schedule',       page: 'ppmschedule' },

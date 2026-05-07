@@ -7,6 +7,7 @@ import {
   mockTechnicians, mockAssets,
   mockTasks, mockSLAZones, mockPredictedFailures,
 } from '@/data/mockData';
+import type { PortfolioClient } from '@/data/mockData';
 import { PPMHistoryDrawer } from '@/components/shared/PPMHistoryDrawer';
 import { useClients } from '@/context/ClientsContext';
 import { useMemberFilter, isFilterActive } from '@/context/MemberFilterContext';
@@ -349,7 +350,13 @@ function FailureDetail({ data, onToast, onClose }: { data: typeof mockPredictedF
 
 interface MapViewControllerProps {
   filterClientId: string;
-  clients: import('@/data/mockData').PortfolioClient[];
+  clients: PortfolioClient[];
+}
+
+type ClientWithCoordinates = PortfolioClient & { lat: number; lng: number };
+
+function hasCoordinates(client: PortfolioClient): client is ClientWithCoordinates {
+  return typeof client.lat === 'number' && typeof client.lng === 'number';
 }
 
 function MapViewController({ filterClientId, clients }: MapViewControllerProps) {
@@ -357,7 +364,7 @@ function MapViewController({ filterClientId, clients }: MapViewControllerProps) 
 
   useEffect(() => {
     if (!filterClientId) {
-      const validClients = clients.filter(c => c.lat != null && c.lng != null);
+      const validClients = clients.filter(hasCoordinates);
       if (validClients.length === 0) return;
       if (validClients.length === 1) {
         map.flyTo([validClients[0].lat, validClients[0].lng], 14, { animate: true, duration: 1.2 });
@@ -372,9 +379,9 @@ function MapViewController({ filterClientId, clients }: MapViewControllerProps) 
     if (client && client.lat != null && client.lng != null) {
       map.flyTo([client.lat, client.lng], 14, { animate: true, duration: 1.2 });
     } else {
-      const validClients = clients.filter(c => c.lat != null && c.lng != null);
+      const validClients = clients.filter(hasCoordinates);
       if (validClients.length > 0) {
-        const bounds = L.latLngBounds(validClients.map(c => [c.lat!, c.lng!] as L.LatLngTuple));
+        const bounds = L.latLngBounds(validClients.map(c => [c.lat, c.lng] as L.LatLngTuple));
         map.flyToBounds(bounds, { padding: [80, 80], animate: true, duration: 1.2 });
       }
     }
@@ -465,7 +472,7 @@ export function CommunityMap({ onToast, selectedClientId }: Props) {
         <MapViewController filterClientId={filterClientId} clients={clients} />
 
         {clients
-          .filter(c => c.lat != null && c.lng != null && (!filterClientId || c.id === filterClientId))
+          .filter((c): c is ClientWithCoordinates => hasCoordinates(c) && (!filterClientId || c.id === filterClientId))
           .map(c => (
             <Marker
               key={`client-${c.id}`}
