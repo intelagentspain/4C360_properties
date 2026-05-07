@@ -1,4 +1,4 @@
-import { useMemo, useState, type ComponentType, type ReactNode } from 'react';
+import { useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react';
 import {
   Activity,
   AlertTriangle,
@@ -515,15 +515,50 @@ function ResidentOverview({ residenceId = 'all' }: { residenceId?: ResidenceScop
 function BulkResidentUploadModal({ onClose, onToast }: { onClose: () => void; onToast: Props['onToast'] }) {
   const steps = ['Upload CSV/Excel', 'Map fields', 'Validate records', 'Preview import', 'Send invitations'];
   const required = ['Resident Name', 'Email', 'Phone', 'Resident Type', 'Community', 'Building/Tower', 'Floor', 'Unit', 'Ownership/Tenancy Status'];
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [selectedFile, setSelectedFile] = useState<{ name: string; size: string } | null>(null);
+
+  const handleFile = (file?: File) => {
+    if (!file) return;
+    const extension = file.name.split('.').pop()?.toLowerCase();
+    if (!extension || !['csv', 'xls', 'xlsx'].includes(extension)) {
+      onToast('Please choose a CSV or Excel file', 'warning');
+      return;
+    }
+    const size = file.size >= 1024 * 1024 ? `${(file.size / (1024 * 1024)).toFixed(1)} MB` : `${Math.max(1, Math.round(file.size / 1024))} KB`;
+    setSelectedFile({ name: file.name, size });
+    onToast(`${file.name} selected and ready to validate`, 'success');
+  };
 
   return (
     <ModalShell title="Bulk Resident Upload" subtitle="Onboard residents at scale, link them to units, and send invitations by email, SMS, or WhatsApp." onClose={onClose}>
       <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_300px]">
-        <div className="rounded-xl border border-dashed border-cyan-300/28 bg-cyan-300/8 p-5 text-center">
+        <div
+          className="rounded-xl border border-dashed border-cyan-300/28 bg-cyan-300/8 p-5 text-center"
+          onDragOver={event => event.preventDefault()}
+          onDrop={event => {
+            event.preventDefault();
+            handleFile(event.dataTransfer.files[0]);
+          }}
+        >
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,.xls,.xlsx,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            className="hidden"
+            onChange={event => handleFile(event.target.files?.[0])}
+          />
           <Upload size={32} className="mx-auto text-cyan-300" />
           <h3 className="mt-3 text-lg font-black text-[#EEF3FA]">Drop CSV or Excel file</h3>
           <p className="mt-2 text-[13px] leading-6 text-[#8FA6C3]">Supported fields are mapped into residents, units, invitations, and verification status.</p>
-          <button type="button" onClick={() => onToast('Demo file uploaded and mapped', 'success')} className="mt-4 h-10 rounded-xl bg-[#E11D2E] px-4 text-[12px] font-black text-white">Choose File</button>
+          <button type="button" onClick={() => fileInputRef.current?.click()} className="mt-4 h-10 rounded-xl bg-[#E11D2E] px-4 text-[12px] font-black text-white">Choose File</button>
+          {selectedFile && (
+            <div className="mx-auto mt-4 max-w-md rounded-xl border border-emerald-400/25 bg-emerald-400/10 px-4 py-3 text-left">
+              <p className="text-[12px] font-black text-emerald-300">File selected</p>
+              <p className="mt-1 truncate text-[13px] font-bold text-[#EEF3FA]">{selectedFile.name}</p>
+              <p className="mt-1 text-[11px] text-[#8FA6C3]">{selectedFile.size} - ready for field mapping and validation</p>
+            </div>
+          )}
         </div>
         <div className="rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#0A1628] p-4">
           <p className="text-[12px] font-black text-[#EEF3FA]">Import summary</p>
