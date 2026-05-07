@@ -668,11 +668,6 @@ function BudgetControlSetupStep({
   onGenerate: () => void;
 }) {
   const update = <K extends keyof ProjectFormState>(key: K, value: ProjectFormState[K]) => setForm({ ...form, [key]: value });
-  const controlPath = [
-    ['Set budget', 'Approved budget, contingency, packages, cost codes'],
-    ['Capture changes', 'Contracts, actuals, invoices, claims, variations'],
-    ['Decide actions', 'Cashflow, forecast, approvals, manager actions'],
-  ];
 
   return (
     <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto p-5">
@@ -688,17 +683,6 @@ function BudgetControlSetupStep({
           <div className="rounded-2xl border border-[#C8A020]/25 bg-[#C8A020]/10 px-4 py-3 text-[11px] font-bold text-[#FDE68A]">
             Budget map will feed Cost Control immediately after creation.
           </div>
-        </div>
-        <div className="mt-5 grid gap-3 lg:grid-cols-3">
-          {controlPath.map(([title, detail], index) => (
-            <div key={title} className="rounded-2xl border border-[rgba(46,127,255,0.16)] bg-[#07111F]/80 p-4">
-              <div className="mb-2 flex items-center gap-2">
-                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#7C3AED]/18 text-[11px] font-black text-[#C4B5FD]">{index + 1}</span>
-                <p className="text-[12px] font-black uppercase tracking-[0.12em] text-[#EEF3FA]">{title}</p>
-              </div>
-              <p className="text-[11px] leading-5 text-[#7A94B4]">{detail}</p>
-            </div>
-          ))}
         </div>
       </div>
 
