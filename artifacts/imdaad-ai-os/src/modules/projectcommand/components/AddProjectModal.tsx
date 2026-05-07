@@ -5,7 +5,6 @@ import {
   ArrowRight,
   BrainCircuit,
   Building2,
-  CalendarClock,
   CheckCircle2,
   ClipboardCheck,
   DollarSign,
@@ -20,20 +19,23 @@ import {
   X,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { projectCommandDatasets, type ProjectCommandDataset, type ProjectCommandProject } from '../data/portfolio';
+import {
+  projectCommandDatasets,
+  projectCommandOrganizations,
+  projectCommandPortfolios,
+  projectCommandProperties,
+  type ProjectCommandDataset,
+  type ProjectCommandProject,
+  type ProjectDeliveryType,
+  type PropertyDevelopment,
+} from '../data/portfolio';
 import type { Phase } from '../data/phases';
 import type { Risk } from '../data/risks';
 
 type ProjectSetupMode = 'ai' | 'manual';
 type WizardStep = 'setup' | 'budget' | 'generating' | 'baseline' | 'review';
-type ProjectType =
-  | 'Residential Tower'
-  | 'Villa Community'
-  | 'Mixed-use Development'
-  | 'Commercial Building'
-  | 'Hospitality'
-  | 'Infrastructure'
-  | 'Custom';
+type ProjectType = ProjectDeliveryType;
+type PropertyType = 'Residential Tower' | 'Villa Community' | 'Mixed-use' | 'Commercial Building' | 'Master Community';
 type ProjectStage =
   | 'Concept'
   | 'Design'
@@ -54,6 +56,16 @@ type CashflowBasis = 'Baseline schedule + package progress' | 'Approved payment 
 type AiForecastMode = 'Actuals + variations + risks' | 'Actuals only' | 'Scenario forecast';
 
 type ProjectFormState = {
+  organizationId: string;
+  portfolioId: string;
+  propertyMode: 'existing' | 'new';
+  propertyId: string;
+  propertyName: string;
+  propertyLocation: string;
+  propertyType: PropertyType;
+  propertyBuildings: string;
+  propertyUnits: string;
+  propertySize: string;
   name: string;
   client: string;
   location: string;
@@ -63,6 +75,7 @@ type ProjectFormState = {
   budget: string;
   currency: Currency;
   contingency: string;
+  baselineDate: string;
   budgetStructureMethod: BudgetStructureMethod;
   costTrackingLevel: CostTrackingLevel;
   reportingFrequency: ReportingFrequency;
@@ -119,15 +132,19 @@ type ProjectBaseline = {
 };
 
 const projectTypes: ProjectType[] = [
-  'Residential Tower',
-  'Villa Community',
-  'Mixed-use Development',
-  'Commercial Building',
-  'Hospitality',
+  'Main Construction',
+  'Fit-out',
   'Infrastructure',
+  'Handover & Snagging',
+  'Warranty / DLP Remediation',
+  'Capital Improvement',
+  'ESG Retrofit',
+  'Smart Building Rollout',
+  'Maintenance Upgrade',
   'Custom',
 ];
 
+const propertyTypes: PropertyType[] = ['Residential Tower', 'Villa Community', 'Mixed-use', 'Commercial Building', 'Master Community'];
 const projectStages: ProjectStage[] = ['Concept', 'Design', 'Enabling Works', 'Substructure', 'Superstructure', 'MEP', 'Fit-out', 'Handover'];
 const currencies: Currency[] = ['AED', 'SAR', 'USD', 'EUR'];
 const budgetStructureMethods: BudgetStructureMethod[] = ['AI suggested work packages', 'Upload budget breakdown', 'Manual entry'];
@@ -147,16 +164,31 @@ const loadingSteps = [
   'Preparing budget structure',
 ];
 
+function toPropertyType(value: string): PropertyType {
+  return propertyTypes.includes(value as PropertyType) ? (value as PropertyType) : 'Mixed-use';
+}
+
 const initialForm: ProjectFormState = {
-  name: 'Jumeirah Heights Residential Tower',
-  client: 'DevelopmentX Portfolio',
-  location: 'Dubai, UAE',
-  type: 'Residential Tower',
-  size: '42 floors, 2 basement levels, 380 units',
+  organizationId: 'developmentx',
+  portfolioId: 'danube-properties-portfolio',
+  propertyMode: 'existing',
+  propertyId: 'bayz-102-property',
+  propertyName: 'Bayz 102',
+  propertyLocation: 'Business Bay',
+  propertyType: 'Residential Tower',
+  propertyBuildings: '1',
+  propertyUnits: '680',
+  propertySize: '102 floors',
+  name: 'Main Construction',
+  client: 'Danube Properties Portfolio',
+  location: 'Business Bay',
+  type: 'Main Construction',
+  size: '102 floors, 680 units',
   targetHandover: '2027-12-15',
-  budget: '320',
+  budget: '420',
   currency: 'AED',
   contingency: '8',
+  baselineDate: '2026-05-07',
   budgetStructureMethod: 'AI suggested work packages',
   costTrackingLevel: 'Phase/package level',
   reportingFrequency: 'Monthly',
@@ -210,24 +242,83 @@ function stageProgress(stage: ProjectStage) {
 }
 
 function projectPackageNames(type: ProjectType) {
-  if (type === 'Villa Community') {
-    return ['Master Planning', 'Authority Approvals', 'Infrastructure Works', 'Villa Structure', 'MEP Networks', 'Fit-out & Finishing', 'Landscape & Amenities', 'Handover & Snagging'];
-  }
-  if (type === 'Hospitality') {
-    return ['Design & Brand Standards', 'Authority Approvals', 'Substructure', 'Superstructure', 'MEP & Life Safety', 'Guestroom Fit-out', 'Testing & Commissioning', 'Operator Handover'];
-  }
   if (type === 'Infrastructure') {
     return ['Design & Permits', 'Enabling Works', 'Earthworks', 'Utilities', 'Roads & Access', 'Testing & Commissioning', 'Authority Handover'];
   }
-  return ['Design & Approvals', 'Enabling Works', 'Substructure', 'Superstructure', 'MEP Rough-in', 'Fit-out & Finishing', 'Testing & Commissioning', 'Handover & Snagging'];
+  if (type === 'Warranty / DLP Remediation') {
+    return ['Defect Intake', 'Inspection', 'Vendor Assignment', 'Remediation Works', 'Verification', 'Resident Confirmation', 'Contingency'];
+  }
+  if (type === 'ESG Retrofit') {
+    return ['Audit & Baseline', 'Design', 'Procurement', 'Installation', 'Commissioning', 'Measurement & Verification', 'Contingency'];
+  }
+  if (type === 'Handover & Snagging') {
+    return ['Handover Planning', 'Unit Inspections', 'Snagging Works', 'Authority Closeout', 'Resident Readiness', 'Final Handover', 'Contingency'];
+  }
+  if (type === 'Smart Building Rollout') {
+    return ['Asset Survey', 'Solution Design', 'Hardware Procurement', 'Installation', 'Platform Integration', 'User Onboarding', 'Commissioning', 'Contingency'];
+  }
+  if (type === 'Fit-out') {
+    return ['Design Freeze', 'Procurement', 'MEP Coordination', 'Partitions & Ceilings', 'Finishes', 'Testing & Commissioning', 'Handover', 'Contingency'];
+  }
+  if (type === 'Capital Improvement' || type === 'Maintenance Upgrade') {
+    return ['Scope Validation', 'Design', 'Procurement', 'Works Execution', 'Testing', 'Closeout', 'Contingency'];
+  }
+  return ['Preliminaries', 'Design & Approvals', 'Enabling Works', 'Substructure', 'Superstructure', 'Facade', 'MEP', 'Fit-out', 'Testing & Commissioning', 'Handover & Snagging', 'Contingency'];
 }
 
 function vendorCategories(type: ProjectType) {
   const common = ['Main Contractor', 'MEP Contractor', 'Fire Systems Contractor', 'Fit-out Contractor'];
-  if (type === 'Villa Community') return [...common, 'Infrastructure Contractor', 'Landscaping Contractor', 'Pool & Amenities Contractor'];
-  if (type === 'Hospitality') return [...common, 'Operator FF&E Supplier', 'Kitchen & Laundry Specialist', 'Facade Contractor'];
   if (type === 'Infrastructure') return ['Civil Contractor', 'Utilities Contractor', 'Roadworks Contractor', 'Testing Laboratory', 'Authority Liaison Consultant'];
+  if (type === 'Warranty / DLP Remediation') return ['DLP Coordinator', 'Defect Contractor', 'MEP Contractor', 'Resident Liaison Team', 'QA/QC Inspector'];
+  if (type === 'ESG Retrofit') return ['Energy Auditor', 'Design Consultant', 'Equipment Supplier', 'Installation Contractor', 'M&V Consultant'];
+  if (type === 'Handover & Snagging') return ['Handover Manager', 'Snagging Contractor', 'Authority Liaison Consultant', 'FM Readiness Team'];
+  if (type === 'Smart Building Rollout') return ['Smart Access Integrator', 'IoT Contractor', 'Network Contractor', 'Cybersecurity Reviewer', 'Resident App Team'];
   return [...common, 'Waterproofing Contractor', 'Facade Contractor', 'Elevator Supplier', 'Landscaping Contractor'];
+}
+
+function normalizedWeights(type: ProjectType, count: number) {
+  const weightsByType: Partial<Record<ProjectType, number[]>> = {
+    'Main Construction': [6, 6, 5, 14, 22, 12, 16, 10, 3, 2],
+    'Fit-out': [10, 16, 18, 18, 24, 8, 6],
+    Infrastructure: [10, 12, 18, 24, 22, 8, 6],
+    'Handover & Snagging': [12, 22, 28, 12, 16, 10],
+    'Warranty / DLP Remediation': [10, 14, 18, 32, 14, 12],
+    'Capital Improvement': [12, 14, 20, 32, 12, 10],
+    'ESG Retrofit': [12, 14, 24, 28, 10, 12],
+    'Smart Building Rollout': [10, 14, 24, 18, 18, 8, 8],
+    'Maintenance Upgrade': [12, 14, 20, 34, 10, 10],
+    Custom: [15, 15, 20, 25, 15, 10],
+  };
+  const source = weightsByType[type] ?? weightsByType['Main Construction'] ?? [];
+  const weights = Array.from({ length: count }, (_, index) => source[index] ?? 10);
+  const total = weights.reduce((sum, item) => sum + item, 0) || 1;
+  return weights.map(item => item / total);
+}
+
+function linkedPhaseForPackage(name: string, type: ProjectType) {
+  const lower = name.toLowerCase();
+  if (lower.includes('design') || lower.includes('audit') || lower.includes('scope')) return 'Design & Approvals';
+  if (lower.includes('enabling') || lower.includes('earth')) return 'Enabling Works';
+  if (lower.includes('substructure') || lower.includes('defect intake') || lower.includes('inspection')) return 'Substructure';
+  if (lower.includes('superstructure') || lower.includes('installation') || lower.includes('works execution') || lower.includes('remediation')) return 'Superstructure';
+  if (lower.includes('mep') || lower.includes('integration') || lower.includes('procurement')) return 'MEP Rough-in';
+  if (lower.includes('fit') || lower.includes('resident') || lower.includes('onboarding')) return 'Fit-out & Finishing';
+  if (lower.includes('testing') || lower.includes('commissioning') || lower.includes('verification') || lower.includes('handover') || lower.includes('closeout')) return 'Handover & Snagging';
+  return type === 'Warranty / DLP Remediation' ? 'Handover & Snagging' : 'Programme phase';
+}
+
+function vendorForPackage(name: string, type: ProjectType) {
+  const lower = name.toLowerCase();
+  if (lower.includes('design') || lower.includes('audit')) return type === 'ESG Retrofit' ? 'Energy Auditor' : 'Design Consultant';
+  if (lower.includes('procurement')) return 'Procurement Lead';
+  if (lower.includes('mep')) return 'MEP Contractor';
+  if (lower.includes('facade')) return 'Facade Contractor';
+  if (lower.includes('defect') || lower.includes('remediation') || lower.includes('snag')) return 'DLP / Snagging Contractor';
+  if (lower.includes('handover') || lower.includes('resident')) return 'Handover Team';
+  if (lower.includes('smart') || lower.includes('platform') || lower.includes('hardware') || lower.includes('integration')) return 'Smart Systems Integrator';
+  if (lower.includes('measurement')) return 'M&V Consultant';
+  if (lower.includes('contingency')) return 'Commercial Manager';
+  return vendorCategories(type)[0] ?? 'Main Contractor';
 }
 
 function generateBaseline(form: ProjectFormState): ProjectBaseline {
@@ -250,18 +341,33 @@ function generateBaseline(form: ProjectFormState): ProjectBaseline {
     };
   });
 
+  const deliveryPackages = packages.filter(name => name.toLowerCase() !== 'contingency');
+  const deliveryPercentTotal = Math.max(70, 100 - contingency);
+  const weights = normalizedWeights(form.type, deliveryPackages.length);
   const budgetBreakdown: BudgetPackage[] = [
-    { label: 'Preliminaries', percent: 8, amount: budget * 0.08, plannedStart: 'Month 1', plannedEnd: 'Month 24', vendor: 'Project Controls Office', riskAllowance: budget * 0.01, linkedProgrammePhase: 'Design & Approvals' },
-    { label: 'Design & approvals', percent: 7, amount: budget * 0.07, plannedStart: 'Month 1', plannedEnd: 'Month 4', vendor: 'Design Consultant', riskAllowance: budget * 0.006, linkedProgrammePhase: 'Design & Approvals' },
-    { label: 'Enabling Works', percent: 6, amount: budget * 0.06, plannedStart: 'Month 3', plannedEnd: 'Month 6', vendor: 'Enabling Contractor', riskAllowance: budget * 0.005, linkedProgrammePhase: 'Enabling Works' },
-    { label: 'Substructure', percent: 14, amount: budget * 0.14, plannedStart: 'Month 5', plannedEnd: 'Month 10', vendor: 'Main Contractor', riskAllowance: budget * 0.014, linkedProgrammePhase: 'Substructure' },
-    { label: 'Superstructure', percent: form.type === 'Infrastructure' ? 18 : 21, amount: budget * (form.type === 'Infrastructure' ? 0.18 : 0.21), plannedStart: 'Month 8', plannedEnd: 'Month 16', vendor: 'Main Contractor', riskAllowance: budget * 0.018, linkedProgrammePhase: 'Superstructure' },
-    { label: form.type === 'Villa Community' ? 'Landscape & amenities' : 'Facade', percent: 10, amount: budget * 0.1, plannedStart: 'Month 12', plannedEnd: 'Month 19', vendor: form.type === 'Villa Community' ? 'Landscape Contractor' : 'Facade Contractor', riskAllowance: budget * 0.01, linkedProgrammePhase: 'Fit-out & Finishing' },
-    { label: 'MEP', percent: form.type === 'Infrastructure' ? 18 : 16, amount: budget * (form.type === 'Infrastructure' ? 0.18 : 0.16), plannedStart: 'Month 10', plannedEnd: 'Month 20', vendor: 'MEP Contractor', riskAllowance: budget * 0.016, linkedProgrammePhase: 'MEP Rough-in' },
-    { label: 'Fit-out', percent: form.type === 'Infrastructure' ? 6 : 7, amount: budget * (form.type === 'Infrastructure' ? 0.06 : 0.07), plannedStart: 'Month 16', plannedEnd: 'Month 22', vendor: 'Fit-out Contractor', riskAllowance: budget * 0.008, linkedProgrammePhase: 'Fit-out & Finishing' },
-    { label: 'Testing & Commissioning', percent: 2, amount: budget * 0.02, plannedStart: 'Month 21', plannedEnd: 'Month 23', vendor: 'Commissioning Authority', riskAllowance: budget * 0.004, linkedProgrammePhase: 'Handover & Snagging' },
-    { label: 'Handover & Snagging', percent: 1, amount: budget * 0.01, plannedStart: 'Month 22', plannedEnd: 'Month 24', vendor: 'Handover Team', riskAllowance: budget * 0.003, linkedProgrammePhase: 'Handover & Snagging' },
-    { label: 'Contingency', percent: contingency, amount: budget * (contingency / 100), plannedStart: 'Controlled reserve', plannedEnd: 'Project close', vendor: 'Commercial Manager', riskAllowance: budget * (contingency / 100), linkedProgrammePhase: 'All phases' },
+    ...deliveryPackages.map((name, index) => {
+      const percent = Number((weights[index] * deliveryPercentTotal).toFixed(1));
+      return {
+        label: name,
+        percent,
+        amount: budget * (percent / 100),
+        plannedStart: `Month ${Math.max(1, index * 2 + 1)}`,
+        plannedEnd: `Month ${Math.max(3, index * 2 + 4)}`,
+        vendor: vendorForPackage(name, form.type),
+        riskAllowance: budget * (percent / 100) * 0.08,
+        linkedProgrammePhase: linkedPhaseForPackage(name, form.type),
+      };
+    }),
+    {
+      label: 'Contingency',
+      percent: contingency,
+      amount: budget * (contingency / 100),
+      plannedStart: 'Controlled reserve',
+      plannedEnd: 'Project close',
+      vendor: 'Commercial Manager',
+      riskAllowance: budget * (contingency / 100),
+      linkedProgrammePhase: 'All phases',
+    },
   ];
 
   const locationRisk = /dubai|uae|abu dhabi/i.test(form.location) ? 'authority approval and inspection sequencing' : 'local authority approval sequencing';
@@ -335,6 +441,35 @@ function buildDataset(form: ProjectFormState, baseline: ProjectBaseline): Projec
   const status = healthScore >= 82 ? 'on-track' : healthScore >= 70 ? 'monitor' : 'critical';
   const healthStatus = healthScore >= 82 ? 'good' : healthScore >= 70 ? 'monitor' : 'critical';
   const id = `project-${slugify(form.name)}-${Date.now().toString(36)}`;
+  const selectedPortfolio = projectCommandPortfolios.find(item => item.id === form.portfolioId) ?? projectCommandPortfolios[0];
+  const selectedOrganization =
+    projectCommandOrganizations.find(item => item.id === (selectedPortfolio?.organizationId ?? form.organizationId)) ??
+    projectCommandOrganizations[0];
+  const existingProperty = projectCommandProperties.find(item => item.id === form.propertyId);
+  const property: PropertyDevelopment =
+    form.propertyMode === 'new'
+      ? {
+          id: `property-${slugify(form.propertyName || form.name)}-${Date.now().toString(36)}`,
+          portfolioId: selectedPortfolio.id,
+          name: form.propertyName || form.name,
+          type: form.propertyType,
+          location: form.propertyLocation || form.location,
+          buildings: Number(form.propertyBuildings) || 1,
+          units: Number(form.propertyUnits) || 0,
+          size: form.propertySize || form.size,
+          status: 'planned',
+        }
+      : existingProperty ?? {
+          id: form.propertyId || `property-${slugify(form.propertyName || form.name)}`,
+          portfolioId: selectedPortfolio.id,
+          name: form.propertyName || form.name,
+          type: form.propertyType,
+          location: form.propertyLocation || form.location,
+          buildings: Number(form.propertyBuildings) || 1,
+          units: Number(form.propertyUnits) || 0,
+          size: form.propertySize || form.size,
+          status: 'active',
+        };
   const phases: Phase[] = baseline.components.map((component, index) => ({
     id: `${id}-phase-${index}`,
     name: component.name,
@@ -392,10 +527,14 @@ function buildDataset(form: ProjectFormState, baseline: ProjectBaseline): Projec
   const project: ProjectCommandProject = {
     id,
     name: form.name,
-    developer: form.client,
-    location: form.location,
-    type: `${form.size} ${form.type}`.trim(),
-    floors: Number(form.size.match(/\d+/)?.[0] ?? 0),
+    organizationId: selectedOrganization.id,
+    portfolioId: selectedPortfolio.id,
+    propertyId: property.id,
+    projectType: form.type,
+    developer: selectedPortfolio.name,
+    location: property.location,
+    type: `${property.type} - ${form.type}`.trim(),
+    floors: Number((property.size ?? form.size).match(/\d+/)?.[0] ?? 0),
     contractValue: budget,
     startDate: new Date().toISOString().slice(0, 10),
     targetHandover: form.targetHandover,
@@ -420,7 +559,10 @@ function buildDataset(form: ProjectFormState, baseline: ProjectBaseline): Projec
 
   return {
     id,
-    selectorLabel: `${form.client} - ${form.name}`,
+    selectorLabel: `${property.name} - ${form.name}`,
+    organization: selectedOrganization,
+    portfolio: selectedPortfolio,
+    property,
     project,
     phases,
     costSeries,
@@ -582,38 +724,196 @@ function AiProjectSetupStep({
   mode: ProjectSetupMode;
   onContinue: () => void;
 }) {
+  const portfoliosForOrganization = projectCommandPortfolios.filter(item => item.organizationId === form.organizationId);
+  const selectedPortfolio = projectCommandPortfolios.find(item => item.id === form.portfolioId) ?? portfoliosForOrganization[0] ?? projectCommandPortfolios[0];
+  const propertiesForPortfolio = projectCommandProperties.filter(item => item.portfolioId === selectedPortfolio.id);
+  const selectedProperty = projectCommandProperties.find(item => item.id === form.propertyId) ?? propertiesForPortfolio[0];
+
   const update = <K extends keyof ProjectFormState>(key: K, value: ProjectFormState[K]) => setForm({ ...form, [key]: value });
+
+  const applyProperty = (property: PropertyDevelopment, portfolio = selectedPortfolio) => {
+    setForm({
+      ...form,
+      portfolioId: portfolio.id,
+      propertyMode: 'existing',
+      propertyId: property.id,
+      propertyName: property.name,
+      propertyLocation: property.location,
+      propertyType: toPropertyType(property.type),
+      propertyBuildings: String(property.buildings),
+      propertyUnits: String(property.units),
+      propertySize: property.size ?? '',
+      client: portfolio.name,
+      location: property.location,
+      size: [property.size, property.units ? `${property.units} units` : ''].filter(Boolean).join(', '),
+    });
+  };
+
+  const handleOrganizationChange = (organizationId: string) => {
+    const nextPortfolio = projectCommandPortfolios.find(item => item.organizationId === organizationId) ?? projectCommandPortfolios[0];
+    const nextProperty = projectCommandProperties.find(item => item.portfolioId === nextPortfolio.id);
+    setForm({
+      ...form,
+      organizationId,
+      portfolioId: nextPortfolio.id,
+      client: nextPortfolio.name,
+      ...(nextProperty
+        ? {
+            propertyMode: 'existing' as const,
+            propertyId: nextProperty.id,
+            propertyName: nextProperty.name,
+            propertyLocation: nextProperty.location,
+            propertyType: toPropertyType(nextProperty.type),
+            propertyBuildings: String(nextProperty.buildings),
+            propertyUnits: String(nextProperty.units),
+            propertySize: nextProperty.size ?? '',
+            location: nextProperty.location,
+            size: [nextProperty.size, nextProperty.units ? `${nextProperty.units} units` : ''].filter(Boolean).join(', '),
+          }
+        : {}),
+    });
+  };
+
+  const handlePortfolioChange = (portfolioId: string) => {
+    const nextPortfolio = projectCommandPortfolios.find(item => item.id === portfolioId) ?? selectedPortfolio;
+    const nextProperty = projectCommandProperties.find(item => item.portfolioId === nextPortfolio.id);
+    setForm({
+      ...form,
+      portfolioId: nextPortfolio.id,
+      client: nextPortfolio.name,
+      ...(nextProperty
+        ? {
+            propertyMode: 'existing' as const,
+            propertyId: nextProperty.id,
+            propertyName: nextProperty.name,
+            propertyLocation: nextProperty.location,
+            propertyType: toPropertyType(nextProperty.type),
+            propertyBuildings: String(nextProperty.buildings),
+            propertyUnits: String(nextProperty.units),
+            propertySize: nextProperty.size ?? '',
+            location: nextProperty.location,
+            size: [nextProperty.size, nextProperty.units ? `${nextProperty.units} units` : ''].filter(Boolean).join(', '),
+          }
+        : { propertyMode: 'new' as const, propertyId: '' }),
+    });
+  };
+
+  const updatePropertyDraft = (patch: Partial<ProjectFormState>) => {
+    const next = { ...form, ...patch };
+    next.location = next.propertyLocation;
+    next.size = [next.propertySize, next.propertyUnits ? `${next.propertyUnits} units` : ''].filter(Boolean).join(', ');
+    setForm(next);
+  };
 
   return (
     <div className="min-h-0 flex flex-1 flex-col">
       <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto p-5 pb-4">
-        {mode === 'manual' && (
-          <div className="mb-4 rounded-2xl border border-[rgba(46,127,255,0.16)] bg-[#07111F]/70 p-4">
-            <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#C4B5FD]">Manual setup sections</p>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-              {['Basic Details', 'Budget', 'Components / Phases', 'Team', 'Vendors', 'Milestones', 'Risk Settings', 'Review'].map(item => (
-                <div key={item} className="rounded-xl border border-[rgba(46,127,255,0.12)] bg-[#0A1628] px-3 py-2 text-[11px] font-bold text-[#B8C7DB]">{item}</div>
-              ))}
+        <div className="mb-4 rounded-2xl border border-[#7C3AED]/25 bg-[#7C3AED]/10 p-4">
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#C4B5FD]">Where does this project belong?</p>
+              <p className="mt-1 text-[12px] leading-5 text-[#B8C7DB]">
+                ProjectCommand controls temporary project delivery under a permanent property/development. Select an existing property or create one first.
+              </p>
+            </div>
+            <div className="rounded-full border border-[rgba(46,127,255,0.18)] bg-[#07111F] px-3 py-1 text-[10px] font-bold text-[#7EB8F7]">
+              Organization - Portfolio - Property - Project
             </div>
           </div>
-        )}
+        </div>
+
         <div className="grid gap-4 md:grid-cols-2">
+          <LabeledField label="Organization">
+            <select className={`${fieldInput} w-full`} value={form.organizationId} onChange={event => handleOrganizationChange(event.target.value)}>
+              {projectCommandOrganizations.map(organization => <option key={organization.id} value={organization.id}>{organization.name}</option>)}
+            </select>
+          </LabeledField>
+          <LabeledField label="Portfolio">
+            <select className={`${fieldInput} w-full`} value={form.portfolioId} onChange={event => handlePortfolioChange(event.target.value)}>
+              {portfoliosForOrganization.map(portfolio => <option key={portfolio.id} value={portfolio.id}>{portfolio.name}</option>)}
+            </select>
+          </LabeledField>
+          <div className="md:col-span-2 rounded-2xl border border-[rgba(46,127,255,0.16)] bg-[#07111F]/70 p-4">
+            <div className="mb-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex items-center gap-2 text-sm font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#7C3AED]/14 text-[#C4B5FD]"><Building2 size={16} /></span>
+                Property / Development
+              </div>
+              <div className="flex rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#0A1628] p-1">
+                {(['existing', 'new'] as const).map(modeOption => (
+                  <button
+                    key={modeOption}
+                    type="button"
+                    onClick={() => {
+                      if (modeOption === 'existing' && selectedProperty) {
+                        applyProperty(selectedProperty);
+                      } else {
+                        setForm({ ...form, propertyMode: 'new', propertyId: '', propertyName: '', propertyLocation: form.location, propertyBuildings: '1', propertyUnits: '', propertySize: '' });
+                      }
+                    }}
+                    className={`rounded-lg px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.1em] ${form.propertyMode === modeOption ? 'bg-[#7C3AED] text-white' : 'text-[#7A94B4] hover:text-[#EEF3FA]'}`}
+                  >
+                    {modeOption === 'existing' ? 'Existing property' : 'Create new property'}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {form.propertyMode === 'existing' ? (
+              <div className="grid gap-3 lg:grid-cols-[1fr_1.2fr]">
+                <LabeledField label="Property / Development">
+                  <select
+                    className={`${fieldInput} w-full`}
+                    value={selectedProperty?.id ?? ''}
+                    onChange={event => {
+                      const property = projectCommandProperties.find(item => item.id === event.target.value);
+                      if (property) applyProperty(property);
+                    }}
+                  >
+                    {propertiesForPortfolio.map(property => <option key={property.id} value={property.id}>{property.name}</option>)}
+                  </select>
+                </LabeledField>
+                <div className="rounded-xl border border-[rgba(46,127,255,0.12)] bg-[#0A1628] px-3 py-2">
+                  <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">Selected property context</p>
+                  <p className="mt-1 text-[12px] font-bold text-[#DDE6F8]">
+                    {form.propertyName} - {form.propertyType} - {form.propertyLocation}
+                  </p>
+                  <p className="mt-1 text-[10px] text-[#7A94B4]">{form.propertyBuildings || '1'} building(s), {form.propertyUnits || '0'} units, {form.propertySize || 'size pending'}</p>
+                </div>
+              </div>
+            ) : (
+              <div className="grid gap-3 md:grid-cols-2">
+                <LabeledField label="Property name">
+                  <input className={`${fieldInput} w-full`} value={form.propertyName} onChange={event => updatePropertyDraft({ propertyName: event.target.value })} />
+                </LabeledField>
+                <LabeledField label="Property location">
+                  <input className={`${fieldInput} w-full`} value={form.propertyLocation} onChange={event => updatePropertyDraft({ propertyLocation: event.target.value })} />
+                </LabeledField>
+                <LabeledField label="Property type">
+                  <select className={`${fieldInput} w-full`} value={form.propertyType} onChange={event => updatePropertyDraft({ propertyType: event.target.value as PropertyType })}>
+                    {propertyTypes.map(type => <option key={type}>{type}</option>)}
+                  </select>
+                </LabeledField>
+                <div className="grid grid-cols-3 gap-3">
+                  <LabeledField label="Buildings">
+                    <input className={`${fieldInput} w-full`} value={form.propertyBuildings} onChange={event => updatePropertyDraft({ propertyBuildings: event.target.value })} />
+                  </LabeledField>
+                  <LabeledField label="Units">
+                    <input className={`${fieldInput} w-full`} value={form.propertyUnits} onChange={event => updatePropertyDraft({ propertyUnits: event.target.value })} />
+                  </LabeledField>
+                  <LabeledField label="Size / GFA">
+                    <input className={`${fieldInput} w-full`} value={form.propertySize} onChange={event => updatePropertyDraft({ propertySize: event.target.value })} />
+                  </LabeledField>
+                </div>
+              </div>
+            )}
+          </div>
           <LabeledField label="Project name">
             <input className={`${fieldInput} w-full`} value={form.name} onChange={event => update('name', event.target.value)} />
-          </LabeledField>
-          <LabeledField label="Client / organization">
-            <input className={`${fieldInput} w-full`} value={form.client} onChange={event => update('client', event.target.value)} />
-          </LabeledField>
-          <LabeledField label="Location">
-            <input className={`${fieldInput} w-full`} value={form.location} onChange={event => update('location', event.target.value)} />
           </LabeledField>
           <LabeledField label="Project type">
             <select className={`${fieldInput} w-full`} value={form.type} onChange={event => update('type', event.target.value as ProjectType)}>
               {projectTypes.map(type => <option key={type}>{type}</option>)}
             </select>
-          </LabeledField>
-          <LabeledField label="Estimated size">
-            <input className={`${fieldInput} w-full`} value={form.size} onChange={event => update('size', event.target.value)} />
           </LabeledField>
           <LabeledField label="Target handover date">
             <input type="date" className={`${fieldInput} w-full`} value={form.targetHandover} onChange={event => update('targetHandover', event.target.value)} />
@@ -677,7 +977,7 @@ function BudgetControlSetupStep({
             <AiBadge>{mode === 'ai' ? 'Budget intelligence' : 'Budget control'}</AiBadge>
             <h3 className="mt-3 text-xl font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Create the Budget Control model</h3>
             <p className="mt-1 max-w-3xl text-[12px] leading-5 text-[#B8C7DB]">
-              This is the source of truth for the Cost tab. It tells ProjectCommand what was approved, how costs will be captured, and how AI should forecast drift.
+              This is the source of truth for the Cost tab. It tells ProjectCommand what was approved for this project, how costs will be captured, and how AI should forecast drift. This budget belongs to the selected project, not the permanent property operating budget.
             </p>
           </div>
           <div className="rounded-2xl border border-[#C8A020]/25 bg-[#C8A020]/10 px-4 py-3 text-[11px] font-bold text-[#FDE68A]">
@@ -702,6 +1002,9 @@ function BudgetControlSetupStep({
                 <input className={`${fieldInput} w-full`} value={form.contingency} onChange={event => update('contingency', event.target.value)} />
               </LabeledField>
             </div>
+            <LabeledField label="Budget baseline date">
+              <input type="date" className={`${fieldInput} w-full`} value={form.baselineDate} onChange={event => update('baselineDate', event.target.value)} />
+            </LabeledField>
             <LabeledField label="Budget structure method">
               <select className={`${fieldInput} w-full`} value={form.budgetStructureMethod} onChange={event => update('budgetStructureMethod', event.target.value as BudgetStructureMethod)}>
                 {budgetStructureMethods.map(method => <option key={method}>{method}</option>)}
@@ -1042,10 +1345,22 @@ function ProjectReviewStep({
   onCreate: () => void;
   onSaveDraft: () => void;
 }) {
+  const selectedPortfolio = projectCommandPortfolios.find(item => item.id === form.portfolioId) ?? projectCommandPortfolios[0];
+  const selectedOrganization = projectCommandOrganizations.find(item => item.id === selectedPortfolio.organizationId) ?? projectCommandOrganizations[0];
+  const selectedProperty = projectCommandProperties.find(item => item.id === form.propertyId);
+  const propertyLabel = form.propertyMode === 'new'
+    ? `${form.propertyName || 'New property'} (new property)`
+    : selectedProperty?.name ?? form.propertyName;
+
   const reviewItems = [
+    ['Organization', selectedOrganization.name],
+    ['Portfolio', selectedPortfolio.name],
+    ['Property / Development', propertyLabel],
+    ['Budget owner', 'ProjectCommand project budget'],
     ['Project name', form.name],
     ['Project type', form.type],
-    ['Total budget', money(Number(form.budget) || 0, form.currency)],
+    ['Approved project budget', money(Number(form.budget) || 0, form.currency)],
+    ['Budget baseline date', form.baselineDate],
     ['Target handover', baseline.summary.handoverTarget],
     ['Budget structure', form.budgetStructureMethod],
     ['Cost tracking', form.costTrackingLevel],

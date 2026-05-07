@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import type { ComponentType } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { BarChart3, BrainCircuit, Building2, CalendarRange, FileText, FolderOpen, Plus, ShieldAlert, Target } from 'lucide-react';
-import type { ProjectCommandProjectId } from './data/portfolio';
+import type { ProjectCommandProjectId, ProjectCommandPropertyId } from './data/portfolio';
 import { AddProjectModal } from './components/AddProjectModal';
 import { CommandCenter } from './screens/CommandCenter';
 import { Programme } from './screens/Programme';
@@ -14,7 +14,7 @@ import { EvidenceRepository } from './screens/EvidenceRepository';
 import { AIForecast } from './screens/AIForecast';
 import { addProjectCommandDataset, setProjectCommandState } from './state/projectCommandStore';
 import type { ProjectCommandScreen } from './types';
-import { useProjectCommandProjectOptions, useSelectedProjectCommandData } from './useProjectCommandData';
+import { useProjectCommandProjectOptions, useProjectCommandPropertyOptions, useSelectedProjectCommandData } from './useProjectCommandData';
 
 const tabs: { id: ProjectCommandScreen; label: string; icon: ComponentType<{ size?: number }> }[] = [
   { id: 'overview', label: 'Overview', icon: Building2 },
@@ -41,8 +41,10 @@ export function ProjectCommand({ onToast }: { onToast?: (message: string, type?:
   const [screen, setScreen] = useState<ProjectCommandScreen>(screenFromPath);
   const [addProjectOpen, setAddProjectOpen] = useState(false);
   const selectedDataset = useSelectedProjectCommandData();
-  const projectOptions = useProjectCommandProjectOptions();
-  const { project } = selectedDataset;
+  const { organization, portfolio, property, project } = selectedDataset;
+  const propertyOptions = useProjectCommandPropertyOptions();
+  const allProjectOptions = useProjectCommandProjectOptions();
+  const projectOptions = useProjectCommandProjectOptions(property.id);
 
   const goTo = (next: ProjectCommandScreen) => {
     setScreen(next);
@@ -55,7 +57,25 @@ export function ProjectCommand({ onToast }: { onToast?: (message: string, type?:
   const activeTitle = useMemo(() => tabs.find(tab => tab.id === screen)?.label ?? 'Overview', [screen]);
 
   const switchProject = (projectId: ProjectCommandProjectId) => {
-    setProjectCommandState({ selectedProjectId: projectId, activeScenario: 'base', selectedRisk: null, selectedPhaseId: null });
+    const nextProject = allProjectOptions.find(option => option.id === projectId);
+    setProjectCommandState({
+      selectedProjectId: projectId,
+      selectedPropertyId: nextProject?.propertyId ?? property.id,
+      activeScenario: 'base',
+      selectedRisk: null,
+      selectedPhaseId: null,
+    });
+  };
+
+  const switchProperty = (propertyId: ProjectCommandPropertyId) => {
+    const nextProject = allProjectOptions.find(option => option.propertyId === propertyId);
+    setProjectCommandState({
+      selectedPropertyId: propertyId,
+      selectedProjectId: nextProject?.id ?? project.id,
+      activeScenario: 'base',
+      selectedRisk: null,
+      selectedPhaseId: null,
+    });
   };
 
   return (
@@ -68,18 +88,28 @@ export function ProjectCommand({ onToast }: { onToast?: (message: string, type?:
               ProjectCommand / {activeTitle}
             </div>
             <h3 className="text-sm font-bold text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-              {project.name}
+              {property.name} - {project.name}
             </h3>
             <p className="mt-1 text-[11px] text-[#7A94B4]">
-              {project.developer} - {project.type} - {project.location} - AED {Math.round(project.contractValue / 1_000_000)}M - {project.completion}% complete
+              {organization.name} {'>'} {portfolio.name} {'>'} {property.name} {'>'} {project.name}
+            </p>
+            <p className="mt-1 text-[11px] text-[#7A94B4]">
+              {project.projectType} - {property.type} - {property.location} - AED {Math.round(project.contractValue / 1_000_000)}M project budget - {project.completion}% complete
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
             <select
+              value={property.id}
+              onChange={event => switchProperty(event.target.value as ProjectCommandPropertyId)}
+              className="h-8 min-w-[230px] rounded-lg border border-[rgba(46,127,255,0.22)] bg-[#0A1628] px-3 text-[11px] font-semibold text-[#B8C7DB] outline-none transition-colors focus:border-[#7C3AED]"
+            >
+              {propertyOptions.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
+            </select>
+            <select
               value={selectedDataset.id}
               onChange={event => switchProject(event.target.value as ProjectCommandProjectId)}
-              className="h-8 rounded-lg border border-[rgba(46,127,255,0.22)] bg-[#0A1628] px-3 text-[11px] font-semibold text-[#B8C7DB] outline-none transition-colors focus:border-[#7C3AED]"
+              className="h-8 min-w-[230px] rounded-lg border border-[rgba(46,127,255,0.22)] bg-[#0A1628] px-3 text-[11px] font-semibold text-[#B8C7DB] outline-none transition-colors focus:border-[#7C3AED]"
             >
               {projectOptions.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
             </select>

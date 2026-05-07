@@ -2,11 +2,7 @@ import { useMemo, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import {
   AlertTriangle,
-  ArrowRight,
-  BarChart3,
   BrainCircuit,
-  Building2,
-  CheckCircle2,
   ChevronRight,
   ClipboardList,
   Database,
@@ -14,11 +10,9 @@ import {
   GitBranch,
   HandCoins,
   Lightbulb,
-  Link2,
   RefreshCw,
   ShieldAlert,
   Sparkles,
-  TrendingUp,
   WalletCards,
   X,
 } from 'lucide-react';
@@ -43,6 +37,10 @@ const sections: { id: SectionId; label: string }[] = [
 ];
 
 const metricMap: Record<string, MetricName> = {
+  'Approved Project Budget': 'Forecast at Completion',
+  'Revised Project Budget': 'Cost Variance',
+  'Committed Cost': 'Cost Variance',
+  'Actual Cost': 'Cost Variance',
   'Cost Variance': 'Cost Variance',
   CPI: 'CPI',
   SPI: 'SPI',
@@ -101,52 +99,48 @@ function StatusPill({ children, tone = 'blue' }: { children: React.ReactNode; to
   return <span className={`inline-flex rounded-full border px-2 py-1 text-[9px] font-black uppercase tracking-wide ${styles[tone]}`}>{children}</span>;
 }
 
-function MoneyFlow({ items }: { items: string[] }) {
-  const groups = [
-    {
-      title: '1. Set the budget',
-      detail: 'Created when the project is set up.',
-      items: items.slice(0, 3),
-      tone: 'border-[#7C3AED]/28 bg-[#7C3AED]/10 text-[#E9D5FF]',
-    },
-    {
-      title: '2. Capture what changes',
-      detail: 'Updated by contracts, invoices, and approved changes.',
-      items: items.slice(3, 6),
-      tone: 'border-[#C8A020]/28 bg-[#C8A020]/10 text-[#FDE68A]',
-    },
-    {
-      title: '3. Decide what to do',
-      detail: 'Used by cashflow, AI forecast, and manager actions.',
-      items: items.slice(6),
-      tone: 'border-[#00B894]/28 bg-[#00B894]/10 text-[#A7F3D0]',
-    },
-  ];
+type CostFlowStep = {
+  label: string;
+  value: string;
+  source: string;
+  updated: string;
+  status: string;
+  tone: 'baseline' | 'healthy' | 'watch' | 'risk' | 'action';
+};
+
+function MoneyFlow({ steps }: { steps: CostFlowStep[] }) {
+  const styles: Record<CostFlowStep['tone'], string> = {
+    baseline: 'border-[#7C3AED]/28 bg-[#7C3AED]/10 text-[#E9D5FF]',
+    healthy: 'border-[#00B894]/24 bg-[#00B894]/8 text-[#A7F3D0]',
+    watch: 'border-[#C8A020]/24 bg-[#C8A020]/8 text-[#FDE68A]',
+    risk: 'border-[#D92B1C]/28 bg-[#D92B1C]/9 text-red-100',
+    action: 'border-[#7EB8F7]/24 bg-[#7EB8F7]/8 text-[#BFDBFE]',
+  };
 
   return (
     <div className="mt-4 rounded-2xl border border-[rgba(46,127,255,0.14)] bg-[#07111F]/80 p-4">
       <div className="mb-4">
-        <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[#7EB8F7]">Budget Control Map</div>
+        <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[#7EB8F7]">Cost Control Flow</div>
         <p className="mt-1 text-[12px] leading-5 text-[#B8C7DB]">
-          This shows the simple journey behind every cost number: the project budget is created, live cost movement is captured, then AI turns it into forecast and action.
+          Approved project budget becomes revised budget, commitments and actuals capture movement, variations reshape exposure, and AI turns it into forecast and manager action.
         </p>
       </div>
-      <div className="grid gap-3 xl:grid-cols-3">
-        {groups.map((group, groupIndex) => (
-          <div key={group.title} className={`rounded-2xl border p-4 ${group.tone}`}>
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {steps.map((step, index) => (
+          <div key={step.label} className={`rounded-2xl border p-3 ${styles[step.tone]}`}>
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h3 className="text-sm font-black" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{group.title}</h3>
-                <p className="mt-1 text-[11px] leading-4 text-[#B8C7DB]">{group.detail}</p>
+                <div className="text-[9px] font-black uppercase tracking-[0.14em] opacity-75">Step {index + 1}</div>
+                <h3 className="mt-1 text-[12px] font-black uppercase tracking-[0.12em]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+                  {step.label}
+                </h3>
               </div>
-              {groupIndex < groups.length - 1 && <ArrowRight className="mt-1 hidden shrink-0 text-[#7A94B4] xl:block" size={16} />}
+              <StatusPill tone={step.tone === 'risk' ? 'red' : step.tone === 'watch' ? 'amber' : step.tone === 'healthy' ? 'green' : 'violet'}>{step.status}</StatusPill>
             </div>
-            <div className="mt-3 space-y-2">
-              {group.items.map(item => (
-                <div key={item} className="rounded-xl border border-[rgba(46,127,255,0.12)] bg-[#07111F]/80 px-3 py-2">
-                  <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#EEF3FA]">{item}</div>
-                </div>
-              ))}
+            <div className="mt-3 font-mono text-[16px] font-black text-[#EEF3FA]">{step.value}</div>
+            <div className="mt-3 space-y-1 text-[10px] leading-4 text-[#B8C7DB]">
+              <div><span className="text-[#7A94B4]">Source:</span> {step.source}</div>
+              <div><span className="text-[#7A94B4]">Updated:</span> {step.updated}</div>
             </div>
           </div>
         ))}
@@ -322,7 +316,7 @@ function PackageDrawer({
 }
 
 export function CostIntelligence() {
-  const { project, evmSummary } = useSelectedProjectCommandData();
+  const { organization, portfolio, property, project, evmSummary } = useSelectedProjectCommandData();
   const data = useMemo(() => getBudgetControlData(project), [project]);
   const [activeSection, setActiveSection] = useState<SectionId>('summary');
   const [selectedPackage, setSelectedPackage] = useState<BudgetPackage | null>(null);
@@ -339,14 +333,25 @@ export function CostIntelligence() {
   }, [data]);
 
   const summaryCards = [
-    { label: 'Approved Budget', value: money(data.budget.approvedBudget), source: 'Project baseline', updated: data.lastSync, tone: '#EEF3FA' },
-    { label: 'Revised Budget', value: money(totals.revisedBudget), source: 'Baseline + approved VOs', updated: data.lastSync, tone: '#C8A020' },
+    { label: 'Approved Project Budget', value: money(data.budget.approvedBudget), source: 'Project baseline', updated: data.lastSync, tone: '#EEF3FA' },
+    { label: 'Revised Project Budget', value: money(totals.revisedBudget), source: 'Baseline + approved VOs', updated: data.lastSync, tone: '#C8A020' },
     { label: 'Committed Cost', value: money(totals.committed), source: 'Vendor contracts', updated: data.lastSync, tone: '#00B894' },
     { label: 'Actual Cost', value: money(totals.actual), source: 'Actuals register', updated: data.lastSync, tone: '#7EB8F7' },
+    { label: 'Pending Variations', value: money(totals.pendingVariations), source: 'VO pipeline', updated: data.lastSync, tone: '#D97706' },
     { label: 'Forecast at Completion', value: money(data.evm.eac), source: 'AI forecast', updated: data.lastSync, tone: '#7C3AED' },
     { label: 'Cost Variance', value: money(data.evm.costVariance), source: 'Earned value', updated: data.lastSync, tone: data.evm.costVariance < 0 ? '#FF4B4B' : '#00B894' },
-    { label: 'Pending Variations', value: money(totals.pendingVariations), source: 'VO pipeline', updated: data.lastSync, tone: '#D97706' },
     { label: 'Contingency Remaining', value: money(totals.contingencyRemaining), source: 'Budget reserve', updated: data.lastSync, tone: totals.contingencyRemaining < 0 ? '#FF4B4B' : '#00B894' },
+  ];
+
+  const costFlowSteps: CostFlowStep[] = [
+    { label: 'Approved Budget', value: money(data.budget.approvedBudget), source: 'Project baseline', updated: data.budget.baselineDate, status: 'Approved', tone: 'baseline' },
+    { label: 'Revised Budget', value: money(totals.revisedBudget), source: 'Approved variations', updated: data.lastSync, status: 'Live', tone: 'healthy' },
+    { label: 'Committed Cost', value: money(totals.committed), source: 'Vendor contracts', updated: data.lastSync, status: 'Committed', tone: 'healthy' },
+    { label: 'Actual Cost', value: money(totals.actual), source: 'Invoices / actuals', updated: data.lastSync, status: 'Approved actuals', tone: 'watch' },
+    { label: 'Variations', value: money(totals.pendingVariations), source: 'VO pipeline', updated: data.lastSync, status: 'Pending exposure', tone: 'risk' },
+    { label: 'Forecast', value: money(data.evm.eac), source: 'AI forecast', updated: data.lastSync, status: 'EAC', tone: 'watch' },
+    { label: 'Cost Variance', value: money(data.evm.costVariance), source: 'Earned value', updated: data.lastSync, status: data.evm.costVariance < 0 ? 'Overrun risk' : 'Within budget', tone: data.evm.costVariance < 0 ? 'risk' : 'healthy' },
+    { label: 'Manager Action', value: `${data.managerActions.length} actions`, source: 'Decision panel', updated: data.lastSync, status: 'Review now', tone: 'action' },
   ];
 
   const breakdownChart = data.packages.map(pkg => ({
@@ -362,8 +367,11 @@ export function CostIntelligence() {
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
           <div>
             <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.18em] text-[#C4B5FD]"><WalletCards size={15} /> Budget Control</div>
-            <h1 className="mt-2 text-2xl font-black" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{project.name} cost operating layer</h1>
-            <p className="mt-1 max-w-4xl text-[13px] leading-6 text-[#B8C7DB]">Budget Control connects baseline, work packages, vendor commitments, actual costs, variations, cashflow, cost risks, and AI forecast into one live cost position.</p>
+            <h1 className="mt-2 text-2xl font-black" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{property.name} - {project.name}</h1>
+            <p className="mt-1 max-w-4xl text-[13px] leading-6 text-[#B8C7DB]">Project Budget Control connects approved project budget, revised budget, commitments, actual costs, variations, forecast, and manager action. Property operating budgets stay outside ProjectCommand.</p>
+            <div className="mt-2 inline-flex rounded-full border border-[rgba(46,127,255,0.18)] bg-[#07111F] px-3 py-1 text-[10px] font-bold text-[#7A94B4]">
+              {organization.name} {'>'} {portfolio.name} {'>'} {property.name} {'>'} {project.name}
+            </div>
           </div>
           <div className="flex flex-wrap gap-2">
             {data.sourceHealth.map(source => (
@@ -372,9 +380,9 @@ export function CostIntelligence() {
           </div>
         </div>
         <div className="mt-4 rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#07111F] px-3 py-2 text-[12px] text-[#B8C7DB]">
-          Budget data synced from: Project baseline, Vendor contracts, Manual actuals, Variation orders, AI forecast. Last sync: <span className="font-bold text-[#DDE6F8]">{data.lastSync}</span>
+          Project budget data synced from: Project baseline, package budgets, vendor contracts, invoice actuals, variation orders, and AI forecast. Last sync: <span className="font-bold text-[#DDE6F8]">{data.lastSync}</span>
         </div>
-        <MoneyFlow items={['Project creation', 'Budget baseline', 'Cost codes', 'Vendor contracts', 'Actual costs', 'Variations', 'Cashflow', 'AI forecast', 'Manager action']} />
+        <MoneyFlow steps={costFlowSteps} />
       </div>
 
       <div className="sticky top-0 z-20 mt-4 flex flex-wrap gap-2 border-b border-[rgba(46,127,255,0.12)] bg-[#0A1628]/95 py-2 backdrop-blur">

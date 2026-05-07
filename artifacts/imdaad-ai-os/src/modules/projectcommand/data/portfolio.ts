@@ -6,10 +6,51 @@ import { project as lawnzProject } from './project';
 import { risks as lawnzRisks, type Risk } from './risks';
 
 export type ProjectHealthStatus = 'good' | 'monitor' | 'critical';
+export type ProjectCommandProjectId = string;
+export type ProjectCommandPropertyId = string;
+
+export type ProjectDeliveryType =
+  | 'Main Construction'
+  | 'Fit-out'
+  | 'Infrastructure'
+  | 'Handover & Snagging'
+  | 'Warranty / DLP Remediation'
+  | 'Capital Improvement'
+  | 'ESG Retrofit'
+  | 'Smart Building Rollout'
+  | 'Maintenance Upgrade'
+  | 'Custom';
+
+export interface Organization {
+  id: string;
+  name: string;
+}
+
+export interface Portfolio {
+  id: string;
+  organizationId: string;
+  name: string;
+}
+
+export interface PropertyDevelopment {
+  id: ProjectCommandPropertyId;
+  portfolioId: string;
+  name: string;
+  type: 'Residential Tower' | 'Villa Community' | 'Mixed-use' | 'Commercial Building' | 'Master Community' | string;
+  location: string;
+  buildings: number;
+  units: number;
+  size?: string;
+  status: 'active' | 'planned' | 'handover' | 'warranty';
+}
 
 export interface ProjectCommandProject {
   id: string;
   name: string;
+  organizationId: string;
+  portfolioId: string;
+  propertyId: ProjectCommandPropertyId;
+  projectType: ProjectDeliveryType;
   developer: string;
   location: string;
   type: string;
@@ -47,6 +88,9 @@ export type ProjectMilestones = typeof lawnzMilestones;
 export interface ProjectCommandDataset {
   id: string;
   selectorLabel: string;
+  organization: Organization;
+  portfolio: Portfolio;
+  property: PropertyDevelopment;
   project: ProjectCommandProject;
   phases: Phase[];
   costSeries: ProjectCostSeries;
@@ -54,6 +98,60 @@ export interface ProjectCommandDataset {
   risks: Risk[];
   milestones: ProjectMilestones;
   aiContent: ProjectCommandAIContent;
+}
+
+export const projectCommandOrganizations: Organization[] = [
+  { id: 'developmentx', name: 'DevelopmentX' },
+];
+
+export const projectCommandPortfolios: Portfolio[] = [
+  { id: 'danube-properties-portfolio', organizationId: 'developmentx', name: 'Danube Properties Portfolio' },
+  { id: 'reportage-portfolio', organizationId: 'developmentx', name: 'Reportage Portfolio' },
+];
+
+export const projectCommandProperties: PropertyDevelopment[] = [
+  {
+    id: 'bayz-102-property',
+    portfolioId: 'danube-properties-portfolio',
+    name: 'Bayz 102',
+    type: 'Residential Tower',
+    location: 'Business Bay',
+    buildings: 1,
+    units: 680,
+    size: '102 floors',
+    status: 'active',
+  },
+  {
+    id: 'lawnz-residences-property',
+    portfolioId: 'danube-properties-portfolio',
+    name: 'Lawnz Residences',
+    type: 'Residential Tower',
+    location: 'Dubai Sports City',
+    buildings: 1,
+    units: 1064,
+    size: '48 floors',
+    status: 'active',
+  },
+  {
+    id: 'verdana-tower-property',
+    portfolioId: 'reportage-portfolio',
+    name: 'Verdana Tower',
+    type: 'Residential Tower',
+    location: 'Jumeirah Village Circle',
+    buildings: 1,
+    units: 412,
+    size: '34 floors',
+    status: 'handover',
+  },
+];
+
+export const defaultProjectCommandPropertyId: ProjectCommandPropertyId = 'bayz-102-property';
+
+function hierarchyFor(propertyId: ProjectCommandPropertyId) {
+  const property = projectCommandProperties.find(item => item.id === propertyId) ?? projectCommandProperties[0];
+  const portfolio = projectCommandPortfolios.find(item => item.id === property.portfolioId) ?? projectCommandPortfolios[0];
+  const organization = projectCommandOrganizations.find(item => item.id === portfolio.organizationId) ?? projectCommandOrganizations[0];
+  return { organization, portfolio, property };
 }
 
 function scaleNumber(value: number | null, factor: number) {
@@ -101,8 +199,18 @@ function updateRisks(prefix: string, titles: string[], owner = 'PM Team'): Risk[
 
 const lawnzDataset: ProjectCommandDataset = {
   id: 'lawnz-residences',
-  selectorLabel: 'Danube Properties - Lawnz Residences',
-  project: { ...lawnzProject, healthStatus: lawnzProject.healthStatus, status: 'on-track' },
+  selectorLabel: 'Lawnz Residences - Main Construction',
+  ...hierarchyFor('lawnz-residences-property'),
+  project: {
+    ...lawnzProject,
+    name: 'Main Construction',
+    organizationId: 'developmentx',
+    portfolioId: 'danube-properties-portfolio',
+    propertyId: 'lawnz-residences-property',
+    projectType: 'Main Construction',
+    healthStatus: lawnzProject.healthStatus,
+    status: 'on-track',
+  },
   phases: lawnzPhases,
   costSeries: lawnzCostSeries,
   evmSummary: lawnzEvmSummary,
@@ -113,7 +221,11 @@ const lawnzDataset: ProjectCommandDataset = {
 
 const bayzProject: ProjectCommandProject = {
   id: 'bayz-102',
-  name: 'Bayz 102',
+  name: 'Main Construction',
+  organizationId: 'developmentx',
+  portfolioId: 'danube-properties-portfolio',
+  propertyId: 'bayz-102-property',
+  projectType: 'Main Construction',
   developer: 'Danube Properties',
   location: 'Business Bay',
   type: '102-floor residential tower',
@@ -211,7 +323,11 @@ const bayzAiContent: ProjectCommandAIContent = {
 
 const verdanaProject: ProjectCommandProject = {
   id: 'verdana-tower',
-  name: 'Verdana Tower',
+  name: 'Main Construction',
+  organizationId: 'developmentx',
+  portfolioId: 'reportage-portfolio',
+  propertyId: 'verdana-tower-property',
+  projectType: 'Main Construction',
   developer: 'Reportage',
   location: 'Jumeirah Village Circle',
   type: '34-floor residential tower',
@@ -307,11 +423,212 @@ const verdanaAiContent: ProjectCommandAIContent = {
   },
 };
 
+function projectVariant(
+  source: ProjectCommandDataset,
+  overrides: {
+    id: string;
+    selectorLabel: string;
+    name: string;
+    projectType: ProjectDeliveryType;
+    contractValue: number;
+    completion: number;
+    status: ProjectCommandProject['status'];
+    healthScore: number;
+    forecastCost: number;
+    targetHandover: string;
+    budgetUsed?: number;
+    cpi?: number;
+    spi?: number;
+    costVariance?: number;
+    scheduleVariance?: number;
+    floatRemaining?: number;
+    mainContractor?: string;
+  },
+): ProjectCommandDataset {
+  const scale = overrides.contractValue / lawnzProject.contractValue;
+  const plannedValue = Math.round(overrides.contractValue * Math.max(0.12, overrides.completion / 100) * 0.9);
+  const actualCost = Math.round(overrides.contractValue * ((overrides.budgetUsed ?? Math.max(8, overrides.completion + 12)) / 100));
+  const earnedValue = Math.round(overrides.contractValue * (overrides.completion / 100) * (overrides.cpi ?? 0.96));
+  return {
+    ...source,
+    id: overrides.id,
+    selectorLabel: overrides.selectorLabel,
+    project: {
+      ...source.project,
+      id: overrides.id,
+      name: overrides.name,
+      projectType: overrides.projectType,
+      contractValue: overrides.contractValue,
+      targetHandover: overrides.targetHandover,
+      status: overrides.status,
+      completion: overrides.completion,
+      budgetUsed: overrides.budgetUsed ?? Math.max(8, overrides.completion + 12),
+      plannedValue,
+      actualCost,
+      earnedValue,
+      cpi: overrides.cpi ?? 0.96,
+      spi: overrides.spi ?? 0.97,
+      costVariance: overrides.costVariance ?? Math.round(overrides.forecastCost - overrides.contractValue) * -0.3,
+      scheduleVariance: overrides.scheduleVariance ?? -Math.round(overrides.contractValue * 0.025),
+      floatRemaining: overrides.floatRemaining ?? 28,
+      mainContractor: overrides.mainContractor ?? source.project.mainContractor,
+      healthScore: overrides.healthScore,
+      healthStatus: overrides.healthScore >= 75 ? 'good' : overrides.healthScore >= 55 ? 'monitor' : 'critical',
+      forecastCost: overrides.forecastCost,
+    },
+    phases: updatePhases(
+      overrides.projectType === 'Main Construction'
+        ? { design: 100, enabling: 100, substructure: overrides.completion, superstructure: Math.max(0, overrides.completion - 12), mep: Math.max(0, overrides.completion - 24), fitout: 0, handover: 0 }
+        : { design: Math.min(100, overrides.completion + 10), enabling: overrides.completion, substructure: overrides.completion, superstructure: Math.max(0, overrides.completion - 10), mep: Math.max(0, overrides.completion - 15), fitout: Math.max(0, overrides.completion - 20), handover: Math.max(0, overrides.completion - 25) },
+      { substructure: `${overrides.completion}% - ${overrides.projectType}`, mep: 'Project-specific controls' },
+    ),
+    costSeries: scaleCostSeries(scale),
+    evmSummary: {
+      pv: Math.round(plannedValue / 1_000_000),
+      ac: Math.round(actualCost / 1_000_000),
+      ev: Math.round(earnedValue / 1_000_000),
+      cpi: overrides.cpi ?? 0.96,
+      spi: overrides.spi ?? 0.97,
+      cv: Math.round((earnedValue - actualCost) / 1_000_000),
+      sv: Math.round((earnedValue - plannedValue) / 1_000_000),
+      eac: Math.round(overrides.forecastCost / 1_000_000),
+      etc: Math.round(Math.max(overrides.forecastCost - actualCost, 0) / 1_000_000),
+      vac: Math.round((overrides.contractValue - overrides.forecastCost) / 1_000_000),
+      tcpi: overrides.forecastCost > overrides.contractValue ? 1.05 : 0.95,
+    },
+    aiContent: {
+      ...source.aiContent,
+      healthScore: {
+        ...source.aiContent.healthScore,
+        score: overrides.healthScore,
+        status: overrides.healthScore >= 75 ? 'good' : overrides.healthScore >= 55 ? 'monitor' : 'critical',
+        topThreat: `${overrides.name} is controlled separately from the permanent property budget. The main risk is whether package commitments and actuals stay aligned with the approved project baseline.`,
+        recommendedAction: `Review ${overrides.projectType.toLowerCase()} packages, pending variations, vendor claims, and forecast exposure before approving the next project control update.`,
+      },
+    },
+  };
+}
+
+const bayzHandoverDataset = projectVariant(
+  {
+    id: 'bayz-102',
+    selectorLabel: 'Bayz 102 - Main Construction',
+    ...hierarchyFor('bayz-102-property'),
+    project: bayzProject,
+    phases: updatePhases({ design: 100, enabling: 100, substructure: 52, superstructure: 18, mep: 6, fitout: 0, handover: 0 }, { substructure: '52% - piling recovery', superstructure: 'Crane bottleneck', mep: 'Riser model pending' }),
+    costSeries: scaleCostSeries(1.56),
+    evmSummary: { pv: 146, ac: 162, ev: 132, cpi: 0.81, spi: 0.9, cv: -30, sv: -14, eac: 462, etc: 300, vac: -42, tcpi: 1.08 },
+    risks: updateRisks('bayz', ['Tower crane availability constraint'], 'Construction Director'),
+    milestones: updateMilestones('bayz', 80),
+    aiContent: bayzAiContent,
+  },
+  {
+    id: 'bayz-102-handover-snagging',
+    selectorLabel: 'Bayz 102 - Handover & Snagging Programme',
+    name: 'Handover & Snagging Programme',
+    projectType: 'Handover & Snagging',
+    contractValue: 18_000_000,
+    completion: 12,
+    status: 'monitor',
+    healthScore: 64,
+    forecastCost: 20_400_000,
+    targetHandover: '2026-10-15',
+    budgetUsed: 18,
+    cpi: 0.88,
+    spi: 0.91,
+    costVariance: -1_800_000,
+    scheduleVariance: -1_200_000,
+    floatRemaining: 18,
+    mainContractor: 'Handover Controls Team',
+  },
+);
+
+const bayzSmartAccessDataset = projectVariant(bayzHandoverDataset, {
+  id: 'bayz-102-smart-access',
+  selectorLabel: 'Bayz 102 - Smart Access Upgrade',
+  name: 'Smart Access Upgrade',
+  projectType: 'Smart Building Rollout',
+  contractValue: 6_500_000,
+  completion: 0,
+  status: 'monitor',
+  healthScore: 70,
+  forecastCost: 6_800_000,
+  targetHandover: '2026-12-20',
+  budgetUsed: 4,
+  cpi: 0.98,
+  spi: 0.96,
+  costVariance: -260_000,
+  scheduleVariance: -180_000,
+  floatRemaining: 42,
+  mainContractor: 'Smart Access Integrator',
+});
+
+const bayzWarrantyDataset = projectVariant(bayzHandoverDataset, {
+  id: 'bayz-102-dlp-remediation',
+  selectorLabel: 'Bayz 102 - Warranty / DLP Remediation',
+  name: 'Warranty / DLP Remediation',
+  projectType: 'Warranty / DLP Remediation',
+  contractValue: 9_000_000,
+  completion: 0,
+  status: 'monitor',
+  healthScore: 72,
+  forecastCost: 9_600_000,
+  targetHandover: '2027-06-30',
+  budgetUsed: 2,
+  cpi: 1,
+  spi: 1,
+  costVariance: 0,
+  scheduleVariance: 0,
+  floatRemaining: 55,
+  mainContractor: 'DLP Response Team',
+});
+
+const lawnzLandscapeDataset = projectVariant(lawnzDataset, {
+  id: 'lawnz-landscape-enhancement',
+  selectorLabel: 'Lawnz Residences - Landscape Enhancement',
+  name: 'Landscape Enhancement',
+  projectType: 'Capital Improvement',
+  contractValue: 12_000_000,
+  completion: 0,
+  status: 'monitor',
+  healthScore: 76,
+  forecastCost: 12_400_000,
+  targetHandover: '2026-11-30',
+  budgetUsed: 3,
+  cpi: 0.98,
+  spi: 0.99,
+  costVariance: -200_000,
+  scheduleVariance: -120_000,
+  floatRemaining: 45,
+  mainContractor: 'Landscape Contractor',
+});
+
+const lawnzWarrantyDataset = projectVariant(lawnzDataset, {
+  id: 'lawnz-warranty-control',
+  selectorLabel: 'Lawnz Residences - Warranty Control Programme',
+  name: 'Warranty Control Programme',
+  projectType: 'Warranty / DLP Remediation',
+  contractValue: 7_000_000,
+  completion: 0,
+  status: 'monitor',
+  healthScore: 74,
+  forecastCost: 7_200_000,
+  targetHandover: '2027-04-30',
+  budgetUsed: 2,
+  cpi: 1,
+  spi: 1,
+  costVariance: 0,
+  scheduleVariance: 0,
+  floatRemaining: 62,
+  mainContractor: 'Warranty Control Team',
+});
+
 export const projectCommandDatasets = {
   'lawnz-residences': lawnzDataset,
   'bayz-102': {
     id: 'bayz-102',
-    selectorLabel: 'Danube Properties - Bayz 102',
+    selectorLabel: 'Bayz 102 - Main Construction',
+    ...hierarchyFor('bayz-102-property'),
     project: bayzProject,
     phases: updatePhases({ design: 100, enabling: 100, substructure: 52, superstructure: 18, mep: 6, fitout: 0, handover: 0 }, { substructure: '52% - piling recovery', superstructure: 'Crane bottleneck', mep: 'Riser model pending' }),
     costSeries: scaleCostSeries(1.56),
@@ -322,7 +639,8 @@ export const projectCommandDatasets = {
   },
   'verdana-tower': {
     id: 'verdana-tower',
-    selectorLabel: 'Reportage - Verdana Tower',
+    selectorLabel: 'Verdana Tower - Main Construction',
+    ...hierarchyFor('verdana-tower-property'),
     project: verdanaProject,
     phases: updatePhases({ design: 100, enabling: 100, substructure: 100, superstructure: 100, mep: 72, fitout: 58, handover: 12 }, { mep: 'T&C on track', fitout: 'Snag velocity ahead', handover: 'Inspection slots needed' }),
     costSeries: scaleCostSeries(0.67),
@@ -331,13 +649,32 @@ export const projectCommandDatasets = {
     milestones: updateMilestones('verdana', -22),
     aiContent: verdanaAiContent,
   },
+  'bayz-102-handover-snagging': bayzHandoverDataset,
+  'bayz-102-smart-access': bayzSmartAccessDataset,
+  'bayz-102-dlp-remediation': bayzWarrantyDataset,
+  'lawnz-landscape-enhancement': lawnzLandscapeDataset,
+  'lawnz-warranty-control': lawnzWarrantyDataset,
 } satisfies Record<string, ProjectCommandDataset>;
 
-export type ProjectCommandProjectId = string;
-
-export const defaultProjectCommandProjectId: ProjectCommandProjectId = 'lawnz-residences';
+export const defaultProjectCommandProjectId: ProjectCommandProjectId = 'bayz-102';
 
 export const projectCommandProjectOptions = Object.values(projectCommandDatasets).map(dataset => ({
   id: dataset.id as ProjectCommandProjectId,
   label: dataset.selectorLabel,
+  propertyId: dataset.property.id,
+  propertyName: dataset.property.name,
+  portfolioName: dataset.portfolio.name,
+  projectType: dataset.project.projectType,
 }));
+
+export const projectCommandPropertyOptions = projectCommandProperties.map(property => {
+  const portfolio = projectCommandPortfolios.find(item => item.id === property.portfolioId);
+  const organization = projectCommandOrganizations.find(item => item.id === portfolio?.organizationId);
+  return {
+    id: property.id,
+    label: property.name,
+    portfolioId: property.portfolioId,
+    portfolioName: portfolio?.name ?? 'Portfolio',
+    organizationName: organization?.name ?? 'Organization',
+  };
+});

@@ -1,10 +1,19 @@
 import { useSyncExternalStore } from 'react';
 import type { Risk } from '../data/risks';
 import type { ScenarioKey } from '../data/ai-responses';
-import type { ProjectCommandDataset, ProjectCommandProjectId } from '../data/portfolio';
+import {
+  defaultProjectCommandProjectId,
+  defaultProjectCommandPropertyId,
+  type ProjectCommandDataset,
+  type ProjectCommandProjectId,
+  type ProjectCommandPropertyId,
+  type PropertyDevelopment,
+} from '../data/portfolio';
 
 export interface ProjectCommandState {
   selectedProjectId: ProjectCommandProjectId;
+  selectedPropertyId: ProjectCommandPropertyId;
+  createdProperties: PropertyDevelopment[];
   createdProjectDatasets: ProjectCommandDataset[];
   activeScenario: ScenarioKey;
   selectedPhaseId: string | null;
@@ -13,7 +22,9 @@ export interface ProjectCommandState {
 }
 
 let state: ProjectCommandState = {
-  selectedProjectId: 'lawnz-residences',
+  selectedProjectId: defaultProjectCommandProjectId,
+  selectedPropertyId: defaultProjectCommandPropertyId,
+  createdProperties: [],
   createdProjectDatasets: [],
   activeScenario: 'base',
   selectedPhaseId: null,
@@ -36,6 +47,11 @@ export function addProjectCommandDataset(dataset: ProjectCommandDataset) {
   state = {
     ...state,
     selectedProjectId: dataset.id,
+    selectedPropertyId: dataset.property.id,
+    createdProperties: [
+      ...state.createdProperties.filter(existing => existing.id !== dataset.property.id),
+      dataset.property,
+    ],
     createdProjectDatasets: [
       ...state.createdProjectDatasets.filter(existing => existing.id !== dataset.id),
       dataset,
