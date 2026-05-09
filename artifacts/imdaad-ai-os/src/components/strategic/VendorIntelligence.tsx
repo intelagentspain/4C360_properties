@@ -5,6 +5,7 @@ import {
   AlertTriangle, Brain, Target, DollarSign, BarChart3,
   CheckCircle, XCircle, FileWarning, Zap, ChevronRight,
   Users, Building2, Star, Sparkles, Lightbulb, ListChecks, Activity, X,
+  Plus,
 } from 'lucide-react';
 import {
   computeVendorScore,
@@ -13,10 +14,167 @@ import {
   type VendorRiskLevel,
   type VendorTrend,
 } from '@/data/mockData';
-import { useVendors } from '@/context/VendorsContext';
+import { buildDefaultVendor, useVendors } from '@/context/VendorsContext';
 import type { ToastFn } from '@/lib/ui';
 
 type FilterTab = 'all' | 'top' | 'atrisk' | 'cost';
+
+type VendorWizardStep = 1 | 2 | 3 | 4;
+
+type VendorWizardForm = {
+  name: string;
+  category: string;
+  sites: string;
+  address: string;
+  city: string;
+  country: string;
+  pocName: string;
+  pocTitle: string;
+  pocPhone: string;
+  pocEmail: string;
+  activeContracts: string;
+  contractExpiry: string;
+  slaCompliance: string;
+  firstTimeFixRate: string;
+  avgResolutionMin: string;
+  evidenceCompliance: string;
+  repeatFailureRate: string;
+  jobsLast30d: string;
+  avgCostPerJob: string;
+  trend: VendorTrend;
+  dependencyRisk: 'Low' | 'Medium' | 'High' | 'Critical';
+  dependencyNote: string;
+  predictedRisk30d: string;
+  contractFlags: string;
+};
+
+const vendorCategories = [
+  'FM & HVAC',
+  'FM & Electrical',
+  'MEP & Systems',
+  'Cleaning & Soft FM',
+  'Security',
+  'Landscaping',
+  'Fire & Safety',
+  'Elevators & Lifts',
+  'Engineering & Civil',
+  'General FM',
+];
+
+const initialVendorWizardForm: VendorWizardForm = {
+  name: 'Nexus Facilities Services',
+  category: 'FM & HVAC',
+  sites: 'Bayz 102, Lawnz Residences',
+  address: 'Business Bay Service Hub',
+  city: 'Dubai',
+  country: 'UAE',
+  pocName: 'Aisha Rahman',
+  pocTitle: 'Account Director',
+  pocPhone: '+971 55 420 1188',
+  pocEmail: 'aisha.rahman@nexusfm.ae',
+  activeContracts: '1',
+  contractExpiry: 'Mar 2027',
+  slaCompliance: '88',
+  firstTimeFixRate: '84',
+  avgResolutionMin: '44',
+  evidenceCompliance: '90',
+  repeatFailureRate: '6',
+  jobsLast30d: '42',
+  avgCostPerJob: '455',
+  trend: 'flat',
+  dependencyRisk: 'Medium',
+  dependencyNote: 'Primary HVAC backup coverage across two mixed-use residential properties.',
+  predictedRisk30d: '16',
+  contractFlags: 'Onboarding evidence pack due within 14 days',
+};
+
+function numeric(value: string, fallback: number): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function parseVendorSites(raw: string): string[] {
+  return raw.split(',').map(site => site.trim()).filter(Boolean);
+}
+
+function parseVendorFlags(raw: string): VendorIntelData['contractFlags'] {
+  return raw
+    .split(';')
+    .map(flag => flag.trim())
+    .filter(Boolean)
+    .map(description => ({ type: 'warning' as const, description }));
+}
+
+function vendorWizardScore(form: VendorWizardForm): number {
+  return computeVendorScore({
+    slaCompliance: numeric(form.slaCompliance, 85),
+    firstTimeFixRate: numeric(form.firstTimeFixRate, 80),
+    avgResolutionMin: numeric(form.avgResolutionMin, 50),
+    evidenceCompliance: numeric(form.evidenceCompliance, 85),
+    avgCostPerJob: numeric(form.avgCostPerJob, 450),
+  });
+}
+
+function buildVendorInsights(form: VendorWizardForm, score: number): VendorIntelData['insights'] {
+  const risk = classifyVendorRisk(score);
+  return [
+    `${form.name} is being onboarded with a starting vendor score of ${score}/100 and ${risk} classification.`,
+    `SLA baseline is ${numeric(form.slaCompliance, 85)}% with ${numeric(form.firstTimeFixRate, 80)}% first-time fix across ${numeric(form.jobsLast30d, 20)} expected monthly jobs.`,
+    `Evidence compliance is set at ${numeric(form.evidenceCompliance, 85)}%, so the vendor will be monitored for photo, report, and closure proof quality.`,
+    `${form.dependencyRisk} dependency risk has been assigned for ${parseVendorSites(form.sites).join(', ') || 'selected properties'}.`,
+  ];
+}
+
+function buildVendorRecommendations(form: VendorWizardForm, score: number): VendorIntelData['recommendations'] {
+  if (score >= 78) {
+    return [
+      { title: 'Approve preferred onboarding', detail: 'Initial KPI baseline supports preferred rotation once contract evidence is complete.', action: 'review' },
+      { title: 'Lock service rate during onboarding', detail: `AED ${numeric(form.avgCostPerJob, 450)}/job is within target range. Confirm rate card before first work package allocation.`, action: 'renegotiate' },
+    ];
+  }
+  if (score >= 58) {
+    return [
+      { title: 'Start with controlled scope', detail: 'Use a 30-day probation window and monitor SLA, evidence, and repeat failures before expanding coverage.', action: 'review' },
+      { title: 'Assign backup vendor coverage', detail: 'Dependency should be managed until the vendor proves performance across the first job cycle.', action: 'reassign' },
+    ];
+  }
+  return [
+    { title: 'Require onboarding review before allocation', detail: 'Baseline indicators are below threshold. Do not assign critical work until corrective commitments are agreed.', action: 'review' },
+    { title: 'Limit scope to low-risk work', detail: 'Use only non-critical jobs until SLA and evidence metrics improve.', action: 'limit' },
+  ];
+}
+
+function buildVendorFromWizard(form: VendorWizardForm): VendorIntelData {
+  const score = vendorWizardScore(form);
+  const flags = parseVendorFlags(form.contractFlags);
+  const id = `VND-${Date.now().toString().slice(-6)}`;
+  return buildDefaultVendor({
+    id,
+    name: form.name.trim() || 'New Vendor',
+    category: form.category,
+    trend: form.trend,
+    slaCompliance: numeric(form.slaCompliance, 85),
+    firstTimeFixRate: numeric(form.firstTimeFixRate, 80),
+    avgResolutionMin: numeric(form.avgResolutionMin, 50),
+    evidenceCompliance: numeric(form.evidenceCompliance, 85),
+    repeatFailureRate: numeric(form.repeatFailureRate, 8),
+    avgCostPerJob: numeric(form.avgCostPerJob, 450),
+    activeContracts: numeric(form.activeContracts, 1),
+    contractExpiry: form.contractExpiry || 'Dec 2026',
+    sites: parseVendorSites(form.sites),
+    jobsLast30d: numeric(form.jobsLast30d, 20),
+    insights: buildVendorInsights(form, score),
+    anomaly: score < 58 ? 'Onboarding risk: baseline score is below Watchlist threshold. Review before assigning critical work.' : null,
+    contractFlags: flags,
+    predictedRisk30d: numeric(form.predictedRisk30d, 20),
+    projectedTrend: form.trend,
+    recommendations: buildVendorRecommendations(form, score),
+    dependencyRisk: form.dependencyRisk,
+    dependencyNote: form.dependencyNote || `${form.dependencyRisk} dependency risk across ${parseVendorSites(form.sites).length || 1} site scope.`,
+    address: { street: form.address, city: form.city, country: form.country },
+    poc: { name: form.pocName, title: form.pocTitle, phone: form.pocPhone, email: form.pocEmail },
+  });
+}
 
 function riskColor(level: VendorRiskLevel): string {
   if (level === 'Preferred') return '#38D98A';
@@ -895,12 +1053,374 @@ function VendorDetailPage({ vendor, onBack, onToast }: { vendor: VendorIntelData
   );
 }
 
+function VendorWizardField({
+  label,
+  children,
+  helper,
+}: {
+  label: string;
+  children: React.ReactNode;
+  helper?: string;
+}) {
+  return (
+    <label className="space-y-1.5">
+      <span className="block text-[9px] font-bold uppercase tracking-[0.18em] text-[#7A94B4]">{label}</span>
+      {children}
+      {helper && <span className="block text-[9px] text-[#5A7393]">{helper}</span>}
+    </label>
+  );
+}
+
+function VendorWizardInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
+  return (
+    <input
+      {...props}
+      className={`w-full rounded-xl border border-[rgba(46,127,255,0.22)] bg-[#07111F] px-3 py-2.5 text-[12px] text-[#EEF3FA] outline-none transition-all placeholder:text-[#4A6480] focus:border-[#2E7FFF] ${props.className ?? ''}`}
+    />
+  );
+}
+
+function VendorWizardSelect(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
+  return (
+    <select
+      {...props}
+      className={`w-full rounded-xl border border-[rgba(46,127,255,0.22)] bg-[#07111F] px-3 py-2.5 text-[12px] text-[#EEF3FA] outline-none transition-all focus:border-[#2E7FFF] ${props.className ?? ''}`}
+    />
+  );
+}
+
+function VendorWizardSummaryPill({ label, value, tone = 'blue' }: { label: string; value: string; tone?: 'blue' | 'green' | 'amber' | 'red' | 'purple' }) {
+  const toneCls = {
+    blue: 'border-[#2E7FFF]/25 bg-[#2E7FFF]/10 text-[#8DBDFF]',
+    green: 'border-emerald-500/25 bg-emerald-500/10 text-emerald-300',
+    amber: 'border-amber-500/25 bg-amber-500/10 text-amber-300',
+    red: 'border-red-500/25 bg-red-500/10 text-red-300',
+    purple: 'border-purple-500/25 bg-purple-500/10 text-purple-300',
+  }[tone];
+  return (
+    <div className={`rounded-xl border px-3 py-2 ${toneCls}`}>
+      <div className="text-[9px] uppercase tracking-[0.16em] opacity-70">{label}</div>
+      <div className="mt-1 text-[13px] font-bold">{value}</div>
+    </div>
+  );
+}
+
+function AddVendorWizard({
+  onClose,
+  onCreate,
+}: {
+  onClose: () => void;
+  onCreate: (vendor: VendorIntelData) => void;
+}) {
+  const [step, setStep] = useState<VendorWizardStep>(1);
+  const [form, setForm] = useState<VendorWizardForm>(initialVendorWizardForm);
+  const score = vendorWizardScore(form);
+  const risk = classifyVendorRisk(score);
+  const flags = parseVendorFlags(form.contractFlags);
+  const sites = parseVendorSites(form.sites);
+  const riskTone = risk === 'Preferred' ? 'green' : risk === 'Watchlist' ? 'amber' : 'red';
+  const input = (field: keyof VendorWizardForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    setForm(prev => ({ ...prev, [field]: e.target.value }));
+  };
+
+  const stepCards = [
+    { id: 1 as const, label: 'Vendor profile', detail: 'Scope, category, contacts' },
+    { id: 2 as const, label: 'Performance baseline', detail: 'Score, SLA, evidence, cost' },
+    { id: 3 as const, label: 'Compliance and risk', detail: 'Flags, dependency, prediction' },
+    { id: 4 as const, label: 'AI review', detail: 'Insights and actions' },
+  ];
+
+  const dashboardSections = [
+    { label: 'Overview', value: `${score}/100 score`, tone: riskTone },
+    { label: 'Contract Compliance', value: `${flags.length} flags`, tone: flags.length ? 'amber' : 'green' },
+    { label: 'Cost vs Performance', value: `AED ${numeric(form.avgCostPerJob, 450)}/job`, tone: 'amber' },
+    { label: 'Predictive Risk', value: `${numeric(form.predictedRisk30d, 20)}% in 30d`, tone: numeric(form.predictedRisk30d, 20) > 30 ? 'red' : 'blue' },
+    { label: 'Dependency Risk', value: form.dependencyRisk, tone: form.dependencyRisk === 'Low' ? 'green' : form.dependencyRisk === 'Medium' ? 'amber' : 'red' },
+  ] as const;
+
+  function submit() {
+    onCreate(buildVendorFromWizard(form));
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="absolute inset-0 z-50 bg-[#020814]/80 backdrop-blur-sm"
+    >
+      <div className="flex h-full items-center justify-center p-5">
+        <motion.div
+          initial={{ opacity: 0, y: 18, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 12, scale: 0.98 }}
+          className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-[rgba(46,127,255,0.28)] bg-[#081528] shadow-2xl"
+        >
+          <div className="flex items-start justify-between border-b border-[rgba(46,127,255,0.16)] bg-gradient-to-r from-[#121D3E] to-[#0A1628] px-6 py-5">
+            <div>
+              <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[#2E7FFF]/25 bg-[#2E7FFF]/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-[#8DBDFF]">
+                <Sparkles size={12} />
+                VendorIQ setup
+              </div>
+              <h3 className="text-xl font-bold text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Add Vendor</h3>
+              <p className="mt-1 text-[12px] text-[#8AA6C8]">Create the vendor exactly as Vendor Intelligence monitors it: score, contracts, cost, risk, dependency, and AI recommendations.</p>
+            </div>
+            <button onClick={onClose} className="rounded-xl border border-white/10 bg-white/5 p-2 text-[#8AA6C8] transition-colors hover:bg-white/10 hover:text-white">
+              <X size={18} />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-4 gap-2 border-b border-[rgba(46,127,255,0.12)] px-6 py-4">
+            {stepCards.map(card => (
+              <button
+                key={card.id}
+                type="button"
+                onClick={() => setStep(card.id)}
+                className={`rounded-xl border p-3 text-left transition-all ${
+                  step === card.id
+                    ? 'border-[#2E7FFF]/45 bg-[#2E7FFF]/14'
+                    : card.id < step
+                      ? 'border-emerald-500/25 bg-emerald-500/8'
+                      : 'border-[rgba(46,127,255,0.12)] bg-[#06111F]'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className={`grid h-6 w-6 place-items-center rounded-full text-[11px] font-bold ${step === card.id ? 'bg-[#2E7FFF] text-white' : 'bg-[#102544] text-[#8AA6C8]'}`}>{card.id}</span>
+                  <span className="text-[11px] font-bold text-[#EEF3FA]">{card.label}</span>
+                </div>
+                <p className="mt-1 text-[10px] text-[#7A94B4]">{card.detail}</p>
+              </button>
+            ))}
+          </div>
+
+          <div className="flex-1 overflow-y-auto custom-scrollbar px-6 py-5">
+            {step === 1 && (
+              <div className="grid gap-5 lg:grid-cols-[1.35fr_0.9fr]">
+                <div className="rounded-2xl border border-[rgba(46,127,255,0.16)] bg-[#07111F] p-5">
+                  <div className="mb-4 flex items-center gap-2">
+                    <Building2 size={15} className="text-[#2E7FFF]" />
+                    <h4 className="text-sm font-bold text-[#EEF3FA]">Vendor profile and service scope</h4>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <VendorWizardField label="Vendor name">
+                      <VendorWizardInput value={form.name} onChange={input('name')} />
+                    </VendorWizardField>
+                    <VendorWizardField label="Category">
+                      <VendorWizardSelect value={form.category} onChange={input('category')}>
+                        {vendorCategories.map(category => <option key={category}>{category}</option>)}
+                      </VendorWizardSelect>
+                    </VendorWizardField>
+                    <VendorWizardField label="Sites covered" helper="Comma separated">
+                      <VendorWizardInput value={form.sites} onChange={input('sites')} />
+                    </VendorWizardField>
+                    <VendorWizardField label="Contract expiry">
+                      <VendorWizardInput value={form.contractExpiry} onChange={input('contractExpiry')} />
+                    </VendorWizardField>
+                    <VendorWizardField label="Primary contact">
+                      <VendorWizardInput value={form.pocName} onChange={input('pocName')} />
+                    </VendorWizardField>
+                    <VendorWizardField label="Contact title">
+                      <VendorWizardInput value={form.pocTitle} onChange={input('pocTitle')} />
+                    </VendorWizardField>
+                    <VendorWizardField label="Phone">
+                      <VendorWizardInput value={form.pocPhone} onChange={input('pocPhone')} />
+                    </VendorWizardField>
+                    <VendorWizardField label="Email">
+                      <VendorWizardInput type="email" value={form.pocEmail} onChange={input('pocEmail')} />
+                    </VendorWizardField>
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-purple-500/20 bg-purple-500/8 p-5">
+                  <div className="mb-3 flex items-center gap-2">
+                    <Brain size={15} className="text-purple-300" />
+                    <h4 className="text-sm font-bold text-[#EEF3FA]">How this maps to VendorIQ</h4>
+                  </div>
+                  <div className="space-y-2 text-[12px] text-[#C8D8EE]">
+                    <p>Vendor profile powers the dashboard header, contract scope, dependency risk, and routing decisions.</p>
+                    <p>Sites become the coverage map for reassignment, risk concentration, and contract lapse impact.</p>
+                    <p>Contact details are used by review, renewal, and performance notice workflows.</p>
+                  </div>
+                  <div className="mt-4 grid gap-2">
+                    <VendorWizardSummaryPill label="Coverage" value={`${sites.length || 1} site scope`} tone="blue" />
+                    <VendorWizardSummaryPill label="Contract" value={form.contractExpiry || 'Not set'} tone="amber" />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {step === 2 && (
+              <div className="grid gap-5 lg:grid-cols-[1fr_1fr]">
+                <div className="rounded-2xl border border-[rgba(46,127,255,0.16)] bg-[#07111F] p-5">
+                  <div className="mb-4 flex items-center gap-2">
+                    <Activity size={15} className="text-[#2E7FFF]" />
+                    <h4 className="text-sm font-bold text-[#EEF3FA]">Performance baseline</h4>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <VendorWizardField label="SLA compliance %"><VendorWizardInput type="number" min="0" max="100" value={form.slaCompliance} onChange={input('slaCompliance')} /></VendorWizardField>
+                    <VendorWizardField label="First-time fix %"><VendorWizardInput type="number" min="0" max="100" value={form.firstTimeFixRate} onChange={input('firstTimeFixRate')} /></VendorWizardField>
+                    <VendorWizardField label="Avg resolution minutes"><VendorWizardInput type="number" min="0" value={form.avgResolutionMin} onChange={input('avgResolutionMin')} /></VendorWizardField>
+                    <VendorWizardField label="Evidence compliance %"><VendorWizardInput type="number" min="0" max="100" value={form.evidenceCompliance} onChange={input('evidenceCompliance')} /></VendorWizardField>
+                    <VendorWizardField label="Repeat failure %"><VendorWizardInput type="number" min="0" max="100" value={form.repeatFailureRate} onChange={input('repeatFailureRate')} /></VendorWizardField>
+                    <VendorWizardField label="Jobs last 30 days"><VendorWizardInput type="number" min="0" value={form.jobsLast30d} onChange={input('jobsLast30d')} /></VendorWizardField>
+                    <VendorWizardField label="Avg cost / job"><VendorWizardInput type="number" min="0" value={form.avgCostPerJob} onChange={input('avgCostPerJob')} /></VendorWizardField>
+                    <VendorWizardField label="Active contracts"><VendorWizardInput type="number" min="0" value={form.activeContracts} onChange={input('activeContracts')} /></VendorWizardField>
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-[rgba(46,127,255,0.16)] bg-[#0D1E3A] p-5">
+                  <div className="mb-4 flex items-center justify-between">
+                    <div>
+                      <h4 className="text-sm font-bold text-[#EEF3FA]">Live score preview</h4>
+                      <p className="text-[11px] text-[#7A94B4]">Uses the same scoring logic as the dashboard.</p>
+                    </div>
+                    <ScoreRing score={score} size={72} />
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {dashboardSections.slice(0, 3).map(item => (
+                      <VendorWizardSummaryPill key={item.label} label={item.label} value={item.value} tone={item.tone} />
+                    ))}
+                  </div>
+                  <div className="mt-4 rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#07111F] p-3">
+                    <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#7A94B4]">Interpretation</div>
+                    <p className="mt-2 text-[12px] leading-relaxed text-[#C8D8EE]">
+                      {risk === 'Preferred'
+                        ? 'This vendor can enter preferred rotation once compliance documents are confirmed.'
+                        : risk === 'Watchlist'
+                          ? 'This vendor should start with controlled scope and a short KPI review cycle.'
+                          : 'This vendor should not receive critical work until performance controls are agreed.'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {step === 3 && (
+              <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
+                <div className="rounded-2xl border border-[rgba(46,127,255,0.16)] bg-[#07111F] p-5">
+                  <div className="mb-4 flex items-center gap-2">
+                    <ShieldCheck size={15} className="text-[#2E7FFF]" />
+                    <h4 className="text-sm font-bold text-[#EEF3FA]">Compliance, risk, and dependency</h4>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <VendorWizardField label="Trend">
+                      <VendorWizardSelect value={form.trend} onChange={input('trend')}>
+                        <option value="up">Improving</option>
+                        <option value="flat">Stable</option>
+                        <option value="down">Declining</option>
+                      </VendorWizardSelect>
+                    </VendorWizardField>
+                    <VendorWizardField label="Dependency risk">
+                      <VendorWizardSelect value={form.dependencyRisk} onChange={input('dependencyRisk')}>
+                        {['Low', 'Medium', 'High', 'Critical'].map(level => <option key={level}>{level}</option>)}
+                      </VendorWizardSelect>
+                    </VendorWizardField>
+                    <VendorWizardField label="30-day predicted risk %">
+                      <VendorWizardInput type="number" min="0" max="100" value={form.predictedRisk30d} onChange={input('predictedRisk30d')} />
+                    </VendorWizardField>
+                    <VendorWizardField label="Contract flags" helper="Separate multiple flags with semicolons">
+                      <VendorWizardInput value={form.contractFlags} onChange={input('contractFlags')} />
+                    </VendorWizardField>
+                    <div className="sm:col-span-2">
+                      <VendorWizardField label="Dependency note">
+                        <textarea value={form.dependencyNote} onChange={input('dependencyNote')} className="min-h-[92px] w-full rounded-xl border border-[rgba(46,127,255,0.22)] bg-[#07111F] px-3 py-2.5 text-[12px] text-[#EEF3FA] outline-none transition-all placeholder:text-[#4A6480] focus:border-[#2E7FFF]" />
+                      </VendorWizardField>
+                    </div>
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-amber-500/20 bg-amber-500/8 p-5">
+                  <div className="mb-3 flex items-center gap-2">
+                    <AlertTriangle size={15} className="text-amber-300" />
+                    <h4 className="text-sm font-bold text-[#EEF3FA]">Dashboard impact</h4>
+                  </div>
+                  <div className="grid gap-2">
+                    {dashboardSections.slice(2).map(item => (
+                      <VendorWizardSummaryPill key={item.label} label={item.label} value={item.value} tone={item.tone} />
+                    ))}
+                  </div>
+                  <div className="mt-4 space-y-2">
+                    {flags.length === 0 ? (
+                      <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-[12px] text-emerald-300">No contract flags will be shown at onboarding.</div>
+                    ) : (
+                      flags.map((flag, index) => (
+                        <div key={index} className="rounded-xl border border-amber-500/20 bg-[#07111F] p-3 text-[12px] text-[#C8D8EE]">{flag.description}</div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {step === 4 && (
+              <div className="grid gap-5 lg:grid-cols-[1fr_1fr]">
+                <div className="rounded-2xl border border-purple-500/20 bg-purple-500/8 p-5">
+                  <div className="mb-4 flex items-center gap-2">
+                    <Brain size={15} className="text-purple-300" />
+                    <h4 className="text-sm font-bold text-[#EEF3FA]">AI insight preview</h4>
+                  </div>
+                  <div className="space-y-2">
+                    {buildVendorInsights(form, score).map((insight, index) => (
+                      <div key={index} className="rounded-xl bg-[#07111F] p-3 text-[12px] leading-relaxed text-[#C8D8EE]">
+                        {insight}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-[rgba(46,127,255,0.16)] bg-[#07111F] p-5">
+                  <div className="mb-4 flex items-center gap-2">
+                    <Target size={15} className="text-[#2E7FFF]" />
+                    <h4 className="text-sm font-bold text-[#EEF3FA]">Recommendations generated</h4>
+                  </div>
+                  <div className="space-y-3">
+                    {buildVendorRecommendations(form, score).map((rec, index) => (
+                      <div key={index} className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#0D1E3A] p-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-[12px] font-bold text-[#EEF3FA]">{rec.title}</span>
+                          <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold ${actionColor(rec.action)}`}>{rec.action}</span>
+                        </div>
+                        <p className="mt-2 text-[11px] leading-relaxed text-[#8AA6C8]">{rec.detail}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    <VendorWizardSummaryPill label="Score" value={`${score}/100`} tone={riskTone} />
+                    <VendorWizardSummaryPill label="Classification" value={risk} tone={riskTone} />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center justify-between border-t border-[rgba(46,127,255,0.14)] px-6 py-4">
+            <div className="text-[11px] text-[#7A94B4]">
+              {step < 4 ? 'VendorIQ will generate score, risk tier, AI insights, recommendations, and dependency context.' : 'Ready to add this vendor to Vendor Intelligence.'}
+            </div>
+            <div className="flex gap-2">
+              <button type="button" onClick={step === 1 ? onClose : () => setStep(prev => (Math.max(1, prev - 1) as VendorWizardStep))} className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#07111F] px-4 py-2 text-[12px] font-semibold text-[#8AA6C8] transition-all hover:bg-white/5 hover:text-white">
+                {step === 1 ? 'Cancel' : 'Back'}
+              </button>
+              {step < 4 ? (
+                <button type="button" onClick={() => setStep(prev => (Math.min(4, prev + 1) as VendorWizardStep))} className="rounded-xl bg-[#2E7FFF] px-5 py-2 text-[12px] font-bold text-white shadow-lg shadow-[#2E7FFF]/20 transition-all hover:bg-[#4B91FF]">
+                  Continue
+                </button>
+              ) : (
+                <button type="button" onClick={submit} className="rounded-xl bg-[#ED1D2E] px-5 py-2 text-[12px] font-bold text-white shadow-lg shadow-[#ED1D2E]/20 transition-all hover:bg-[#ff3040]">
+                  Add Vendor
+                </button>
+              )}
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    </motion.div>
+  );
+}
+
 interface Props { onToast: ToastFn }
 
 export function VendorIntelligence({ onToast }: Props) {
   const [filterTab, setFilterTab] = useState<FilterTab>('all');
   const [selectedVendor, setSelectedVendor] = useState<VendorIntelData | null>(null);
-  const { vendors: allVendors } = useVendors();
+  const [showAddVendorWizard, setShowAddVendorWizard] = useState(false);
+  const { vendors: allVendors, addVendor } = useVendors();
 
   const vendorsWithScores = allVendors.map(v => ({
     vendor: v,
@@ -931,6 +1451,14 @@ export function VendorIntelligence({ onToast }: Props) {
     atRisk: vendorsWithScores.filter(v => v.riskLevel === 'At Risk').length,
   };
 
+  function createVendor(vendor: VendorIntelData) {
+    addVendor(vendor);
+    setShowAddVendorWizard(false);
+    setFilterTab('all');
+    setSelectedVendor(vendor);
+    onToast(`${vendor.name} added to Vendor Intelligence`, 'success');
+  }
+
   if (selectedVendor) {
     return (
       <div className="absolute inset-0 flex flex-col">
@@ -946,9 +1474,18 @@ export function VendorIntelligence({ onToast }: Props) {
           <h2 className="text-[#EEF3FA] font-bold text-base" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Vendor Intelligence & Contract Optimization</h2>
           <p className="text-[11px] text-[#7A94B4]">AI-powered vendor scoring, risk detection, and contract compliance monitoring</p>
         </div>
-        <div className="flex items-center gap-1.5">
-          <ShieldCheck size={14} className="text-[#2E7FFF]" />
-          <span className="text-[10px] text-[#7A94B4]">4C360 Vendor AI</span>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowAddVendorWizard(true)}
+            className="inline-flex items-center gap-2 rounded-xl bg-[#ED1D2E] px-4 py-2 text-[12px] font-bold text-white shadow-lg shadow-[#ED1D2E]/20 transition-all hover:bg-[#ff3040]"
+          >
+            <Plus size={14} />
+            Add Vendor
+          </button>
+          <div className="hidden items-center gap-1.5 sm:flex">
+            <ShieldCheck size={14} className="text-[#2E7FFF]" />
+            <span className="text-[10px] text-[#7A94B4]">4C360 Vendor AI</span>
+          </div>
         </div>
       </div>
 
@@ -1052,6 +1589,15 @@ export function VendorIntelligence({ onToast }: Props) {
           </div>
         )}
       </div>
+
+      <AnimatePresence>
+        {showAddVendorWizard && (
+          <AddVendorWizard
+            onClose={() => setShowAddVendorWizard(false)}
+            onCreate={createVendor}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
