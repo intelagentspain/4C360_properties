@@ -1073,23 +1073,29 @@ function ExecutionCard({ execution, onOpen }: { execution: MaintenanceExecution;
 function DrawerShell({ title, subtitle, onClose, children }: { title: string; subtitle: string; onClose: () => void; children: React.ReactNode }) {
   return (
     <motion.aside
-      initial={{ x: 520, opacity: 0 }}
+      initial={{ x: 56, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
-      exit={{ x: 520, opacity: 0 }}
+      exit={{ x: 56, opacity: 0 }}
       transition={{ duration: 0.22, ease: 'easeOut' }}
-      className="fixed right-0 top-0 z-50 h-screen w-full max-w-[520px] overflow-y-auto border-l border-[#1C3050] bg-[#07101C] p-6 shadow-2xl"
+      className="fixed bottom-3 left-3 right-3 top-16 z-50 flex overflow-hidden rounded-2xl border border-[#1C3050] bg-[#07101C] shadow-2xl sm:bottom-4 sm:left-auto sm:right-4 sm:top-20 sm:w-[min(520px,calc(100vw-2rem))]"
     >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-red-300">PPM Intelligence</p>
-          <h3 className="mt-2 text-2xl font-bold text-white">{title}</h3>
-          <p className="mt-1 text-sm text-slate-400">{subtitle}</p>
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="shrink-0 border-b border-[#1C3050] p-5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-red-300">PPM Intelligence</p>
+              <h3 className="mt-2 text-xl font-bold text-white sm:text-2xl">{title}</h3>
+              <p className="mt-1 text-sm text-slate-400">{subtitle}</p>
+            </div>
+            <button onClick={onClose} className="shrink-0 rounded-xl border border-[#1C3050] p-2 text-slate-300 transition hover:text-white">
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </div>
-        <button onClick={onClose} className="rounded-xl border border-[#1C3050] p-2 text-slate-300 transition hover:text-white">
-          <X className="h-5 w-5" />
-        </button>
+        <div className="custom-scrollbar flex-1 overflow-y-auto p-5">
+          <div className="space-y-4">{children}</div>
+        </div>
       </div>
-      <div className="mt-6 space-y-4">{children}</div>
     </motion.aside>
   );
 }
@@ -1139,7 +1145,7 @@ function ProjectCopilot({ onClose }: { onClose: () => void }) {
         <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-blue-300">Copilot answer</p>
         <p className="mt-3 text-sm leading-6 text-slate-200">{answer}</p>
       </div>
-      <div className="sticky bottom-0 -mx-6 bg-[#07101C]/95 p-6 backdrop-blur">
+      <div className="sticky bottom-0 -mx-5 -mb-5 border-t border-[#1C3050] bg-[#07101C]/95 p-4 backdrop-blur">
         <div className="flex gap-2">
           <input
             value={question}
@@ -1713,15 +1719,6 @@ export function PPMSchedule({ onToast }: Props) {
           </motion.div>
         </AnimatePresence>
       </main>
-
-      <button
-        onClick={() => setCopilotOpen(true)}
-        className="fixed bottom-6 right-6 z-40 flex h-16 w-16 items-center justify-center rounded-full border border-violet-300/40 bg-violet-600 text-white shadow-[0_18px_50px_rgba(124,58,237,0.36)]"
-        aria-label="Open PPM Intelligence Copilot"
-      >
-        <Brain className="h-7 w-7" />
-        <span className="absolute -top-2 -right-2 rounded-full bg-red-600 px-2 py-1 text-[10px] font-bold">4</span>
-      </button>
 
       <AnimatePresence>
         {selectedAsset && (
