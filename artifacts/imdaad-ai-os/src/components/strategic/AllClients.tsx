@@ -134,6 +134,50 @@ const PULSE_SEV_ICON: Record<string, { icon: React.ReactNode; cls: string }> = {
   ok:       { icon: <CheckCircle size={11} />, cls: 'text-emerald-400 bg-emerald-500/20' },
 };
 
+const PULSE_SEV_LABEL: Record<PulseEvent['severity'], string> = {
+  critical: 'Critical',
+  high: 'High',
+  medium: 'Watch',
+  info: 'AI Notice',
+  ok: 'Resolved',
+};
+
+const PULSE_RESOLUTION_CHIPS: Record<PulseEvent['severity'], string[]> = {
+  critical: ['Create emergency WO', 'Assign nearest certified tech', 'Notify supervisor', 'Client SLA update'],
+  high: ['Open escalation task', 'Rebalance field team', 'Notify client ops', 'Start 60-min recovery timer'],
+  medium: ['Schedule PPM slot', 'Attach asset checklist', 'Confirm parts availability', 'Watch SLA drift'],
+  info: ['Convert to preventive WO', 'Keep AI watch active', 'Send proactive update', 'Log avoided failure'],
+  ok: ['Close loop', 'Publish resolution note', 'Update KPI impact', 'Archive evidence'],
+};
+
+const PULSE_RESOLUTION_COPY: Record<PulseEvent['severity'], { impact: string; resolution: string; eta: string }> = {
+  critical: {
+    impact: 'Resident-impacting event with immediate SLA and safety exposure.',
+    resolution: 'Create an emergency work order, dispatch certified response, keep supervisor escalation open, and notify the client with a recovery clock.',
+    eta: '12 min dispatch / 90 min stabilization',
+  },
+  high: {
+    impact: 'Operational risk is rising and may become contractual if unattended.',
+    resolution: 'Open escalation, rebalance available field capacity, clear the oldest breach first, and keep client operations informed.',
+    eta: '30 min triage / same-shift recovery',
+  },
+  medium: {
+    impact: 'Preventive or compliance work is drifting toward SLA pressure.',
+    resolution: 'Schedule the next service slot, attach the right checklist, confirm parts, and monitor for breach risk.',
+    eta: 'Next available PPM window',
+  },
+  info: {
+    impact: 'AI has found an early signal before it becomes a resident-facing issue.',
+    resolution: 'Convert the signal into preventive action, keep the asset under watch, and log the avoided failure value.',
+    eta: 'Preventive response queued',
+  },
+  ok: {
+    impact: 'The event has been stabilized and is ready for closure evidence.',
+    resolution: 'Publish the closure note, update KPI impact, archive evidence, and keep a lightweight watch on recurrence.',
+    eta: 'Close-out ready',
+  },
+};
+
 const SIMULATION_EVENTS: PulseEvent[] = [
   { id: 'sim-1', client: 'JLT North Cluster', title: 'Resident emergency raised from Tower 5 lift lobby', sub: 'AI triage classifies Critical - lift safety', time: 'Live step 1', severity: 'critical' },
   { id: 'sim-2', client: 'JLT North Cluster', title: 'AI creates work order WO-LIFT-8842', sub: 'Parts, lift console, and supervisor approval linked', time: 'Live step 2', severity: 'high' },
@@ -239,11 +283,109 @@ function ExecutiveImpactStrip({ clients }: { clients: PortfolioClient[] }) {
   );
 }
 
-function PortfolioPulseFeed() {
+function PulseEventModal({ event, onClose, onToast }: { event: PulseEvent; onClose: () => void; onToast: ToastFn }) {
+  const cfg = PULSE_SEV_ICON[event.severity];
+  const resolution = PULSE_RESOLUTION_COPY[event.severity];
+  const chips = PULSE_RESOLUTION_CHIPS[event.severity];
+  const [selectedChips, setSelectedChips] = useState<string[]>(chips.slice(0, 3));
+
+  const toggleChip = (chip: string) => {
+    setSelectedChips(prev => prev.includes(chip) ? prev.filter(c => c !== chip) : [...prev, chip]);
+  };
+
+  const applyResolution = () => {
+    onToast(`${event.client}: ${selectedChips.length} resolution actions queued`, 'success');
+    onClose();
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.96, y: 12 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.96, y: 12 }}
+      transition={{ duration: 0.18 }}
+      className="fixed left-1/2 top-1/2 z-[320] w-[min(560px,calc(100%-32px))] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl border border-[rgba(46,127,255,0.28)] bg-[#0B172A] shadow-2xl"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Portfolio pulse event"
+    >
+      <div className="flex items-start justify-between gap-3 border-b border-[rgba(46,127,255,0.16)] bg-[#112040] px-4 py-3">
+        <div className="flex min-w-0 items-start gap-3">
+          <div className={`mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg ${cfg.cls}`}>
+            {cfg.icon}
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="rounded-md border border-white/10 bg-white/5 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#9DB9E8]">{PULSE_SEV_LABEL[event.severity]}</span>
+              <span className="text-[10px] text-[#7A94B4]">{event.time}</span>
+            </div>
+            <h3 className="mt-1 text-sm font-bold leading-tight text-[#EEF3FA]">{event.title}</h3>
+            <p className="mt-1 text-[11px] text-[#7A94B4]">{event.client} - {event.sub}</p>
+          </div>
+        </div>
+        <button onClick={onClose} className="rounded-lg p-1.5 text-[#7A94B4] transition-colors hover:bg-white/5 hover:text-white" aria-label="Close event details">
+          <X size={15} />
+        </button>
+      </div>
+
+      <div className="space-y-3 p-4">
+        <div className="grid gap-2 md:grid-cols-3">
+          {[
+            { label: 'Impact', value: resolution.impact },
+            { label: 'Resolution ETA', value: resolution.eta },
+            { label: 'Owner', value: event.severity === 'critical' ? 'Duty Supervisor' : event.severity === 'ok' ? 'Account Manager' : 'Operations Lead' },
+          ].map(item => (
+            <div key={item.label} className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#0A1628] p-3">
+              <div className="text-[9px] uppercase tracking-wide text-[#7A94B4]">{item.label}</div>
+              <div className="mt-1 text-[11px] font-semibold leading-snug text-[#EEF3FA]">{item.value}</div>
+            </div>
+          ))}
+        </div>
+
+        <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/10 p-3">
+          <div className="mb-1 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wide text-cyan-200">
+            <Bot size={12} /> AI Resolution Brief
+          </div>
+          <p className="text-[11px] leading-relaxed text-[#D8E7FA]">{resolution.resolution}</p>
+        </div>
+
+        <div>
+          <div className="mb-2 text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">Resolution Chips</div>
+          <div className="flex flex-wrap gap-2">
+            {chips.map(chip => {
+              const active = selectedChips.includes(chip);
+              return (
+                <button
+                  key={chip}
+                  onClick={() => toggleChip(chip)}
+                  className={`rounded-lg border px-2.5 py-1.5 text-[10px] font-semibold transition-all ${active ? 'border-[#2E7FFF] bg-[#2E7FFF]/20 text-blue-100' : 'border-[rgba(46,127,255,0.16)] bg-[#0A1628] text-[#7A94B4] hover:text-[#EEF3FA]'}`}
+                >
+                  {active && <Check size={10} className="mr-1 inline" />}
+                  {chip}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between gap-3 border-t border-[rgba(46,127,255,0.12)] pt-3">
+          <div className="text-[10px] text-[#7A94B4]">{selectedChips.length} actions selected for command queue</div>
+          <div className="flex gap-2">
+            <button onClick={onClose} className="rounded-lg border border-[rgba(46,127,255,0.18)] px-3 py-2 text-[11px] font-semibold text-[#9DB9E8] transition-colors hover:bg-white/5">Review Later</button>
+            <button onClick={applyResolution} className="rounded-lg bg-[#2E7FFF] px-3 py-2 text-[11px] font-bold text-white shadow-[0_0_14px_rgba(46,127,255,0.32)] transition-colors hover:bg-blue-500">Queue Resolution</button>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+function PortfolioPulseFeed({ onToast }: { onToast: ToastFn }) {
   const [events, setEvents] = useState<PulseEvent[]>(PULSE_EVENTS.slice(0, 5));
   const [idx, setIdx] = useState(0);
   const [filter, setFilter] = useState<'all' | PulseEvent['severity']>('all');
   const [simRunning, setSimRunning] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<PulseEvent | null>(null);
 
   useEffect(() => {
     const t = setInterval(() => {
@@ -311,13 +453,14 @@ function PortfolioPulseFeed() {
             const border = PULSE_SEV_BORDER[ev.severity];
             const cfg    = PULSE_SEV_ICON[ev.severity];
             return (
-              <motion.div
+              <motion.button
                 key={ev.id}
                 initial={{ opacity: 0, x: -16 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, height: 0 }}
                 transition={{ duration: 0.22 }}
-                className={`flex-1 min-w-[220px] lg:min-w-0 flex items-start gap-2 px-3 py-2 border-r border-[rgba(46,127,255,0.08)] border-l-2 ${border} last:border-r-0`}
+                onClick={() => setSelectedEvent(ev)}
+                className={`flex-1 min-w-[220px] lg:min-w-0 flex items-start gap-2 px-3 py-2 text-left border-r border-[rgba(46,127,255,0.08)] border-l-2 ${border} last:border-r-0 transition-colors hover:bg-[#17315A]/55 focus:outline-none focus:ring-1 focus:ring-[#2E7FFF]/70`}
               >
                 <div className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 mt-0.5 ${cfg.cls}`}>
                   {cfg.icon}
@@ -328,11 +471,19 @@ function PortfolioPulseFeed() {
                   <div className="text-[9px] text-[#7A94B4] mt-0.5 truncate">{ev.sub}</div>
                   <div className="text-[8px] text-[#7A94B4] opacity-60 mt-0.5">{ev.time}</div>
                 </div>
-              </motion.div>
+              </motion.button>
             );
           })}
         </AnimatePresence>
       </div>
+      <AnimatePresence>
+        {selectedEvent && (
+          <>
+            <div className="fixed inset-0 z-[300] bg-black/35 backdrop-blur-[1px]" onClick={() => setSelectedEvent(null)} />
+            <PulseEventModal event={selectedEvent} onClose={() => setSelectedEvent(null)} onToast={onToast} />
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -1530,7 +1681,7 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
 
       <ExecutiveImpactStrip clients={allClients} />
 
-      <PortfolioPulseFeed />
+      <PortfolioPulseFeed onToast={onToast} />
 
       <div className="flex items-stretch gap-2 px-5 pb-2.5 flex-shrink-0 flex-wrap gap-y-2">
         <div className="flex min-w-[180px] flex-1 items-center gap-1.5 bg-[#112040] rounded-lg px-2.5 py-1.5 border border-[rgba(46,127,255,0.2)] sm:flex-none">
