@@ -670,7 +670,10 @@ function CopilotContextHeader({
     <div className="border-b border-[rgba(46,127,255,0.12)] bg-[linear-gradient(135deg,rgba(124,58,237,0.12),rgba(9,21,42,0.97))] px-5 py-4">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <div className="text-[10px] font-black uppercase tracking-[0.22em] text-[#C4B5FD]">ProjectCommand Copilot</div>
+          <div className="text-[10px] font-black uppercase tracking-[0.22em] text-[#C4B5FD]">DevelopmentX Copilot</div>
+          <div className="mt-1 inline-flex rounded-full border border-[#7C3AED]/28 bg-[#7C3AED]/12 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-[#DDD6FE]">
+            ProjectCommand mode
+          </div>
           <p className="mt-2 text-[12px] font-bold leading-5 text-[#B8C7DB]">
             {projectName} - {screenLabels[screen]} - Health {health} - {completion} complete
           </p>
@@ -702,7 +705,7 @@ function CopilotMonitoringStrip({ context }: { context: CopilotContext }) {
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-300 opacity-40" />
             <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-300" />
           </span>
-          Live scan
+          Project controls live scan
         </span>
         {signals.map(item => (
           <span key={item} className="rounded-full bg-white/[0.035] px-2.5 py-1 text-[10px] font-bold text-[#8EA7C7]">
@@ -721,7 +724,7 @@ function CopilotMonitoringStrip({ context }: { context: CopilotContext }) {
         animate={{ opacity: [0.75, 1, 0.75] }}
         transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
       >
-        Prediction: {context.prediction.handoverRisk} handover risk if blockers remain after <span className="font-black text-amber-100">{context.prediction.unresolvedAfterDate}</span>.
+        ProjectCommand mode is reading live project events, KPI deltas, stage gates, evidence, variations, vendors, and manager actions. Prediction: {context.prediction.handoverRisk} handover risk if blockers remain after <span className="font-black text-amber-100">{context.prediction.unresolvedAfterDate}</span>.
         {' '}Health {context.control.healthMovement.from} {'->'} {context.control.healthMovement.to}; EAC {formatProjectCurrency(context.control.metrics.eac)}.
       </motion.p>
     </div>
@@ -1212,7 +1215,7 @@ function ProjectCommandCopilotPanel({
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_10%_5%,rgba(124,58,237,0.12),transparent_30%)]" />
       <div className="flex items-start justify-between">
         <CopilotContextHeader context={context} projectName={dataset.project.name} screen={screen} />
-        <button onClick={onClose} className="absolute right-4 top-4 rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#0A1628] p-2 text-[#8EA7C7] hover:bg-white/5 hover:text-white" aria-label="Close ProjectCommand Copilot">
+        <button onClick={onClose} className="absolute right-4 top-4 rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#0A1628] p-2 text-[#8EA7C7] hover:bg-white/5 hover:text-white" aria-label="Close DevelopmentX Copilot">
           <X size={17} />
         </button>
       </div>
@@ -1245,7 +1248,6 @@ export function ProjectCommandCopilotButton({
   const [open, setOpen] = useState(false);
   const context = useProjectCommandCopilotContext(screen);
   const hasCritical = context.insights.some(item => item.urgency === 'critical');
-  const lens = controlLens[screen];
 
   return (
     <>
@@ -1258,23 +1260,8 @@ export function ProjectCommandCopilotButton({
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="hidden max-w-[220px] items-center gap-2 rounded-full border border-[#7C3AED]/38 bg-[#07111F]/92 px-3.5 py-2.5 text-left shadow-[0_0_34px_rgba(124,58,237,0.28)] backdrop-blur sm:flex"
-          aria-label="Open ProjectCommand Copilot"
-        >
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[radial-gradient(circle_at_35%_30%,#60A5FA,#7C3AED_52%,#111827_82%)] text-white">
-            <Sparkles size={16} />
-          </span>
-          <span className="min-w-0">
-            <span className="block truncate text-[10px] font-black uppercase tracking-[0.12em] text-[#C4B5FD]">Copilot</span>
-            <span className="block truncate text-[11px] font-bold text-[#DCE8F8]">{lens.label}</span>
-          </span>
-          <span className={`ml-auto shrink-0 rounded-full border px-2 py-0.5 text-[9px] font-black ${hasCritical ? 'border-red-300/35 bg-red-400/16 text-red-100' : 'border-cyan-300/24 bg-cyan-300/10 text-cyan-100'}`}>{context.badge}</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
           className="relative flex h-16 w-16 items-center justify-center rounded-full border border-[#7C3AED]/45 bg-[radial-gradient(circle_at_35%_30%,#60A5FA,#7C3AED_48%,#111827_78%)] text-white shadow-[0_0_34px_rgba(124,58,237,0.45)] transition-transform hover:scale-105"
-          aria-label="Open ProjectCommand Copilot"
+          aria-label="Open DevelopmentX Copilot"
         >
           {hasCritical && <span className="absolute inset-[-8px] rounded-full border border-red-300/25" />}
           <Sparkles size={24} />
@@ -1290,47 +1277,9 @@ export function ProjectCommandCopilotButton({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setOpen(false)}
-              aria-label="Close ProjectCommand Copilot overlay"
+              aria-label="Close DevelopmentX Copilot overlay"
             />
             <ProjectCommandCopilotPanel screen={screen} onClose={() => setOpen(false)} onNavigate={onNavigate} />
-          </>
-        )}
-      </AnimatePresence>
-    </>
-  );
-}
-
-export function StageGateStatusCopilotButton() {
-  const [open, setOpen] = useState(false);
-  const context = useProjectCommandCopilotContext('stagegates');
-  const criticalCount = context.insights.filter(item => item.urgency === 'critical').length;
-
-  return (
-    <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="inline-flex h-9 items-center gap-2 rounded-xl bg-[linear-gradient(135deg,#3B82F6,#7C3AED)] px-3 text-[11px] font-black text-white shadow-[0_0_22px_rgba(124,58,237,0.32)] transition-transform hover:scale-[1.03]"
-        aria-label="Open Stage Gate AI Copilot"
-      >
-        <Sparkles size={14} />
-        AI Gate Copilot
-        <span className="rounded-full border border-white/20 bg-white/14 px-2 py-0.5 text-[9px] font-black">
-          {criticalCount > 0 ? `${criticalCount} critical` : context.badge}
-        </span>
-      </button>
-      <AnimatePresence>
-        {open && (
-          <>
-            <motion.button
-              className="fixed inset-0 z-[2550] bg-black/30 backdrop-blur-[1px]"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setOpen(false)}
-              aria-label="Close Stage Gate AI Copilot overlay"
-            />
-            <ProjectCommandCopilotPanel screen="stagegates" onClose={() => setOpen(false)} onNavigate={() => undefined} />
           </>
         )}
       </AnimatePresence>
