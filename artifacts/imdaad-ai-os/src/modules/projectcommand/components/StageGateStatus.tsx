@@ -126,7 +126,7 @@ export function StageGateStatus() {
     { gate: 'Construction Start', projectName: project.name, status: 'Clear', issues: [] },
     {
       gate: 'Commissioning Ready',
-      projectName: project.developer.includes('Danube') ? 'Riverside Towers' : 'Downtown Residences',
+      projectName: project.developer.includes('Sobha') ? 'Sobha Pilot Tower' : project.name,
       status: 'At Risk',
       issues: [
         {

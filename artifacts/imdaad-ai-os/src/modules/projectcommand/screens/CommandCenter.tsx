@@ -181,7 +181,7 @@ function ProjectHeader({
         <div>
           <div className="flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-[#A78BFA]">
             <Building2 size={13} />
-            DevelopmentX / Danube Properties / {baseline.property.name} / {baseline.project.name}
+            DevelopmentX / Sobha Realty / {baseline.property.name} / {baseline.project.name}
           </div>
           <h2 className="mt-2 text-[22px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
             {baseline.property.name} - {baseline.project.name}
@@ -401,7 +401,7 @@ function WhatChangedToday({ context, goTo }: { context: ProjectControlContext; g
     : [{
         id: 'baseline-created',
         type: 'recovery-approved' as const,
-        title: 'AI baseline generated for Bayz 102',
+        title: 'AI baseline generated for Sobha Pilot Tower',
         affectedModule: 'Project Control Layer',
         impactLabel: 'Work packages, phases, cost baseline, stage gates, vendors, risks, obligations, evidence, and milestones are ready.',
         timestamp: new Date().toISOString(),

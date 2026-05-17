@@ -31,7 +31,7 @@ import {
   generateProjectControlBaseline,
   type GeneratedProjectControlBaseline,
 } from '../data/projectCreationEngine';
-import { sampleBayz102Brief, type ExtractedProjectContext } from '../data/projectExtractionDemoData';
+import { sampleSobhaPilotBrief, type ExtractedProjectContext } from '../data/projectExtractionDemoData';
 
 type CreateProjectStep = 'import' | 'understanding' | 'review' | 'baseline' | 'launch';
 
@@ -75,9 +75,9 @@ const baselineSteps = [
 ];
 
 const sampleDocumentHighlights = [
-  { label: 'LOA signal', value: 'Bayz 102 / Main Construction' },
+  { label: 'LOA signal', value: 'Sobha Pilot Tower / Main Construction' },
   { label: 'Commercial', value: 'AED 420M / 8% contingency' },
-  { label: 'Delivery', value: '102 floors / 680 units / Business Bay' },
+  { label: 'Delivery', value: '102 floors / 680 units / Dubai' },
   { label: 'Control hooks', value: 'Gates, vendors, risks, evidence' },
 ];
 
@@ -165,7 +165,7 @@ function SampleDocumentButton({ onClick }: { onClick: () => void }) {
         <FileText className="h-4 w-4" />
       </span>
       <span>
-        <span className="block">Use sample Bayz 102 document</span>
+        <span className="block">Use sample Sobha document</span>
         <span className="block text-[10px] font-bold uppercase tracking-[0.14em] text-blue-200/80">1-click live demo</span>
       </span>
     </button>
@@ -359,7 +359,7 @@ function ProjectContextImportStep({
               className="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-300/45 bg-blue-500/15 px-4 py-3 text-[12px] font-black text-blue-100 transition hover:border-blue-200/80 hover:bg-blue-500/25"
             >
               <FileText className="h-4 w-4" />
-              Use sample Bayz 102 document
+              Use sample Sobha document
             </button>
             <button type="button" onClick={onManual} className="text-[12px] font-bold text-[#8FB4E4] underline-offset-4 hover:text-white hover:underline">
               Continue manually
@@ -450,9 +450,9 @@ function ProjectContextImportStep({
           <div className="flex items-start gap-4">
             <IconBox icon={FileText} tone="green" />
             <div>
-              <h3 className="text-[18px] font-black text-white">Paste a brief or launch the Bayz sample</h3>
+              <h3 className="text-[18px] font-black text-white">Paste a brief or launch the Sobha sample</h3>
               <p className="mt-2 text-[13px] leading-relaxed text-[#9DBBE0]">
-                The sample button preloads the Bayz 102 LOA/project summary and starts extraction immediately.
+                The sample button preloads the Sobha Pilot Tower LOA/project summary and starts extraction immediately.
               </p>
             </div>
           </div>
@@ -460,7 +460,7 @@ function ProjectContextImportStep({
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-[11px] font-black uppercase tracking-[0.14em] text-emerald-200">Live demo document</p>
-                <p className="mt-1 text-[13px] font-black text-white">Sample Bayz 102 LOA / Project Summary.pdf</p>
+                <p className="mt-1 text-[13px] font-black text-white">Sample Sobha Pilot Tower LOA / Project Summary.pdf</p>
               </div>
               <SampleDocumentButton onClick={onUseSample} />
             </div>
@@ -468,7 +468,7 @@ function ProjectContextImportStep({
           <textarea
             value={material.pastedText}
             onChange={event => onText(event.target.value)}
-            placeholder={sampleBayz102Brief.slice(0, 180)}
+            placeholder={sampleSobhaPilotBrief.slice(0, 180)}
             className="mt-4 min-h-[180px] w-full resize-none rounded-lg border border-[#24486F] bg-[#061529] px-4 py-3 text-[13px] leading-relaxed text-white outline-none transition placeholder:text-[#5F7898] focus:border-blue-300/60"
           />
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
@@ -542,7 +542,7 @@ function AIProjectUnderstandingStep({
               </div>
               <div className="mt-4 space-y-2">
                 {[
-                  'Letter of Award and project summary for Bayz 102...',
+                  'Letter of Award and project summary for Sobha Pilot Tower...',
                   'Contract value: AED 420,000,000. Target handover: 12 August 2026.',
                   'Packages include preliminaries, design approvals, substructure...',
                 ].map((line, index) => (
@@ -1035,7 +1035,7 @@ function LaunchStep({ onLaunch, onBack }: { onLaunch: () => void; onBack: () => 
         </div>
         <h3 className="mt-4 text-[24px] font-black text-white">ProjectCommand is ready with a populated baseline</h3>
         <p className="mx-auto mt-2 max-w-2xl text-[13px] leading-relaxed text-[#B7D5F8]">
-          The overview opens with the Bayz 102 control story already alive: health score, KPI causes, top threat, What Changed Today, forecast scenarios, and AI manager actions.
+          The overview opens with the Sobha Pilot Tower control story already alive: health score, KPI causes, top threat, What Changed Today, forecast scenarios, and AI manager actions.
         </p>
         <div className="mx-auto mt-6 grid max-w-4xl gap-3 md:grid-cols-4">
           {[
@@ -1071,8 +1071,8 @@ function CreateProjectModal({
 }) {
   const [step, setStep] = useState<CreateProjectStep>('import');
   const [material, setMaterial] = useState<ProjectMaterialState>({
-    fileName: 'Sample Bayz 102 LOA / Project Summary.pdf',
-    pastedText: sampleBayz102Brief,
+    fileName: 'Sample Sobha Pilot Tower LOA / Project Summary.pdf',
+    pastedText: sampleSobhaPilotBrief,
     useSample: true,
     manual: false,
   });
@@ -1218,7 +1218,7 @@ function CreateProjectModal({
                 material={material}
                 onFile={fileName => setMaterial(current => ({ ...current, fileName, useSample: false, manual: false }))}
                 onText={pastedText => setMaterial(current => ({ ...current, pastedText, useSample: false, manual: false }))}
-                onUseSample={() => startUnderstanding({ fileName: 'Sample Bayz 102 LOA / Project Summary.pdf', pastedText: sampleBayz102Brief, useSample: true, manual: false })}
+                onUseSample={() => startUnderstanding({ fileName: 'Sample Sobha Pilot Tower LOA / Project Summary.pdf', pastedText: sampleSobhaPilotBrief, useSample: true, manual: false })}
                 onManual={() => startUnderstanding({ manual: true })}
                 onContinue={() => startUnderstanding()}
               />

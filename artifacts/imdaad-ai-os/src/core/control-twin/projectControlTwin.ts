@@ -255,12 +255,12 @@ function eventSeverity(score: number): Exclude<ProjectSeverity, 'positive'> {
   return 'low';
 }
 
-export const bayz102ControlBaseline: ProjectControlBaseline = {
-  projectId: 'bayz-102',
+export const sobhaPilotControlBaseline: ProjectControlBaseline = {
+  projectId: 'sobha-pilot-tower',
   property: {
-    name: 'Bayz 102',
+    name: 'Sobha Pilot Tower',
     type: 'Residential Tower',
-    location: 'Business Bay',
+    location: 'Dubai',
     floors: 102,
     units: 680,
   },
@@ -304,23 +304,23 @@ export const bayz102ControlBaseline: ProjectControlBaseline = {
     'Handover Go/No-Go',
   ],
   budgetPackages: [
-    { name: 'Preliminaries', budget: 25_200_000, vendor: 'China State Construction' },
-    { name: 'Design & Approvals', budget: 21_000_000, vendor: 'Lead Consultant' },
-    { name: 'Substructure', budget: 58_800_000, vendor: 'China State Construction' },
-    { name: 'Superstructure', budget: 92_400_000, vendor: 'China State Construction' },
-    { name: 'Facade', budget: 50_400_000, vendor: 'Gulf Facade Systems' },
-    { name: 'MEP', budget: 67_200_000, vendor: 'Emirates MEP Services' },
-    { name: 'Fit-out', budget: 42_000_000, vendor: 'China State Construction' },
-    { name: 'Testing & Commissioning', budget: 12_600_000, vendor: 'SafeFire Systems' },
-    { name: 'Handover & Snagging', budget: 8_400_000, vendor: 'LiftTech Elevators' },
+    { name: 'Preliminaries', budget: 25_200_000, vendor: 'Sobha Construction' },
+    { name: 'Design & Approvals', budget: 21_000_000, vendor: 'Sobha Design Studio' },
+    { name: 'Substructure', budget: 58_800_000, vendor: 'Sobha Construction' },
+    { name: 'Superstructure', budget: 92_400_000, vendor: 'Sobha Construction' },
+    { name: 'Facade', budget: 50_400_000, vendor: 'Sobha Facade Systems' },
+    { name: 'MEP', budget: 67_200_000, vendor: 'Sobha MEP Services' },
+    { name: 'Fit-out', budget: 42_000_000, vendor: 'Sobha Interiors' },
+    { name: 'Testing & Commissioning', budget: 12_600_000, vendor: 'Sobha Fire & Life Safety' },
+    { name: 'Handover & Snagging', budget: 8_400_000, vendor: 'Sobha Handover Team' },
   ],
   vendors: [
-    { name: 'China State Construction', scope: 'Main Contractor', score: 82, status: 'watch' },
-    { name: 'Arabian Waterproofing', scope: 'Waterproofing', score: 86, status: 'on-track' },
-    { name: 'Emirates MEP Services', scope: 'MEP', score: 80, status: 'watch' },
-    { name: 'Gulf Facade Systems', scope: 'Facade', score: 78, status: 'watch' },
-    { name: 'LiftTech Elevators', scope: 'Elevators', score: 84, status: 'on-track' },
-    { name: 'SafeFire Systems', scope: 'Fire Systems', score: 83, status: 'on-track' },
+    { name: 'Sobha Construction', scope: 'Main Contractor', score: 82, status: 'watch' },
+    { name: 'Sobha Waterproofing', scope: 'Waterproofing', score: 86, status: 'on-track' },
+    { name: 'Sobha MEP Services', scope: 'MEP', score: 80, status: 'watch' },
+    { name: 'Sobha Facade Systems', scope: 'Facade', score: 78, status: 'watch' },
+    { name: 'Sobha Lift Coordination', scope: 'Elevators', score: 84, status: 'on-track' },
+    { name: 'Sobha Fire & Life Safety', scope: 'Fire Systems', score: 83, status: 'on-track' },
   ],
   risks: [
     'facade procurement lead time',
@@ -330,19 +330,19 @@ export const bayz102ControlBaseline: ProjectControlBaseline = {
     'summer concrete productivity loss',
   ],
   obligations: [
-    { id: 'OBL-BAYZ-01', title: 'Authority approval tracker current', owner: 'Planning Manager', status: 'watch' },
-    { id: 'OBL-BAYZ-02', title: 'Monthly EOT and variation notice register', owner: 'Commercial Manager', status: 'on-track' },
-    { id: 'OBL-BAYZ-03', title: 'Fire system compliance evidence before commissioning', owner: 'QA/QC Lead', status: 'watch' },
+    { id: 'OBL-SOBHA-01', title: 'Authority approval tracker current', owner: 'Planning Manager', status: 'watch' },
+    { id: 'OBL-SOBHA-02', title: 'Monthly EOT and variation notice register', owner: 'Commercial Manager', status: 'on-track' },
+    { id: 'OBL-SOBHA-03', title: 'Fire system compliance evidence before commissioning', owner: 'QA/QC Lead', status: 'watch' },
   ],
   evidenceRequirements: [
-    { id: 'EVD-BAYZ-01', title: 'authority approvals', gate: 'Commissioning Ready', status: 'Required' },
-    { id: 'EVD-BAYZ-02', title: 'inspection reports', gate: 'Superstructure Level 50', status: 'Required' },
-    { id: 'EVD-BAYZ-03', title: 'commissioning certificates', gate: 'Commissioning Ready', status: 'Required' },
-    { id: 'EVD-BAYZ-04', title: 'fire system sign-off', gate: 'Commissioning Ready', status: 'Required' },
-    { id: 'EVD-BAYZ-05', title: 'lift inspection sign-off', gate: 'Handover Go/No-Go', status: 'Required' },
-    { id: 'EVD-BAYZ-06', title: 'vendor warranty packs', gate: 'Handover Go/No-Go', status: 'Required' },
-    { id: 'EVD-BAYZ-07', title: 'handover evidence pack', gate: 'Handover Go/No-Go', status: 'Required' },
-    { id: 'EVD-BAYZ-08', title: 'BOQ/package budget summary', gate: 'Design Freeze', status: 'Required' },
+    { id: 'EVD-SOBHA-01', title: 'authority approvals', gate: 'Commissioning Ready', status: 'Required' },
+    { id: 'EVD-SOBHA-02', title: 'inspection reports', gate: 'Superstructure Level 50', status: 'Required' },
+    { id: 'EVD-SOBHA-03', title: 'commissioning certificates', gate: 'Commissioning Ready', status: 'Required' },
+    { id: 'EVD-SOBHA-04', title: 'fire system sign-off', gate: 'Commissioning Ready', status: 'Required' },
+    { id: 'EVD-SOBHA-05', title: 'lift inspection sign-off', gate: 'Handover Go/No-Go', status: 'Required' },
+    { id: 'EVD-SOBHA-06', title: 'vendor warranty packs', gate: 'Handover Go/No-Go', status: 'Required' },
+    { id: 'EVD-SOBHA-07', title: 'handover evidence pack', gate: 'Handover Go/No-Go', status: 'Required' },
+    { id: 'EVD-SOBHA-08', title: 'BOQ/package budget summary', gate: 'Design Freeze', status: 'Required' },
   ],
   milestones: [
     { title: 'Substructure Complete', target: '2026-05-30', status: 'watch' },
@@ -497,12 +497,12 @@ export function getNextProjectEventType(events: ProjectEvent[]): ProjectEventTyp
 }
 
 function baselineForDataset(dataset: ProjectCommandDataset): ProjectControlBaseline {
-  if (dataset.id === 'bayz-102') {
-    return bayz102ControlBaseline;
+  if (dataset.id === 'sobha-pilot-tower') {
+    return sobhaPilotControlBaseline;
   }
 
   return {
-    ...bayz102ControlBaseline,
+    ...sobhaPilotControlBaseline,
     projectId: dataset.id,
     property: {
       name: dataset.property.name,
@@ -523,20 +523,20 @@ function baselineForDataset(dataset: ProjectCommandDataset): ProjectControlBasel
 }
 
 function baseMetrics(dataset: ProjectCommandDataset) {
-  const isStaticBayzMain = dataset.id === 'bayz-102';
+  const isStaticSobhaPilot = dataset.id === 'sobha-pilot-tower';
   return {
-    healthScore: isStaticBayzMain ? 78 : dataset.project.healthScore,
+    healthScore: isStaticSobhaPilot ? 78 : dataset.project.healthScore,
     completion: dataset.project.completion,
-    budgetUsed: isStaticBayzMain ? 39 : dataset.project.budgetUsed,
-    cpi: isStaticBayzMain ? 0.97 : dataset.project.cpi,
-    spi: isStaticBayzMain ? 0.96 : dataset.project.spi,
-    floatRemaining: isStaticBayzMain ? 34 : dataset.project.floatRemaining,
-    forecastHandover: isStaticBayzMain ? '2026-08-12' : dataset.project.forecastCompletion,
-    eac: isStaticBayzMain ? dataset.project.contractValue : dataset.project.forecastCost,
-    riskExposure: isStaticBayzMain ? 18_000_000 : Math.max(dataset.project.forecastCost - dataset.project.contractValue, 0),
-    evidenceCompleteness: isStaticBayzMain ? 88 : 76,
-    vendorScore: isStaticBayzMain ? 82 : 78,
-    handoverConfidence: isStaticBayzMain ? 78 : Math.max(42, Math.min(82, dataset.project.healthScore + 4)),
+    budgetUsed: isStaticSobhaPilot ? 39 : dataset.project.budgetUsed,
+    cpi: isStaticSobhaPilot ? 0.97 : dataset.project.cpi,
+    spi: isStaticSobhaPilot ? 0.96 : dataset.project.spi,
+    floatRemaining: isStaticSobhaPilot ? 34 : dataset.project.floatRemaining,
+    forecastHandover: isStaticSobhaPilot ? '2026-08-12' : dataset.project.forecastCompletion,
+    eac: isStaticSobhaPilot ? dataset.project.contractValue : dataset.project.forecastCost,
+    riskExposure: isStaticSobhaPilot ? 18_000_000 : Math.max(dataset.project.forecastCost - dataset.project.contractValue, 0),
+    evidenceCompleteness: isStaticSobhaPilot ? 88 : 76,
+    vendorScore: isStaticSobhaPilot ? 82 : 78,
+    handoverConfidence: isStaticSobhaPilot ? 78 : Math.max(42, Math.min(82, dataset.project.healthScore + 4)),
     pendingVariationExposure: 0,
     delayDays: 0,
   };
@@ -669,7 +669,7 @@ function buildMetricCards(dataset: ProjectCommandDataset, events: ProjectEvent[]
 }
 
 function buildStageGates(events: ProjectEvent[]) {
-  const statuses: ProjectControlContext['stageGateSummary'] = bayz102ControlBaseline.stageGates.map((name, index) => ({
+  const statuses: ProjectControlContext['stageGateSummary'] = sobhaPilotControlBaseline.stageGates.map((name, index) => ({
     name,
     status: index <= 1 ? 'on-track' : index === 2 ? 'watch' : 'watch',
     reason: index <= 1 ? 'Baseline criteria are complete.' : 'Gate is linked to open programme and evidence dependencies.',
@@ -716,7 +716,7 @@ function buildStageGates(events: ProjectEvent[]) {
 }
 
 function buildEvidence(events: ProjectEvent[]) {
-  const evidence = bayz102ControlBaseline.evidenceRequirements.map(item => ({
+  const evidence = sobhaPilotControlBaseline.evidenceRequirements.map(item => ({
     title: item.title,
     status: item.status,
     gate: item.gate,
@@ -745,18 +745,18 @@ function buildEvidence(events: ProjectEvent[]) {
 }
 
 function buildVendors(events: ProjectEvent[]) {
-  const vendors = bayz102ControlBaseline.vendors.map(item => ({ ...item }));
+  const vendors = sobhaPilotControlBaseline.vendors.map(item => ({ ...item }));
   events.forEach(event => {
     if (event.type === 'facade-delay') {
-      const vendor = vendors.find(item => item.name === 'Gulf Facade Systems');
+      const vendor = vendors.find(item => item.name === 'Sobha Facade Systems');
       if (vendor) vendor.score = clamp(vendor.score - 8, 35, 100);
     }
     if (event.type === 'crane-loss' || event.type === 'contractor-underperformance' || event.type === 'weather-disruption') {
-      const vendor = vendors.find(item => item.name === 'China State Construction');
+      const vendor = vendors.find(item => item.name === 'Sobha Construction');
       if (vendor) vendor.score = clamp(vendor.score + (event.impacts.vendorScoreDelta ?? 0), 35, 100);
     }
     if (event.type === 'inspection-failure') {
-      const vendor = vendors.find(item => item.name === 'Emirates MEP Services');
+      const vendor = vendors.find(item => item.name === 'Sobha MEP Services');
       if (vendor) vendor.score = clamp(vendor.score - 5, 35, 100);
     }
     if (event.type === 'recovery-approved') {
@@ -911,7 +911,7 @@ function buildExceptions(events: ProjectEvent[], metrics: ProjectControlContext[
 }
 
 function buildForecastScenarios(dataset: ProjectCommandDataset, metrics: ProjectControlContext['metrics'], delayDays: number): ForecastScenario[] {
-  const target = dataset.property.name === 'Bayz 102' && dataset.project.name === 'Main Construction' ? '2026-08-12' : dataset.project.targetHandover;
+  const target = dataset.property.name === 'Sobha Pilot Tower' && dataset.project.name === 'Main Construction' ? '2026-08-12' : dataset.project.targetHandover;
   const delay = Math.max(0, delayDays);
   return [
     {
@@ -1305,7 +1305,7 @@ export function buildProjectControlContext(dataset: ProjectCommandDataset, event
     ? latestIsBaseline
       ? dataset.aiContent.healthScore.topThreat
       : latestEvent.description
-    : dataset.aiContent.healthScore.topThreat || 'Bayz 102 baseline is ready. The live demo can now inject delays, variations, evidence gaps, inspections, and recovery actions.';
+    : dataset.aiContent.healthScore.topThreat || 'Sobha Pilot Tower baseline is ready. The live demo can now inject delays, variations, evidence gaps, inspections, and recovery actions.';
   const latestImpact = latestEvent?.impactLabel ?? 'AI baseline generated work packages, programme phases, cost baseline, risks, obligations, evidence requirements, milestones, and manager decisions.';
   const forecastScenarios = buildForecastScenarios(dataset, metrics, delayDays);
   const managerActions = buildManagerActions(dataset, events, metrics);

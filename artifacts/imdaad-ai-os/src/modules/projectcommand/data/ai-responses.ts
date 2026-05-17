@@ -3,7 +3,7 @@ export const aiContent = {
     score: 74,
     status: 'good' as const,
     topThreat: 'Waterproofing rework on basement levels is consuming 3 weeks of float. If unresolved by 15 Aug, Superstructure completion shifts to Q4 and handover is at risk.',
-    recommendedAction: 'Issue instruction to Arabian Waterproofing to mobilise a second crew by 29 Jul. Request revised programme from Al Habtoor by 1 Aug.',
+    recommendedAction: 'Issue instruction to Sobha Waterproofing to mobilise a second crew by 29 Jul. Request revised programme from Sobha Construction by 1 Aug.',
     scoreBreakdown: {
       programme: 71,
       cost: 68,
@@ -79,7 +79,7 @@ export const aiContent = {
   },
   riskInsights: {
     earlyWarnings: [
-      'Waterproofing defect rate has increased 340% over 3 weeks, matching a pre-failure signature seen on 2 previous Danube projects.',
+      'Waterproofing defect rate has increased 340% over 3 weeks, matching a pre-failure signature seen on 2 previous Sobha pilot streams.',
       'Concrete procurement lead times in Dubai have extended from 3 days to 8 days. Two suppliers have capped weekly volumes.',
       'MEP clash rate on floors 10-12 is 3x the project average, suggesting coordination breakdown rather than isolated issues.',
     ],
@@ -145,7 +145,7 @@ export const aiContent = {
       {
         question: 'What would happen if the MEP clashes take another 3 weeks to resolve?',
         answer: 'A further 3-week delay resolving MEP coordination clashes on Levels 10-12 would push the MEP rough-in start from 15 Aug to roughly 5 Sep. That compresses the MEP programme by 3 weeks and moves base-case handover from 18 Jun to approximately 8 Jul 2025. The acceleration cost would be about AED 1.6M.',
-        sources: ['MEP Coordination Report', 'Programme Rev 3', 'Al Habtoor Programme Assessment'],
+        sources: ['MEP Coordination Report', 'Programme Rev 3', 'Sobha Construction Programme Assessment'],
       },
     ],
   },

@@ -60,24 +60,24 @@ export interface ExtractedProjectContext {
   extractionSignals: ExtractedSignal[];
 }
 
-export const sampleBayz102Brief = `Letter of Award and project summary for Bayz 102, Business Bay, Dubai.
+export const sampleSobhaPilotBrief = `Letter of Award and project summary for Sobha Pilot Tower, Dubai.
 Project: Main Construction of a 102-floor residential tower with 680 units.
 Contract value: AED 420,000,000. Target handover: 12 August 2026.
-Current stage: Superstructure and MEP coordination. Main contractor: China State Construction.
+Current stage: Superstructure and MEP coordination. Main contractor: Sobha Construction.
 Packages include preliminaries, design approvals, substructure, superstructure, facade, MEP, fit-out, testing and commissioning, handover and snagging.
-Specialist vendors include Arabian Waterproofing, Emirates MEP Services, Gulf Facade Systems, LiftTech Elevators, and SafeFire Systems.
+Specialist teams include Sobha Waterproofing, Sobha MEP Services, Sobha Facade Systems, Sobha Lift Coordination, and Sobha Fire & Life Safety.
 Controls required: authority approvals, fire commissioning report, lift sign-off, vendor warranties, handover evidence pack.`;
 
-export const sampleBayz102Extraction: ExtractedProjectContext = {
-  sourceName: 'Sample Bayz 102 LOA / Project Summary.pdf',
+export const sampleSobhaPilotExtraction: ExtractedProjectContext = {
+  sourceName: 'Sample Sobha Pilot Tower LOA / Project Summary.pdf',
   sourceType: 'sample-document',
   signalCount: 84,
   confidence: 91,
   confirmationCount: 3,
   property: {
-    name: { value: 'Bayz 102', confidence: 98, status: 'high' },
+    name: { value: 'Sobha Pilot Tower', confidence: 98, status: 'high' },
     type: { value: 'Residential Tower', confidence: 95, status: 'high' },
-    location: { value: 'Business Bay, Dubai', confidence: 94, status: 'high' },
+    location: { value: 'Dubai', confidence: 94, status: 'high' },
     floors: { value: 102, confidence: 93, status: 'high' },
     units: { value: 680, confidence: 90, status: 'high' },
   },
@@ -87,7 +87,7 @@ export const sampleBayz102Extraction: ExtractedProjectContext = {
     contractValue: { value: 420_000_000, confidence: 94, status: 'high' },
     targetHandover: { value: '2026-08-12', confidence: 91, status: 'high' },
     currentStage: { value: 'Superstructure / MEP Coordination', confidence: 82, status: 'medium' },
-    mainContractor: { value: 'China State Construction', confidence: 89, status: 'high' },
+    mainContractor: { value: 'Sobha Construction', confidence: 89, status: 'high' },
   },
   budget: {
     approvedBudget: { value: 420_000_000, confidence: 94, status: 'high' },
@@ -113,12 +113,12 @@ export const sampleBayz102Extraction: ExtractedProjectContext = {
     status: 'high',
   },
   vendors: [
-    { name: 'China State Construction', scope: 'Main Contractor', confidence: 91 },
-    { name: 'Arabian Waterproofing', scope: 'Waterproofing', confidence: 84 },
-    { name: 'Emirates MEP Services', scope: 'MEP', confidence: 82 },
-    { name: 'Gulf Facade Systems', scope: 'Facade', confidence: 78, needsConfirmation: true },
-    { name: 'LiftTech Elevators', scope: 'Elevators', confidence: 86 },
-    { name: 'SafeFire Systems', scope: 'Fire Systems', confidence: 83 },
+    { name: 'Sobha Construction', scope: 'Main Contractor', confidence: 91 },
+    { name: 'Sobha Waterproofing', scope: 'Waterproofing', confidence: 84 },
+    { name: 'Sobha MEP Services', scope: 'MEP', confidence: 82 },
+    { name: 'Sobha Facade Systems', scope: 'Facade', confidence: 78, needsConfirmation: true },
+    { name: 'Sobha Lift Coordination', scope: 'Elevators', confidence: 86 },
+    { name: 'Sobha Fire & Life Safety', scope: 'Fire Systems', confidence: 83 },
   ],
   milestones: {
     value: ['Substructure Complete', 'Superstructure Level 50', 'Facade Release', 'MEP Rough-In Ready', 'Commissioning Ready', 'Handover Go/No-Go'],
@@ -162,10 +162,10 @@ export const sampleBayz102Extraction: ExtractedProjectContext = {
     status: 'high',
   },
   extractionSignals: [
-    { id: 'property', title: 'Property detected', value: 'Bayz 102 - Residential Tower', count: 5, confidence: 96, sourceExcerpt: 'Bayz 102, Business Bay, Dubai - 102-floor residential tower with 680 units.' },
+    { id: 'property', title: 'Property detected', value: 'Sobha Pilot Tower - Residential Tower', count: 5, confidence: 96, sourceExcerpt: 'Sobha Pilot Tower, Dubai - 102-floor residential tower with 680 units.' },
     { id: 'project', title: 'Project detected', value: 'Main Construction', count: 6, confidence: 94, sourceExcerpt: 'Project: Main Construction. Current stage: Superstructure and MEP coordination.' },
     { id: 'budget', title: 'Budget detected', value: 'AED 420M contract value', count: 5, confidence: 94, sourceExcerpt: 'Contract value: AED 420,000,000. Reporting: monthly cost control.' },
-    { id: 'vendors', title: 'Vendors detected', value: '6 delivery parties mapped', count: 6, confidence: 84, sourceExcerpt: 'Specialist vendors include Arabian Waterproofing, Emirates MEP Services, Gulf Facade Systems...', needsConfirmation: true },
+    { id: 'vendors', title: 'Teams detected', value: '6 delivery parties mapped', count: 6, confidence: 84, sourceExcerpt: 'Specialist teams include Sobha Waterproofing, Sobha MEP Services, Sobha Facade Systems...', needsConfirmation: true },
     { id: 'work-packages', title: 'Work packages detected', value: '10 packages including contingency', count: 10, confidence: 92, sourceExcerpt: 'Packages include preliminaries, design approvals, substructure, superstructure, facade, MEP...' },
     { id: 'milestones', title: 'Milestones detected', value: '6 control milestones', count: 6, confidence: 89, sourceExcerpt: 'Target handover: 12 August 2026. Superstructure Level 50 and Commissioning Ready gates inferred.' },
     { id: 'risks', title: 'Risks detected', value: '5 early project risks', count: 5, confidence: 87, sourceExcerpt: 'AI flagged lead-time, crane utilization, authority approval, MEP clashes, and summer productivity.' },
