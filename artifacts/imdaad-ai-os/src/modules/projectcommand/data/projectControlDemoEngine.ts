@@ -9,6 +9,7 @@ export type ProjectEventType =
   | 'evidence-rejected'
   | 'inspection-failure'
   | 'contractor-underperformance'
+  | 'weather-disruption'
   | 'recovery-approved';
 
 export type ProjectControlStatus = 'on-track' | 'watch' | 'at-risk' | 'critical';
@@ -119,6 +120,54 @@ export interface ControlException {
   cta: string;
 }
 
+export interface ProjectTwinState {
+  key: 'schedule' | 'cost' | 'risk' | 'evidence' | 'vendor' | 'workforce' | 'gates' | 'handover';
+  label: string;
+  value: string;
+  status: ProjectControlStatus;
+  deltaLabel: string;
+  source: string;
+  explanation: string;
+  confidence: number;
+}
+
+export interface CascadeEffect {
+  id: string;
+  title: string;
+  severity: ProjectSeverity;
+  sourceEvent: string;
+  chain: string[];
+  basedOn: string[];
+}
+
+export interface ConsequenceItem {
+  label: string;
+  value: string;
+  detail: string;
+  tone: 'good' | 'bad' | 'neutral';
+}
+
+export interface ConsequenceSimulation {
+  title: string;
+  confidence: number;
+  ifUnresolved: ConsequenceItem[];
+  ifResolvedToday: ConsequenceItem[];
+}
+
+export interface CrossModuleImpact {
+  module: 'VendorIQ' | 'Workforce Intelligence' | 'InspectPro' | 'FieldOps' | 'Evidence' | 'Cost' | 'Approvals' | 'ResidentPortal';
+  status: ProjectControlStatus;
+  impact: string;
+  linkedObject: string;
+  source: string;
+}
+
+export interface SourceTrace {
+  insight: string;
+  basedOn: string[];
+  confidence: number;
+}
+
 export interface ProjectControlContext {
   baseline: ProjectControlBaseline;
   events: ProjectEvent[];
@@ -136,6 +185,7 @@ export interface ProjectControlContext {
     riskExposure: number;
     evidenceCompleteness: number;
     vendorScore: number;
+    handoverConfidence: number;
     pendingVariationExposure: number;
   };
   projectControlStatus: ProjectControlStatus;
@@ -149,6 +199,11 @@ export interface ProjectControlContext {
   stageGateSummary: { name: string; status: ProjectControlStatus; reason: string }[];
   evidenceSummary: { title: string; status: 'Complete' | 'Required' | 'Missing' | 'Rejected'; gate: string }[];
   vendorSummary: { name: string; scope: string; score: number; status: ProjectControlStatus }[];
+  twinStates: ProjectTwinState[];
+  cascadeEffects: CascadeEffect[];
+  consequenceSimulation: ConsequenceSimulation;
+  crossModuleImpacts: CrossModuleImpact[];
+  sourceTraces: SourceTrace[];
 }
 
 const dayMs = 86_400_000;
@@ -383,6 +438,17 @@ const eventTemplates: Record<ProjectEventType, Omit<ProjectEvent, 'id' | 'projec
     severity: 'high',
     impacts: { healthDelta: -6, cpiDelta: -0.03, spiDelta: -0.04, floatDelta: -8, eacDelta: 4_200_000, riskDelta: 13, evidenceChange: -4, vendorScoreDelta: -10, delayDays: 8, completionDelta: -0.2 },
   },
+  'weather-disruption': {
+    type: 'weather-disruption',
+    title: 'Weather disruption: concrete pour window lost',
+    description: 'High-wind and heat restrictions reduced productive pour hours and compressed the crane and crew sequence.',
+    affectedAreas: ['Programme', 'Workforce', 'FieldOps', 'Risks'],
+    affectedModule: 'Workforce + FieldOps',
+    impactLabel: 'Consumed 5 days of float and raised workforce resequencing pressure.',
+    cta: 'Approve weather recovery window',
+    severity: 'medium',
+    impacts: { healthDelta: -4, cpiDelta: -0.01, spiDelta: -0.03, floatDelta: -5, eacDelta: 1_400_000, riskDelta: 7, gateStatusChange: 'Superstructure weather recovery required', evidenceChange: -1, vendorScoreDelta: -2, delayDays: 5, completionDelta: -0.1 },
+  },
   'recovery-approved': {
     type: 'recovery-approved',
     title: 'Recovery action approved',
@@ -397,13 +463,14 @@ const eventTemplates: Record<ProjectEventType, Omit<ProjectEvent, 'id' | 'projec
 };
 
 export const projectEventOptions: { type: ProjectEventType; label: string }[] = [
-  { type: 'facade-delay', label: 'Simulate Facade Delay' },
-  { type: 'crane-loss', label: 'Simulate Crane Loss' },
-  { type: 'variation-submitted', label: 'Submit Variation' },
+  { type: 'facade-delay', label: 'Trigger Facade Delay' },
+  { type: 'variation-submitted', label: 'Trigger Variation' },
   { type: 'evidence-rejected', label: 'Reject Evidence' },
-  { type: 'missing-approval', label: 'Missing Approval' },
-  { type: 'inspection-failure', label: 'Inspection Failure' },
+  { type: 'missing-approval', label: 'Delay Approval' },
   { type: 'contractor-underperformance', label: 'Contractor Issue' },
+  { type: 'crane-loss', label: 'Trigger Crane Loss' },
+  { type: 'inspection-failure', label: 'Inspection Rejection' },
+  { type: 'weather-disruption', label: 'Weather Disruption' },
   { type: 'recovery-approved', label: 'Approve Recovery Action' },
 ];
 
@@ -419,7 +486,7 @@ export function createProjectControlEvent(projectId: string, type: ProjectEventT
 }
 
 export function getNextProjectEventType(events: ProjectEvent[]): ProjectEventType {
-  const sequence: ProjectEventType[] = ['facade-delay', 'crane-loss', 'missing-approval', 'variation-submitted', 'evidence-rejected', 'inspection-failure', 'contractor-underperformance', 'recovery-approved'];
+  const sequence: ProjectEventType[] = ['facade-delay', 'crane-loss', 'missing-approval', 'variation-submitted', 'evidence-rejected', 'inspection-failure', 'contractor-underperformance', 'weather-disruption', 'recovery-approved'];
   const simulatedCount = events.filter(event => event.type !== 'baseline-created').length;
   return sequence[simulatedCount % sequence.length];
 }
@@ -464,6 +531,7 @@ function baseMetrics(dataset: ProjectCommandDataset) {
     riskExposure: isStaticBayzMain ? 18_000_000 : Math.max(dataset.project.forecastCost - dataset.project.contractValue, 0),
     evidenceCompleteness: isStaticBayzMain ? 88 : 76,
     vendorScore: isStaticBayzMain ? 82 : 78,
+    handoverConfidence: isStaticBayzMain ? 78 : Math.max(42, Math.min(82, dataset.project.healthScore + 4)),
     pendingVariationExposure: 0,
     delayDays: 0,
   };
@@ -624,6 +692,13 @@ function buildStageGates(events: ProjectEvent[]) {
         gate.reason = 'MEP riser inspection failed and needs reinspection.';
       }
     }
+    if (event.type === 'weather-disruption') {
+      const gate = statuses.find(item => item.name === 'Superstructure Level 50');
+      if (gate) {
+        gate.status = 'at-risk';
+        gate.reason = 'Weather disruption compressed concrete pour and crane recovery windows.';
+      }
+    }
     if (event.type === 'recovery-approved') {
       statuses.filter(item => item.status === 'critical').slice(0, 1).forEach(item => {
         item.status = 'at-risk';
@@ -671,7 +746,7 @@ function buildVendors(events: ProjectEvent[]) {
       const vendor = vendors.find(item => item.name === 'Gulf Facade Systems');
       if (vendor) vendor.score = clamp(vendor.score - 8, 35, 100);
     }
-    if (event.type === 'crane-loss' || event.type === 'contractor-underperformance') {
+    if (event.type === 'crane-loss' || event.type === 'contractor-underperformance' || event.type === 'weather-disruption') {
       const vendor = vendors.find(item => item.name === 'China State Construction');
       if (vendor) vendor.score = clamp(vendor.score + (event.impacts.vendorScoreDelta ?? 0), 35, 100);
     }
@@ -695,13 +770,13 @@ function buildManagerActions(dataset: ProjectCommandDataset, events: ProjectEven
   const triggerFor = (types: ProjectEventType[], fallback: string) => [...events].reverse().find(event => types.includes(event.type))?.title ?? fallback;
   const baselineMode = !latest || latest.type === 'baseline-created';
 
-  if (baselineMode || events.some(event => event.type === 'crane-loss')) {
+  if (baselineMode || events.some(event => event.type === 'crane-loss' || event.type === 'weather-disruption')) {
     actions.push({
       id: `${dataset.id}-action-crane`,
       projectId: dataset.id,
       title: 'Resequence tower crane utilization',
       linkedEvent,
-      triggerLabel: triggerFor(['crane-loss', 'contractor-underperformance'], latest?.title ?? 'AI baseline risk model'),
+      triggerLabel: triggerFor(['crane-loss', 'contractor-underperformance', 'weather-disruption'], latest?.title ?? 'AI baseline risk model'),
       priority: metrics.floatRemaining < 18 ? 'critical' : 'high',
       whyItMatters: 'Crane hook time is constraining superstructure, facade logistics, and MEP riser flow.',
       expectedImpact: 'Protects 16 days of superstructure float.',
@@ -802,7 +877,7 @@ function buildExceptions(events: ProjectEvent[], metrics: ProjectControlContext[
     });
   }
   vendors.filter(vendor => vendor.score < 75).forEach(vendor => {
-    const sourceEvent = [...events].reverse().find(event => event.type === 'facade-delay' || event.type === 'contractor-underperformance' || event.type === 'crane-loss' || event.type === 'inspection-failure');
+    const sourceEvent = [...events].reverse().find(event => event.type === 'facade-delay' || event.type === 'contractor-underperformance' || event.type === 'crane-loss' || event.type === 'inspection-failure' || event.type === 'weather-disruption');
     exceptions.push({
       id: `vendor-${vendor.name}`,
       title: `${vendor.scope} vendor score falling`,
@@ -858,6 +933,313 @@ function buildForecastScenarios(dataset: ProjectCommandDataset, metrics: Project
   ];
 }
 
+function sourceLabel(latestEvent: ProjectEvent | null) {
+  return latestEvent?.type === 'baseline-created' || !latestEvent ? 'AI baseline from LOA/project summary' : latestEvent.title;
+}
+
+function buildTwinStates(
+  metrics: ProjectControlContext['metrics'],
+  latestEvent: ProjectEvent | null,
+  stageGates: ProjectControlContext['stageGateSummary'],
+  vendors: ProjectControlContext['vendorSummary'],
+): ProjectTwinState[] {
+  const blockedGates = stageGates.filter(gate => gate.status === 'critical').length;
+  const vendorAtRisk = vendors.filter(vendor => vendor.status === 'at-risk' || vendor.status === 'critical').length;
+  const source = sourceLabel(latestEvent);
+  const latest = latestEvent?.impacts;
+  const workforceStatus = latestEvent?.type === 'crane-loss' || latestEvent?.type === 'weather-disruption' || latestEvent?.type === 'contractor-underperformance'
+    ? 'at-risk'
+    : metrics.spi < 0.88 ? 'watch' : 'on-track';
+
+  return [
+    {
+      key: 'schedule',
+      label: 'Schedule State',
+      value: `SPI ${metrics.spi.toFixed(2)} / ${metrics.floatRemaining}d float`,
+      status: metrics.floatRemaining <= 8 || metrics.spi < 0.82 ? 'critical' : metrics.floatRemaining <= 18 || metrics.spi < 0.92 ? 'at-risk' : 'watch',
+      deltaLabel: latest ? `Float ${signedNumber(latest.floatDelta, 'd')}` : 'Baseline linked',
+      source,
+      explanation: 'Critical path, programme phases, crane sequence, and gate dependencies are recalculated together.',
+      confidence: latestEvent ? 94 : 90,
+    },
+    {
+      key: 'cost',
+      label: 'Cost State',
+      value: `${formatProjectCurrency(metrics.eac)} EAC`,
+      status: metrics.cpi < 0.82 ? 'critical' : metrics.cpi < 0.92 ? 'at-risk' : 'watch',
+      deltaLabel: latest ? `EAC ${latest.eacDelta >= 0 ? '+' : '-'}${formatProjectCurrency(Math.abs(latest.eacDelta))}` : 'AED 420M baseline',
+      source,
+      explanation: 'EAC, CPI, pending variations, and acceleration costs move from the same event impact record.',
+      confidence: latestEvent ? 92 : 89,
+    },
+    {
+      key: 'risk',
+      label: 'Risk State',
+      value: formatProjectCurrency(metrics.riskExposure),
+      status: metrics.riskExposure > 45_000_000 ? 'critical' : metrics.riskExposure > 30_000_000 ? 'at-risk' : 'watch',
+      deltaLabel: latest ? `Risk ${signedNumber(latest.riskDelta, 'M')}` : '5 risks seeded',
+      source,
+      explanation: 'Open risk exposure is connected to delay, vendor, gate, evidence, and cost signals.',
+      confidence: 91,
+    },
+    {
+      key: 'evidence',
+      label: 'Evidence State',
+      value: `${metrics.evidenceCompleteness}% ready`,
+      status: metrics.evidenceCompleteness < 62 ? 'critical' : metrics.evidenceCompleteness < 78 ? 'at-risk' : 'watch',
+      deltaLabel: latest ? `Evidence ${signedNumber(latest.evidenceChange, ' pts')}` : '8 requirements',
+      source,
+      explanation: 'Evidence readiness gates commissioning, inspection acceptance, audit trail, and handover proof.',
+      confidence: latestEvent?.type === 'evidence-rejected' || latestEvent?.type === 'missing-approval' ? 95 : 90,
+    },
+    {
+      key: 'vendor',
+      label: 'Vendor State',
+      value: `${metrics.vendorScore}/100 avg`,
+      status: metrics.vendorScore < 66 ? 'critical' : metrics.vendorScore < 76 || vendorAtRisk > 0 ? 'at-risk' : 'watch',
+      deltaLabel: latest?.vendorScoreDelta ? `Vendor ${signedNumber(latest.vendorScoreDelta, ' pts')}` : `${vendorAtRisk} at risk`,
+      source,
+      explanation: 'Vendor scores respond to facade delay, contractor output, crane productivity, and inspection quality.',
+      confidence: 90,
+    },
+    {
+      key: 'workforce',
+      label: 'Workforce State',
+      value: latestEvent?.type === 'crane-loss' ? 'Crane constrained' : latestEvent?.type === 'weather-disruption' ? 'Weather resequence' : metrics.spi < 0.9 ? 'Recovery load' : 'Balanced',
+      status: workforceStatus,
+      deltaLabel: latest ? `SPI ${signedDecimal(latest.spiDelta)}` : 'Crew plan stable',
+      source,
+      explanation: 'Workforce pressure is inferred from crane capacity, weather windows, field output, and contractor performance.',
+      confidence: latestEvent?.type === 'crane-loss' || latestEvent?.type === 'weather-disruption' ? 93 : 87,
+    },
+    {
+      key: 'gates',
+      label: 'Gate Readiness',
+      value: blockedGates > 0 ? `${blockedGates} blocked` : 'No blocked gates',
+      status: blockedGates > 1 ? 'critical' : blockedGates === 1 ? 'at-risk' : 'watch',
+      deltaLabel: latestEvent?.impacts.gateStatusChange ?? 'Gate chain active',
+      source,
+      explanation: 'Stage gates inherit schedule, evidence, approval, and inspection status from the live twin.',
+      confidence: blockedGates > 0 ? 94 : 89,
+    },
+    {
+      key: 'handover',
+      label: 'Handover Confidence',
+      value: `${metrics.handoverConfidence}%`,
+      status: metrics.handoverConfidence < 48 ? 'critical' : metrics.handoverConfidence < 64 ? 'at-risk' : metrics.handoverConfidence < 76 ? 'watch' : 'on-track',
+      deltaLabel: latest ? `Confidence ${signedNumber(Math.round(latest.healthDelta * 0.9 + latest.evidenceChange * 0.15 + latest.floatDelta * 0.35 - latest.riskDelta * 0.35), ' pts')}` : 'Target 12 Aug 2026',
+      source,
+      explanation: 'Handover confidence blends health, float, evidence readiness, vendor score, and blocked gates.',
+      confidence: latestEvent ? 93 : 88,
+    },
+  ];
+}
+
+function cascadeChainForEvent(event: ProjectEvent | null): string[] {
+  if (!event || event.type === 'baseline-created') {
+    return ['LOA/project summary imported', 'AI created baseline controls', 'Project twin connected programme, cost, vendors, evidence, gates, and forecast', 'Ready for event simulation'];
+  }
+
+  const chains: Record<ProjectEventType, string[]> = {
+    'baseline-created': ['LOA/project summary imported', 'AI created baseline controls', 'Project twin connected controls', 'Ready for event simulation'],
+    'facade-delay': ['Facade procurement delay', 'Envelope release slips', 'Fit-out start is exposed', 'MEP congestion increases', 'Handover confidence drops'],
+    'crane-loss': ['Tower crane productivity loss', 'Superstructure cycle slows', 'Facade and MEP hoists queue', 'CPI and SPI deteriorate', 'Recovery action required'],
+    'missing-approval': ['Authority approval delay', 'Commissioning Ready gate blocked', 'Handover gate cannot clear', 'Occupancy permit window is exposed'],
+    'variation-submitted': ['VO-32 submitted', 'Pending exposure rises', 'EAC forecast changes', 'Manager approval queue required'],
+    'evidence-rejected': ['Evidence rejected', 'Audit readiness drops', 'Stage gate remains blocked', 'Handover confidence drops'],
+    'inspection-failure': ['Inspection failed', 'Reinspection required', 'MEP/quality gate blocked', 'Float consumed'],
+    'contractor-underperformance': ['Contractor productivity declines', 'Daily output curve slips', 'Vendor score falls', 'Risk exposure rises', 'Recovery notice required'],
+    'weather-disruption': ['Weather disruption', 'Concrete pour productivity drops', 'Crew and crane plan resequenced', 'Float consumed'],
+    'recovery-approved': ['Recovery action approved', 'Night-shift and crane sequence activated', 'Float recovered', 'SPI improves', 'Handover confidence improves'],
+  };
+  return chains[event.type];
+}
+
+function buildCascadeEffects(latestEvent: ProjectEvent | null): CascadeEffect[] {
+  const chain = cascadeChainForEvent(latestEvent);
+  const source = sourceLabel(latestEvent);
+  return [
+    {
+      id: `${latestEvent?.id ?? 'baseline'}-primary-cascade`,
+      title: latestEvent && latestEvent.type !== 'baseline-created' ? `${latestEvent.title} dependency chain` : 'Baseline to live twin chain',
+      severity: latestEvent?.severity ?? 'positive',
+      sourceEvent: source,
+      chain,
+      basedOn: latestEvent
+        ? [latestEvent.affectedModule, ...latestEvent.affectedAreas.slice(0, 4)]
+        : ['Imported project context', 'AI extracted work packages', 'Generated control baseline'],
+    },
+  ];
+}
+
+function buildConsequenceSimulation(metrics: ProjectControlContext['metrics'], latestEvent: ProjectEvent | null): ConsequenceSimulation {
+  const latest = latestEvent?.impacts;
+  const unresolvedDelay = latestEvent?.severity === 'positive'
+    ? Math.max(0, 34 - metrics.floatRemaining)
+    : Math.max(3, Math.abs(latest?.floatDelta ?? 6) + Math.max(0, latest?.delayDays ?? 0));
+  const unresolvedCost = latestEvent?.severity === 'positive'
+    ? Math.max(0, metrics.riskExposure * 0.08)
+    : Math.max(Math.abs(latest?.eacDelta ?? 2_400_000), metrics.riskExposure * 0.12);
+  const recoveredFloat = latestEvent?.severity === 'positive'
+    ? Math.max(4, latest?.floatDelta ?? 8)
+    : Math.max(4, Math.round(unresolvedDelay * 0.55));
+  const reducedExposure = latestEvent?.severity === 'positive'
+    ? Math.max(1_000_000, Math.abs(latest?.eacDelta ?? 2_000_000))
+    : Math.max(1_200_000, Math.round(unresolvedCost * 0.48));
+  const confidenceGain = latestEvent?.severity === 'positive'
+    ? Math.max(5, Math.round((latest?.healthDelta ?? 6) + 2))
+    : Math.max(6, Math.round(recoveredFloat * 0.9));
+
+  return {
+    title: latestEvent && latestEvent.type !== 'baseline-created'
+      ? `Consequence model for ${latestEvent.title}`
+      : 'Baseline consequence model',
+    confidence: latestEvent ? 93 : 88,
+    ifUnresolved: [
+      {
+        label: 'Delay impact',
+        value: `${unresolvedDelay}d slip`,
+        detail: latestEvent?.type === 'missing-approval' ? 'Commissioning and occupancy approvals remain exposed.' : 'Downstream programme activities inherit the open blocker.',
+        tone: 'bad',
+      },
+      {
+        label: 'Cost impact',
+        value: formatProjectCurrency(unresolvedCost),
+        detail: 'Exposure can land in EAC through acceleration, claims, rework, or pending variation pressure.',
+        tone: 'bad',
+      },
+      {
+        label: 'Confidence impact',
+        value: `-${Math.min(18, Math.max(4, confidenceGain + 2))} pts`,
+        detail: 'Handover confidence falls when float, proof, vendors, and gates remain unresolved.',
+        tone: 'bad',
+      },
+    ],
+    ifResolvedToday: [
+      {
+        label: 'Float recovered',
+        value: `${recoveredFloat}d`,
+        detail: 'Recovery action protects near-term programme flow and critical path buffers.',
+        tone: 'good',
+      },
+      {
+        label: 'Exposure reduced',
+        value: formatProjectCurrency(reducedExposure),
+        detail: 'Earlier approval or resequencing limits acceleration and rework cost drift.',
+        tone: 'good',
+      },
+      {
+        label: 'Confidence gain',
+        value: `+${confidenceGain} pts`,
+        detail: 'The twin expects handover confidence to improve once the linked blocker is closed.',
+        tone: 'good',
+      },
+    ],
+  };
+}
+
+function buildCrossModuleImpacts(
+  metrics: ProjectControlContext['metrics'],
+  latestEvent: ProjectEvent | null,
+  stageGates: ProjectControlContext['stageGateSummary'],
+  evidence: ProjectControlContext['evidenceSummary'],
+  vendors: ProjectControlContext['vendorSummary'],
+): CrossModuleImpact[] {
+  const source = sourceLabel(latestEvent);
+  const blockedGate = stageGates.find(gate => gate.status === 'critical' || gate.status === 'at-risk');
+  const evidenceIssue = evidence.find(item => item.status === 'Missing' || item.status === 'Rejected');
+  const vendorIssue = vendors.find(vendor => vendor.status === 'critical' || vendor.status === 'at-risk');
+  const workforceWatch = latestEvent?.type === 'crane-loss' || latestEvent?.type === 'weather-disruption' || latestEvent?.type === 'contractor-underperformance';
+
+  return [
+    {
+      module: 'VendorIQ',
+      status: vendorIssue ? vendorIssue.status : statusFromScore(metrics.vendorScore),
+      impact: vendorIssue ? `${vendorIssue.scope} vendor performance is now linked to the live event.` : 'Vendor map is tracking package-level performance against the baseline.',
+      linkedObject: vendorIssue?.name ?? '6 mapped vendors',
+      source,
+    },
+    {
+      module: 'Workforce Intelligence',
+      status: workforceWatch ? 'at-risk' : metrics.spi < 0.9 ? 'watch' : 'on-track',
+      impact: workforceWatch ? 'Crew, crane, and weather sequencing need an active recovery decision.' : 'Resource plan is watching crane utilization and field productivity.',
+      linkedObject: latestEvent?.type === 'weather-disruption' ? 'Weather recovery window' : 'Crane and crew plan',
+      source,
+    },
+    {
+      module: 'InspectPro',
+      status: latestEvent?.type === 'inspection-failure' ? 'critical' : latestEvent?.type === 'evidence-rejected' ? 'at-risk' : 'watch',
+      impact: latestEvent?.type === 'inspection-failure' ? 'Failed inspection blocks MEP rough-in readiness until reinspection.' : 'Inspection outcomes feed evidence readiness and gate confidence.',
+      linkedObject: latestEvent?.type === 'inspection-failure' ? 'MEP riser reinspection' : 'Inspection evidence pack',
+      source,
+    },
+    {
+      module: 'FieldOps',
+      status: metrics.floatRemaining < 10 ? 'critical' : metrics.spi < 0.9 ? 'at-risk' : 'watch',
+      impact: 'Field task sequencing mirrors current SPI, float, and recovery pressure.',
+      linkedObject: 'Look-ahead programme',
+      source,
+    },
+    {
+      module: 'Evidence',
+      status: evidenceIssue ? (evidenceIssue.status === 'Missing' ? 'critical' : 'at-risk') : metrics.evidenceCompleteness < 78 ? 'at-risk' : 'watch',
+      impact: evidenceIssue ? `${evidenceIssue.title} is ${evidenceIssue.status.toLowerCase()} and blocks trust in the gate.` : 'Evidence requirements remain connected to gate readiness.',
+      linkedObject: evidenceIssue?.gate ?? '8 evidence requirements',
+      source,
+    },
+    {
+      module: 'Cost',
+      status: metrics.cpi < 0.82 ? 'critical' : metrics.cpi < 0.92 || metrics.pendingVariationExposure > 0 ? 'at-risk' : 'watch',
+      impact: `${formatProjectCurrency(metrics.eac)} EAC and ${formatProjectCurrency(metrics.pendingVariationExposure)} pending variation exposure are active in the forecast.`,
+      linkedObject: 'EAC / variations',
+      source,
+    },
+    {
+      module: 'Approvals',
+      status: latestEvent?.type === 'missing-approval' ? 'critical' : blockedGate ? 'at-risk' : 'watch',
+      impact: latestEvent?.type === 'missing-approval' ? 'Authority approval delay blocks commissioning readiness.' : 'Approval dependencies are watched against upcoming gates.',
+      linkedObject: blockedGate?.name ?? 'Authority tracker',
+      source,
+    },
+    {
+      module: 'ResidentPortal',
+      status: metrics.handoverConfidence < 48 ? 'critical' : metrics.handoverConfidence < 64 ? 'at-risk' : 'watch',
+      impact: `Handover confidence is ${metrics.handoverConfidence}% and will drive resident move-in readiness messaging later.`,
+      linkedObject: 'Handover readiness',
+      source,
+    },
+  ];
+}
+
+function buildSourceTraces(
+  metrics: ProjectControlContext['metrics'],
+  latestEvent: ProjectEvent | null,
+  managerActions: ManagerAction[],
+  forecastScenarios: ForecastScenario[],
+): SourceTrace[] {
+  const eventSources = latestEvent
+    ? [latestEvent.affectedModule, latestEvent.impactLabel, latestEvent.impacts.gateStatusChange ?? 'Control metric recalculation']
+    : ['Uploaded LOA/project summary', 'AI extraction signals', 'Generated baseline'];
+
+  return [
+    {
+      insight: 'Health and KPI movement',
+      basedOn: ['Programme update', 'Cost variance', 'Risk exposure', ...eventSources.slice(0, 2)],
+      confidence: latestEvent ? 94 : 89,
+    },
+    {
+      insight: 'AI top decision',
+      basedOn: [managerActions[0]?.triggerLabel ?? 'Baseline risk model', managerActions[0]?.expectedImpact ?? 'Manager action queue', managerActions[0]?.costImplication ?? 'Cost implication'],
+      confidence: 93,
+    },
+    {
+      insight: 'Forecast scenario',
+      basedOn: [forecastScenarios[1]?.handoverDate ?? metrics.forecastHandover, formatProjectCurrency(metrics.eac), `${metrics.handoverConfidence}% handover confidence`],
+      confidence: 91,
+    },
+  ];
+}
+
 export function buildProjectControlContext(dataset: ProjectCommandDataset, events: ProjectEvent[]): ProjectControlContext {
   const baseline = baselineForDataset(dataset);
   const base = baseMetrics(dataset);
@@ -872,6 +1254,7 @@ export function buildProjectControlContext(dataset: ProjectCommandDataset, event
   let riskExposure = base.riskExposure;
   let evidenceCompleteness = base.evidenceCompleteness;
   let vendorScore = base.vendorScore;
+  let handoverConfidence = base.handoverConfidence;
   let pendingVariationExposure = base.pendingVariationExposure;
   let delayDays = base.delayDays;
 
@@ -887,6 +1270,7 @@ export function buildProjectControlContext(dataset: ProjectCommandDataset, event
     riskExposure += event.impacts.riskDelta * 1_000_000;
     evidenceCompleteness += event.impacts.evidenceChange;
     vendorScore += event.impacts.vendorScoreDelta ?? 0;
+    handoverConfidence += (event.impacts.healthDelta * 0.85) + (event.impacts.floatDelta * 0.35) + (event.impacts.evidenceChange * 0.16) - (event.impacts.riskDelta * 0.32);
     pendingVariationExposure += event.impacts.pendingVariationDelta ?? 0;
     delayDays += event.impacts.delayDays ?? 0;
   });
@@ -903,6 +1287,7 @@ export function buildProjectControlContext(dataset: ProjectCommandDataset, event
     riskExposure: Math.round(Math.max(0, riskExposure)),
     evidenceCompleteness: Math.round(clamp(evidenceCompleteness, 20, 100)),
     vendorScore: Math.round(clamp(vendorScore, 35, 100)),
+    handoverConfidence: Math.round(clamp(handoverConfidence, 18, 92)),
     pendingVariationExposure: Math.round(Math.max(0, pendingVariationExposure)),
   };
 
@@ -920,6 +1305,11 @@ export function buildProjectControlContext(dataset: ProjectCommandDataset, event
   const forecastScenarios = buildForecastScenarios(dataset, metrics, delayDays);
   const managerActions = buildManagerActions(dataset, events, metrics);
   const controlExceptions = buildExceptions(events, metrics, stageGateSummary, evidenceSummary, vendorSummary);
+  const twinStates = buildTwinStates(metrics, latestEvent, stageGateSummary, vendorSummary);
+  const cascadeEffects = buildCascadeEffects(latestEvent);
+  const consequenceSimulation = buildConsequenceSimulation(metrics, latestEvent);
+  const crossModuleImpacts = buildCrossModuleImpacts(metrics, latestEvent, stageGateSummary, evidenceSummary, vendorSummary);
+  const sourceTraces = buildSourceTraces(metrics, latestEvent, managerActions, forecastScenarios);
 
   return {
     baseline,
@@ -941,6 +1331,11 @@ export function buildProjectControlContext(dataset: ProjectCommandDataset, event
     stageGateSummary,
     evidenceSummary,
     vendorSummary,
+    twinStates,
+    cascadeEffects,
+    consequenceSimulation,
+    crossModuleImpacts,
+    sourceTraces,
   };
 }
 
