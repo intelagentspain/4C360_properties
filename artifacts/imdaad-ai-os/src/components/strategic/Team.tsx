@@ -534,6 +534,104 @@ const aiInsights = [
   },
 ];
 
+type WorkforceCopilotPrompt = {
+  question: string;
+  answer: string;
+  confidence: number;
+  risk: RiskLevel;
+  owner: string;
+  target: string;
+  signals: string[];
+  actions: string[];
+};
+
+const workforceCopilotPrompts: WorkforceCopilotPrompt[] = [
+  {
+    question: 'Which teams are overloaded?',
+    answer: 'Safety Inspection Unit, QA/QC Team, and Contractor Oversight Unit are above safe operating load. Safety is carrying 121 workload points at 92% utilization, QA/QC is at 118 with 95% utilization, and contractor oversight has vendor evidence gaps affecting downstream closures.',
+    confidence: 94,
+    risk: 'High',
+    owner: 'COO / PMO',
+    target: '3 teams',
+    signals: [
+      'Safety Inspection Unit has 36 active assignments and Tower B authority windows at risk.',
+      'QA/QC Team is at 95% utilization with repeat facade rejection work.',
+      'Contractor Oversight Unit is linked to vendor evidence delays and payment milestone exposure.',
+    ],
+    actions: ['Rebalance two inspections', 'Add certified backup', 'Escalate vendor evidence'],
+  },
+  {
+    question: 'Why is SLA dropping in Tower B?',
+    answer: 'Tower B SLA is dropping because certified inspection capacity is 30% below demand while QA rejection rework has increased. The highest pressure comes from OSH coverage, facade evidence reviews, and expiring safety credentials tied to active inspection windows.',
+    confidence: 92,
+    risk: 'Critical',
+    owner: 'Safety Inspection Unit',
+    target: 'Tower B',
+    signals: [
+      'Tower B requires 46 staffing units but only 32 are staffed.',
+      'Critical OSH inspections are concentrated on Fatima A. at 97% utilization.',
+      'Facade QA rework is forcing repeat inspections before authority submission.',
+    ],
+    actions: ['Assign OSH backup today', 'Move QA review to supervisor', 'Renew expiring credentials'],
+  },
+  {
+    question: 'Who should take this inspection?',
+    answer: 'For a critical OSH or authority inspection, Fatima A. is the strongest match on certification and quality, but the system recommends Mariam S. as backup to avoid pushing Fatima above safe load. For HVAC or low-risk FM work, route to Omar H. or FM Response Team capacity.',
+    confidence: 89,
+    risk: 'Medium',
+    owner: 'Dispatch Lead',
+    target: 'Best-fit assignee',
+    signals: [
+      'Fatima A. has 96 quality and 95 SLA but is already at 97% utilization.',
+      'Mariam S. has Fire Safety and Working at Height coverage with 91 quality.',
+      'Omar H. has low risk, 94 SLA, and nearby FM spillover capacity.',
+    ],
+    actions: ['Assign Mariam as backup', 'Protect Fatima workload', 'Route HVAC to Omar'],
+  },
+  {
+    question: 'Which inspectors have highest rejection rate?',
+    answer: 'Khalid M. and Sara N. are the two highest-risk rejection contributors. Khalid is linked to 18% rejection on facade evidence review, while Sara is linked to 16% vendor evidence gaps. Both are impacting Bayz 102 quality throughput.',
+    confidence: 91,
+    risk: 'High',
+    owner: 'QA Director',
+    target: '2 inspectors',
+    signals: [
+      'Khalid M. has 24 open tasks, 78 quality, and 18% rejection rate.',
+      'Sara N. has contractor evidence recovery ownership and 16% rejection exposure.',
+      'Tower A handover packages show repeated incomplete photo evidence.',
+    ],
+    actions: ['Start evidence coaching', 'Add supervisor review', 'Audit next 20 snags'],
+  },
+  {
+    question: 'What is impacting productivity?',
+    answer: 'Productivity is being pulled down by facade rework, overloaded certified inspectors, evening coverage gaps, and contractor evidence quality. Bayz 102 is the main drag because QA/QC reviews, OSH checks, and vendor remediation are blocking each other.',
+    confidence: 90,
+    risk: 'High',
+    owner: 'Operations Control',
+    target: 'Bayz 102',
+    signals: [
+      'Bayz 102 productivity dropped 14% this week.',
+      'Tower B has 32% more critical inspection demand than certified staff capacity.',
+      'Resident and FM queues are slower after 15:00 due to evening HVAC coverage gaps.',
+    ],
+    actions: ['Open recovery board', 'Shift evening coverage', 'Split QA backlog'],
+  },
+  {
+    question: 'Which contractor is affecting performance?',
+    answer: 'The facade contractor package under Contractor Oversight is the highest-impact performance drag. Vendor evidence gaps are delaying QA closure, pushing repeat inspections, and increasing risk before the next payment milestone.',
+    confidence: 88,
+    risk: 'High',
+    owner: 'Contractor Oversight Unit',
+    target: 'Facade package',
+    signals: [
+      'Two vendors are flagged for facade rework performance.',
+      'Evidence gaps are linked to Bayz 102 milestone and payment exposure.',
+      'Sara N. is carrying vendor recovery follow-up with elevated risk.',
+    ],
+    actions: ['Issue evidence notice', 'Hold payment gate', 'Schedule vendor huddle'],
+  },
+];
+
 const reports: ReportDefinition[] = [
   { title: 'Workforce Productivity Report', owner: 'COO', cadence: 'Weekly', summary: 'Productivity, completion, utilization, and team-level ranking across the portfolio.' },
   { title: 'Project Staffing Report', owner: 'PMO', cadence: 'Daily', summary: 'Staffing gaps by project, property, assignment type, and milestone exposure.' },
@@ -1367,7 +1465,20 @@ function CapacityTab() {
   );
 }
 
-function AIInsightsTab() {
+function AIInsightsTab({ onToast }: { onToast: ToastFn }) {
+  const [activePrompt, setActivePrompt] = useState<WorkforceCopilotPrompt>(workforceCopilotPrompts[1]);
+  const [queuedAction, setQueuedAction] = useState<string | null>(null);
+
+  const handlePromptSelect = (prompt: WorkforceCopilotPrompt) => {
+    setActivePrompt(prompt);
+    setQueuedAction(null);
+  };
+
+  const handleActionQueue = (action: string) => {
+    setQueuedAction(action);
+    onToast(`Copilot action queued: ${action}`, 'success');
+  };
+
   return (
     <div className="grid grid-cols-[1fr_0.75fr] gap-4">
       <div className="space-y-3">
@@ -1398,23 +1509,97 @@ function AIInsightsTab() {
           <p className="text-[12px] leading-relaxed text-[#C8D6E8]">Ask operational questions about workload, staffing, quality, SLA risk, project delay causes, certifications, and team accountability.</p>
         </div>
         <div className="mt-4 space-y-2">
-          {[
-            'Which teams are overloaded?',
-            'Why is SLA dropping in Tower B?',
-            'Who should take this inspection?',
-            'Which inspectors have highest rejection rate?',
-            'What is impacting productivity?',
-            'Which contractor is affecting performance?',
-          ].map(prompt => (
-            <button key={prompt} className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-left text-[11px] text-[#C8D6E8] hover:border-[#2E7FFF]/45 hover:text-white">
-              {prompt}
-            </button>
-          ))}
+          {workforceCopilotPrompts.map(prompt => {
+            const active = prompt.question === activePrompt.question;
+            return (
+              <button
+                key={prompt.question}
+                type="button"
+                aria-pressed={active}
+                onClick={() => handlePromptSelect(prompt)}
+                className={`w-full rounded-lg border px-3 py-2 text-left text-[11px] transition-colors ${
+                  active
+                    ? 'border-[#2E7FFF]/55 bg-[#2E7FFF]/[0.13] text-white shadow-[0_0_0_1px_rgba(46,127,255,0.16)]'
+                    : 'border-white/[0.08] bg-white/[0.03] text-[#C8D6E8] hover:border-[#2E7FFF]/45 hover:text-white'
+                }`}
+              >
+                <span className="flex items-center justify-between gap-3">
+                  <span>{prompt.question}</span>
+                  {active && <CheckCircle size={12} className="flex-shrink-0 text-emerald-300" />}
+                </span>
+              </button>
+            );
+          })}
         </div>
-        <div className="mt-4 rounded-lg border border-white/[0.08] bg-[#071224] p-3">
-          <p className="text-[10px] font-bold uppercase text-[#7A94B4]">Copilot response preview</p>
-          <p className="mt-2 text-[12px] leading-relaxed text-[#EEF3FA]">Tower B SLA is dropping because certified inspection capacity is 30% below demand while QA rejection rework has increased. Reassign one OSH-certified inspector and push facade evidence review to the QA/QC supervisor queue.</p>
-        </div>
+        <motion.div
+          key={activePrompt.question}
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.16 }}
+          className="mt-4 rounded-lg border border-white/[0.08] bg-[#071224] p-3"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-bold uppercase text-[#7A94B4]">Live copilot answer</p>
+              <h4 className="mt-1 text-[12px] font-bold text-[#EEF3FA]">{activePrompt.question}</h4>
+            </div>
+            <Pill className={riskClass[activePrompt.risk]}>{activePrompt.risk}</Pill>
+          </div>
+          <p className="mt-2 text-[12px] leading-relaxed text-[#EEF3FA]">{activePrompt.answer}</p>
+
+          <div className="mt-3 grid grid-cols-3 gap-2">
+            {[
+              ['Owner', activePrompt.owner],
+              ['Scope', activePrompt.target],
+              ['Confidence', `${activePrompt.confidence}%`],
+            ].map(([label, value]) => (
+              <div key={label} className="rounded-md border border-white/[0.07] bg-white/[0.03] p-2">
+                <p className="text-[9px] font-bold uppercase text-[#7A94B4]">{label}</p>
+                <p className="mt-1 truncate text-[11px] font-bold text-[#EEF3FA]">{value}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-3 space-y-2">
+            <p className="text-[10px] font-bold uppercase text-[#7A94B4]">Evidence signals</p>
+            {activePrompt.signals.map(signal => (
+              <div key={signal} className="flex items-start gap-2 rounded-md border border-[#00C6FF]/15 bg-[#00C6FF]/[0.04] p-2">
+                <Zap size={11} className="mt-0.5 flex-shrink-0 text-[#00C6FF]" />
+                <p className="text-[10px] leading-relaxed text-[#C8D6E8]">{signal}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-3">
+            <p className="text-[10px] font-bold uppercase text-[#7A94B4]">Resolution chips</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {activePrompt.actions.map(action => {
+                const selected = queuedAction === action;
+                return (
+                  <button
+                    key={action}
+                    type="button"
+                    onClick={() => handleActionQueue(action)}
+                    className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[10px] font-bold transition-colors ${
+                      selected
+                        ? 'border-emerald-400/35 bg-emerald-500/15 text-emerald-200'
+                        : 'border-[#2E7FFF]/25 bg-[#2E7FFF]/10 text-blue-100 hover:border-[#2E7FFF]/55 hover:bg-[#2E7FFF]/18'
+                    }`}
+                  >
+                    {selected ? <CheckCircle size={11} /> : <Target size={11} />}
+                    {action}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {queuedAction && (
+            <div className="mt-3 rounded-md border border-emerald-500/20 bg-emerald-500/[0.07] p-2 text-[10px] leading-relaxed text-emerald-100">
+              {queuedAction} is queued for command review with the current copilot evidence pack.
+            </div>
+          )}
+        </motion.div>
       </Panel>
     </div>
   );
@@ -1535,7 +1720,7 @@ export function Team({ onToast }: { onToast: ToastFn }) {
           {activeTab === 'performance' && <PerformanceTab />}
           {activeTab === 'certifications' && <CertificationsTab />}
           {activeTab === 'capacity' && <CapacityTab />}
-          {activeTab === 'ai' && <AIInsightsTab />}
+          {activeTab === 'ai' && <AIInsightsTab onToast={onToast} />}
           {activeTab === 'reports' && <ReportsTab onToast={onToast} />}
         </motion.div>
       </div>
