@@ -5,7 +5,7 @@ import {
   AlertTriangle, Brain, Target, DollarSign, BarChart3,
   CheckCircle, XCircle, FileWarning, Zap, ChevronRight,
   Users, Building2, Star, Sparkles, Lightbulb, ListChecks, Activity, X,
-  Plus,
+  Plus, Mic, Send, MessageSquare,
 } from 'lucide-react';
 import {
   computeVendorScore,
@@ -868,6 +868,202 @@ function VendorCopilotWorkbench({
         </div>
       </div>
     </div>
+  );
+}
+
+function inferVendorCopilotAction(prompt: string): VendorCopilotAction {
+  const lower = prompt.toLowerCase();
+  if (lower.includes('rfq') || lower.includes('scope') || lower.includes('tender')) return 'rfq';
+  if (lower.includes('background') || lower.includes('check') || lower.includes('compliance') || lower.includes('documents')) return 'background';
+  if (lower.includes('price') || lower.includes('cost') || lower.includes('saving') || lower.includes('rate')) return 'price';
+  if (lower.includes('action') || lower.includes('negotiate') || lower.includes('corrective') || lower.includes('email')) return 'negotiation';
+  return 'compare';
+}
+
+function PageProcurementCopilotModal({
+  focusVendor,
+  result,
+  onClose,
+  onRun,
+  onOpenProfile,
+}: {
+  focusVendor: VendorIntelData;
+  result: VendorCopilotResult;
+  onClose: () => void;
+  onRun: (action: VendorCopilotAction) => void;
+  onOpenProfile: () => void;
+}) {
+  const [prompt, setPrompt] = useState('');
+  const [isListening, setIsListening] = useState(false);
+  const [assistantNote, setAssistantNote] = useState(`Ready for ${focusVendor.name}. Choose an outcome or describe the procurement task.`);
+  const chips: { label: string; detail: string; action: VendorCopilotAction; icon: React.ReactNode }[] = [
+    { label: 'Draft RFQ', detail: 'Scope, criteria, evidence, deadlines', action: 'rfq', icon: <FileWarning size={15} /> },
+    { label: 'Compare Quotes', detail: 'Rank vendors and recommend winner', action: 'compare', icon: <BarChart3 size={15} /> },
+    { label: 'Run Checks', detail: 'Compliance, documents, dependency', action: 'background', icon: <ShieldCheck size={15} /> },
+    { label: 'Analyse Price', detail: 'Savings, rate card, value guardrails', action: 'price', icon: <DollarSign size={15} /> },
+    { label: 'Prepare Action Pack', detail: 'Negotiation brief and KPI targets', action: 'negotiation', icon: <Target size={15} /> },
+  ];
+
+  function run(action: VendorCopilotAction) {
+    onRun(action);
+    setAssistantNote(`${formatVendorAction(action)}. The live work product is updated on the right and on the page workbench behind this modal.`);
+    setPrompt('');
+  }
+
+  function submitPrompt() {
+    const action = inferVendorCopilotAction(prompt);
+    run(action);
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="absolute inset-0 z-50 flex items-center justify-center bg-[#020814]/78 px-5 backdrop-blur-sm"
+    >
+      <motion.div
+        initial={{ opacity: 0, y: 18, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 12, scale: 0.98 }}
+        className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-[#2E7FFF]/30 bg-[#081528] shadow-2xl"
+      >
+        <div className="flex items-start justify-between gap-4 border-b border-[rgba(46,127,255,0.16)] bg-[linear-gradient(135deg,rgba(46,127,255,0.18),rgba(124,58,237,0.12))] px-5 py-4">
+          <div>
+            <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-violet-300/25 bg-violet-400/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-violet-100">
+              <MessageSquare size={12} />
+              Procurement assistant
+            </div>
+            <h3 className="text-xl font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+              How can I help?
+            </h3>
+            <p className="mt-1 max-w-2xl text-[12px] leading-5 text-[#9CB1CC]">
+              Tell me the procurement outcome. I will generate the artifact and keep the vendor context anchored to <span className="font-bold text-[#EEF3FA]">{focusVendor.name}</span>.
+            </p>
+          </div>
+          <button onClick={onClose} className="rounded-xl border border-white/10 bg-white/5 p-2 text-[#8AA6C8] transition-colors hover:bg-white/10 hover:text-white" aria-label="Close procurement assistant">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="grid min-h-0 flex-1 lg:grid-cols-[0.9fr_1.1fr]">
+          <div className="custom-scrollbar min-h-0 overflow-y-auto border-b border-[rgba(46,127,255,0.14)] p-5 lg:border-b-0 lg:border-r">
+            <div className="rounded-2xl border border-[#2E7FFF]/18 bg-[#07111F] p-4">
+              <div className="mb-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#8DBDFF]">Assistant</div>
+              <p className="text-[13px] leading-6 text-[#DDE6F8]">{assistantNote}</p>
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-[rgba(46,127,255,0.18)] bg-[#0D1E3A] p-4">
+              <div className="mb-3 text-[10px] font-black uppercase tracking-[0.16em] text-[#7A94B4]">Choose an outcome</div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {chips.map(chip => (
+                  <button
+                    key={chip.label}
+                    type="button"
+                    onClick={() => run(chip.action)}
+                    className={`group rounded-xl border p-2.5 text-left transition-all hover:-translate-y-0.5 hover:border-[#2E7FFF]/45 ${
+                      result.action === chip.action
+                        ? 'border-[#2E7FFF]/50 bg-[#2E7FFF]/18 shadow-[0_0_22px_rgba(46,127,255,0.16)]'
+                        : 'border-[rgba(46,127,255,0.14)] bg-[#07111F]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-[#2E7FFF]/12 text-[#8DBDFF]">{chip.icon}</span>
+                      <div className="min-w-0">
+                        <div className="text-[11px] font-black text-[#EEF3FA]">{chip.label}</div>
+                        <div className="mt-0.5 text-[9px] leading-3 text-[#8AA6C8]">{chip.detail}</div>
+                      </div>
+                      <ChevronRight size={13} className="ml-auto text-[#5A7393] transition-transform group-hover:translate-x-0.5 group-hover:text-[#8DBDFF]" />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-[rgba(46,127,255,0.18)] bg-[#07111F] p-3">
+              <div className="flex items-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsListening(prev => !prev);
+                    setAssistantNote(isListening ? 'Voice paused. You can type or choose an outcome.' : 'Listening mode is ready for this demo. Speak the procurement task, then send it as text.');
+                  }}
+                  className={`grid h-12 w-12 shrink-0 place-items-center rounded-xl border transition-all ${isListening ? 'border-red-400/45 bg-red-400/14 text-red-200 shadow-lg shadow-red-500/20' : 'border-[#2E7FFF]/28 bg-[#2E7FFF]/12 text-[#8DBDFF] hover:bg-[#2E7FFF]/20'}`}
+                  aria-label={isListening ? 'Stop voice input' : 'Start voice input'}
+                >
+                  <Mic size={19} />
+                </button>
+                <label className="min-w-0 flex-1">
+                  <span className="sr-only">Type procurement request</span>
+                  <textarea
+                    value={prompt}
+                    onChange={event => setPrompt(event.target.value)}
+                    placeholder="Ask for an RFQ, quote comparison, background check, price analysis..."
+                    spellCheck={false}
+                    className="min-h-[78px] w-full resize-none rounded-xl border border-[rgba(46,127,255,0.22)] bg-[#0D1E3A] px-3 py-2.5 text-[12px] leading-5 text-[#EEF3FA] outline-none transition-all placeholder:text-[#5A7393] focus:border-[#2E7FFF]"
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={submitPrompt}
+                  className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-[#ED1D2E] text-white shadow-lg shadow-[#ED1D2E]/20 transition-all hover:bg-[#ff3040]"
+                  aria-label="Send procurement request"
+                >
+                  <Send size={17} />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="custom-scrollbar min-h-0 overflow-y-auto p-5">
+            <div className="rounded-2xl border border-[rgba(46,127,255,0.20)] bg-[#0D1E3A] p-4">
+              <div className="mb-3 flex items-start justify-between gap-3">
+                <div>
+                  <div className="mb-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#8DBDFF]">Live work product</div>
+                  <h4 className="text-base font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{result.title}</h4>
+                  <p className="mt-2 text-[12px] leading-5 text-[#9CB1CC]">{result.summary}</p>
+                </div>
+                <span className="shrink-0 rounded-full border border-emerald-400/22 bg-emerald-400/10 px-3 py-1 text-[10px] font-black text-emerald-200">
+                  {result.status}
+                </span>
+              </div>
+
+              <div className="space-y-3">
+                {result.sections.map(section => (
+                  <div key={section.title} className="rounded-xl border border-[rgba(46,127,255,0.12)] bg-[#07111F] p-3">
+                    <div className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#8DBDFF]">
+                      <ListChecks size={12} />
+                      {section.title}
+                    </div>
+                    <ul className="space-y-2">
+                      {section.lines.map(line => (
+                        <li key={line} className="flex gap-2 text-[11px] leading-5 text-[#C8D8EE]">
+                          <CheckCircle size={11} className="mt-1 shrink-0 text-emerald-400" />
+                          {line}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-3 rounded-xl border border-[#2E7FFF]/20 bg-[#2E7FFF]/10 p-3">
+                <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#8DBDFF]">Next action</div>
+                <div className="mt-1 text-[12px] font-bold text-[#EEF3FA]">{result.primaryCta}</div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={onOpenProfile}
+              className="mt-3 w-full rounded-xl border border-[#2E7FFF]/30 bg-[#2E7FFF]/14 px-4 py-3 text-[12px] font-black text-[#8DBDFF] transition-all hover:bg-[#2E7FFF]/22 hover:text-white"
+            >
+              Open focused vendor profile
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
   );
 }
 
@@ -1763,6 +1959,11 @@ export function VendorIntelligence({ onToast }: Props) {
   const [filterTab, setFilterTab] = useState<FilterTab>('all');
   const [selectedVendor, setSelectedVendor] = useState<VendorIntelData | null>(null);
   const [showAddVendorWizard, setShowAddVendorWizard] = useState(false);
+  const [showPageCopilotModal, setShowPageCopilotModal] = useState(false);
+  const [pageCopilotAction, setPageCopilotAction] = useState<VendorCopilotAction>('compare');
+  const [pageCopilotLog, setPageCopilotLog] = useState<string[]>([
+    'Portfolio procurement copilot ready on the Vendor Intelligence page.',
+  ]);
   const { vendors: allVendors, addVendor } = useVendors();
 
   const vendorsWithScores = allVendors.map(v => ({
@@ -1793,6 +1994,22 @@ export function VendorIntelligence({ onToast }: Props) {
     watchlist: vendorsWithScores.filter(v => v.riskLevel === 'Watchlist').length,
     atRisk: vendorsWithScores.filter(v => v.riskLevel === 'At Risk').length,
   };
+  const procurementFocus = [...vendorsWithScores].sort((a, b) => {
+    const aPriority = a.riskLevel === 'At Risk' ? 0 : a.riskLevel === 'Watchlist' ? 1 : 2;
+    const bPriority = b.riskLevel === 'At Risk' ? 0 : b.riskLevel === 'Watchlist' ? 1 : 2;
+    if (aPriority !== bPriority) return aPriority - bPriority;
+    return a.score - b.score;
+  })[0]?.vendor ?? allVendors[0];
+  const pageCopilotResult = buildVendorCopilotResult(procurementFocus, allVendors, pageCopilotAction);
+
+  function runPageCopilotAction(action: VendorCopilotAction) {
+    setPageCopilotAction(action);
+    setPageCopilotLog(prev => [
+      `${formatVendorAction(action)} from page copilot for ${procurementFocus.name}`,
+      ...prev.filter(item => item !== `${formatVendorAction(action)} from page copilot for ${procurementFocus.name}`),
+    ]);
+    onToast(`${formatVendorAction(action)} from Procurement Copilot`, action === 'background' ? 'warning' : 'success');
+  }
 
   function createVendor(vendor: VendorIntelData) {
     addVendor(vendor);
@@ -1865,6 +2082,38 @@ export function VendorIntelligence({ onToast }: Props) {
       </div>
 
       <div className="flex-1 overflow-y-auto custom-scrollbar px-5 py-4">
+        <div className="mb-4 overflow-hidden rounded-2xl border border-[#2E7FFF]/28 bg-[linear-gradient(135deg,rgba(17,32,64,0.96),rgba(7,17,31,0.98))] shadow-[0_18px_50px_rgba(0,0,0,0.22)]">
+          <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[rgba(46,127,255,0.16)] bg-[linear-gradient(90deg,rgba(46,127,255,0.18),rgba(237,29,46,0.10),rgba(7,17,31,0))] px-5 py-4">
+            <div>
+              <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[#2E7FFF]/30 bg-[#2E7FFF]/12 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-[#8DBDFF]">
+                <Sparkles size={12} />
+                Procurement Copilot
+              </div>
+              <h3 className="text-lg font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+                Source, compare, check, and negotiate vendors from this page
+              </h3>
+              <p className="mt-1 max-w-3xl text-[12px] leading-5 text-[#9CB1CC]">
+                Run sourcing work across the portfolio without opening a vendor first. Current AI focus is <span className="font-bold text-[#EEF3FA]">{procurementFocus.name}</span> because it has the highest procurement attention score.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowPageCopilotModal(true)}
+              className="inline-flex items-center gap-2 rounded-xl border border-[#2E7FFF]/30 bg-[#2E7FFF]/14 px-4 py-2 text-[11px] font-black text-[#8DBDFF] transition-all hover:bg-[#2E7FFF]/22 hover:text-white"
+            >
+              <MessageSquare size={13} />
+              How can I help?
+            </button>
+          </div>
+          <div className="p-4">
+            <VendorCopilotWorkbench
+              result={pageCopilotResult}
+              log={pageCopilotLog}
+              onRun={runPageCopilotAction}
+            />
+          </div>
+        </div>
+
         <div className="bg-[rgba(17,32,64,0.85)] border border-[rgba(46,127,255,0.2)] rounded-xl overflow-hidden">
           <div className="grid grid-cols-[2fr_70px_100px_80px_90px_90px_80px_36px] px-4 py-2 text-[9px] text-[#7A94B4] uppercase tracking-wide border-b border-[rgba(46,127,255,0.1)]">
             {['Vendor', 'Score', 'Risk Level', 'Trend', 'SLA %', 'Avg Cost', 'Contracts', ''].map(h => (
@@ -1934,6 +2183,18 @@ export function VendorIntelligence({ onToast }: Props) {
       </div>
 
       <AnimatePresence>
+        {showPageCopilotModal && (
+          <PageProcurementCopilotModal
+            focusVendor={procurementFocus}
+            result={pageCopilotResult}
+            onClose={() => setShowPageCopilotModal(false)}
+            onRun={runPageCopilotAction}
+            onOpenProfile={() => {
+              setShowPageCopilotModal(false);
+              setSelectedVendor(procurementFocus);
+            }}
+          />
+        )}
         {showAddVendorWizard && (
           <AddVendorWizard
             onClose={() => setShowAddVendorWizard(false)}
