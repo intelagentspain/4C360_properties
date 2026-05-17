@@ -134,6 +134,48 @@ const PULSE_SEV_ICON: Record<string, { icon: React.ReactNode; cls: string }> = {
   ok:       { icon: <CheckCircle size={11} />, cls: 'text-emerald-400 bg-emerald-500/20' },
 };
 
+const SIMULATION_EVENTS: PulseEvent[] = [
+  { id: 'sim-1', client: 'JLT North Cluster', title: 'Resident emergency raised from Tower 5 lift lobby', sub: 'AI triage classifies Critical - lift safety', time: 'Live step 1', severity: 'critical' },
+  { id: 'sim-2', client: 'JLT North Cluster', title: 'AI creates work order WO-LIFT-8842', sub: 'Parts, lift console, and supervisor approval linked', time: 'Live step 2', severity: 'high' },
+  { id: 'sim-3', client: 'JLT North Cluster', title: 'Technician reassigned from Dubai Silicon Oasis', sub: 'ETA reduced from 31 min to 12 min', time: 'Live step 3', severity: 'info' },
+  { id: 'sim-4', client: 'JLT North Cluster', title: 'Client notified and SLA timer stabilized', sub: 'Penalty exposure reduced by AED 18K', time: 'Live step 4', severity: 'ok' },
+];
+
+function getCommandProfile(client: PortfolioClient) {
+  const atRisk = Math.max(0, client.incidents * 18000 + client.overdueTasks * 6500 + Math.max(0, 90 - client.sla) * 4000);
+  const prevented = client.riskLevel === 'low' ? 42000 + client.sites * 2800 : Math.max(22000, client.workOrders * 420);
+  const sentiment = client.sla >= 95 ? 94 : client.sla >= 90 ? 88 : client.sla >= 80 ? 74 : 58;
+  const utilization = Math.min(98, Math.max(42, Math.round(client.workOrders / Math.max(client.sites, 1) * 7 + client.incidents * 3)));
+  const coverage = client.dataSources.length === 0 ? 34 : Math.min(98, 54 + client.dataSources.length * 13 + (client.dataSources.some(ds => ds.count === 0) ? -18 : 0));
+  const firstDue = client.dataSources.length === 0 ? 'First PPM schedule due in 6 days' : client.overdueTasks > 0 ? `${client.overdueTasks} overdue actions need dispatch review` : 'Next PPM batch on track';
+
+  const narrative =
+    client.riskLevel === 'critical'
+      ? `${client.name} is deteriorating because overdue tasks, resident-impacting incidents, and SLA pressure are converging. Recommend moving two engineers into the cluster today and keeping supervisor escalation open until the lift safety queue is cleared.`
+      : client.riskLevel === 'high'
+        ? `${client.name} needs intervention because reporting gaps and simultaneous job pressure are masking real SLA exposure. Recommend restoring data sync, assigning one senior supervisor, and closing the oldest open breaches first.`
+        : client.dataSources.length === 0
+          ? `${client.name} is healthy but still in onboarding. The right move is to connect core data feeds, publish the first PPM calendar, and capture baseline service quality before the first monthly review.`
+          : `${client.name} is stable and suitable for proactive operations. Keep the AI prevention loop active, maintain data coverage, and use spare capacity to absorb risk from weaker properties.`;
+
+  const actions =
+    client.riskLevel === 'critical'
+      ? ['Reassign 2 certified engineers before noon', 'Escalate lift checks to supervisor command', 'Notify client with 90-minute recovery plan']
+      : client.riskLevel === 'high'
+        ? ['Restore Power BI token and data sync', 'Clear 3 oldest SLA breaches', 'Move one field supervisor to Tower A']
+        : client.dataSources.length === 0
+          ? ['Connect Maximo or BMS data source', 'Publish first PPM calendar', 'Run onboarding health audit']
+          : ['Keep predictive PPM active', 'Review next asset-risk batch', 'Offer spare capacity to JLT escalation'];
+
+  return { atRisk, prevented, sentiment, utilization, coverage, firstDue, narrative, actions };
+}
+
+function formatAed(value: number) {
+  if (value >= 1000000) return `AED ${(value / 1000000).toFixed(1)}M`;
+  if (value >= 1000) return `AED ${Math.round(value / 1000)}K`;
+  return `AED ${value}`;
+}
+
 function PortfolioSummaryStrip({ clients }: { clients: PortfolioClient[] }) {
   const totalSites       = clients.reduce((s, c) => s + c.sites, 0);
   const totalWO          = clients.reduce((s, c) => s + c.workOrders, 0);
@@ -166,9 +208,42 @@ function PortfolioSummaryStrip({ clients }: { clients: PortfolioClient[] }) {
   );
 }
 
+function ExecutiveImpactStrip({ clients }: { clients: PortfolioClient[] }) {
+  const profiles = clients.map(getCommandProfile);
+  const aedAtRisk = profiles.reduce((sum, p) => sum + p.atRisk, 0);
+  const penaltiesAvoided = profiles.reduce((sum, p) => sum + p.prevented, 0);
+  const avgSentiment = Math.round(profiles.reduce((sum, p) => sum + p.sentiment, 0) / Math.max(profiles.length, 1));
+  const avgUtilization = Math.round(profiles.reduce((sum, p) => sum + p.utilization, 0) / Math.max(profiles.length, 1));
+
+  const items = [
+    { label: 'AED at Risk', value: formatAed(aedAtRisk), sub: 'live exposure', icon: <AlertTriangle size={13} />, tone: 'text-red-300 bg-red-500/10 border-red-500/20' },
+    { label: 'Penalties Avoided', value: formatAed(penaltiesAvoided), sub: 'AI prevention', icon: <Shield size={13} />, tone: 'text-emerald-300 bg-emerald-500/10 border-emerald-500/20' },
+    { label: 'Resident Sentiment', value: `${avgSentiment}%`, sub: 'portfolio pulse', icon: <Users size={13} />, tone: 'text-cyan-300 bg-cyan-500/10 border-cyan-500/20' },
+    { label: 'AI Prevented Failures', value: '14', sub: 'this quarter', icon: <Bot size={13} />, tone: 'text-blue-300 bg-blue-500/10 border-blue-500/20' },
+    { label: 'Technician Utilization', value: `${avgUtilization}%`, sub: 'field load', icon: <Activity size={13} />, tone: 'text-amber-300 bg-amber-500/10 border-amber-500/20' },
+  ];
+
+  return (
+    <div className="grid grid-cols-2 gap-2 px-5 py-2.5 border-b border-[rgba(46,127,255,0.12)] flex-shrink-0 lg:grid-cols-5">
+      {items.map(item => (
+        <div key={item.label} className={`rounded-lg border px-3 py-2 ${item.tone}`}>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[9px] uppercase tracking-wide opacity-75">{item.label}</span>
+            {item.icon}
+          </div>
+          <div className="mt-1 text-base font-bold leading-tight">{item.value}</div>
+          <div className="text-[9px] opacity-60">{item.sub}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function PortfolioPulseFeed() {
   const [events, setEvents] = useState<PulseEvent[]>(PULSE_EVENTS.slice(0, 5));
   const [idx, setIdx] = useState(0);
+  const [filter, setFilter] = useState<'all' | PulseEvent['severity']>('all');
+  const [simRunning, setSimRunning] = useState(false);
 
   useEffect(() => {
     const t = setInterval(() => {
@@ -187,6 +262,21 @@ function PortfolioPulseFeed() {
     }
   }, [idx]);
 
+  const visibleEvents = filter === 'all' ? events : events.filter(ev => ev.severity === filter);
+
+  function runSimulation() {
+    if (simRunning) return;
+    setSimRunning(true);
+    SIMULATION_EVENTS.forEach((event, step) => {
+      window.setTimeout(() => {
+        setEvents(prev => [{ ...event, id: `${event.id}-${Date.now()}` }, ...prev].slice(0, 8));
+        if (step === SIMULATION_EVENTS.length - 1) {
+          window.setTimeout(() => setSimRunning(false), 900);
+        }
+      }, step * 900);
+    });
+  }
+
   return (
     <div className="mx-5 mb-3 rounded-xl border border-[rgba(46,127,255,0.2)] bg-[rgba(17,32,64,0.7)] overflow-hidden flex-shrink-0">
       <div className="flex items-center justify-between px-3 py-2 border-b border-[rgba(46,127,255,0.12)]">
@@ -195,11 +285,29 @@ function PortfolioPulseFeed() {
           <span className="text-[10px] font-bold text-[#EEF3FA] uppercase tracking-wide">Portfolio Pulse</span>
           <span className="text-[9px] text-[#7A94B4]">Cross-property live events</span>
         </div>
-        <span className="text-[9px] text-[#7A94B4]">{events.length} events</span>
+        <div className="flex items-center gap-1.5">
+          {(['all', 'critical', 'high', 'info', 'ok'] as const).map(option => (
+            <button
+              key={option}
+              onClick={() => setFilter(option)}
+              className={`rounded-md px-2 py-1 text-[9px] font-semibold capitalize transition-colors ${filter === option ? 'bg-[#2E7FFF] text-white' : 'bg-[#0A1628] text-[#7A94B4] hover:text-[#EEF3FA]'}`}
+            >
+              {option}
+            </button>
+          ))}
+          <button
+            onClick={runSimulation}
+            disabled={simRunning}
+            className="rounded-md border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-1 text-[9px] font-bold text-cyan-300 transition-colors hover:bg-cyan-500/15 disabled:opacity-50"
+          >
+            {simRunning ? 'Running' : 'Run Live Simulation'}
+          </button>
+          <span className="text-[9px] text-[#7A94B4]">{visibleEvents.length} events</span>
+        </div>
       </div>
       <div className="flex overflow-x-auto custom-scrollbar">
         <AnimatePresence initial={false}>
-          {events.map(ev => {
+          {visibleEvents.map(ev => {
             const border = PULSE_SEV_BORDER[ev.severity];
             const cfg    = PULSE_SEV_ICON[ev.severity];
             return (
@@ -234,6 +342,65 @@ function MetricPill({ label, value, color }: { label: string; value: string | nu
     <div className="flex min-w-0 flex-col items-center bg-[#0A1628] rounded-lg px-2 py-1.5">
       <span className={`text-[13px] font-bold leading-tight ${color}`}>{value}</span>
       <span className="text-[8px] text-[#7A94B4] uppercase tracking-wide mt-0.5 text-center">{label}</span>
+    </div>
+  );
+}
+
+function PortfolioRiskMap({ clients, onSelect }: { clients: PortfolioClient[]; onSelect: (client: PortfolioClient) => void }) {
+  const placedClients = clients.filter(c => c.lat && c.lng);
+  const hasCoordinates = placedClients.length > 0;
+  const minLat = hasCoordinates ? Math.min(...placedClients.map(c => c.lat ?? 0)) : 0;
+  const maxLat = hasCoordinates ? Math.max(...placedClients.map(c => c.lat ?? 0)) : 1;
+  const minLng = hasCoordinates ? Math.min(...placedClients.map(c => c.lng ?? 0)) : 0;
+  const maxLng = hasCoordinates ? Math.max(...placedClients.map(c => c.lng ?? 0)) : 1;
+
+  const position = (client: PortfolioClient) => {
+    const latRange = Math.max(maxLat - minLat, 0.01);
+    const lngRange = Math.max(maxLng - minLng, 0.01);
+    const x = 10 + (((client.lng ?? minLng) - minLng) / lngRange) * 80;
+    const y = 82 - (((client.lat ?? minLat) - minLat) / latRange) * 64;
+    return { x, y };
+  };
+
+  return (
+    <div className="mb-3 rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#0B1A30] p-3">
+      <div className="mb-2 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <MapPin size={13} className="text-cyan-300" />
+          <div>
+            <div className="text-[11px] font-bold uppercase tracking-wide text-[#EEF3FA]">Dubai Risk Map</div>
+            <div className="text-[9px] text-[#7A94B4]">Click a marker to open property command context</div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 text-[9px] text-[#7A94B4]">
+          <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-full bg-red-400" /> Critical</span>
+          <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-full bg-orange-400" /> High</span>
+          <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-full bg-emerald-400" /> Low</span>
+        </div>
+      </div>
+      <div className="relative h-36 overflow-hidden rounded-lg border border-[rgba(46,127,255,0.12)] bg-[radial-gradient(circle_at_24%_18%,rgba(46,127,255,0.18),transparent_20%),linear-gradient(135deg,#081528,#0E2741)]">
+        <div className="absolute inset-0 opacity-35" style={{ backgroundImage: 'linear-gradient(rgba(126,184,247,.12) 1px, transparent 1px), linear-gradient(90deg, rgba(126,184,247,.12) 1px, transparent 1px)', backgroundSize: '42px 42px' }} />
+        <div className="absolute left-[18%] top-[18%] h-[58%] w-[62%] rounded-[55%] border border-cyan-400/20 rotate-[-14deg]" />
+        <div className="absolute left-[28%] top-[42%] h-[1px] w-[52%] bg-cyan-300/20 rotate-[8deg]" />
+        {placedClients.map(client => {
+          const { x, y } = position(client);
+          const color = client.riskLevel === 'critical' ? 'bg-red-400 shadow-red-500/60' : client.riskLevel === 'high' ? 'bg-orange-400 shadow-orange-500/60' : client.riskLevel === 'medium' ? 'bg-amber-400 shadow-amber-500/60' : 'bg-emerald-400 shadow-emerald-500/60';
+          return (
+            <button
+              key={client.id}
+              onClick={() => onSelect(client)}
+              className="absolute -translate-x-1/2 -translate-y-1/2 group"
+              style={{ left: `${x}%`, top: `${y}%` }}
+              title={client.name}
+            >
+              <span className={`block h-3 w-3 rounded-full ${color} shadow-[0_0_18px_currentColor] ring-4 ring-white/5`} />
+              <span className="pointer-events-none absolute left-1/2 top-4 hidden min-w-28 -translate-x-1/2 rounded-md border border-white/10 bg-[#061225] px-2 py-1 text-[9px] font-semibold text-[#EEF3FA] shadow-xl group-hover:block">
+                {client.name}
+              </span>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -302,6 +469,8 @@ function ClientPortfolioCard({
 }) {
   const slaColor = client.sla >= 90 ? 'text-emerald-400' : client.sla >= 80 ? 'text-amber-400' : 'text-red-400';
   const compColor = client.compliance >= 90 ? 'text-emerald-400' : client.compliance >= 80 ? 'text-amber-400' : 'text-red-400';
+  const commandProfile = getCommandProfile(client);
+  const visibleSources = client.dataSources.length > 0 ? client.dataSources : [{ label: 'Data onboarding', count: commandProfile.coverage }];
 
   if (view === 'list') {
     return (
@@ -340,7 +509,7 @@ function ClientPortfolioCard({
             {client.riskLevel}
           </div>
           <div className="flex max-w-full flex-wrap gap-1 xl:flex-shrink-0">
-            {client.dataSources.map(ds => (
+            {visibleSources.map(ds => (
               <span key={ds.label} className="text-[9px] bg-[rgba(46,127,255,0.1)] border border-[rgba(46,127,255,0.2)] text-blue-300 px-1.5 py-0.5 rounded-full whitespace-nowrap">
                 {ds.label} <span className="opacity-60">·{ds.count.toLocaleString()}</span>
               </span>
@@ -398,7 +567,7 @@ function ClientPortfolioCard({
         </div>
 
         <div className="flex flex-wrap gap-1">
-          {client.dataSources.map(ds => (
+          {visibleSources.map(ds => (
             <span key={ds.label} className="text-[9px] bg-[rgba(46,127,255,0.1)] border border-[rgba(46,127,255,0.2)] text-blue-300 px-1.5 py-0.5 rounded-full whitespace-nowrap">
               {ds.label} <span className="opacity-60">·{ds.count.toLocaleString()}</span>
             </span>
@@ -407,7 +576,7 @@ function ClientPortfolioCard({
 
         <div className="flex items-start gap-1.5 p-2 bg-[rgba(6,182,212,0.05)] border border-cyan-500/10 rounded-lg">
           <Zap size={10} className="text-cyan-400 flex-shrink-0 mt-0.5" />
-          <span className="text-[10px] text-[#7A94B4] leading-snug line-clamp-2">{client.aiInsight}</span>
+          <span className="text-[10px] text-[#7A94B4] leading-snug line-clamp-2">{client.aiInsight || `${commandProfile.firstDue}. Data coverage at ${commandProfile.coverage}%.`}</span>
         </div>
 
         <div className="flex items-center justify-between gap-2">
@@ -1027,6 +1196,8 @@ function ClientDetailDrawer({
     if (ds.count >= 100) return 88;
     return 74;
   };
+  const commandProfile = getCommandProfile(client);
+  const visibleSources = client.dataSources.length > 0 ? client.dataSources : [{ label: 'Data onboarding', count: commandProfile.coverage }];
 
   return (
     <AnimatePresence>
@@ -1055,6 +1226,28 @@ function ClientDetailDrawer({
           </div>
 
           <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4">
+            <div>
+              <div className="text-[10px] text-[#7A94B4] uppercase tracking-wide mb-2">AI Why This Matters</div>
+              <div className="p-3 bg-[rgba(46,127,255,0.08)] border border-blue-500/20 rounded-xl">
+                <div className="flex items-start gap-2">
+                  <Bot size={13} className="text-blue-300 flex-shrink-0 mt-0.5" />
+                  <p className="text-[11px] text-[#EEF3FA] leading-relaxed">{commandProfile.narrative}</p>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <div className="text-[10px] text-[#7A94B4] uppercase tracking-wide mb-2">Next 3 Actions</div>
+              <div className="space-y-1.5">
+                {commandProfile.actions.map((action, i) => (
+                  <div key={action} className="flex items-center gap-2 rounded-lg border border-[rgba(46,127,255,0.1)] bg-[#0A1628] p-2">
+                    <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md bg-[#2E7FFF]/15 text-[10px] font-bold text-blue-300">{i + 1}</span>
+                    <span className="text-[10px] text-[#EEF3FA] leading-snug">{action}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <div>
               <div className="text-[10px] text-[#7A94B4] uppercase tracking-wide mb-2">Property Overview</div>
               <div className="grid grid-cols-3 gap-2">
@@ -1113,9 +1306,31 @@ function ClientDetailDrawer({
             </div>
 
             <div>
+              <div className="text-[10px] text-[#7A94B4] uppercase tracking-wide mb-2">Executive Impact</div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-2">
+                  <div className="text-[8px] uppercase tracking-wide text-red-200/70">AED at Risk</div>
+                  <div className="text-[13px] font-bold text-red-200">{formatAed(commandProfile.atRisk)}</div>
+                </div>
+                <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-2">
+                  <div className="text-[8px] uppercase tracking-wide text-emerald-200/70">Avoided</div>
+                  <div className="text-[13px] font-bold text-emerald-200">{formatAed(commandProfile.prevented)}</div>
+                </div>
+                <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/10 p-2">
+                  <div className="text-[8px] uppercase tracking-wide text-cyan-200/70">Sentiment</div>
+                  <div className="text-[13px] font-bold text-cyan-200">{commandProfile.sentiment}%</div>
+                </div>
+                <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-2">
+                  <div className="text-[8px] uppercase tracking-wide text-amber-200/70">Utilization</div>
+                  <div className="text-[13px] font-bold text-amber-200">{commandProfile.utilization}%</div>
+                </div>
+              </div>
+            </div>
+
+            <div>
               <div className="text-[10px] text-[#7A94B4] uppercase tracking-wide mb-2">Data Source Quality</div>
               <div className="space-y-2">
-                {client.dataSources.map(ds => {
+                {visibleSources.map(ds => {
                   const q = dsQuality(ds);
                   const qColor = q >= 90 ? '#38D98A' : q >= 70 ? '#FF9B38' : '#FF4B4B';
                   return (
@@ -1154,7 +1369,7 @@ function ClientDetailDrawer({
               <div className="text-[10px] text-[#7A94B4] uppercase tracking-wide mb-2">AI Insight</div>
               <div className="p-3 bg-[rgba(6,182,212,0.06)] border border-cyan-500/20 rounded-xl flex items-start gap-2">
                 <Zap size={12} className="text-cyan-400 flex-shrink-0 mt-0.5" />
-                <p className="text-[11px] text-[#EEF3FA] leading-relaxed">{client.aiInsight}</p>
+                <p className="text-[11px] text-[#EEF3FA] leading-relaxed">{client.aiInsight || `${commandProfile.firstDue}. Data coverage at ${commandProfile.coverage}%.`}</p>
               </div>
             </div>
           </div>
@@ -1313,6 +1528,8 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
 
       <PortfolioSummaryStrip clients={allClients} />
 
+      <ExecutiveImpactStrip clients={allClients} />
+
       <PortfolioPulseFeed />
 
       <div className="flex items-stretch gap-2 px-5 pb-2.5 flex-shrink-0 flex-wrap gap-y-2">
@@ -1392,6 +1609,8 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
       </div>
 
       <div className="flex-1 overflow-y-auto custom-scrollbar px-5 pb-4">
+        <PortfolioRiskMap clients={allClients} onSelect={setSelected} />
+
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3">
             <Users size={32} className="text-[#7A94B4] opacity-30" />
@@ -1411,7 +1630,7 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
           <div className="grid grid-cols-1 gap-3 xl:grid-cols-2 2xl:grid-cols-3">
             <AnimatePresence initial={false}>
               {filtered.map(c => (
-                <ClientPortfolioCard key={c.id} client={c} onSelect={client => onClientSelect(client.id)} onDismiss={handleDismissClient} onToast={onToast} onReport={setReportClient} view="grid" onNavigateToIncidents={onNavigateToIncidents} onNavigateToCommand={onNavigateToCommand} />
+                <ClientPortfolioCard key={c.id} client={c} onSelect={setSelected} onDismiss={handleDismissClient} onToast={onToast} onReport={setReportClient} view="grid" onNavigateToIncidents={onNavigateToIncidents} onNavigateToCommand={onNavigateToCommand} />
               ))}
             </AnimatePresence>
           </div>
@@ -1419,7 +1638,7 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
           <div className="flex flex-col gap-2">
             <AnimatePresence initial={false}>
               {filtered.map(c => (
-                <ClientPortfolioCard key={c.id} client={c} onSelect={client => onClientSelect(client.id)} onDismiss={handleDismissClient} onToast={onToast} onReport={setReportClient} view="list" onNavigateToIncidents={onNavigateToIncidents} onNavigateToCommand={onNavigateToCommand} />
+                <ClientPortfolioCard key={c.id} client={c} onSelect={setSelected} onDismiss={handleDismissClient} onToast={onToast} onReport={setReportClient} view="list" onNavigateToIncidents={onNavigateToIncidents} onNavigateToCommand={onNavigateToCommand} />
               ))}
             </AnimatePresence>
           </div>
