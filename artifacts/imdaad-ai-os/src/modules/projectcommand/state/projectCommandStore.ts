@@ -2,6 +2,12 @@ import { useSyncExternalStore } from 'react';
 import type { Risk } from '../data/risks';
 import type { ScenarioKey } from '../data/ai-responses';
 import {
+  createProjectControlEvent,
+  getNextProjectEventType,
+  type ProjectEvent,
+  type ProjectEventType,
+} from '../data/projectControlDemoEngine';
+import {
   defaultProjectCommandProjectId,
   defaultProjectCommandPropertyId,
   type ProjectCommandDataset,
@@ -19,6 +25,7 @@ export interface ProjectCommandState {
   selectedPhaseId: string | null;
   selectedRisk: Risk | null;
   selectedZone: string;
+  projectEventsByProjectId: Record<string, ProjectEvent[]>;
 }
 
 let state: ProjectCommandState = {
@@ -30,6 +37,7 @@ let state: ProjectCommandState = {
   selectedPhaseId: null,
   selectedRisk: null,
   selectedZone: 'tower-a',
+  projectEventsByProjectId: {},
 };
 
 const listeners = new Set<() => void>();
@@ -59,8 +67,42 @@ export function addProjectCommandDataset(dataset: ProjectCommandDataset) {
     activeScenario: 'base',
     selectedRisk: null,
     selectedPhaseId: null,
+    projectEventsByProjectId: {
+      ...state.projectEventsByProjectId,
+      [dataset.id]: [],
+    },
   };
   emit();
+}
+
+export function resetProjectCommandEvents(projectId: ProjectCommandProjectId) {
+  state = {
+    ...state,
+    projectEventsByProjectId: {
+      ...state.projectEventsByProjectId,
+      [projectId]: [],
+    },
+    activeScenario: 'base',
+    selectedRisk: null,
+    selectedPhaseId: null,
+  };
+  emit();
+}
+
+export function simulateProjectCommandEvent(projectId: ProjectCommandProjectId, type?: ProjectEventType) {
+  const currentEvents = state.projectEventsByProjectId[projectId] ?? [];
+  const nextType = type ?? getNextProjectEventType(currentEvents);
+  const event = createProjectControlEvent(projectId, nextType, currentEvents.length);
+  state = {
+    ...state,
+    projectEventsByProjectId: {
+      ...state.projectEventsByProjectId,
+      [projectId]: [...currentEvents, event],
+    },
+    activeScenario: 'base',
+  };
+  emit();
+  return event;
 }
 
 function subscribe(listener: () => void) {

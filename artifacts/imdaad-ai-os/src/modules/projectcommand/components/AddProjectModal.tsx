@@ -78,6 +78,8 @@ type ProjectFormState = {
   baselineDate: string;
   budgetStructureMethod: BudgetStructureMethod;
   costTrackingLevel: CostTrackingLevel;
+  contractingStrategy: string;
+  mainContractor: string;
   reportingFrequency: ReportingFrequency;
   commitmentTracking: CommitmentTracking;
   actualCostSource: ActualCostSource;
@@ -123,6 +125,11 @@ type ProjectBaseline = {
   components: WorkPackage[];
   teamRoles: string[];
   vendorCategories: string[];
+  programmePhases: string[];
+  stageGates: string[];
+  obligations: string[];
+  evidenceRequirements: string[];
+  milestones: string[];
   budgetBreakdown: BudgetPackage[];
   risks: StarterRisk[];
   kpis: string[];
@@ -156,16 +163,20 @@ const variationControlOptions: VariationControl[] = ['Manager approval', 'Client
 const cashflowBasisOptions: CashflowBasis[] = ['Baseline schedule + package progress', 'Approved payment certificates', 'Contract milestones + forecast risks'];
 const aiForecastModeOptions: AiForecastMode[] = ['Actuals + variations + risks', 'Actuals only', 'Scenario forecast'];
 const loadingSteps = [
-  'Understanding project scope',
-  'Creating work breakdown structure',
-  'Estimating milestone phases',
-  'Suggesting teams and vendors',
-  'Identifying early risks',
-  'Preparing budget structure',
+  'Creating property and project hierarchy',
+  'Generating work packages and programme phases',
+  'Building cost baseline and stage gates',
+  'Seeding vendors, risks, and obligations',
+  'Mapping evidence requirements and milestones',
+  'Preparing AI readiness review',
 ];
 
 function toPropertyType(value: string): PropertyType {
   return propertyTypes.includes(value as PropertyType) ? (value as PropertyType) : 'Mixed-use';
+}
+
+function floorsForProperty(property: PropertyDevelopment) {
+  return property.size?.match(/\d+/)?.[0] ?? String(property.buildings);
 }
 
 const initialForm: ProjectFormState = {
@@ -176,7 +187,7 @@ const initialForm: ProjectFormState = {
   propertyName: 'Bayz 102',
   propertyLocation: 'Business Bay',
   propertyType: 'Residential Tower',
-  propertyBuildings: '1',
+  propertyBuildings: '102',
   propertyUnits: '680',
   propertySize: '102 floors',
   name: 'Main Construction',
@@ -184,21 +195,23 @@ const initialForm: ProjectFormState = {
   location: 'Business Bay',
   type: 'Main Construction',
   size: '102 floors, 680 units',
-  targetHandover: '2027-12-15',
+  targetHandover: '2026-08-12',
   budget: '420',
   currency: 'AED',
   contingency: '8',
   baselineDate: '2026-05-07',
   budgetStructureMethod: 'AI suggested work packages',
   costTrackingLevel: 'Phase/package level',
+  contractingStrategy: 'Main contractor with specialist nominated subcontractors',
+  mainContractor: 'China State Construction',
   reportingFrequency: 'Monthly',
   commitmentTracking: 'Vendor contracts',
   actualCostSource: 'Invoice upload',
   variationControl: 'Commercial review board',
   cashflowBasis: 'Baseline schedule + package progress',
   aiForecastMode: 'Actuals + variations + risks',
-  stage: 'Concept',
-  prompt: '48-floor residential tower in Dubai Sports City with basement parking, podium amenities, MEP, fit-out, and handover target in Q4.',
+  stage: 'Substructure',
+  prompt: 'Bayz 102 residential tower in Business Bay with 102 floors, 680 units, main construction scope, facade, MEP, testing, commissioning, and target handover on 12 Aug 2026.',
 };
 
 const fieldInput = 'h-10 rounded-xl border border-[rgba(46,127,255,0.22)] bg-[#07111F] px-3 text-[12px] text-[#EEF3FA] outline-none transition-colors placeholder:text-[#4A6080] focus:border-[#7C3AED] focus:ring-2 focus:ring-[#7C3AED]/20';
@@ -263,7 +276,7 @@ function projectPackageNames(type: ProjectType) {
   if (type === 'Capital Improvement' || type === 'Maintenance Upgrade') {
     return ['Scope Validation', 'Design', 'Procurement', 'Works Execution', 'Testing', 'Closeout', 'Contingency'];
   }
-  return ['Preliminaries', 'Design & Approvals', 'Enabling Works', 'Substructure', 'Superstructure', 'Facade', 'MEP', 'Fit-out', 'Testing & Commissioning', 'Handover & Snagging', 'Contingency'];
+  return ['Preliminaries', 'Design & Approvals', 'Substructure', 'Superstructure', 'Facade', 'MEP', 'Fit-out', 'Testing & Commissioning', 'Handover & Snagging'];
 }
 
 function vendorCategories(type: ProjectType) {
@@ -273,7 +286,14 @@ function vendorCategories(type: ProjectType) {
   if (type === 'ESG Retrofit') return ['Energy Auditor', 'Design Consultant', 'Equipment Supplier', 'Installation Contractor', 'M&V Consultant'];
   if (type === 'Handover & Snagging') return ['Handover Manager', 'Snagging Contractor', 'Authority Liaison Consultant', 'FM Readiness Team'];
   if (type === 'Smart Building Rollout') return ['Smart Access Integrator', 'IoT Contractor', 'Network Contractor', 'Cybersecurity Reviewer', 'Resident App Team'];
-  return [...common, 'Waterproofing Contractor', 'Facade Contractor', 'Elevator Supplier', 'Landscaping Contractor'];
+  return [
+    'China State Construction - Main Contractor',
+    'Arabian Waterproofing - Waterproofing',
+    'Emirates MEP Services - MEP',
+    'Gulf Facade Systems - Facade',
+    'LiftTech Elevators - Elevators',
+    'SafeFire Systems - Fire Systems',
+  ];
 }
 
 function normalizedWeights(type: ProjectType, count: number) {
@@ -380,10 +400,15 @@ function generateBaseline(form: ProjectFormState): ProjectBaseline {
   ];
 
   const warnings = [
-    'No MEP vendor assigned yet',
+    'Confirm Emirates MEP Services mobilisation dates before MEP rough-in gate',
     contingency < 8 ? 'Budget contingency below recommended 8% for this complexity' : 'Handover date should be validated against authority gates',
     complexityScore >= 5 ? 'High-rise logistics should be simulated before baseline approval' : 'Confirm vendor capacity before publishing baseline',
   ];
+  const programmePhases = ['Mobilisation', 'Authority approvals', 'Substructure', 'Core and superstructure', 'Facade release', 'MEP rough-in', 'Fit-out start', 'Testing and commissioning', 'Handover readiness'];
+  const stageGates = ['Design Freeze', 'Substructure Complete', 'Superstructure Level 50', 'Facade Release', 'MEP Rough-In Ready', 'Commissioning Ready', 'Handover Go/No-Go'];
+  const obligations = ['Authority approval tracker current', 'Monthly EOT and variation notice register', 'Fire system compliance evidence before commissioning', 'Vendor warranty packs before handover'];
+  const evidenceRequirements = ['authority approvals', 'inspection reports', 'commissioning certificates', 'fire system sign-off', 'lift inspection sign-off', 'vendor warranty packs'];
+  const milestones = ['Substructure Complete', 'Superstructure Level 50', 'Facade Release', 'MEP Rough-In Ready', 'Commissioning Ready', 'Handover Go/No-Go'];
 
   const readinessScore = clamp(78 + (form.name ? 4 : 0) + (form.client ? 3 : 0) + (form.targetHandover ? 4 : 0) + (contingency >= 8 ? 4 : 0) - (complexityScore >= 5 ? 5 : 0), 68, 94);
 
@@ -398,6 +423,11 @@ function generateBaseline(form: ProjectFormState): ProjectBaseline {
     components,
     teamRoles: ['Project Director', 'Project Manager', 'Commercial Manager', 'Planning Manager', 'QA/QC Lead', 'HSE Lead', 'Site Engineers', 'MEP Coordinator', 'Document Controller'],
     vendorCategories: vendorCategories(form.type),
+    programmePhases,
+    stageGates,
+    obligations,
+    evidenceRequirements,
+    milestones,
     budgetBreakdown,
     risks,
     kpis: ['Completion %', 'Budget used', 'CPI', 'SPI', 'Float remaining', 'Unresolved risks', 'Defects open'],
@@ -534,7 +564,7 @@ function buildDataset(form: ProjectFormState, baseline: ProjectBaseline): Projec
     developer: selectedPortfolio.name,
     location: property.location,
     type: `${property.type} - ${form.type}`.trim(),
-    floors: Number((property.size ?? form.size).match(/\d+/)?.[0] ?? 0),
+    floors: Number((property.size ?? form.size).match(/\d+/)?.[0] ?? form.propertyBuildings ?? 0),
     contractValue: budget,
     startDate: new Date().toISOString().slice(0, 10),
     targetHandover: form.targetHandover,
@@ -542,7 +572,7 @@ function buildDataset(form: ProjectFormState, baseline: ProjectBaseline): Projec
     completion,
     budgetUsed,
     daysToHandover: daysUntil(form.targetHandover),
-    mainContractor: 'Main contractor to be assigned',
+    mainContractor: form.mainContractor || 'Main contractor to be assigned',
     plannedValue,
     actualCost,
     earnedValue,
@@ -646,7 +676,7 @@ function ProgressSteps({ step }: { step: WizardStep }) {
   const activeIndex = step === 'setup' ? 0 : step === 'budget' ? 1 : step === 'generating' || step === 'baseline' ? 2 : 3;
   return (
     <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-      {['Project Basics', 'Budget Control', 'AI Baseline', 'Review'].map((label, index) => (
+      {['Property', 'Project', 'AI Baseline', 'Review'].map((label, index) => (
         <div key={label} className={`rounded-xl border px-3 py-2 text-[11px] font-bold transition-colors ${index <= activeIndex ? 'border-[#7C3AED]/40 bg-[#7C3AED]/15 text-[#E9D5FF]' : 'border-[rgba(46,127,255,0.12)] bg-[#07111F] text-[#5A6E88]'}`}>
           <div className="flex items-center gap-2">
             <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] ${index <= activeIndex ? 'bg-[#7C3AED] text-white' : 'bg-[#122240] text-[#7A94B4]'}`}>{index + 1}</span>
@@ -740,7 +770,7 @@ function AiProjectSetupStep({
       propertyName: property.name,
       propertyLocation: property.location,
       propertyType: toPropertyType(property.type),
-      propertyBuildings: String(property.buildings),
+      propertyBuildings: floorsForProperty(property),
       propertyUnits: String(property.units),
       propertySize: property.size ?? '',
       client: portfolio.name,
@@ -764,7 +794,7 @@ function AiProjectSetupStep({
             propertyName: nextProperty.name,
             propertyLocation: nextProperty.location,
             propertyType: toPropertyType(nextProperty.type),
-            propertyBuildings: String(nextProperty.buildings),
+            propertyBuildings: floorsForProperty(nextProperty),
             propertyUnits: String(nextProperty.units),
             propertySize: nextProperty.size ?? '',
             location: nextProperty.location,
@@ -788,7 +818,7 @@ function AiProjectSetupStep({
             propertyName: nextProperty.name,
             propertyLocation: nextProperty.location,
             propertyType: toPropertyType(nextProperty.type),
-            propertyBuildings: String(nextProperty.buildings),
+            propertyBuildings: floorsForProperty(nextProperty),
             propertyUnits: String(nextProperty.units),
             propertySize: nextProperty.size ?? '',
             location: nextProperty.location,
@@ -848,7 +878,7 @@ function AiProjectSetupStep({
                       if (modeOption === 'existing' && selectedProperty) {
                         applyProperty(selectedProperty);
                       } else {
-                        setForm({ ...form, propertyMode: 'new', propertyId: '', propertyName: '', propertyLocation: form.location, propertyBuildings: '1', propertyUnits: '', propertySize: '' });
+                        setForm({ ...form, propertyMode: 'new', propertyId: '', propertyName: '', propertyLocation: form.location, propertyBuildings: '102', propertyUnits: '', propertySize: '' });
                       }
                     }}
                     className={`rounded-lg px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.1em] ${form.propertyMode === modeOption ? 'bg-[#7C3AED] text-white' : 'text-[#7A94B4] hover:text-[#EEF3FA]'}`}
@@ -877,7 +907,7 @@ function AiProjectSetupStep({
                   <p className="mt-1 text-[12px] font-bold text-[#DDE6F8]">
                     {form.propertyName} - {form.propertyType} - {form.propertyLocation}
                   </p>
-                  <p className="mt-1 text-[10px] text-[#7A94B4]">{form.propertyBuildings || '1'} building(s), {form.propertyUnits || '0'} units, {form.propertySize || 'size pending'}</p>
+                  <p className="mt-1 text-[10px] text-[#7A94B4]">{form.propertySize || `${form.propertyBuildings || '1'} floors`}, {form.propertyUnits || '0'} units, developer / portfolio: {form.client}</p>
                 </div>
               </div>
             ) : (
@@ -894,7 +924,7 @@ function AiProjectSetupStep({
                   </select>
                 </LabeledField>
                 <div className="grid grid-cols-3 gap-3">
-                  <LabeledField label="Buildings">
+                  <LabeledField label="Floors">
                     <input className={`${fieldInput} w-full`} value={form.propertyBuildings} onChange={event => updatePropertyDraft({ propertyBuildings: event.target.value })} />
                   </LabeledField>
                   <LabeledField label="Units">
@@ -914,6 +944,12 @@ function AiProjectSetupStep({
             <select className={`${fieldInput} w-full`} value={form.type} onChange={event => update('type', event.target.value as ProjectType)}>
               {projectTypes.map(type => <option key={type}>{type}</option>)}
             </select>
+          </LabeledField>
+          <LabeledField label="Contracting strategy">
+            <input className={`${fieldInput} w-full`} value={form.contractingStrategy} onChange={event => update('contractingStrategy', event.target.value)} />
+          </LabeledField>
+          <LabeledField label="Main contractor">
+            <input className={`${fieldInput} w-full`} value={form.mainContractor} onChange={event => update('mainContractor', event.target.value)} />
           </LabeledField>
           <LabeledField label="Target handover date">
             <input type="date" className={`${fieldInput} w-full`} value={form.targetHandover} onChange={event => update('targetHandover', event.target.value)} />
@@ -1150,6 +1186,10 @@ function VendorCategoryList({ vendors }: { vendors: string[] }) {
   return <div className="grid gap-2 sm:grid-cols-2">{vendors.map(vendor => <div key={vendor} className="rounded-xl border border-[rgba(46,127,255,0.12)] bg-[#0A1628] px-3 py-2 text-[11px] font-bold text-[#B8C7DB]">{vendor}</div>)}</div>;
 }
 
+function BaselineChipList({ items }: { items: string[] }) {
+  return <div className="flex flex-wrap gap-2">{items.map(item => <span key={item} className="rounded-full border border-[rgba(46,127,255,0.18)] bg-[#0A1628] px-3 py-1.5 text-[10px] font-bold text-[#B8C7DB]">{item}</span>)}</div>;
+}
+
 function BudgetBreakdownCard({ items, currency }: { items: BudgetPackage[]; currency: Currency }) {
   return (
     <div className="space-y-3">
@@ -1221,12 +1261,14 @@ function ProjectBaselinePreview({
             <h3 className="mt-3 text-2xl font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{form.name}</h3>
             <p className="mt-1 text-[12px] text-[#B8C7DB]">{baseline.summary.projectType} - {baseline.summary.stage} - {baseline.summary.handoverTarget}</p>
           </div>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
             {[
-              ['Duration', baseline.summary.expectedDuration],
-              ['Complexity', baseline.summary.complexity],
-              ['Packages', baseline.components.length],
-              ['Risks', baseline.risks.length],
+              ['Total budget', money(Number(form.budget) || 0, form.currency)],
+              ['Phases', baseline.programmePhases.length],
+              ['Vendors', baseline.vendorCategories.length],
+              ['Stage gates', baseline.stageGates.length],
+              ['Risks seeded', baseline.risks.length],
+              ['Evidence', baseline.evidenceRequirements.length],
             ].map(([label, value]) => (
               <div key={label} className="rounded-2xl border border-[rgba(46,127,255,0.16)] bg-[#07111F]/80 p-3">
                 <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">{label}</p>
@@ -1266,9 +1308,9 @@ function ProjectBaselinePreview({
         </div>
         <div className="mt-4 grid gap-3 lg:grid-cols-3">
           {[
-            ['Set budget', ['Approved budget', 'Cost packages', 'Programme phases', form.costTrackingLevel]],
-            ['Capture changes', [form.commitmentTracking, form.actualCostSource, form.variationControl, 'Evidence links']],
-            ['Decide actions', [form.cashflowBasis, form.aiForecastMode, 'Cost risks', 'Manager action queue']],
+              ['Set budget', ['Approved budget', 'Cost packages', 'Programme phases', form.costTrackingLevel]],
+              ['Capture changes', [form.commitmentTracking, form.actualCostSource, form.variationControl, 'Evidence links']],
+              ['Decide actions', [form.cashflowBasis, form.aiForecastMode, 'Cost risks', 'Manager action queue']],
           ].map(([title, items]) => (
             <div key={title as string} className="rounded-2xl border border-emerald-400/14 bg-[#07111F]/80 p-3">
               <p className="text-[10px] font-black uppercase tracking-[0.14em] text-emerald-200">{title}</p>
@@ -1282,11 +1324,16 @@ function ProjectBaselinePreview({
         </div>
       </div>
       <div className="grid gap-4 xl:grid-cols-2">
-        <SectionCard title="Components / Work Packages" icon={ClipboardCheck}><WorkPackageList items={baseline.components} /></SectionCard>
+        <SectionCard title="Work Packages" icon={ClipboardCheck}><WorkPackageList items={baseline.components} /></SectionCard>
         <SectionCard title="Budget Breakdown" icon={DollarSign}><BudgetBreakdownCard items={baseline.budgetBreakdown} currency={form.currency} /></SectionCard>
+        <SectionCard title="Programme Phases" icon={ClipboardCheck}><BaselineChipList items={baseline.programmePhases} /></SectionCard>
+        <SectionCard title="Stage Gates" icon={CheckCircle2}><BaselineChipList items={baseline.stageGates} /></SectionCard>
         <SectionCard title="Suggested Team Structure" icon={Users}><TeamRoleList roles={baseline.teamRoles} /></SectionCard>
-        <SectionCard title="Vendor Categories" icon={HardHat}><VendorCategoryList vendors={baseline.vendorCategories} /></SectionCard>
+        <SectionCard title="Vendors Created" icon={HardHat}><VendorCategoryList vendors={baseline.vendorCategories} /></SectionCard>
         <SectionCard title="Risk Register Starter" icon={ShieldAlert}><StarterRiskRegister risks={baseline.risks} /></SectionCard>
+        <SectionCard title="Obligations" icon={ClipboardCheck}><BaselineChipList items={baseline.obligations} /></SectionCard>
+        <SectionCard title="Evidence Required" icon={CheckCircle2}><BaselineChipList items={baseline.evidenceRequirements} /></SectionCard>
+        <SectionCard title="Milestones" icon={ClipboardCheck}><BaselineChipList items={baseline.milestones} /></SectionCard>
         <SectionCard title="Suggested KPIs" icon={BrainCircuit}>
           <div className="flex flex-wrap gap-2">{baseline.kpis.map(kpi => <span key={kpi} className="rounded-full border border-[#7C3AED]/25 bg-[#7C3AED]/10 px-3 py-1.5 text-[10px] font-bold text-[#C4B5FD]">{kpi}</span>)}</div>
         </SectionCard>
@@ -1294,7 +1341,7 @@ function ProjectBaselinePreview({
       <div className="sticky bottom-0 mt-5 flex flex-col gap-2 border-t border-[rgba(46,127,255,0.12)] bg-[#09152A]/95 py-4 backdrop-blur sm:flex-row sm:justify-end">
         <button onClick={onEdit} className="rounded-xl border border-[rgba(46,127,255,0.22)] px-4 py-2 text-[12px] font-bold text-[#B8C7DB] hover:bg-white/5">Edit Manually</button>
         <button onClick={onRegenerate} className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#7C3AED]/35 bg-[#7C3AED]/10 px-4 py-2 text-[12px] font-bold text-[#C4B5FD] hover:bg-[#7C3AED]/16"><RefreshCw size={14} /> Regenerate</button>
-        <button onClick={onApply} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#7C3AED] px-5 py-2 text-[12px] font-black text-white hover:bg-[#6D28D9]">Apply Baseline <ArrowRight size={14} /></button>
+        <button onClick={onApply} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#7C3AED] px-5 py-2 text-[12px] font-black text-white hover:bg-[#6D28D9]">Create Project Control Baseline <ArrowRight size={14} /></button>
       </div>
     </div>
   );
@@ -1360,6 +1407,8 @@ function ProjectReviewStep({
     ['Project name', form.name],
     ['Project type', form.type],
     ['Approved project budget', money(Number(form.budget) || 0, form.currency)],
+    ['Contracting strategy', form.contractingStrategy],
+    ['Main contractor', form.mainContractor],
     ['Budget baseline date', form.baselineDate],
     ['Target handover', baseline.summary.handoverTarget],
     ['Budget structure', form.budgetStructureMethod],
@@ -1370,9 +1419,13 @@ function ProjectReviewStep({
     ['Cashflow basis', form.cashflowBasis],
     ['AI forecast mode', form.aiForecastMode],
     ['Phases created', baseline.components.length],
+    ['Stage gates created', baseline.stageGates.length],
     ['Team roles created', baseline.teamRoles.length],
-    ['Vendor categories created', baseline.vendorCategories.length],
+    ['Vendors created', baseline.vendorCategories.length],
     ['Risks seeded', baseline.risks.length],
+    ['Obligations seeded', baseline.obligations.length],
+    ['Evidence required', baseline.evidenceRequirements.length],
+    ['Milestones created', baseline.milestones.length],
     ['KPIs enabled', baseline.kpis.length],
   ];
 
@@ -1408,7 +1461,7 @@ function ProjectReviewStep({
         <button onClick={onSaveDraft} className="rounded-xl border border-[#C8A020]/35 bg-[#C8A020]/10 px-4 py-2 text-[12px] font-bold text-[#FDE68A] hover:bg-[#C8A020]/16">Save Draft</button>
         <button onClick={onCreate} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#E11D2E] px-5 py-2 text-[12px] font-black text-white shadow-lg shadow-red-950/25 hover:bg-[#C51625]">
           <Building2 size={14} />
-          Create Project
+          Create Project Control Baseline
         </button>
       </div>
     </div>
