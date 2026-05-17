@@ -220,35 +220,244 @@ function formatAed(value: number) {
   return `AED ${value}`;
 }
 
-function PortfolioSummaryStrip({ clients }: { clients: PortfolioClient[] }) {
+type PortfolioKpiKey = 'properties' | 'sites' | 'workOrders' | 'incidents' | 'sla' | 'dataSources';
+
+interface PortfolioKpi {
+  key: PortfolioKpiKey;
+  label: string;
+  value: string | number;
+  icon: React.ReactNode;
+  color: string;
+  bg: string;
+  summary: string;
+  detailRows: Array<{ label: string; value: string; tone: string }>;
+  chips: string[];
+}
+
+function topClientRows(clients: PortfolioClient[], getValue: (client: PortfolioClient) => number, suffix = '') {
+  return [...clients]
+    .sort((a, b) => getValue(b) - getValue(a))
+    .slice(0, 3)
+    .map(client => ({ label: client.name, value: `${getValue(client).toLocaleString()}${suffix}`, tone: 'text-[#EEF3FA]' }));
+}
+
+function PortfolioKpiModal({ kpi, onClose, onToast }: { kpi: PortfolioKpi; onClose: () => void; onToast: ToastFn }) {
+  const [selectedChips, setSelectedChips] = useState<string[]>(kpi.chips.slice(0, 3));
+
+  const toggleChip = (chip: string) => {
+    setSelectedChips(prev => prev.includes(chip) ? prev.filter(c => c !== chip) : [...prev, chip]);
+  };
+
+  const queueActions = () => {
+    onToast(`${kpi.label}: ${selectedChips.length} command actions queued`, 'success');
+    onClose();
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.96, y: 12 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.96, y: 12 }}
+      transition={{ duration: 0.18 }}
+      className="fixed left-1/2 top-1/2 z-[320] w-[min(580px,calc(100%-32px))] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl border border-[rgba(46,127,255,0.28)] bg-[#0B172A] shadow-2xl"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`${kpi.label} details`}
+    >
+      <div className="flex items-start justify-between gap-3 border-b border-[rgba(46,127,255,0.16)] bg-[#112040] px-4 py-3">
+        <div className="flex items-start gap-3">
+          <div className={`mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg ${kpi.bg} ${kpi.color}`}>
+            {kpi.icon}
+          </div>
+          <div>
+            <div className="text-[9px] font-bold uppercase tracking-wide text-[#7A94B4]">Portfolio KPI</div>
+            <h3 className="mt-0.5 text-sm font-bold leading-tight text-[#EEF3FA]">{kpi.label}</h3>
+            <p className="mt-1 text-[11px] leading-relaxed text-[#9DB9E8]">{kpi.summary}</p>
+          </div>
+        </div>
+        <button onClick={onClose} className="rounded-lg p-1.5 text-[#7A94B4] transition-colors hover:bg-white/5 hover:text-white" aria-label="Close KPI details">
+          <X size={15} />
+        </button>
+      </div>
+
+      <div className="space-y-3 p-4">
+        <div className="grid gap-2 md:grid-cols-4">
+          <div className={`rounded-xl border p-3 md:col-span-1 ${kpi.bg}`}>
+            <div className="text-[9px] uppercase tracking-wide text-[#7A94B4]">Current</div>
+            <div className={`mt-1 text-xl font-bold leading-tight ${kpi.color}`}>{kpi.value}</div>
+          </div>
+          <div className="grid gap-2 md:col-span-3 md:grid-cols-3">
+            {kpi.detailRows.map(row => (
+              <div key={row.label} className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#0A1628] p-3">
+                <div className="text-[9px] uppercase tracking-wide text-[#7A94B4]">{row.label}</div>
+                <div className={`mt-1 text-[13px] font-bold leading-tight ${row.tone}`}>{row.value}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <div className="mb-2 text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">Command Chips</div>
+          <div className="flex flex-wrap gap-2">
+            {kpi.chips.map(chip => {
+              const active = selectedChips.includes(chip);
+              return (
+                <button
+                  key={chip}
+                  onClick={() => toggleChip(chip)}
+                  className={`rounded-lg border px-2.5 py-1.5 text-[10px] font-semibold transition-all ${active ? 'border-[#2E7FFF] bg-[#2E7FFF]/20 text-blue-100' : 'border-[rgba(46,127,255,0.16)] bg-[#0A1628] text-[#7A94B4] hover:text-[#EEF3FA]'}`}
+                >
+                  {active && <Check size={10} className="mr-1 inline" />}
+                  {chip}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between gap-3 border-t border-[rgba(46,127,255,0.12)] pt-3">
+          <div className="text-[10px] text-[#7A94B4]">{selectedChips.length} KPI actions selected for command queue</div>
+          <div className="flex gap-2">
+            <button onClick={onClose} className="rounded-lg border border-[rgba(46,127,255,0.18)] px-3 py-2 text-[11px] font-semibold text-[#9DB9E8] transition-colors hover:bg-white/5">Review Later</button>
+            <button onClick={queueActions} className="rounded-lg bg-[#2E7FFF] px-3 py-2 text-[11px] font-bold text-white shadow-[0_0_14px_rgba(46,127,255,0.32)] transition-colors hover:bg-blue-500">Queue Actions</button>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+function PortfolioSummaryStrip({ clients, onToast }: { clients: PortfolioClient[]; onToast: ToastFn }) {
   const totalSites       = clients.reduce((s, c) => s + c.sites, 0);
   const totalWO          = clients.reduce((s, c) => s + c.workOrders, 0);
   const { incidents }    = useIncidents();
   const criticalInc      = Math.max(6, incidents.filter(i => i.severity === 'critical' && i.status !== 'closed').length);
   const avgSLA           = Math.round(clients.reduce((s, c) => s + c.sla, 0) / clients.length);
   const totalDS          = clients.reduce((s, c) => s + c.dataSources.length, 0);
+  const [selectedKpi, setSelectedKpi] = useState<PortfolioKpi | null>(null);
+  const statusCounts = {
+    critical: clients.filter(c => c.status === 'critical').length,
+    warning: clients.filter(c => c.status === 'warning').length,
+    live: clients.filter(c => c.status === 'live').length,
+  };
+  const sourceTotals = clients
+    .flatMap(c => c.dataSources)
+    .reduce<Record<string, number>>((acc, source) => {
+      acc[source.label] = (acc[source.label] ?? 0) + source.count;
+      return acc;
+    }, {});
+  const topSourceRows = Object.entries(sourceTotals)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([label, value]) => ({ label, value: value.toLocaleString(), tone: 'text-purple-200' }));
 
-  const kpis = [
-    { label: 'Total Properties',     value: clients.length,  icon: <Users size={13} />,    color: 'text-blue-400',    bg: 'bg-blue-500/10 border-blue-500/20' },
-    { label: 'Total Sites',          value: totalSites,      icon: <MapPin size={13} />,   color: 'text-cyan-400',    bg: 'bg-cyan-500/10 border-cyan-500/20' },
-    { label: 'Active Work Orders',   value: totalWO,         icon: <Activity size={13} />, color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/20' },
-    { label: 'Critical Incidents',   value: criticalInc,     icon: <AlertTriangle size={13} />, color: criticalInc > 0 ? 'text-red-400' : 'text-emerald-400', bg: criticalInc > 0 ? 'bg-red-500/10 border-red-500/20' : 'bg-emerald-500/10 border-emerald-500/20' },
-    { label: 'Avg SLA',              value: `${avgSLA}%`,    icon: <Shield size={13} />,   color: avgSLA >= 90 ? 'text-emerald-400' : avgSLA >= 80 ? 'text-amber-400' : 'text-red-400', bg: avgSLA >= 90 ? 'bg-emerald-500/10 border-emerald-500/20' : avgSLA >= 80 ? 'bg-amber-500/10 border-amber-500/20' : 'bg-red-500/10 border-red-500/20' },
-    { label: 'Connected Data Sources', value: totalDS,         icon: <Database size={13} />, color: 'text-purple-400',  bg: 'bg-purple-500/10 border-purple-500/20' },
+  const kpis: PortfolioKpi[] = [
+    {
+      key: 'properties',
+      label: 'Total Properties',
+      value: clients.length,
+      icon: <Users size={13} />,
+      color: 'text-blue-400',
+      bg: 'bg-blue-500/10 border-blue-500/20',
+      summary: `${clients.length} properties are under the master command view, with ${statusCounts.critical} critical and ${statusCounts.warning} warning portfolios requiring attention.`,
+      detailRows: [
+        { label: 'Critical', value: String(statusCounts.critical), tone: 'text-red-300' },
+        { label: 'Warning', value: String(statusCounts.warning), tone: 'text-amber-300' },
+        { label: 'Live', value: String(statusCounts.live), tone: 'text-emerald-300' },
+      ],
+      chips: ['Open property review', 'Prioritize critical sites', 'Assign account owner', 'Export roster'],
+    },
+    {
+      key: 'sites',
+      label: 'Total Sites',
+      value: totalSites,
+      icon: <MapPin size={13} />,
+      color: 'text-cyan-400',
+      bg: 'bg-cyan-500/10 border-cyan-500/20',
+      summary: `${totalSites} sites are distributed across the active property portfolio. The highest-site properties drive field coverage and route planning.`,
+      detailRows: topClientRows(clients, c => c.sites),
+      chips: ['Open site heatmap', 'Review route load', 'Flag coverage gaps', 'Export site list'],
+    },
+    {
+      key: 'workOrders',
+      label: 'Active Work Orders',
+      value: totalWO,
+      icon: <Activity size={13} />,
+      color: 'text-emerald-400',
+      bg: 'bg-emerald-500/10 border-emerald-500/20',
+      summary: `${totalWO} active work orders are currently visible to command. High-volume properties should be checked for backlog concentration.`,
+      detailRows: topClientRows(clients, c => c.workOrders),
+      chips: ['Open WO command', 'Rebalance technicians', 'Escalate overdue jobs', 'Notify supervisors'],
+    },
+    {
+      key: 'incidents',
+      label: 'Critical Incidents',
+      value: criticalInc,
+      icon: <AlertTriangle size={13} />,
+      color: criticalInc > 0 ? 'text-red-400' : 'text-emerald-400',
+      bg: criticalInc > 0 ? 'bg-red-500/10 border-red-500/20' : 'bg-emerald-500/10 border-emerald-500/20',
+      summary: `${criticalInc} critical incidents are open or simulated for demo command. Focus on resident safety, SLA exposure, and supervisor response.`,
+      detailRows: [
+        { label: 'Critical Props', value: String(statusCounts.critical), tone: 'text-red-300' },
+        { label: 'Overdue Tasks', value: clients.reduce((sum, c) => sum + c.overdueTasks, 0).toLocaleString(), tone: 'text-amber-300' },
+        { label: 'Open Feed', value: String(incidents.filter(i => i.status !== 'closed').length), tone: 'text-[#EEF3FA]' },
+      ],
+      chips: ['Open incident bridge', 'Notify client leads', 'Assign supervisor', 'Start SLA recovery'],
+    },
+    {
+      key: 'sla',
+      label: 'Avg SLA',
+      value: `${avgSLA}%`,
+      icon: <Shield size={13} />,
+      color: avgSLA >= 90 ? 'text-emerald-400' : avgSLA >= 80 ? 'text-amber-400' : 'text-red-400',
+      bg: avgSLA >= 90 ? 'bg-emerald-500/10 border-emerald-500/20' : avgSLA >= 80 ? 'bg-amber-500/10 border-amber-500/20' : 'bg-red-500/10 border-red-500/20',
+      summary: `Portfolio SLA is averaging ${avgSLA}%. Lowest-SLA properties need recovery planning before the next client review.`,
+      detailRows: [...clients]
+        .sort((a, b) => a.sla - b.sla)
+        .slice(0, 3)
+        .map(client => ({ label: client.name, value: `${client.sla}%`, tone: client.sla >= 90 ? 'text-emerald-300' : client.sla >= 80 ? 'text-amber-300' : 'text-red-300' })),
+      chips: ['Open SLA recovery', 'Schedule client update', 'Prioritize breaches', 'Export SLA pack'],
+    },
+    {
+      key: 'dataSources',
+      label: 'Connected Data Sources',
+      value: totalDS,
+      icon: <Database size={13} />,
+      color: 'text-purple-400',
+      bg: 'bg-purple-500/10 border-purple-500/20',
+      summary: `${totalDS} source connections are feeding portfolio intelligence. Low or missing feeds should be pushed into onboarding.`,
+      detailRows: topSourceRows.length > 0 ? topSourceRows : [{ label: 'Onboarding', value: '0', tone: 'text-amber-300' }],
+      chips: ['Open data health', 'Reconnect failed feeds', 'Audit zero-count sources', 'Export source map'],
+    },
   ];
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 2xl:grid-cols-6 gap-2 px-5 py-3 border-b border-[rgba(46,127,255,0.12)] flex-shrink-0">
-      {kpis.map(k => (
-        <div key={k.label} className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border ${k.bg}`}>
-          <div className={k.color}>{k.icon}</div>
-          <div>
-            <div className={`text-base font-bold leading-tight ${k.color}`}>{k.value}</div>
-            <div className="text-[9px] text-[#7A94B4] uppercase tracking-wide leading-tight mt-0.5">{k.label}</div>
-          </div>
-        </div>
-      ))}
-    </div>
+    <>
+      <div className="grid grid-cols-2 md:grid-cols-3 2xl:grid-cols-6 gap-2 px-5 py-3 border-b border-[rgba(46,127,255,0.12)] flex-shrink-0">
+        {kpis.map(k => (
+          <button
+            key={k.key}
+            onClick={() => setSelectedKpi(k)}
+            className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-left transition-all hover:-translate-y-0.5 hover:border-[#2E7FFF]/45 hover:shadow-[0_0_18px_rgba(46,127,255,0.16)] focus:outline-none focus:ring-1 focus:ring-[#2E7FFF]/70 ${k.bg}`}
+            aria-label={`Open ${k.label} KPI details`}
+          >
+            <div className={k.color}>{k.icon}</div>
+            <div>
+              <div className={`text-base font-bold leading-tight ${k.color}`}>{k.value}</div>
+              <div className="text-[9px] text-[#7A94B4] uppercase tracking-wide leading-tight mt-0.5">{k.label}</div>
+            </div>
+          </button>
+        ))}
+      </div>
+      <AnimatePresence>
+        {selectedKpi && (
+          <>
+            <div className="fixed inset-0 z-[300] bg-black/35 backdrop-blur-[1px]" onClick={() => setSelectedKpi(null)} />
+            <PortfolioKpiModal kpi={selectedKpi} onClose={() => setSelectedKpi(null)} onToast={onToast} />
+          </>
+        )}
+      </AnimatePresence>
+    </>
   );
 }
 
@@ -1677,7 +1886,7 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
         </div>
       </div>
 
-      <PortfolioSummaryStrip clients={allClients} />
+      <PortfolioSummaryStrip clients={allClients} onToast={onToast} />
 
       <ExecutiveImpactStrip clients={allClients} />
 
