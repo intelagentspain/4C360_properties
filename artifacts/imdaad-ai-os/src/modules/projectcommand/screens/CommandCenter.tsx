@@ -165,7 +165,15 @@ function MetricCard({
   );
 }
 
-function ProjectHeader({ context }: { context: ProjectControlContext }) {
+function ProjectHeader({
+  context,
+  executiveMode,
+  onToggleExecutive,
+}: {
+  context: ProjectControlContext;
+  executiveMode: boolean;
+  onToggleExecutive: () => void;
+}) {
   const { baseline } = context;
   return (
     <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[linear-gradient(135deg,rgba(17,32,64,0.92),rgba(7,17,31,0.86))] p-4">
@@ -181,19 +189,120 @@ function ProjectHeader({ context }: { context: ProjectControlContext }) {
           <p className="mt-1 text-[12px] leading-5 text-[#B8C7DB]">
             {baseline.property.type} in {baseline.property.location} - {baseline.property.floors} floors - {baseline.property.units} units - {baseline.project.type}
           </p>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {['Baseline', 'Events', 'Impact', 'Decisions', 'Recovery'].map((step, index) => (
+              <span key={step} className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.08em] ${index <= (context.events.length > 1 ? 4 : 1) ? 'border-emerald-300/24 bg-emerald-300/10 text-emerald-100' : 'border-[rgba(46,127,255,0.16)] bg-[#07111F] text-[#7A94B4]'}`}>
+                {index + 1}
+                {step}
+              </span>
+            ))}
+          </div>
         </div>
-        <div className="grid gap-2 sm:grid-cols-3 xl:w-[560px]">
+        <div className="grid gap-2 sm:grid-cols-3 xl:w-[650px]">
           {[
             ['Approved Budget', formatProjectCurrency(baseline.project.approvedBudget)],
             ['Target Handover', formatProjectDate(baseline.project.targetHandover)],
-            ['Baseline Scope', `${baseline.workPackages.length} packages`],
+            ['Twin Confidence', `${context.metrics.handoverConfidence}%`],
           ].map(([label, value]) => (
             <div key={label} className="rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#07111F]/80 p-3">
               <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">{label}</p>
               <p className="mt-1 text-[13px] font-black text-[#EEF3FA]">{value}</p>
             </div>
           ))}
+          <button
+            type="button"
+            onClick={onToggleExecutive}
+            className={`sm:col-span-3 inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-3 text-[11px] font-black uppercase tracking-[0.08em] transition-colors ${
+              executiveMode
+                ? 'border-[#7C3AED]/45 bg-[#7C3AED]/20 text-white shadow-[0_0_22px_rgba(124,58,237,0.22)]'
+                : 'border-[rgba(46,127,255,0.18)] bg-[#07111F] text-[#B8C7DB] hover:bg-white/5'
+            }`}
+          >
+            <Gauge size={14} />
+            Executive View
+            <span className={`h-2 w-2 rounded-full ${executiveMode ? 'bg-emerald-300 shadow-[0_0_10px_rgba(56,217,138,0.6)]' : 'bg-[#5A6E88]'}`} />
+          </button>
         </div>
+      </div>
+    </section>
+  );
+}
+
+function ProjectTwinLayer({ context, executiveMode }: { context: ProjectControlContext; executiveMode: boolean }) {
+  const visibleStates = executiveMode
+    ? context.twinStates.filter(state => ['schedule', 'cost', 'risk', 'gates', 'handover'].includes(state.key))
+    : context.twinStates;
+  const latest = context.latestEvent;
+
+  return (
+    <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[linear-gradient(135deg,rgba(7,17,31,0.96),rgba(17,32,64,0.78))] p-4">
+      <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+        <div>
+          <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan-300 opacity-35" />
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-cyan-300" />
+            </span>
+            Live Project Control Twin
+          </div>
+          <h3 className="mt-2 text-[18px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+            Predictive construction intelligence connected to programme, cost, risk, evidence, vendors, workforce, gates, and forecast.
+          </h3>
+          <p className="mt-1 max-w-4xl text-[12px] leading-5 text-[#8EA7C7]">
+            Latest cause: {latest ? latest.title : 'AI baseline from uploaded project context'}.
+            {' '}The twin recalculates exposure and decision priority every time a project event is injected.
+          </p>
+        </div>
+        <div className="grid min-w-[260px] gap-2 sm:grid-cols-2">
+          <div className="rounded-xl border border-emerald-300/18 bg-emerald-300/8 p-3">
+            <p className="text-[8px] font-black uppercase tracking-[0.14em] text-emerald-100">Handover confidence</p>
+            <motion.p
+              key={context.metrics.handoverConfidence}
+              initial={{ opacity: 0.5, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-1 text-[22px] font-black text-white"
+              style={{ fontFamily: 'Space Grotesk, sans-serif' }}
+            >
+              {context.metrics.handoverConfidence}%
+            </motion.p>
+          </div>
+          <div className="rounded-xl border border-[#7C3AED]/22 bg-[#7C3AED]/10 p-3">
+            <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#DDD6FE]">Simulation confidence</p>
+            <p className="mt-1 text-[22px] font-black text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+              {context.consequenceSimulation.confidence}%
+            </p>
+          </div>
+        </div>
+      </div>
+      <div className={`grid gap-2 ${executiveMode ? 'md:grid-cols-5' : 'md:grid-cols-2 xl:grid-cols-4'}`}>
+        {visibleStates.map(state => (
+          <motion.div
+            key={state.key}
+            layout
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="min-h-[152px] rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#07111F]/75 p-3"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">{state.label}</p>
+                <p className="mt-1 text-[16px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{state.value}</p>
+              </div>
+              <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[8px] font-black uppercase ${statusClass(state.status)}`}>
+                {projectStatusLabel(state.status)}
+              </span>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className="rounded-full border border-[rgba(46,127,255,0.16)] bg-[#0A1628] px-2 py-0.5 text-[9px] font-black text-[#B8C7DB]">{state.deltaLabel}</span>
+              <span className="rounded-full border border-cyan-300/14 bg-cyan-300/8 px-2 py-0.5 text-[9px] font-black text-cyan-100">AI {state.confidence}%</span>
+            </div>
+            <p className="mt-2 line-clamp-2 text-[10px] leading-4 text-[#8EA7C7]">{state.explanation}</p>
+            <div className="mt-3 rounded-lg border border-[rgba(46,127,255,0.10)] bg-[#0A1628] px-2.5 py-2">
+              <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#5A6E88]">Based on</p>
+              <p className="mt-0.5 truncate text-[10px] font-bold text-[#DCE8F8]">{state.source}</p>
+            </div>
+          </motion.div>
+        ))}
       </div>
     </section>
   );
@@ -250,6 +359,9 @@ function ProjectPulse({
           <h3 className="text-[18px] font-black leading-6 text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{context.topThreat}</h3>
           <p className="mt-2 text-[12px] leading-5 text-[#B8C7DB]">{context.latestImpact}</p>
           <div className="mt-3 rounded-lg border border-[rgba(46,127,255,0.14)] bg-[#07111F]/70 px-3 py-2 text-[11px] font-bold text-[#DCE8F8]">{movement}</div>
+          <div className="mt-2 rounded-lg border border-cyan-300/12 bg-cyan-300/7 px-3 py-2 text-[10px] font-bold leading-4 text-cyan-50">
+            Based on: {context.sourceTraces[0]?.basedOn.slice(0, 3).join(' / ') ?? 'programme / cost / risk'}.
+          </div>
           {latest && (
             <div className="mt-3">
               <EventImpactChips event={latest} />
@@ -270,7 +382,7 @@ function ProjectPulse({
             ['Forecast Handover', formatProjectDate(context.metrics.forecastHandover)],
             ['Forecast Cost', formatProjectCurrency(context.metrics.eac)],
             ['Risk Exposure', formatProjectCurrency(context.metrics.riskExposure)],
-            ['Evidence Ready', `${context.metrics.evidenceCompleteness}%`],
+            ['Handover Confidence', `${context.metrics.handoverConfidence}%`],
           ].map(([label, value]) => (
             <div key={label} className="rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#07111F]/80 p-3">
               <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">{label}</p>
@@ -339,6 +451,15 @@ function WhatChangedToday({ context, goTo }: { context: ProjectControlContext; g
               <div className="mt-2">
                 <EventImpactChips event={event} compact />
               </div>
+              {event.affectedAreas.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {event.affectedAreas.slice(0, 5).map(area => (
+                    <span key={`${event.id}-${area}`} className="rounded-full bg-white/[0.035] px-2 py-0.5 text-[9px] font-bold text-[#8EA7C7]">
+                      {area}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
             <button
               type="button"
@@ -472,6 +593,93 @@ function ForecastCard({ scenario, context }: { scenario: ForecastScenario; conte
   );
 }
 
+function CascadeEffects({ context }: { context: ProjectControlContext }) {
+  const cascade = context.cascadeEffects[0];
+  if (!cascade) return null;
+
+  return (
+    <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-base font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Cascade Effects</h3>
+          <p className="mt-0.5 text-[11px] text-[#7A94B4]">Dependency chain created by the latest project signal.</p>
+        </div>
+        <span className={`rounded-full border px-2.5 py-1 text-[9px] font-black uppercase ${severityClass[cascade.severity]}`}>{cascade.severity}</span>
+      </div>
+      <div className="rounded-xl border border-[rgba(46,127,255,0.13)] bg-[#07111F]/72 p-3">
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <span className="rounded-full border border-[#7C3AED]/25 bg-[#7C3AED]/12 px-2 py-0.5 text-[9px] font-black text-[#DDD6FE]">{cascade.sourceEvent}</span>
+          {cascade.basedOn.slice(0, 3).map(source => (
+            <span key={source} className="rounded-full bg-white/[0.035] px-2 py-0.5 text-[9px] font-bold text-[#8EA7C7]">{source}</span>
+          ))}
+        </div>
+        <div className="grid gap-2">
+          {cascade.chain.map((step, index) => (
+            <motion.div
+              key={`${cascade.id}-${step}`}
+              initial={{ opacity: 0, x: -8 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: index * 0.035 }}
+              className="grid grid-cols-[26px_1fr] gap-2"
+            >
+              <div className="flex flex-col items-center">
+                <span className={`mt-0.5 flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-black ${index === 0 ? 'bg-red-300/18 text-red-100' : index === cascade.chain.length - 1 ? 'bg-emerald-300/18 text-emerald-100' : 'bg-[#132545] text-[#8EA7C7]'}`}>{index + 1}</span>
+                {index < cascade.chain.length - 1 && <span className="my-1 h-5 w-px bg-[rgba(142,167,199,0.24)]" />}
+              </div>
+              <p className="rounded-lg border border-[rgba(46,127,255,0.10)] bg-[#0A1628] px-3 py-2 text-[11px] font-bold leading-4 text-[#DCE8F8]">{step}</p>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ConsequenceModel({ context }: { context: ProjectControlContext }) {
+  const simulation = context.consequenceSimulation;
+  return (
+    <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-base font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Consequence Simulation</h3>
+          <p className="mt-0.5 text-[11px] text-[#7A94B4]">{simulation.title}</p>
+        </div>
+        <span className="rounded-full border border-cyan-300/14 bg-cyan-300/8 px-2.5 py-1 text-[10px] font-black text-cyan-100">AI {simulation.confidence}%</span>
+      </div>
+      <div className="grid gap-3 lg:grid-cols-2">
+        <div className="rounded-xl border border-red-300/18 bg-red-400/8 p-3">
+          <p className="mb-2 text-[10px] font-black uppercase tracking-[0.14em] text-red-100">If unresolved</p>
+          <div className="space-y-2">
+            {simulation.ifUnresolved.map(item => (
+              <div key={item.label} className="rounded-lg bg-[#07111F]/72 px-3 py-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-black text-[#EEF3FA]">{item.label}</span>
+                  <span className={`text-[12px] font-black ${item.tone === 'bad' ? 'text-red-100' : 'text-[#DCE8F8]'}`}>{item.value}</span>
+                </div>
+                <p className="mt-1 text-[10px] leading-4 text-[#FECACA]">{item.detail}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="rounded-xl border border-emerald-300/18 bg-emerald-300/8 p-3">
+          <p className="mb-2 text-[10px] font-black uppercase tracking-[0.14em] text-emerald-100">If resolved today</p>
+          <div className="space-y-2">
+            {simulation.ifResolvedToday.map(item => (
+              <div key={item.label} className="rounded-lg bg-[#07111F]/72 px-3 py-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-black text-[#EEF3FA]">{item.label}</span>
+                  <span className={`text-[12px] font-black ${item.tone === 'good' ? 'text-emerald-100' : 'text-[#DCE8F8]'}`}>{item.value}</span>
+                </div>
+                <p className="mt-1 text-[10px] leading-4 text-emerald-100">{item.detail}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function OperationalLayer({ context }: { context: ProjectControlContext }) {
   return (
     <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
@@ -523,6 +731,68 @@ function OperationalLayer({ context }: { context: ProjectControlContext }) {
   );
 }
 
+function CrossModuleImpactMap({ context, compact = false }: { context: ProjectControlContext; compact?: boolean }) {
+  const impacts = compact ? context.crossModuleImpacts.slice(0, 5) : context.crossModuleImpacts;
+  return (
+    <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div>
+          <h3 className="text-base font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Cross-Module Impact</h3>
+          <p className="mt-0.5 text-[11px] text-[#7A94B4]">How ProjectCommand is pushing signals into connected 4C360 modules.</p>
+        </div>
+        <span className="rounded-full border border-[rgba(46,127,255,0.18)] bg-[#07111F] px-2.5 py-1 text-[10px] font-black text-[#8EA7C7]">{impacts.length} links</span>
+      </div>
+      <div className={`grid gap-2 ${compact ? 'md:grid-cols-5' : 'md:grid-cols-2'}`}>
+        {impacts.map(item => (
+          <motion.div
+            key={item.module}
+            layout
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="rounded-xl border border-[rgba(46,127,255,0.13)] bg-[#07111F]/72 p-3"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate text-[11px] font-black text-[#EEF3FA]">{item.module}</p>
+                <p className="mt-1 truncate text-[10px] font-bold text-[#7A94B4]">{item.linkedObject}</p>
+              </div>
+              <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[8px] font-black uppercase ${statusClass(item.status)}`}>{projectStatusLabel(item.status)}</span>
+            </div>
+            <p className="mt-2 line-clamp-3 min-h-[42px] text-[10px] leading-4 text-[#B8C7DB]">{item.impact}</p>
+            <p className="mt-2 truncate rounded-lg border border-[rgba(46,127,255,0.10)] bg-[#0A1628] px-2.5 py-1.5 text-[9px] font-bold text-[#8EA7C7]">Based on: {item.source}</p>
+          </motion.div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function SourceTracePanel({ context }: { context: ProjectControlContext }) {
+  return (
+    <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h3 className="text-base font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>AI Source Trace</h3>
+        <span className="rounded-full border border-cyan-300/14 bg-cyan-300/8 px-2.5 py-1 text-[10px] font-black text-cyan-100">Traceable</span>
+      </div>
+      <div className="space-y-2">
+        {context.sourceTraces.map(trace => (
+          <div key={trace.insight} className="rounded-xl border border-[rgba(46,127,255,0.13)] bg-[#07111F]/72 p-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[11px] font-black text-[#EEF3FA]">{trace.insight}</p>
+              <span className="rounded-full bg-cyan-300/8 px-2 py-0.5 text-[9px] font-black text-cyan-100">AI {trace.confidence}%</span>
+            </div>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {trace.basedOn.slice(0, 4).map(source => (
+                <span key={`${trace.insight}-${source}`} className="rounded-full bg-white/[0.035] px-2 py-0.5 text-[9px] font-bold text-[#8EA7C7]">{source}</span>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function DemoControls({
   events,
   onReset,
@@ -547,7 +817,7 @@ function DemoControls({
         </div>
         <div className="flex flex-wrap gap-2">
           <button onClick={onReset} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[rgba(46,127,255,0.18)] bg-[#07111F] px-3 text-[10px] font-black text-[#DCE8F8] hover:bg-white/5"><RefreshCw size={12} /> Reset Baseline</button>
-          <button onClick={() => onSimulate()} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#7C3AED] px-3 text-[10px] font-black text-white shadow-[0_0_22px_rgba(124,58,237,0.26)] hover:bg-[#6D28D9]"><Play size={12} /> Simulate Project Event <span className="text-white/70">({next.label.replace('Simulate ', '')})</span></button>
+          <button onClick={() => onSimulate()} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#7C3AED] px-3 text-[10px] font-black text-white shadow-[0_0_22px_rgba(124,58,237,0.26)] hover:bg-[#6D28D9]"><Play size={12} /> Simulate Project Event <span className="text-white/70">({next.label.replace('Trigger ', '')})</span></button>
         </div>
       </div>
       <div className="mb-3 grid gap-2 md:grid-cols-3">
@@ -589,6 +859,10 @@ export function CommandCenter({ goTo, onToast }: { goTo: (screen: ProjectCommand
   const events = projectEventsByProjectId[dataset.id] ?? [];
   const context = useMemo(() => buildProjectControlContext(dataset, events), [dataset, events]);
   const [selectedInsight, setSelectedInsight] = useState<{ metricName: MetricName; value: string | number } | null>(null);
+  const [executiveMode, setExecutiveMode] = useState(false);
+  const visibleControlMetrics = executiveMode
+    ? context.controlMetrics.filter(metric => ['CPI', 'SPI', 'Float Remaining', 'EAC'].includes(metric.label))
+    : context.controlMetrics;
 
   const handleSimulate = (type?: ProjectEventType) => {
     const event = simulateProjectCommandEvent(dataset.id, type);
@@ -609,12 +883,13 @@ export function CommandCenter({ goTo, onToast }: { goTo: (screen: ProjectCommand
   return (
     <div className="custom-scrollbar h-full overflow-x-hidden overflow-y-auto px-5 py-4 text-[#EEF3FA]">
       <div className="space-y-4">
-        <ProjectHeader context={context} />
+        <ProjectHeader context={context} executiveMode={executiveMode} onToggleExecutive={() => setExecutiveMode(value => !value)} />
         <DemoControls events={events} onReset={handleReset} onSimulate={handleSimulate} />
+        <ProjectTwinLayer context={context} executiveMode={executiveMode} />
         <ProjectPulse context={context} onExplain={() => setSelectedInsight({ metricName: 'Float Remaining', value: `${context.metrics.floatRemaining}d` })} />
 
-        <section className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
-          {context.controlMetrics.map(metric => (
+        <section className={`grid gap-3 md:grid-cols-2 ${executiveMode ? 'xl:grid-cols-4' : 'xl:grid-cols-6'}`}>
+          {visibleControlMetrics.map(metric => (
             <MetricCard
               key={metric.label}
               metric={metric}
@@ -626,8 +901,11 @@ export function CommandCenter({ goTo, onToast }: { goTo: (screen: ProjectCommand
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_390px]">
           <div className="space-y-4">
             <WhatChangedToday context={context} goTo={goTo} />
-            <OperationalLayer context={context} />
+            <CascadeEffects context={context} />
+            <ConsequenceModel context={context} />
             <ControlExceptions context={context} goTo={goTo} />
+            {!executiveMode && <OperationalLayer context={context} />}
+            <CrossModuleImpactMap context={context} compact={executiveMode} />
           </div>
           <div className="space-y-4">
             <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
@@ -658,6 +936,7 @@ export function CommandCenter({ goTo, onToast }: { goTo: (screen: ProjectCommand
                 ))}
               </div>
             </section>
+            <SourceTracePanel context={context} />
           </div>
         </div>
 

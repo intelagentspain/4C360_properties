@@ -169,7 +169,7 @@ function buildContext(screen: ProjectCommandScreen, dataset: ProjectCommandDatas
   const prediction: CopilotContext['prediction'] = {
     handoverRisk: control.projectControlStatus === 'critical' ? 'Critical' : control.projectControlStatus === 'at-risk' ? 'High' : 'Moderate',
     unresolvedAfterDate: control.metrics.forecastHandover,
-    confidence: control.events.length > 0 ? 94 : 88,
+    confidence: control.consequenceSimulation.confidence,
     primaryBlocker: control.latestEvent?.title ?? control.topThreat,
     daysAtRisk: Math.max(0, control.healthMovement.from - control.healthMovement.to + Math.max(0, 34 - control.metrics.floatRemaining)),
     costExposure: formatProjectCurrency(control.metrics.riskExposure),
@@ -464,9 +464,12 @@ function buildContext(screen: ProjectCommandScreen, dataset: ProjectCommandDatas
       urgency: control.latestEvent?.severity === 'critical' ? 'critical' : control.latestEvent?.severity === 'positive' ? 'info' : control.latestEvent ? 'high' : 'medium',
       signal: 'What changed today',
       confidence: 94,
-      dependencyChain: control.latestEvent
-        ? [control.latestEvent.affectedModule, 'Control metrics recalculated', 'Manager action queue updated', 'Forecast scenario refreshed']
-        : ['Property created', 'Project baseline generated', 'Controls connected', 'Ready for event simulation'],
+      dependencyChain: control.cascadeEffects[0]?.chain ?? [
+        control.latestEvent?.affectedModule ?? 'Property created',
+        'Control metrics recalculated',
+        'Manager action queue updated',
+        'Forecast scenario refreshed',
+      ],
     },
     {
       title: `Health moved ${control.healthMovement.from} -> ${control.healthMovement.to}`,
@@ -475,6 +478,25 @@ function buildContext(screen: ProjectCommandScreen, dataset: ProjectCommandDatas
       signal: 'Health recalculation',
       confidence: 92,
     },
+    {
+      title: `Handover confidence is ${control.metrics.handoverConfidence}%`,
+      detail: `The live twin is blending float, gates, evidence readiness, vendor score, risk exposure, and latest event impact. ${control.consequenceSimulation.ifResolvedToday[2]?.detail ?? ''}`,
+      urgency: control.metrics.handoverConfidence < 50 ? 'critical' : control.metrics.handoverConfidence < 66 ? 'high' : 'medium',
+      signal: 'Live project twin',
+      confidence: control.consequenceSimulation.confidence,
+      dependencyChain: control.cascadeEffects[0]?.chain,
+    },
+    ...control.crossModuleImpacts
+      .filter(item => item.status === 'critical' || item.status === 'at-risk')
+      .slice(0, 1)
+      .map(item => ({
+        title: `${item.module} impact: ${item.linkedObject}`,
+        detail: item.impact,
+        urgency: item.status === 'critical' ? 'critical' : 'high',
+        signal: item.source,
+        confidence: 90,
+        dependencyChain: [item.source, item.module, item.linkedObject, item.impact],
+      } satisfies CopilotInsight)),
     ...control.controlExceptions.slice(0, 2).map(exception => ({
       title: exception.title,
       detail: `${exception.impact} ${exception.impactMetric ? `Metric impact: ${exception.impactMetric}.` : ''}`,
@@ -517,7 +539,13 @@ function buildContext(screen: ProjectCommandScreen, dataset: ProjectCommandDatas
       { label: 'EAC', value: formatProjectCurrency(control.metrics.eac) },
       { label: 'Exceptions', value: String(control.controlExceptions.length) },
     ],
-    sourceSignals: ['Project event engine', 'Control metrics', 'Manager actions', ...selectedContext.sourceSignals],
+    sourceSignals: [
+      ...control.sourceTraces.flatMap(trace => trace.basedOn.slice(0, 2)),
+      'Project event engine',
+      'Control metrics',
+      'Manager actions',
+      ...selectedContext.sourceSignals,
+    ],
   };
 }
 
@@ -694,8 +722,9 @@ function AIConfidenceBadge({ value = 92 }: { value?: number }) {
 }
 
 function CopilotMonitoringStrip({ context }: { context: CopilotContext }) {
-  const signals = ['Gates', 'Float', 'Evidence', 'Variations', 'Contractors'];
+  const signals = ['Programme', 'Cost', 'Risk', 'Evidence', 'Vendors', 'Workforce', 'Approvals'];
   const latest = context.control.latestEvent;
+  const cascade = context.control.cascadeEffects[0];
 
   return (
     <div className="border-b border-[rgba(46,127,255,0.10)] bg-[#07111F]/78 px-5 py-3.5">
@@ -705,7 +734,7 @@ function CopilotMonitoringStrip({ context }: { context: CopilotContext }) {
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-300 opacity-40" />
             <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-300" />
           </span>
-          Project controls live scan
+          Live project twin scan
         </span>
         {signals.map(item => (
           <span key={item} className="rounded-full bg-white/[0.035] px-2.5 py-1 text-[10px] font-bold text-[#8EA7C7]">
@@ -724,14 +753,17 @@ function CopilotMonitoringStrip({ context }: { context: CopilotContext }) {
         animate={{ opacity: [0.75, 1, 0.75] }}
         transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
       >
-        ProjectCommand mode is reading live project events, KPI deltas, stage gates, evidence, variations, vendors, and manager actions. Prediction: {context.prediction.handoverRisk} handover risk if blockers remain after <span className="font-black text-amber-100">{context.prediction.unresolvedAfterDate}</span>.
-        {' '}Health {context.control.healthMovement.from} {'->'} {context.control.healthMovement.to}; EAC {formatProjectCurrency(context.control.metrics.eac)}.
+        ProjectCommand mode is reading the live project twin: events, KPI deltas, cascades, gates, evidence, variations, vendors, workforce, approvals, and manager actions.
+        {' '}Prediction: {context.prediction.handoverRisk} handover risk by <span className="font-black text-amber-100">{context.prediction.unresolvedAfterDate}</span>.
+        {' '}Health {context.control.healthMovement.from} {'->'} {context.control.healthMovement.to}; confidence {context.control.metrics.handoverConfidence}%; EAC {formatProjectCurrency(context.control.metrics.eac)}.
+        {cascade ? ` Cascade: ${cascade.chain.slice(0, 3).join(' -> ')}.` : ''}
       </motion.p>
     </div>
   );
 }
 
 function ConsequenceSimulation({ context }: { context: CopilotContext }) {
+  const simulation = context.control.consequenceSimulation;
   return (
     <div className="mt-4">
       <p className="mb-2 text-[10px] font-black uppercase tracking-[0.14em] text-[#8EA7C7]">Predicted consequence</p>
@@ -741,16 +773,16 @@ function ConsequenceSimulation({ context }: { context: CopilotContext }) {
             <p className="text-[10px] font-black uppercase tracking-[0.12em] text-red-200">If unresolved</p>
             <span className="rounded-full bg-red-300/10 px-2 py-0.5 text-[9px] font-black text-red-100">High risk</span>
           </div>
-          <p className="mt-2 text-[20px] font-black text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{context.prediction.daysAtRisk}d slip</p>
-          <p className="mt-1 text-[10px] font-bold leading-4 text-[#FECACA]">MEP start exposed. Cost exposure {context.prediction.costExposure}.</p>
+          <p className="mt-2 text-[20px] font-black text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{simulation.ifUnresolved[0]?.value ?? `${context.prediction.daysAtRisk}d slip`}</p>
+          <p className="mt-1 text-[10px] font-bold leading-4 text-[#FECACA]">{simulation.ifUnresolved[1]?.detail ?? `Cost exposure ${context.prediction.costExposure}.`}</p>
         </div>
         <div className="rounded-2xl bg-emerald-300/7 p-3 ring-1 ring-emerald-300/12">
           <div className="flex items-center justify-between gap-2">
             <p className="text-[10px] font-black uppercase tracking-[0.12em] text-emerald-200">If resolved today</p>
             <span className="rounded-full bg-emerald-300/10 px-2 py-0.5 text-[9px] font-black text-emerald-100">Risk down</span>
           </div>
-          <p className="mt-2 text-[20px] font-black text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>+{context.prediction.confidenceGainIfResolved}%</p>
-          <p className="mt-1 text-[10px] font-bold leading-4 text-emerald-100">Gate risk moves to {context.prediction.riskAfterResolved}. Review can proceed tomorrow.</p>
+          <p className="mt-2 text-[20px] font-black text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{simulation.ifResolvedToday[2]?.value ?? `+${context.prediction.confidenceGainIfResolved}%`}</p>
+          <p className="mt-1 text-[10px] font-bold leading-4 text-emerald-100">{simulation.ifResolvedToday[0]?.detail ?? `Gate risk moves to ${context.prediction.riskAfterResolved}.`}</p>
         </div>
       </div>
     </div>
@@ -998,6 +1030,8 @@ function CopilotResponse({
   const recoverTime = lower.includes('recovers most time') || lower.includes('recover most time') || lower.includes('which decision');
   const primary = context.insights[0];
   const nextAction = getProjectCommandCopilotRecommendations(context)[0];
+  const simulation = context.control.consequenceSimulation;
+  const cascade = context.control.cascadeEffects[0];
 
   const title = handover
     ? 'Handover is exposed by float loss and gate dependencies.'
@@ -1034,8 +1068,8 @@ function CopilotResponse({
                 : context.insights.slice(0, 3).map(item => item.title);
 
   const consequence = ignore
-    ? `If ignored, forecast handover can move to ${context.control.forecastScenarios[2].handoverDate}, EAC can reach ${formatProjectCurrency(context.control.forecastScenarios[2].forecastCost)}, and ${context.control.controlExceptions.length || 1} control exception(s) remain unresolved.`
-    : `MEP completion and handover review could slip by ${context.prediction.daysAtRisk} days, with estimated exposure of ${context.prediction.costExposure}.`;
+    ? `If ignored, ${simulation.ifUnresolved.map(item => `${item.label}: ${item.value}`).join(', ')}. Forecast handover can move to ${context.control.forecastScenarios[2].handoverDate}.`
+    : `${simulation.ifUnresolved[0]?.detail ?? 'Downstream phases inherit the open blocker.'} ${simulation.ifResolvedToday[0]?.detail ?? 'Resolving today protects float.'}`;
 
   return (
     <div className="rounded-2xl border border-[#7C3AED]/24 bg-[linear-gradient(135deg,rgba(124,58,237,0.14),rgba(7,17,31,0.94))] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.25)]">
@@ -1058,6 +1092,12 @@ function CopilotResponse({
           <p className="font-black text-white">If ignored</p>
           <p className="mt-1">{consequence}</p>
         </div>
+        {cascade && (
+          <div>
+            <p className="font-black text-white">Dependency chain</p>
+            <p className="mt-1">{cascade.chain.join(' -> ')}</p>
+          </div>
+        )}
         <div className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#07111F] px-3 py-2">
           <p className="font-black text-white">Recommended action</p>
           <p className="mt-1 text-[#DCE8F8]">{nextAction?.title}: {nextAction?.why}</p>
