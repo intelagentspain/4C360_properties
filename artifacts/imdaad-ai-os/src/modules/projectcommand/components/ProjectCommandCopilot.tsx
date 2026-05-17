@@ -16,7 +16,14 @@ import {
 } from 'lucide-react';
 import type { ProjectCommandScreen } from '../types';
 import { getBudgetControlData } from '../data/budgetControl';
+import {
+  buildProjectControlContext,
+  formatProjectCurrency,
+  type ProjectControlContext,
+  type ProjectEvent,
+} from '../data/projectControlDemoEngine';
 import type { ProjectCommandDataset } from '../data/portfolio';
+import { useProjectCommandStore } from '../state/projectCommandStore';
 import { useSelectedProjectCommandData } from '../useProjectCommandData';
 
 type Urgency = 'critical' | 'high' | 'medium' | 'info';
@@ -63,6 +70,7 @@ type CopilotContext = {
   recommendations: CopilotRecommendation[];
   facts: { label: string; value: string }[];
   sourceSignals: string[];
+  control: ProjectControlContext;
 };
 
 const screenLabels: Record<ProjectCommandScreen, string> = {
@@ -137,8 +145,9 @@ function money(value: number) {
   return `AED ${Math.round(value / 1_000_000)}M`;
 }
 
-function buildContext(screen: ProjectCommandScreen, dataset: ProjectCommandDataset): CopilotContext {
+function buildContext(screen: ProjectCommandScreen, dataset: ProjectCommandDataset, events: ProjectEvent[]): CopilotContext {
   const { project, aiContent, risks, milestones } = dataset;
+  const control = buildProjectControlContext(dataset, events);
   const cost = getBudgetControlData(project);
   const pendingVariations = cost.variations
     .filter(item => item.status !== 'Approved' && item.status !== 'Rejected')
@@ -151,35 +160,35 @@ function buildContext(screen: ProjectCommandScreen, dataset: ProjectCommandDatas
 
   const baseFacts = [
     { label: 'Project', value: project.name },
-    { label: 'Completion', value: `${project.completion}%` },
-    { label: 'Health score', value: `${project.healthScore}/100` },
+    { label: 'Completion', value: `${control.metrics.completion}%` },
+    { label: 'Health score', value: `${control.metrics.healthScore}/100` },
     { label: 'Contract value', value: money(project.contractValue) },
-    { label: 'Float', value: `${project.floatRemaining} days` },
+    { label: 'Float', value: `${control.metrics.floatRemaining} days` },
   ];
 
   const prediction: CopilotContext['prediction'] = {
-    handoverRisk: 'Moderate',
-    unresolvedAfterDate: '15 Aug',
-    confidence: 92,
-    primaryBlocker: 'Missing authority approval',
-    daysAtRisk: 8,
-    costExposure: 'AED 3.2M',
-    confidenceGainIfResolved: 6,
-    riskAfterResolved: 'Medium',
+    handoverRisk: control.projectControlStatus === 'critical' ? 'Critical' : control.projectControlStatus === 'at-risk' ? 'High' : 'Moderate',
+    unresolvedAfterDate: control.metrics.forecastHandover,
+    confidence: control.events.length > 0 ? 94 : 88,
+    primaryBlocker: control.latestEvent?.title ?? control.topThreat,
+    daysAtRisk: Math.max(0, control.healthMovement.from - control.healthMovement.to + Math.max(0, 34 - control.metrics.floatRemaining)),
+    costExposure: formatProjectCurrency(control.metrics.riskExposure),
+    confidenceGainIfResolved: control.controlExceptions.length > 0 ? 8 : 4,
+    riskAfterResolved: control.projectControlStatus === 'critical' ? 'High' : 'Medium',
   };
 
   const commonActions: CopilotRecommendation[] = [
     {
-      id: 'waterproofing-escalation',
-      title: 'Escalate waterproofing delay',
+      id: 'critical-path-escalation',
+      title: 'Escalate critical path recovery',
       why: 'Float is being consumed and downstream phases are exposed.',
-      urgency: 'critical',
-      linkedObject: 'Substructure / critical path',
+      urgency: 'high',
+      linkedObject: 'Programme / critical path',
       cta: 'Draft escalation',
       kind: 'draft',
       confidence: 91,
       effect: 'Recover 2d',
-      draft: `Subject: Critical recovery action required\n\nThe current waterproofing delay is consuming available float and exposing downstream programme phases. Please confirm the recovery crew plan, revised dates, and daily output targets by close of business today.\n\nRequired action: submit an updated recovery programme and evidence plan.\nDeadline: today.`,
+      draft: `Subject: Critical path recovery action required\n\nThe current project control events are consuming available float and exposing downstream programme phases. Please confirm the recovery crew plan, revised dates, and daily output targets by close of business today.\n\nRequired action: submit an updated recovery programme and evidence plan.\nDeadline: today.`,
     },
     {
       id: 'authority-approval',
@@ -195,7 +204,7 @@ function buildContext(screen: ProjectCommandScreen, dataset: ProjectCommandDatas
     },
   ];
 
-  const contexts: Record<ProjectCommandScreen, Omit<CopilotContext, 'prediction'>> = {
+  const contexts: Record<ProjectCommandScreen, Omit<CopilotContext, 'prediction' | 'control'>> = {
     overview: {
       tabLabel,
       monitoringLabel: 'Monitoring health, threats, gates, cost drift, and milestones',
@@ -448,12 +457,75 @@ function buildContext(screen: ProjectCommandScreen, dataset: ProjectCommandDatas
     },
   };
 
-  return { ...contexts[screen], prediction };
+  const dynamicInsights: CopilotInsight[] = [
+    {
+      title: control.latestEvent ? `Latest change: ${control.latestEvent.title}` : 'AI baseline is ready for live project-event simulation.',
+      detail: control.latestImpact,
+      urgency: control.latestEvent?.severity === 'critical' ? 'critical' : control.latestEvent?.severity === 'positive' ? 'info' : control.latestEvent ? 'high' : 'medium',
+      signal: 'What changed today',
+      confidence: 94,
+      dependencyChain: control.latestEvent
+        ? [control.latestEvent.affectedModule, 'Control metrics recalculated', 'Manager action queue updated', 'Forecast scenario refreshed']
+        : ['Property created', 'Project baseline generated', 'Controls connected', 'Ready for event simulation'],
+    },
+    {
+      title: `Health moved ${control.healthMovement.from} -> ${control.healthMovement.to}`,
+      detail: control.topThreat,
+      urgency: control.metrics.healthScore < 58 ? 'critical' : control.metrics.healthScore < 70 ? 'high' : 'medium',
+      signal: 'Health recalculation',
+      confidence: 92,
+    },
+    ...control.controlExceptions.slice(0, 2).map(exception => ({
+      title: exception.title,
+      detail: `${exception.impact} ${exception.impactMetric ? `Metric impact: ${exception.impactMetric}.` : ''}`,
+      urgency: exception.severity === 'critical' ? 'critical' : exception.severity === 'high' ? 'high' : 'medium',
+      signal: exception.sourceEvent ?? exception.linkedObject,
+      confidence: 91,
+      dependencyChain: [exception.sourceEvent ?? 'Control exception', exception.linkedObject, exception.impactMetric ?? 'Metric impact', exception.cta],
+    } satisfies CopilotInsight)),
+  ];
+
+  const dynamicRecommendations: CopilotRecommendation[] = control.managerActions.slice(0, 3).map(action => {
+    const linkedToLatest = Boolean(control.latestEvent && action.triggerLabel === control.latestEvent.title);
+    const urgency = linkedToLatest
+      ? 'critical'
+      : action.priority === 'critical' ? 'critical' : action.priority === 'high' ? 'high' : action.priority === 'medium' ? 'medium' : 'info';
+    return ({
+    id: action.id,
+    title: action.title,
+    why: action.whyItMatters,
+    urgency,
+    linkedObject: action.triggerLabel,
+    cta: action.cta,
+    kind: 'task',
+    confidence: linkedToLatest ? 96 : 93,
+    effect: action.expectedImpact,
+    draft: `Project event: ${action.triggerLabel}\nRecommended decision: ${action.title}\nWhy it matters: ${action.whyItMatters}\nExpected impact: ${action.expectedImpact}\nCost implication: ${action.costImplication}`,
+    });
+  });
+
+  const selectedContext = contexts[screen];
+  return {
+    ...selectedContext,
+    prediction,
+    control,
+    insights: [...dynamicInsights, ...selectedContext.insights],
+    recommendations: [...dynamicRecommendations, ...selectedContext.recommendations],
+    facts: [
+      ...baseFacts,
+      { label: 'Forecast handover', value: control.metrics.forecastHandover },
+      { label: 'EAC', value: formatProjectCurrency(control.metrics.eac) },
+      { label: 'Exceptions', value: String(control.controlExceptions.length) },
+    ],
+    sourceSignals: ['Project event engine', 'Control metrics', 'Manager actions', ...selectedContext.sourceSignals],
+  };
 }
 
 function useProjectCommandCopilotContext(screen: ProjectCommandScreen) {
   const dataset = useSelectedProjectCommandData();
-  return useMemo(() => buildContext(screen, dataset), [screen, dataset]);
+  const { projectEventsByProjectId } = useProjectCommandStore();
+  const events = projectEventsByProjectId[dataset.id] ?? [];
+  return useMemo(() => buildContext(screen, dataset, events), [screen, dataset, events]);
 }
 
 function getProjectCommandCopilotRecommendations(context: CopilotContext) {
@@ -515,6 +587,28 @@ function getPriorityNext(action: CopilotRecommendation) {
 }
 
 function getBlockerDisplay(insight: CopilotInsight, index: number) {
+  if (insight.signal === 'What changed today' || insight.signal === 'Health recalculation') {
+    return {
+      title: insight.title.replace('Latest change: ', ''),
+      summary: insight.detail,
+      why: insight.detail,
+      evidence: insight.signal === 'What changed today' ? 'Live project event, recalculated metrics, and manager action queue.' : 'Health scoring model plus latest event impact.',
+      action: insight.signal === 'What changed today' ? 'Open event action' : 'Explain health movement',
+      chain: insight.dependencyChain ?? [insight.signal, 'Control metrics recalculated', 'Decision queue updated', 'Forecast refreshed'],
+    };
+  }
+
+  if (insight.detail.includes('Metric impact:')) {
+    return {
+      title: insight.title,
+      summary: insight.detail,
+      why: insight.detail,
+      evidence: `Linked object: ${insight.signal}.`,
+      action: 'Open linked action',
+      chain: insight.dependencyChain ?? [insight.signal, 'Control exception', 'Manager action', 'Forecast refreshed'],
+    };
+  }
+
   const stageGateBlockers = [
     {
       title: 'Missing authority approval',
@@ -552,7 +646,8 @@ function getBlockerDisplay(insight: CopilotInsight, index: number) {
   };
 }
 
-function getBlockerAction(index: number, actions: CopilotRecommendation[]) {
+function getBlockerAction(index: number, actions: CopilotRecommendation[], insight?: CopilotInsight) {
+  if (insight?.signal === 'What changed today' || insight?.signal === 'Health recalculation') return actions[0];
   if (index === 0) return actions.find(action => action.id.includes('authority')) ?? actions[0];
   if (index === 1) return actions.find(action => action.id.includes('closeout')) ?? actions.find(action => action.kind === 'task') ?? actions[0];
   if (index === 2) return actions.find(action => action.id.includes('warranty')) ?? actions.find(action => action.id.includes('authority')) ?? actions[0];
@@ -597,6 +692,7 @@ function AIConfidenceBadge({ value = 92 }: { value?: number }) {
 
 function CopilotMonitoringStrip({ context }: { context: CopilotContext }) {
   const signals = ['Gates', 'Float', 'Evidence', 'Variations', 'Contractors'];
+  const latest = context.control.latestEvent;
 
   return (
     <div className="border-b border-[rgba(46,127,255,0.10)] bg-[#07111F]/78 px-5 py-3.5">
@@ -613,6 +709,11 @@ function CopilotMonitoringStrip({ context }: { context: CopilotContext }) {
             {item}
           </span>
         ))}
+        {latest && (
+          <span className="rounded-full border border-[#7C3AED]/30 bg-[#7C3AED]/12 px-2.5 py-1 text-[10px] font-black text-[#DDD6FE]">
+            Event: {latest.title}
+          </span>
+        )}
       </div>
       <motion.p
         className="mt-3 rounded-2xl bg-amber-300/7 px-3 py-2 text-[11px] font-semibold leading-5 text-[#DCE8F8] ring-1 ring-amber-300/12"
@@ -621,6 +722,7 @@ function CopilotMonitoringStrip({ context }: { context: CopilotContext }) {
         transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
       >
         Prediction: {context.prediction.handoverRisk} handover risk if blockers remain after <span className="font-black text-amber-100">{context.prediction.unresolvedAfterDate}</span>.
+        {' '}Health {context.control.healthMovement.from} {'->'} {context.control.healthMovement.to}; EAC {formatProjectCurrency(context.control.metrics.eac)}.
       </motion.p>
     </div>
   );
@@ -672,14 +774,14 @@ function DependencyChain({ items }: { items: string[] }) {
 }
 
 const askPrompts: Record<ProjectCommandScreen, string[]> = {
-  overview: ['Ask what matters most now...', 'Ask for the executive project risk summary...', 'Ask which action protects handover...'],
+  overview: ['Ask what changed today...', 'Ask why did health drop...', 'Ask what is the biggest threat...'],
   programme: ['Ask what is consuming float...', 'Ask which phase threatens handover...', 'Ask what recovers the most time...'],
   stagegates: ['Ask why this gate is blocked...', 'Ask what evidence is missing...', 'Ask how to clear this gate fastest...'],
   cost: ['Ask what is driving cost variance...', 'Ask why CPI is below target...', 'Ask how to reduce forecast overrun...'],
   risk: ['Ask which risks need escalation...', 'Ask what happens if this risk is ignored...', 'Ask which mitigation is missing...'],
   obligations: ['Ask which obligation is most exposed...', 'Ask what notice should be sent...', 'Ask what proof is missing...'],
   evidence: ['Ask which documents are missing...', 'Ask whether this evidence is sufficient...', 'Ask what blocks verification...'],
-  forecast: ['Ask which scenario is most likely...', 'Ask what shifts the forecast...', 'Ask what improves confidence...'],
+  forecast: ['Ask which scenario is most likely...', 'Ask which decision recovers most time...', 'Ask what happens if we ignore this...'],
 };
 
 function CopilotAskBar({ screen, onAsk }: { screen: ProjectCommandScreen; onAsk: (question: string) => void }) {
@@ -744,7 +846,7 @@ function CopilotAttentionList({
       <div className="divide-y divide-[rgba(46,127,255,0.10)] overflow-hidden rounded-2xl bg-[#07111F]/62">
         {insights.slice(0, 3).map((insight, index) => {
           const blocker = getBlockerDisplay(insight, index);
-          const rowAction = getBlockerAction(index, actions);
+          const rowAction = getBlockerAction(index, actions, insight);
           const isOpen = expanded === index;
 
           return (
@@ -828,6 +930,7 @@ function CopilotNextActionCard({
       </div>
       <h4 className="text-[16px] font-black leading-5 text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{recommendation.title}</h4>
       <div className="mt-3 grid gap-2 text-[12px] leading-5 text-[#DCE8F8]">
+        <p className="rounded-2xl border border-[#7C3AED]/18 bg-[#7C3AED]/10 px-3 py-2"><span className="font-black text-[#DDD6FE]">Triggered by: </span>{recommendation.linkedObject}</p>
         <p className="rounded-2xl bg-white/[0.035] px-3 py-2"><span className="font-black text-white">Why: </span>{getPriorityWhy(recommendation)}</p>
         <p className="rounded-2xl bg-white/[0.035] px-3 py-2"><span className="font-black text-white">Next: </span>{getPriorityNext(recommendation)}</p>
       </div>
@@ -885,6 +988,11 @@ function CopilotResponse({
   const handover = lower.includes('handover') || lower.includes('delay') || lower.includes('late');
   const cost = lower.includes('cost') || lower.includes('budget') || lower.includes('variation') || lower.includes('cpi');
   const evidence = lower.includes('evidence') || lower.includes('document') || lower.includes('proof');
+  const changedToday = lower.includes('changed today') || lower.includes('what changed');
+  const healthDrop = lower.includes('health') || lower.includes('drop');
+  const biggestThreat = lower.includes('biggest threat') || lower.includes('main threat');
+  const ignore = lower.includes('ignore') || lower.includes('if we ignore');
+  const recoverTime = lower.includes('recovers most time') || lower.includes('recover most time') || lower.includes('which decision');
   const primary = context.insights[0];
   const nextAction = getProjectCommandCopilotRecommendations(context)[0];
 
@@ -894,7 +1002,15 @@ function CopilotResponse({
       ? 'Cost drift is being driven by efficiency loss and pending exposure.'
       : evidence
         ? 'Evidence gaps are blocking reliable gate clearance.'
-        : primary.title;
+        : changedToday
+          ? context.control.latestEvent ? `${context.control.latestEvent.title} changed the control picture.` : 'The baseline is ready and no project event has been simulated yet.'
+          : healthDrop
+            ? `Health moved ${context.control.healthMovement.from} -> ${context.control.healthMovement.to}.`
+            : biggestThreat
+              ? context.control.topThreat
+              : recoverTime
+                ? `${context.control.managerActions[0]?.title ?? nextAction?.title} recovers the most time.`
+                : primary.title;
 
   const whatISee = handover
     ? ['Float is being consumed by the critical path.', 'Gate clearance still depends on required evidence.', 'Downstream phases can inherit delay if recovery is not confirmed.']
@@ -902,7 +1018,21 @@ function CopilotResponse({
       ? ['CPI is below target.', 'Pending variations can move the revised budget.', 'Forecast at completion is trending above approved budget.']
       : evidence
         ? ['Required evidence is incomplete.', 'Some documents need owner or version review.', 'Gate movement should remain blocked until proof is verified.']
-        : context.insights.slice(0, 3).map(item => item.title);
+        : changedToday
+          ? (context.control.changedToday.length > 0
+              ? context.control.changedToday.slice(0, 3).map(event => `${event.title}: ${event.impactLabel}`)
+              : ['AI generated the project control baseline.', 'No live event has been injected yet.', 'Demo controls can simulate delay, variation, evidence, inspection, vendor, or recovery events.'])
+          : healthDrop
+            ? [`Health score changed from ${context.control.healthMovement.from} to ${context.control.healthMovement.to}.`, context.control.latestImpact, `${context.control.controlExceptions.length} control exception(s) are active.`]
+            : biggestThreat
+              ? [context.control.topThreat, context.control.latestImpact, `Risk exposure is ${formatProjectCurrency(context.control.metrics.riskExposure)}.`]
+              : recoverTime
+                ? context.control.managerActions.slice(0, 3).map(action => `${action.title}: ${action.expectedImpact}`)
+                : context.insights.slice(0, 3).map(item => item.title);
+
+  const consequence = ignore
+    ? `If ignored, forecast handover can move to ${context.control.forecastScenarios[2].handoverDate}, EAC can reach ${formatProjectCurrency(context.control.forecastScenarios[2].forecastCost)}, and ${context.control.controlExceptions.length || 1} control exception(s) remain unresolved.`
+    : `MEP completion and handover review could slip by ${context.prediction.daysAtRisk} days, with estimated exposure of ${context.prediction.costExposure}.`;
 
   return (
     <div className="rounded-2xl border border-[#7C3AED]/24 bg-[linear-gradient(135deg,rgba(124,58,237,0.14),rgba(7,17,31,0.94))] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.25)]">
@@ -923,11 +1053,12 @@ function CopilotResponse({
         </div>
         <div>
           <p className="font-black text-white">If ignored</p>
-          <p className="mt-1">MEP completion and handover review could slip by {context.prediction.daysAtRisk} days, with estimated exposure of {context.prediction.costExposure}.</p>
+          <p className="mt-1">{consequence}</p>
         </div>
         <div className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#07111F] px-3 py-2">
           <p className="font-black text-white">Recommended action</p>
           <p className="mt-1 text-[#DCE8F8]">{nextAction?.title}: {nextAction?.why}</p>
+          <p className="mt-1 text-[10px] font-bold text-[#C4B5FD]">Triggered by: {nextAction?.linkedObject}</p>
           <p className="mt-2 text-[10px] font-bold text-[#7A94B4]">Sources: {context.sourceSignals.slice(0, 3).join(' - ')} - Confidence {context.prediction.confidence}%</p>
         </div>
       </div>

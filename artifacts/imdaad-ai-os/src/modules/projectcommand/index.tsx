@@ -4,6 +4,7 @@ import { AnimatePresence } from 'framer-motion';
 import { BarChart3, BrainCircuit, Building2, CalendarRange, FileText, FolderOpen, Plus, ShieldAlert, Target } from 'lucide-react';
 import type { ProjectCommandProjectId, ProjectCommandPropertyId } from './data/portfolio';
 import { AddProjectModal } from './components/AddProjectModal';
+import { ProjectCommandCopilotButton } from './components/ProjectCommandCopilot';
 import { CommandCenter } from './screens/CommandCenter';
 import { Programme } from './screens/Programme';
 import { StageGates } from './screens/StageGates';
@@ -143,7 +144,7 @@ export function ProjectCommand({ onToast }: { onToast?: (message: string, type?:
       </div>
 
       <div className="min-h-0 flex-1 overflow-hidden">
-        {screen === 'overview' && <CommandCenter goTo={goTo} />}
+        {screen === 'overview' && <CommandCenter goTo={goTo} onToast={onToast} />}
         {screen === 'programme' && <Programme />}
         {screen === 'stagegates' && <StageGates onToast={onToast} />}
         {screen === 'cost' && <CostIntelligence />}
@@ -152,6 +153,8 @@ export function ProjectCommand({ onToast }: { onToast?: (message: string, type?:
         {screen === 'evidence' && <EvidenceRepository onToast={onToast} />}
         {screen === 'forecast' && <AIForecast />}
       </div>
+
+      <ProjectCommandCopilotButton screen={screen} onNavigate={goTo} />
 
       <AnimatePresence>
         {addProjectOpen && (
