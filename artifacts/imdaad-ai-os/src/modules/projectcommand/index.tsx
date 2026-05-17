@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ComponentType } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { BarChart3, BrainCircuit, Building2, CalendarRange, FileText, FolderOpen, Plus, ShieldAlert, Target } from 'lucide-react';
@@ -13,7 +13,7 @@ import { RiskCommand } from './screens/RiskCommand';
 import { ObligationsRegister } from './screens/ObligationsRegister';
 import { EvidenceRepository } from './screens/EvidenceRepository';
 import { AIForecast } from './screens/AIForecast';
-import { addProjectCommandDataset, setProjectCommandState } from './state/projectCommandStore';
+import { addProjectCommandDataset, hydrateProjectCommandEvents, setProjectCommandState } from './state/projectCommandStore';
 import type { ProjectCommandScreen } from './types';
 import { useProjectCommandProjectOptions, useProjectCommandPropertyOptions, useSelectedProjectCommandData } from './useProjectCommandData';
 
@@ -56,6 +56,10 @@ export function ProjectCommand({ onToast }: { onToast?: (message: string, type?:
   };
 
   const activeTitle = useMemo(() => tabs.find(tab => tab.id === screen)?.label ?? 'Overview', [screen]);
+
+  useEffect(() => {
+    void hydrateProjectCommandEvents(selectedDataset.id);
+  }, [selectedDataset.id]);
 
   const switchProject = (projectId: ProjectCommandProjectId) => {
     const nextProject = allProjectOptions.find(option => option.id === projectId);

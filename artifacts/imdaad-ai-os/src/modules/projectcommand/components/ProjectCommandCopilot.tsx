@@ -21,7 +21,7 @@ import {
   formatProjectCurrency,
   type ProjectControlContext,
   type ProjectEvent,
-} from '../data/projectControlDemoEngine';
+} from '@/core/control-twin/projectControlTwin';
 import type { ProjectCommandDataset } from '../data/portfolio';
 import { useProjectCommandStore } from '../state/projectCommandStore';
 import { useSelectedProjectCommandData } from '../useProjectCommandData';

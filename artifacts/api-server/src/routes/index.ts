@@ -13,6 +13,7 @@ import shareReportRouter from "./shareReport";
 import devRouter from "./dev";
 import ppmExpertChatRouter from "./ppmExpertChat";
 import fieldOpsRouter from "./fieldops";
+import projectCommandRouter from "./projectcommand";
 
 const router: IRouter = Router();
 
@@ -29,6 +30,7 @@ router.use(copilotChatRouter);
 router.use(shareReportRouter);
 router.use(ppmExpertChatRouter);
 router.use(fieldOpsRouter);
+router.use(projectCommandRouter);
 router.use(devRouter);
 
 export default router;
