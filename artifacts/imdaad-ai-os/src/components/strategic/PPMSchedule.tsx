@@ -1394,7 +1394,7 @@ export function PPMSchedule({ onToast }: Props) {
             <div key={group} className="rounded-2xl border border-[#1C3050] bg-[#0E1E35] p-5">
               <div className="mb-4 flex items-center justify-between">
                 <h4 className="text-lg font-bold text-white">{group}</h4>
-                <Badge>{groupTasks.length} tasks</Badge>
+                <Badge>{`${groupTasks.length} tasks`}</Badge>
               </div>
               <div className="space-y-3">
                 {groupTasks.map((task) => (

@@ -4,18 +4,18 @@ import { db, clientsTable, sitesTable, teamMembersTable, incidentsTable, tickets
 const SEED_CLIENTS = [
   {
     id: "CLT-001", name: "Dubai Silicon Oasis", status: "live", region: "Dubai East",
-    sector: "Mixed-Use Residential", sites: 14, workOrders: 47, incidentsCount: 3,
+    sector: "Mixed-Use Residential", sites: 15, workOrders: 56, incidentsCount: 3,
     sla: 94, compliance: 98, riskLevel: "low", overdueTasks: 1,
     aiInsight: "All critical assets within SLA. Chiller C-04 flagged for proactive service within 6 days.",
     lastUpdated: "2 min ago",
     contract: { number: "IMD-2024-DSO-001", tier: "Platinum", startDate: "1 Jan 2024", endDate: "31 Dec 2026", renewalDate: "1 Oct 2026", annualValue: "AED 1.1M", penalties: "AED 5,000 per SLA breach beyond 3 per quarter", vendorManager: "Zaid Al-Hamdan — Imdaad HQ" },
   },
   {
-    id: "CLT-002", name: "Gate Avenue DIFC", status: "live", region: "Downtown",
-    sector: "Commercial Retail", sites: 6, workOrders: 31, incidentsCount: 1,
-    sla: 97, compliance: 99, riskLevel: "low", overdueTasks: 0,
-    aiInsight: "Exemplary compliance across all zones. Zero overdue tasks. SLA track record above portfolio average.",
-    lastUpdated: "5 min ago",
+    id: "CLT-002", name: "lagoons", status: "live", region: "Dubai Marina",
+    sector: "Real Estate", sites: 1, workOrders: 0, incidentsCount: 0,
+    sla: 100, compliance: 100, riskLevel: "low", overdueTasks: 0,
+    aiInsight: "",
+    lastUpdated: "just now",
     contract: { number: "IMD-2024-GAV-002", tier: "Platinum", startDate: "1 Mar 2024", endDate: "28 Feb 2027", renewalDate: "1 Dec 2026", annualValue: "AED 600K", vendorManager: "Zaid Al-Hamdan — Imdaad HQ" },
   },
   {
@@ -41,6 +41,30 @@ const SEED_CLIENTS = [
     aiInsight: "Excellent performance. All assets within specification.",
     lastUpdated: "8 min ago",
     contract: { number: "IMD-2024-DIFC-005", tier: "Platinum", startDate: "1 Jan 2024", endDate: "31 Dec 2026", renewalDate: "1 Oct 2026", annualValue: "AED 800K", vendorManager: "Zaid Al-Hamdan — Imdaad HQ" },
+  },
+  {
+    id: "CLT-006", name: "Downtown Burj Area", status: "live", region: "Downtown",
+    sector: "Luxury Residential", sites: 5, workOrders: 22, incidentsCount: 2,
+    sla: 96, compliance: 97, riskLevel: "low", overdueTasks: 0,
+    aiInsight: "Portfolio best performer. Proactive failure prediction prevented 2 major HVAC faults this quarter.",
+    lastUpdated: "4 min ago",
+    contract: { number: "IMD-2024-DBA-006", tier: "Platinum", startDate: "1 Jun 2024", endDate: "31 May 2027", renewalDate: "1 Mar 2027", annualValue: "AED 750K", vendorManager: "Leila Mahmoud - DevelopmentX HQ" },
+  },
+  {
+    id: "CLT-007", name: "Shohba", status: "live", region: "Dubai East",
+    sector: "Real Estate", sites: 1, workOrders: 0, incidentsCount: 0,
+    sla: 100, compliance: 100, riskLevel: "low", overdueTasks: 0,
+    aiInsight: "",
+    lastUpdated: "just now",
+    contract: { number: "IMD-2026-SHB-007", tier: "Standard", startDate: "1 May 2026", endDate: "30 Apr 2027", renewalDate: "1 Feb 2027", annualValue: "AED 120K", vendorManager: "DevelopmentX HQ" },
+  },
+  {
+    id: "CLT-008", name: "Damac", status: "live", region: "Dubai East",
+    sector: "Real Estate", sites: 1, workOrders: 0, incidentsCount: 0,
+    sla: 100, compliance: 100, riskLevel: "low", overdueTasks: 0,
+    aiInsight: "",
+    lastUpdated: "just now",
+    contract: { number: "IMD-2026-DMC-008", tier: "Standard", startDate: "1 May 2026", endDate: "30 Apr 2027", renewalDate: "1 Feb 2027", annualValue: "AED 120K", vendorManager: "DevelopmentX HQ" },
   },
 ] as const;
 
