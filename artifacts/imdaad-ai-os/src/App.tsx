@@ -95,6 +95,7 @@ function App() {
   const effectiveStrategicPage: StrategicPage = window.location.pathname.startsWith('/projectcommand')
     ? 'projectcommand'
     : strategicPage;
+  const showGlobalCopilot = !(perspective === 'strategic' && effectiveStrategicPage === 'projectcommand');
 
   useEffect(() => {
     const memberId = getMemberIdFromUrl();
@@ -287,11 +288,13 @@ function App() {
         )}
       </div>
       <ToastContainer toasts={toasts} removeToast={removeToast} />
-      <CopilotAvatar
-        perspective={perspective}
-        strategicPage={effectiveStrategicPage}
-        memberMode={Boolean(activeMember)}
-      />
+      {showGlobalCopilot && (
+        <CopilotAvatar
+          perspective={perspective}
+          strategicPage={effectiveStrategicPage}
+          memberMode={Boolean(activeMember)}
+        />
+      )}
     </div>
   );
 }

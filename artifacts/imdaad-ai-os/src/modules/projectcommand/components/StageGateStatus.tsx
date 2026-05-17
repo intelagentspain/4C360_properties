@@ -1,6 +1,5 @@
 import { useState, type ReactNode } from 'react';
 import { AlertTriangle, CalendarClock, CheckCircle2, ShieldAlert, Target, UserRound, X } from 'lucide-react';
-import { StageGateStatusCopilotButton } from './ProjectCommandCopilot';
 import { useSelectedProjectCommandData } from '../useProjectCommandData';
 
 type GateStatus = 'Clear' | 'At Risk' | 'Blocked';
@@ -247,7 +246,6 @@ export function StageGateStatus() {
             </span>
             Stage Gate Status &amp; Blockers
           </div>
-          <StageGateStatusCopilotButton />
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] text-left">

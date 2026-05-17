@@ -1,1474 +1,1066 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { ReactNode } from 'react';
+import type { MouseEvent, PointerEvent, ReactNode } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
+  ArrowLeft,
   ArrowRight,
   BrainCircuit,
-  Building2,
   CheckCircle2,
   ClipboardCheck,
-  DollarSign,
-  HardHat,
+  Database,
+  FileText,
+  FileUp,
+  Gauge,
+  GitBranch,
+  Layers3,
   Loader2,
+  PencilLine,
   RefreshCw,
-  ShieldAlert,
-  SlidersHorizontal,
+  Rocket,
+  ScanLine,
   Sparkles,
-  Users,
+  UploadCloud,
   WandSparkles,
   X,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import type { ProjectCommandDataset } from '../data/portfolio';
 import {
-  projectCommandDatasets,
-  projectCommandOrganizations,
-  projectCommandPortfolios,
-  projectCommandProperties,
-  type ProjectCommandDataset,
-  type ProjectCommandProject,
-  type ProjectDeliveryType,
-  type PropertyDevelopment,
-} from '../data/portfolio';
-import type { Phase } from '../data/phases';
-import type { Risk } from '../data/risks';
+  buildProjectCommandDatasetFromExtraction,
+  extractProjectContext,
+  generateProjectControlBaseline,
+  type GeneratedProjectControlBaseline,
+} from '../data/projectCreationEngine';
+import { sampleBayz102Brief, type ExtractedProjectContext } from '../data/projectExtractionDemoData';
 
-type ProjectSetupMode = 'ai' | 'manual';
-type WizardStep = 'setup' | 'budget' | 'generating' | 'baseline' | 'review';
-type ProjectType = ProjectDeliveryType;
-type PropertyType = 'Residential Tower' | 'Villa Community' | 'Mixed-use' | 'Commercial Building' | 'Master Community';
-type ProjectStage =
-  | 'Concept'
-  | 'Design'
-  | 'Enabling Works'
-  | 'Substructure'
-  | 'Superstructure'
-  | 'MEP'
-  | 'Fit-out'
-  | 'Handover';
-type Currency = 'AED' | 'SAR' | 'USD' | 'EUR';
-type BudgetStructureMethod = 'AI suggested work packages' | 'Upload budget breakdown' | 'Manual entry';
-type CostTrackingLevel = 'Project level' | 'Phase/package level' | 'Vendor/contract level' | 'Cost code level';
-type ReportingFrequency = 'Weekly' | 'Monthly' | 'Custom';
-type CommitmentTracking = 'Vendor contracts' | 'PO / commitment register' | 'Manual commitments';
-type ActualCostSource = 'Manual actuals' | 'ERP sync' | 'Invoice upload' | 'Vendor claims';
-type VariationControl = 'Manager approval' | 'Client approval workflow' | 'Commercial review board';
-type CashflowBasis = 'Baseline schedule + package progress' | 'Approved payment certificates' | 'Contract milestones + forecast risks';
-type AiForecastMode = 'Actuals + variations + risks' | 'Actuals only' | 'Scenario forecast';
+type CreateProjectStep = 'import' | 'understanding' | 'review' | 'baseline' | 'launch';
 
-type ProjectFormState = {
-  organizationId: string;
-  portfolioId: string;
-  propertyMode: 'existing' | 'new';
-  propertyId: string;
-  propertyName: string;
-  propertyLocation: string;
-  propertyType: PropertyType;
-  propertyBuildings: string;
-  propertyUnits: string;
-  propertySize: string;
-  name: string;
-  client: string;
-  location: string;
-  type: ProjectType;
-  size: string;
-  targetHandover: string;
-  budget: string;
-  currency: Currency;
-  contingency: string;
-  baselineDate: string;
-  budgetStructureMethod: BudgetStructureMethod;
-  costTrackingLevel: CostTrackingLevel;
-  contractingStrategy: string;
-  mainContractor: string;
-  reportingFrequency: ReportingFrequency;
-  commitmentTracking: CommitmentTracking;
-  actualCostSource: ActualCostSource;
-  variationControl: VariationControl;
-  cashflowBasis: CashflowBasis;
-  aiForecastMode: AiForecastMode;
-  stage: ProjectStage;
-  prompt: string;
+type ProjectMaterialState = {
+  fileName: string;
+  pastedText: string;
+  useSample: boolean;
+  manual: boolean;
 };
 
-type WorkPackage = {
-  name: string;
-  detail: string;
-  progress: number;
-  critical: boolean;
-};
-
-type BudgetPackage = {
-  label: string;
-  percent: number;
-  amount: number;
-  plannedStart: string;
-  plannedEnd: string;
-  vendor: string;
-  riskAllowance: number;
-  linkedProgrammePhase: string;
-};
-
-type StarterRisk = {
-  title: string;
-  severity: Risk['severity'];
-  mitigation: string;
-};
-
-type ProjectBaseline = {
-  summary: {
-    projectType: ProjectType;
-    expectedDuration: string;
-    handoverTarget: string;
-    complexity: string;
-    stage: ProjectStage;
-  };
-  components: WorkPackage[];
-  teamRoles: string[];
-  vendorCategories: string[];
-  programmePhases: string[];
-  stageGates: string[];
-  obligations: string[];
-  evidenceRequirements: string[];
-  milestones: string[];
-  budgetBreakdown: BudgetPackage[];
-  risks: StarterRisk[];
-  kpis: string[];
-  warnings: string[];
-  readinessScore: number;
-  recommendedActions: string[];
-};
-
-const projectTypes: ProjectType[] = [
-  'Main Construction',
-  'Fit-out',
-  'Infrastructure',
-  'Handover & Snagging',
-  'Warranty / DLP Remediation',
-  'Capital Improvement',
-  'ESG Retrofit',
-  'Smart Building Rollout',
-  'Maintenance Upgrade',
-  'Custom',
+const createSteps: Array<{ id: CreateProjectStep; label: string }> = [
+  { id: 'import', label: 'Import Context' },
+  { id: 'understanding', label: 'AI Understanding' },
+  { id: 'review', label: 'Review & Correct' },
+  { id: 'baseline', label: 'Generate Baseline' },
+  { id: 'launch', label: 'Launch' },
 ];
 
-const propertyTypes: PropertyType[] = ['Residential Tower', 'Villa Community', 'Mixed-use', 'Commercial Building', 'Master Community'];
-const projectStages: ProjectStage[] = ['Concept', 'Design', 'Enabling Works', 'Substructure', 'Superstructure', 'MEP', 'Fit-out', 'Handover'];
-const currencies: Currency[] = ['AED', 'SAR', 'USD', 'EUR'];
-const budgetStructureMethods: BudgetStructureMethod[] = ['AI suggested work packages', 'Upload budget breakdown', 'Manual entry'];
-const costTrackingLevels: CostTrackingLevel[] = ['Project level', 'Phase/package level', 'Vendor/contract level', 'Cost code level'];
-const reportingFrequencies: ReportingFrequency[] = ['Weekly', 'Monthly', 'Custom'];
-const commitmentTrackingOptions: CommitmentTracking[] = ['Vendor contracts', 'PO / commitment register', 'Manual commitments'];
-const actualCostSourceOptions: ActualCostSource[] = ['Manual actuals', 'ERP sync', 'Invoice upload', 'Vendor claims'];
-const variationControlOptions: VariationControl[] = ['Manager approval', 'Client approval workflow', 'Commercial review board'];
-const cashflowBasisOptions: CashflowBasis[] = ['Baseline schedule + package progress', 'Approved payment certificates', 'Contract milestones + forecast risks'];
-const aiForecastModeOptions: AiForecastMode[] = ['Actuals + variations + risks', 'Actuals only', 'Scenario forecast'];
-const loadingSteps = [
-  'Creating property and project hierarchy',
-  'Generating work packages and programme phases',
-  'Building cost baseline and stage gates',
-  'Seeding vendors, risks, and obligations',
-  'Mapping evidence requirements and milestones',
-  'Preparing AI readiness review',
+const extractionSteps = [
+  'Reading project document',
+  'Extracting property details',
+  'Identifying project scope',
+  'Detecting budget and contract value',
+  'Mapping work packages',
+  'Finding milestones and handover dates',
+  'Identifying vendors and obligations',
+  'Detecting early risks',
+  'Preparing control baseline',
 ];
 
-function toPropertyType(value: string): PropertyType {
-  return propertyTypes.includes(value as PropertyType) ? (value as PropertyType) : 'Mixed-use';
+const baselineSteps = [
+  'Creating programme phases',
+  'Building cost baseline',
+  'Mapping stage gates',
+  'Seeding risk register',
+  'Creating vendor map',
+  'Registering obligations',
+  'Adding evidence requirements',
+  'Building forecast model',
+  'Creating manager actions',
+];
+
+const sampleDocumentHighlights = [
+  { label: 'LOA signal', value: 'Bayz 102 / Main Construction' },
+  { label: 'Commercial', value: 'AED 420M / 8% contingency' },
+  { label: 'Delivery', value: '102 floors / 680 units / Business Bay' },
+  { label: 'Control hooks', value: 'Gates, vendors, risks, evidence' },
+];
+
+const confidenceBreakdown = [
+  { label: 'Property', value: 96 },
+  { label: 'Scope', value: 94 },
+  { label: 'Cost', value: 94 },
+  { label: 'Vendors', value: 84 },
+  { label: 'Obligations', value: 84 },
+];
+
+const baselinePipeline = [
+  { label: 'Programme', detail: 'Phases and milestones', icon: GitBranch },
+  { label: 'Cost', detail: 'Budget, CPI, EAC', icon: Gauge },
+  { label: 'Gates', detail: 'Approvals and blockers', icon: ClipboardCheck },
+  { label: 'Evidence', detail: 'Proof requirements', icon: FileText },
+  { label: 'Decisions', detail: 'Manager action queue', icon: BrainCircuit },
+];
+
+function formatMoney(value: number) {
+  if (value >= 1_000_000) return `AED ${Math.round(value / 1_000_000)}M`;
+  return `AED ${value.toLocaleString('en-US')}`;
 }
 
-function floorsForProperty(property: PropertyDevelopment) {
-  return property.size?.match(/\d+/)?.[0] ?? String(property.buildings);
-}
-
-const initialForm: ProjectFormState = {
-  organizationId: 'developmentx',
-  portfolioId: 'danube-properties-portfolio',
-  propertyMode: 'existing',
-  propertyId: 'bayz-102-property',
-  propertyName: 'Bayz 102',
-  propertyLocation: 'Business Bay',
-  propertyType: 'Residential Tower',
-  propertyBuildings: '102',
-  propertyUnits: '680',
-  propertySize: '102 floors',
-  name: 'Main Construction',
-  client: 'Danube Properties Portfolio',
-  location: 'Business Bay',
-  type: 'Main Construction',
-  size: '102 floors, 680 units',
-  targetHandover: '2026-08-12',
-  budget: '420',
-  currency: 'AED',
-  contingency: '8',
-  baselineDate: '2026-05-07',
-  budgetStructureMethod: 'AI suggested work packages',
-  costTrackingLevel: 'Phase/package level',
-  contractingStrategy: 'Main contractor with specialist nominated subcontractors',
-  mainContractor: 'China State Construction',
-  reportingFrequency: 'Monthly',
-  commitmentTracking: 'Vendor contracts',
-  actualCostSource: 'Invoice upload',
-  variationControl: 'Commercial review board',
-  cashflowBasis: 'Baseline schedule + package progress',
-  aiForecastMode: 'Actuals + variations + risks',
-  stage: 'Substructure',
-  prompt: 'Bayz 102 residential tower in Business Bay with 102 floors, 680 units, main construction scope, facade, MEP, testing, commissioning, and target handover on 12 Aug 2026.',
-};
-
-const fieldInput = 'h-10 rounded-xl border border-[rgba(46,127,255,0.22)] bg-[#07111F] px-3 text-[12px] text-[#EEF3FA] outline-none transition-colors placeholder:text-[#4A6080] focus:border-[#7C3AED] focus:ring-2 focus:ring-[#7C3AED]/20';
-
-function money(amount: number, currency: Currency) {
-  return `${currency} ${Math.round(amount)}M`;
-}
-
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value));
-}
-
-function slugify(value: string) {
-  const slug = value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-  return slug || 'new-project';
-}
-
-function dateLabel(value: string) {
+function formatDate(value: string) {
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'Target date pending';
+  if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-function addDaysToDate(value: string, days: number) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  date.setDate(date.getDate() + days);
-  return date.toISOString().slice(0, 10);
+function cloneExtraction(extracted: ExtractedProjectContext) {
+  return JSON.parse(JSON.stringify(extracted)) as ExtractedProjectContext;
 }
 
-function daysUntil(value: string) {
-  const target = new Date(value);
-  if (Number.isNaN(target.getTime())) return 365;
-  const diff = Math.ceil((target.getTime() - Date.now()) / 86_400_000);
-  return clamp(diff, 30, 1200);
+function activatePointer(event: PointerEvent<HTMLButtonElement>, action: () => void) {
+  event.currentTarget.dataset.pointerActivated = 'true';
+  action();
 }
 
-function stageProgress(stage: ProjectStage) {
-  const index = projectStages.indexOf(stage);
-  return clamp(8 + index * 12, 4, 92);
-}
-
-function projectPackageNames(type: ProjectType) {
-  if (type === 'Infrastructure') {
-    return ['Design & Permits', 'Enabling Works', 'Earthworks', 'Utilities', 'Roads & Access', 'Testing & Commissioning', 'Authority Handover'];
+function activateClick(event: MouseEvent<HTMLButtonElement>, action: () => void) {
+  if (event.currentTarget.dataset.pointerActivated === 'true') {
+    delete event.currentTarget.dataset.pointerActivated;
+    return;
   }
-  if (type === 'Warranty / DLP Remediation') {
-    return ['Defect Intake', 'Inspection', 'Vendor Assignment', 'Remediation Works', 'Verification', 'Resident Confirmation', 'Contingency'];
-  }
-  if (type === 'ESG Retrofit') {
-    return ['Audit & Baseline', 'Design', 'Procurement', 'Installation', 'Commissioning', 'Measurement & Verification', 'Contingency'];
-  }
-  if (type === 'Handover & Snagging') {
-    return ['Handover Planning', 'Unit Inspections', 'Snagging Works', 'Authority Closeout', 'Resident Readiness', 'Final Handover', 'Contingency'];
-  }
-  if (type === 'Smart Building Rollout') {
-    return ['Asset Survey', 'Solution Design', 'Hardware Procurement', 'Installation', 'Platform Integration', 'User Onboarding', 'Commissioning', 'Contingency'];
-  }
-  if (type === 'Fit-out') {
-    return ['Design Freeze', 'Procurement', 'MEP Coordination', 'Partitions & Ceilings', 'Finishes', 'Testing & Commissioning', 'Handover', 'Contingency'];
-  }
-  if (type === 'Capital Improvement' || type === 'Maintenance Upgrade') {
-    return ['Scope Validation', 'Design', 'Procurement', 'Works Execution', 'Testing', 'Closeout', 'Contingency'];
-  }
-  return ['Preliminaries', 'Design & Approvals', 'Substructure', 'Superstructure', 'Facade', 'MEP', 'Fit-out', 'Testing & Commissioning', 'Handover & Snagging'];
+  action();
 }
 
-function vendorCategories(type: ProjectType) {
-  const common = ['Main Contractor', 'MEP Contractor', 'Fire Systems Contractor', 'Fit-out Contractor'];
-  if (type === 'Infrastructure') return ['Civil Contractor', 'Utilities Contractor', 'Roadworks Contractor', 'Testing Laboratory', 'Authority Liaison Consultant'];
-  if (type === 'Warranty / DLP Remediation') return ['DLP Coordinator', 'Defect Contractor', 'MEP Contractor', 'Resident Liaison Team', 'QA/QC Inspector'];
-  if (type === 'ESG Retrofit') return ['Energy Auditor', 'Design Consultant', 'Equipment Supplier', 'Installation Contractor', 'M&V Consultant'];
-  if (type === 'Handover & Snagging') return ['Handover Manager', 'Snagging Contractor', 'Authority Liaison Consultant', 'FM Readiness Team'];
-  if (type === 'Smart Building Rollout') return ['Smart Access Integrator', 'IoT Contractor', 'Network Contractor', 'Cybersecurity Reviewer', 'Resident App Team'];
-  return [
-    'China State Construction - Main Contractor',
-    'Arabian Waterproofing - Waterproofing',
-    'Emirates MEP Services - MEP',
-    'Gulf Facade Systems - Facade',
-    'LiftTech Elevators - Elevators',
-    'SafeFire Systems - Fire Systems',
-  ];
-}
-
-function normalizedWeights(type: ProjectType, count: number) {
-  const weightsByType: Partial<Record<ProjectType, number[]>> = {
-    'Main Construction': [6, 6, 5, 14, 22, 12, 16, 10, 3, 2],
-    'Fit-out': [10, 16, 18, 18, 24, 8, 6],
-    Infrastructure: [10, 12, 18, 24, 22, 8, 6],
-    'Handover & Snagging': [12, 22, 28, 12, 16, 10],
-    'Warranty / DLP Remediation': [10, 14, 18, 32, 14, 12],
-    'Capital Improvement': [12, 14, 20, 32, 12, 10],
-    'ESG Retrofit': [12, 14, 24, 28, 10, 12],
-    'Smart Building Rollout': [10, 14, 24, 18, 18, 8, 8],
-    'Maintenance Upgrade': [12, 14, 20, 34, 10, 10],
-    Custom: [15, 15, 20, 25, 15, 10],
-  };
-  const source = weightsByType[type] ?? weightsByType['Main Construction'] ?? [];
-  const weights = Array.from({ length: count }, (_, index) => source[index] ?? 10);
-  const total = weights.reduce((sum, item) => sum + item, 0) || 1;
-  return weights.map(item => item / total);
-}
-
-function linkedPhaseForPackage(name: string, type: ProjectType) {
-  const lower = name.toLowerCase();
-  if (lower.includes('design') || lower.includes('audit') || lower.includes('scope')) return 'Design & Approvals';
-  if (lower.includes('enabling') || lower.includes('earth')) return 'Enabling Works';
-  if (lower.includes('substructure') || lower.includes('defect intake') || lower.includes('inspection')) return 'Substructure';
-  if (lower.includes('superstructure') || lower.includes('installation') || lower.includes('works execution') || lower.includes('remediation')) return 'Superstructure';
-  if (lower.includes('mep') || lower.includes('integration') || lower.includes('procurement')) return 'MEP Rough-in';
-  if (lower.includes('fit') || lower.includes('resident') || lower.includes('onboarding')) return 'Fit-out & Finishing';
-  if (lower.includes('testing') || lower.includes('commissioning') || lower.includes('verification') || lower.includes('handover') || lower.includes('closeout')) return 'Handover & Snagging';
-  return type === 'Warranty / DLP Remediation' ? 'Handover & Snagging' : 'Programme phase';
-}
-
-function vendorForPackage(name: string, type: ProjectType) {
-  const lower = name.toLowerCase();
-  if (lower.includes('design') || lower.includes('audit')) return type === 'ESG Retrofit' ? 'Energy Auditor' : 'Design Consultant';
-  if (lower.includes('procurement')) return 'Procurement Lead';
-  if (lower.includes('mep')) return 'MEP Contractor';
-  if (lower.includes('facade')) return 'Facade Contractor';
-  if (lower.includes('defect') || lower.includes('remediation') || lower.includes('snag')) return 'DLP / Snagging Contractor';
-  if (lower.includes('handover') || lower.includes('resident')) return 'Handover Team';
-  if (lower.includes('smart') || lower.includes('platform') || lower.includes('hardware') || lower.includes('integration')) return 'Smart Systems Integrator';
-  if (lower.includes('measurement')) return 'M&V Consultant';
-  if (lower.includes('contingency')) return 'Commercial Manager';
-  return vendorCategories(type)[0] ?? 'Main Contractor';
-}
-
-function generateBaseline(form: ProjectFormState): ProjectBaseline {
-  const budget = Number(form.budget) || 280;
-  const contingency = clamp(Number(form.contingency) || 8, 3, 18);
-  const stageIndex = projectStages.indexOf(form.stage);
-  const completion = stageProgress(form.stage);
-  const hasBasement = /basement|parking/i.test(form.prompt + form.size);
-  const hasHighRise = /tower|floor|floors|high/i.test(form.type + form.size);
-  const complexityScore = (budget > 350 ? 2 : 1) + (hasHighRise ? 2 : 0) + (hasBasement ? 1 : 0) + (stageIndex <= 2 ? 1 : 0);
-  const complexity = complexityScore >= 5 ? 'High complexity' : complexityScore >= 3 ? 'Moderate-high complexity' : 'Moderate complexity';
-  const packages = projectPackageNames(form.type);
-  const components = packages.map((name, index) => {
-    const progress = index < Math.max(1, stageIndex) ? 100 : index === Math.max(1, stageIndex) ? completion : 0;
-    return {
-      name,
-      detail: index <= 1 ? 'Setup and approval gate' : index >= packages.length - 2 ? 'Closeout and handover gate' : 'Core delivery package',
-      progress,
-      critical: index >= Math.max(2, stageIndex) && index <= Math.min(packages.length - 1, stageIndex + 3),
-    };
-  });
-
-  const deliveryPackages = packages.filter(name => name.toLowerCase() !== 'contingency');
-  const deliveryPercentTotal = Math.max(70, 100 - contingency);
-  const weights = normalizedWeights(form.type, deliveryPackages.length);
-  const budgetBreakdown: BudgetPackage[] = [
-    ...deliveryPackages.map((name, index) => {
-      const percent = Number((weights[index] * deliveryPercentTotal).toFixed(1));
-      return {
-        label: name,
-        percent,
-        amount: budget * (percent / 100),
-        plannedStart: `Month ${Math.max(1, index * 2 + 1)}`,
-        plannedEnd: `Month ${Math.max(3, index * 2 + 4)}`,
-        vendor: vendorForPackage(name, form.type),
-        riskAllowance: budget * (percent / 100) * 0.08,
-        linkedProgrammePhase: linkedPhaseForPackage(name, form.type),
-      };
-    }),
-    {
-      label: 'Contingency',
-      percent: contingency,
-      amount: budget * (contingency / 100),
-      plannedStart: 'Controlled reserve',
-      plannedEnd: 'Project close',
-      vendor: 'Commercial Manager',
-      riskAllowance: budget * (contingency / 100),
-      linkedProgrammePhase: 'All phases',
-    },
-  ];
-
-  const locationRisk = /dubai|uae|abu dhabi/i.test(form.location) ? 'authority approval and inspection sequencing' : 'local authority approval sequencing';
-  const risks: StarterRisk[] = [
-    { title: `${locationRisk} delay`, severity: 'high', mitigation: 'Create authority submission tracker and appoint approval owner.' },
-    { title: hasBasement ? 'Basement waterproofing rework' : 'Early works interface gaps', severity: hasBasement ? 'critical' : 'medium', mitigation: 'Add hold points, mockups, and inspection gates before release.' },
-    { title: 'MEP coordination conflicts', severity: 'high', mitigation: 'Run BIM coordination workshops and freeze riser strategy before procurement.' },
-    { title: 'Long-lead procurement lead time', severity: 'high', mitigation: 'Seed procurement register for facade, lifts, fire systems, and MEP equipment.' },
-    { title: 'Handover snagging overload', severity: 'medium', mitigation: 'Create floor-by-floor readiness tracker and defect aging SLA.' },
-  ];
-
-  const warnings = [
-    'Confirm Emirates MEP Services mobilisation dates before MEP rough-in gate',
-    contingency < 8 ? 'Budget contingency below recommended 8% for this complexity' : 'Handover date should be validated against authority gates',
-    complexityScore >= 5 ? 'High-rise logistics should be simulated before baseline approval' : 'Confirm vendor capacity before publishing baseline',
-  ];
-  const programmePhases = ['Mobilisation', 'Authority approvals', 'Substructure', 'Core and superstructure', 'Facade release', 'MEP rough-in', 'Fit-out start', 'Testing and commissioning', 'Handover readiness'];
-  const stageGates = ['Design Freeze', 'Substructure Complete', 'Superstructure Level 50', 'Facade Release', 'MEP Rough-In Ready', 'Commissioning Ready', 'Handover Go/No-Go'];
-  const obligations = ['Authority approval tracker current', 'Monthly EOT and variation notice register', 'Fire system compliance evidence before commissioning', 'Vendor warranty packs before handover'];
-  const evidenceRequirements = ['authority approvals', 'inspection reports', 'commissioning certificates', 'fire system sign-off', 'lift inspection sign-off', 'vendor warranty packs'];
-  const milestones = ['Substructure Complete', 'Superstructure Level 50', 'Facade Release', 'MEP Rough-In Ready', 'Commissioning Ready', 'Handover Go/No-Go'];
-
-  const readinessScore = clamp(78 + (form.name ? 4 : 0) + (form.client ? 3 : 0) + (form.targetHandover ? 4 : 0) + (contingency >= 8 ? 4 : 0) - (complexityScore >= 5 ? 5 : 0), 68, 94);
-
-  return {
-    summary: {
-      projectType: form.type,
-      expectedDuration: `${stageIndex <= 1 ? '18-24' : '12-18'} months from current stage`,
-      handoverTarget: dateLabel(form.targetHandover),
-      complexity,
-      stage: form.stage,
-    },
-    components,
-    teamRoles: ['Project Director', 'Project Manager', 'Commercial Manager', 'Planning Manager', 'QA/QC Lead', 'HSE Lead', 'Site Engineers', 'MEP Coordinator', 'Document Controller'],
-    vendorCategories: vendorCategories(form.type),
-    programmePhases,
-    stageGates,
-    obligations,
-    evidenceRequirements,
-    milestones,
-    budgetBreakdown,
-    risks,
-    kpis: ['Completion %', 'Budget used', 'CPI', 'SPI', 'Float remaining', 'Unresolved risks', 'Defects open'],
-    warnings,
-    readinessScore,
-    recommendedActions: [
-      'Confirm authority submission calendar',
-      'Assign project controls owner before baseline freeze',
-      'Seed long-lead procurement register',
-      'Create weekly risk review cadence',
-      'Link quality gates to package milestones',
-    ],
-  };
-}
-
-function buildCostSeries(budget: number, completion: number): ProjectCommandDataset['costSeries'] {
-  const labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan-27', 'Feb', 'Mar', 'Apr'];
-  const plannedPercents = [4, 8, 14, 21, 30, 40, 52, 64, 74, 82, 89, 94, 98, 100, 100, 100];
-  const todayIndex = 6;
-  const planned = plannedPercents.map(percent => Math.round(budget * percent / 100));
-  const actual = plannedPercents.map((percent, index) => index <= todayIndex ? Math.round(budget * Math.min(percent + 5, completion + 18) / 100) : null);
-  const earnedValue = plannedPercents.map((percent, index) => index <= todayIndex ? Math.round(budget * Math.min(percent, completion) / 100) : null);
-  const forecast = plannedPercents.map((percent, index) => index >= todayIndex ? Math.round(budget * Math.min(108, percent + 8) / 100) : null);
-  return { labels, planned, actual, earnedValue, forecast, todayIndex };
-}
-
-function buildDataset(form: ProjectFormState, baseline: ProjectBaseline): ProjectCommandDataset {
-  const budgetM = Number(form.budget) || 280;
-  const budget = budgetM * 1_000_000;
-  const completion = stageProgress(form.stage);
-  const budgetUsed = clamp(completion + (completion < 30 ? 8 : 12), 10, 96);
-  const earnedValue = Math.round(budget * completion / 100);
-  const actualCost = Math.round(budget * budgetUsed / 100);
-  const plannedValue = Math.round(budget * clamp(completion + 8, 12, 100) / 100);
-  const cpi = Number((earnedValue / Math.max(actualCost, 1)).toFixed(2));
-  const spi = Number((earnedValue / Math.max(plannedValue, 1)).toFixed(2));
-  const costVariance = earnedValue - actualCost;
-  const scheduleVariance = earnedValue - plannedValue;
-  const forecastCost = Math.round(budget * (1 + (baseline.readinessScore < 82 ? 0.09 : 0.05)));
-  const healthScore = baseline.readinessScore;
-  const status = healthScore >= 82 ? 'on-track' : healthScore >= 70 ? 'monitor' : 'critical';
-  const healthStatus = healthScore >= 82 ? 'good' : healthScore >= 70 ? 'monitor' : 'critical';
-  const id = `project-${slugify(form.name)}-${Date.now().toString(36)}`;
-  const selectedPortfolio = projectCommandPortfolios.find(item => item.id === form.portfolioId) ?? projectCommandPortfolios[0];
-  const selectedOrganization =
-    projectCommandOrganizations.find(item => item.id === (selectedPortfolio?.organizationId ?? form.organizationId)) ??
-    projectCommandOrganizations[0];
-  const existingProperty = projectCommandProperties.find(item => item.id === form.propertyId);
-  const property: PropertyDevelopment =
-    form.propertyMode === 'new'
-      ? {
-          id: `property-${slugify(form.propertyName || form.name)}-${Date.now().toString(36)}`,
-          portfolioId: selectedPortfolio.id,
-          name: form.propertyName || form.name,
-          type: form.propertyType,
-          location: form.propertyLocation || form.location,
-          buildings: Number(form.propertyBuildings) || 1,
-          units: Number(form.propertyUnits) || 0,
-          size: form.propertySize || form.size,
-          status: 'planned',
-        }
-      : existingProperty ?? {
-          id: form.propertyId || `property-${slugify(form.propertyName || form.name)}`,
-          portfolioId: selectedPortfolio.id,
-          name: form.propertyName || form.name,
-          type: form.propertyType,
-          location: form.propertyLocation || form.location,
-          buildings: Number(form.propertyBuildings) || 1,
-          units: Number(form.propertyUnits) || 0,
-          size: form.propertySize || form.size,
-          status: 'active',
-        };
-  const phases: Phase[] = baseline.components.map((component, index) => ({
-    id: `${id}-phase-${index}`,
-    name: component.name,
-    startPct: Math.round(index * (100 / baseline.components.length)),
-    widthPct: Math.max(8, Math.round(100 / baseline.components.length) + (component.critical ? 4 : 0)),
-    completePct: component.progress,
-    color: component.progress >= 80 ? '#00B894' : component.progress >= 30 ? '#C8A020' : component.critical ? '#7C3AED' : '#243448',
-    isCritical: component.critical,
-    aiAnnotation: component.critical ? 'AI watch item' : undefined,
-    subTasks: [
-      { id: `${id}-phase-${index}-a`, name: `${component.name} scope freeze`, startPct: Math.round(index * (100 / baseline.components.length)), widthPct: 5, completePct: component.progress > 0 ? 100 : 0, isCritical: component.critical },
-      { id: `${id}-phase-${index}-b`, name: `${component.name} delivery`, startPct: Math.round(index * (100 / baseline.components.length)) + 4, widthPct: 8, completePct: component.progress, isCritical: component.critical },
-    ],
-  }));
-
-  const risks: Risk[] = baseline.risks.map((risk, index) => ({
-    id: `${id}-risk-${index + 1}`,
-    title: risk.title,
-    category: index === 0 ? 'legal' : index === 1 ? 'quality' : index === 2 ? 'programme' : index === 3 ? 'cost' : 'quality',
-    probability: risk.severity === 'critical' ? 5 : risk.severity === 'high' ? 4 : 3,
-    impact: risk.severity === 'critical' ? 5 : risk.severity === 'high' ? 4 : 3,
-    score: risk.severity === 'critical' ? 25 : risk.severity === 'high' ? 16 : 9,
-    severity: risk.severity,
-    status: 'open',
-    owner: index === 0 ? 'Project Manager' : index === 3 ? 'Procurement' : 'PM Team',
-    mitigation: risk.mitigation,
-    aiEarlyWarning: `AI seeded risk from ${form.type.toLowerCase()} baseline and ${form.location} context.`,
-  }));
-
-  const milestones = baseline.components.map((component, index) => ({
-    id: `${id}-milestone-${index + 1}`,
-    name: component.name,
-    daysRemaining: Math.max(14, Math.round(daysUntil(form.targetHandover) * ((index + 1) / baseline.components.length))),
-    color: component.critical ? '#7C3AED' : '#5A6E88',
-    critical: component.critical,
-  }));
-
-  const baseAi = projectCommandDatasets['lawnz-residences'].aiContent;
-  const forecastCompletion = healthScore >= 84 ? form.targetHandover : addDaysToDate(form.targetHandover, healthScore >= 74 ? 35 : 72);
-  const costSeries = buildCostSeries(budgetM, completion);
-  const evmSummary = {
-    pv: Math.round(plannedValue / 1_000_000),
-    ac: Math.round(actualCost / 1_000_000),
-    ev: Math.round(earnedValue / 1_000_000),
-    cpi,
-    spi,
-    cv: Math.round(costVariance / 1_000_000),
-    sv: Math.round(scheduleVariance / 1_000_000),
-    eac: Math.round(forecastCost / 1_000_000),
-    etc: Math.max(0, Math.round((forecastCost - actualCost) / 1_000_000)),
-    vac: Math.round((budget - forecastCost) / 1_000_000),
-    tcpi: Number(((budget - earnedValue) / Math.max(budget - actualCost, 1)).toFixed(2)),
-  };
-
-  const project: ProjectCommandProject = {
-    id,
-    name: form.name,
-    organizationId: selectedOrganization.id,
-    portfolioId: selectedPortfolio.id,
-    propertyId: property.id,
-    projectType: form.type,
-    developer: selectedPortfolio.name,
-    location: property.location,
-    type: `${property.type} - ${form.type}`.trim(),
-    floors: Number((property.size ?? form.size).match(/\d+/)?.[0] ?? form.propertyBuildings ?? 0),
-    contractValue: budget,
-    startDate: new Date().toISOString().slice(0, 10),
-    targetHandover: form.targetHandover,
-    status,
-    completion,
-    budgetUsed,
-    daysToHandover: daysUntil(form.targetHandover),
-    mainContractor: form.mainContractor || 'Main contractor to be assigned',
-    plannedValue,
-    actualCost,
-    earnedValue,
-    cpi,
-    spi,
-    costVariance,
-    scheduleVariance,
-    floatRemaining: clamp(Math.round((baseline.readinessScore - 60) * 1.4), 8, 48),
-    healthScore,
-    healthStatus,
-    forecastCompletion,
-    forecastCost,
-  };
-
-  return {
-    id,
-    selectorLabel: `${property.name} - ${form.name}`,
-    organization: selectedOrganization,
-    portfolio: selectedPortfolio,
-    property,
-    project,
-    phases,
-    costSeries,
-    evmSummary,
-    risks,
-    milestones,
-    aiContent: {
-      ...baseAi,
-      healthScore: {
-        ...baseAi.healthScore,
-        score: healthScore,
-        status: healthStatus,
-        topThreat: baseline.risks[0]?.title ?? 'Baseline setup requires project controls validation.',
-        recommendedAction: baseline.recommendedActions[0] ?? 'Confirm the baseline setup before publishing.',
-        scoreBreakdown: { programme: healthScore - 2, cost: healthScore - 5, quality: healthScore, risk: healthScore - 4, contractor: healthScore - 6 },
-        forecast30d: { completion: clamp(completion + 7, 0, 100), spend: Math.round(actualCost / 1_000_000) + 18, newRisks: baseline.risks.length, sparkline: [completion, completion + 1, completion + 2, completion + 3, completion + 4, completion + 5, completion + 5.5, completion + 6, completion + 6.5, completion + 7] },
-      },
-      topDecisions: baseline.recommendedActions.map((action, index) => ({
-        rank: index + 1,
-        title: action,
-        impact: index === 0 ? 'Locks the operating rhythm before packages begin to diverge' : 'Improves baseline reliability and reduces setup risk',
-        urgency: index < 2 ? 'high' : 'medium',
-        deadline: dateLabel(addDaysToDate(new Date().toISOString(), 7 + index * 5)),
-      })),
-      programmeInsights: {
-        ...baseAi.programmeInsights,
-        criticalPathNarrative: `AI baseline for ${form.name} runs through ${baseline.components.filter(item => item.critical).map(item => item.name).join(' -> ')}. The current setup risk is highest around ${baseline.risks[0]?.title.toLowerCase()}.`,
-        rescheduleSuggestion: `Validate ${form.stage.toLowerCase()} assumptions against vendor capacity before freezing the first baseline.`,
-      },
-      costInsights: {
-        ...baseAi.costInsights,
-        narrative: `${form.name} has an initial ${form.currency} ${budgetM}M baseline. AI expects ${money(Math.round(forecastCost / 1_000_000), form.currency)} at completion until vendors, contingencies, and package scopes are confirmed.`,
-        eacConfidence: { p10: Math.round(budgetM * 0.98), p50: Math.round(forecastCost / 1_000_000), p90: Math.round(budgetM * 1.14) },
-        topCostDrivers: baseline.budgetBreakdown.slice(0, 5).map(item => ({ item: item.label, value: Number(item.amount.toFixed(1)), status: item.label === 'Contingency' ? 'forecast' : 'pending' })),
-      },
-      riskInsights: {
-        ...baseAi.riskInsights,
-        earlyWarnings: baseline.risks.slice(0, 3).map(risk => `${risk.title}: ${risk.mitigation}`),
-      },
-      scenarios: {
-        optimistic: { label: 'Optimistic', probability: 20, completionDate: form.targetHandover, finalCost: Math.round(budget * 1.01), assumptions: ['Authority calendar confirmed early', 'Long-lead packages released on time', 'No major rework in critical path', 'Contingency remains protected'], programmeSlip: 0 },
-        base: { label: 'Base Case', probability: 55, completionDate: forecastCompletion, finalCost: forecastCost, assumptions: ['Baseline approved after setup review', 'Vendor assignments completed within 30 days', 'MEP coordination starts before procurement freeze', 'Contingency used for normal package movement'], programmeSlip: healthScore >= 84 ? 0 : 35 },
-        pessimistic: { label: 'Pessimistic', probability: 25, completionDate: addDaysToDate(form.targetHandover, 120), finalCost: Math.round(budget * 1.16), assumptions: ['Authority approvals slip', 'Long-lead procurement starts late', 'MEP coordination conflicts multiply', 'Handover snagging compresses closeout'], programmeSlip: 120 },
-      },
-      askAI: {
-        queries: [
-          { question: 'What is the biggest risk to our handover date?', answer: `For ${form.name}, the biggest seeded handover risk is ${baseline.risks[0]?.title.toLowerCase()}. AI recommends confirming ownership, milestone gates, and vendor dependencies before the baseline is published.`, sources: ['AI Project Baseline', 'Starter Risk Register', 'Milestone Plan'] },
-          { question: 'How much will this project cost at completion?', answer: `The initial AI estimate at completion is ${money(Math.round(forecastCost / 1_000_000), form.currency)} against a starting budget of ${money(budgetM, form.currency)}. This should tighten once package scopes and vendors are assigned.`, sources: ['Budget Breakdown', 'AI Cost Baseline', 'Package Register'] },
-          { question: 'What should we set up first?', answer: `Start with authority milestones, project controls ownership, procurement long-leads, and the first risk review cadence. These setup items have the highest influence on the ${form.stage.toLowerCase()} baseline.`, sources: ['Readiness Review', 'AI Recommendations', 'Risk Register Starter'] },
-        ],
-      },
-    },
-  };
-}
-
-function AiBadge({ children = 'AI generated' }: { children?: ReactNode }) {
+function ConfidenceBadge({ value }: { value: number }) {
+  const tone = value >= 90 ? 'border-emerald-400/30 bg-emerald-500/10 text-emerald-200' : value >= 82 ? 'border-blue-400/30 bg-blue-500/10 text-blue-200' : 'border-amber-400/30 bg-amber-500/10 text-amber-200';
   return (
-    <span className="inline-flex items-center gap-1 rounded-full border border-[#7C3AED]/35 bg-[#7C3AED]/12 px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-[#C4B5FD]">
-      <Sparkles size={10} />
+    <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-black ${tone}`}>
+      <Sparkles className="h-3 w-3" />
+      {value}% confidence
+    </span>
+  );
+}
+
+function NeedsConfirmationBadge() {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-md border border-amber-400/30 bg-amber-500/10 px-2 py-1 text-[11px] font-black text-amber-200">
+      <PencilLine className="h-3 w-3" />
+      Needs confirmation
+    </span>
+  );
+}
+
+function SourcePill({ children }: { children: ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-md border border-[#24486F] bg-[#061529] px-2 py-1 text-[11px] font-black text-[#9DBBE0]">
+      <ScanLine className="h-3 w-3 text-blue-200" />
       {children}
     </span>
   );
 }
 
-function SectionCard({ title, icon: Icon, children }: { title: string; icon: LucideIcon; children: ReactNode }) {
+function SampleDocumentButton({ onClick }: { onClick: () => void }) {
   return (
-    <div className="rounded-2xl border border-[rgba(46,127,255,0.16)] bg-[#07111F]/70 p-4">
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-sm font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#7C3AED]/14 text-[#C4B5FD]"><Icon size={16} /></span>
-          {title}
-        </div>
-        <AiBadge />
+    <button
+      type="button"
+      onPointerDown={event => activatePointer(event, onClick)}
+      onClick={event => activateClick(event, onClick)}
+      className="group inline-flex items-center justify-center gap-3 rounded-lg border border-blue-300/45 bg-[linear-gradient(135deg,rgba(46,127,255,0.28),rgba(6,21,41,0.92))] px-4 py-3 text-left text-[12px] font-black text-blue-50 shadow-[0_0_28px_rgba(47,124,255,0.18)] transition hover:border-blue-200/80 hover:bg-blue-500/25"
+    >
+      <span className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-blue-400/18 text-blue-100 transition group-hover:bg-blue-400/28">
+        <FileText className="h-4 w-4" />
+      </span>
+      <span>
+        <span className="block">Use sample Bayz 102 document</span>
+        <span className="block text-[10px] font-bold uppercase tracking-[0.14em] text-blue-200/80">1-click live demo</span>
+      </span>
+    </button>
+  );
+}
+
+function IconBox({ icon: Icon, tone = 'blue' }: { icon: LucideIcon; tone?: 'blue' | 'green' | 'amber' | 'purple' }) {
+  const tones = {
+    blue: 'border-blue-400/30 bg-blue-500/15 text-blue-200',
+    green: 'border-emerald-400/30 bg-emerald-500/15 text-emerald-200',
+    amber: 'border-amber-400/30 bg-amber-500/15 text-amber-200',
+    purple: 'border-purple-400/30 bg-purple-500/15 text-purple-200',
+  };
+  return (
+    <span className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border ${tones[tone]}`}>
+      <Icon className="h-5 w-5" />
+    </span>
+  );
+}
+
+function SectionShell({ title, children, right }: { title: string; children: ReactNode; right?: ReactNode }) {
+  return (
+    <section className="rounded-lg border border-[#24486F] bg-[#081A2F]/82 p-4">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-[12px] font-black uppercase tracking-[0.12em] text-[#91A9C7]">{title}</h3>
+        {right}
       </div>
       {children}
-    </div>
+    </section>
   );
 }
 
-function ProgressSteps({ step }: { step: WizardStep }) {
-  const activeIndex = step === 'setup' ? 0 : step === 'budget' ? 1 : step === 'generating' || step === 'baseline' ? 2 : 3;
-  return (
-    <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-      {['Property', 'Project', 'AI Baseline', 'Review'].map((label, index) => (
-        <div key={label} className={`rounded-xl border px-3 py-2 text-[11px] font-bold transition-colors ${index <= activeIndex ? 'border-[#7C3AED]/40 bg-[#7C3AED]/15 text-[#E9D5FF]' : 'border-[rgba(46,127,255,0.12)] bg-[#07111F] text-[#5A6E88]'}`}>
-          <div className="flex items-center gap-2">
-            <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] ${index <= activeIndex ? 'bg-[#7C3AED] text-white' : 'bg-[#122240] text-[#7A94B4]'}`}>{index + 1}</span>
-            {label}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function ProjectSetupWizard({
-  mode,
-  onModeChange,
-  step,
-  children,
+function ExtractedSignalCard({
+  title,
+  value,
+  count,
+  confidence,
+  sourceExcerpt,
+  needsConfirmation,
 }: {
-  mode: ProjectSetupMode;
-  onModeChange: (mode: ProjectSetupMode) => void;
-  step: WizardStep;
-  children: ReactNode;
+  title: string;
+  value: string;
+  count: number;
+  confidence: number;
+  sourceExcerpt: string;
+  needsConfirmation?: boolean;
 }) {
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="space-y-4 border-b border-[rgba(46,127,255,0.12)] p-5">
-        <ProgressSteps step={step} />
-        {step === 'setup' && (
-          <div className="grid gap-3 md:grid-cols-2">
-            <button
-              type="button"
-              onClick={() => onModeChange('ai')}
-              className={`rounded-2xl border p-4 text-left transition-all ${mode === 'ai' ? 'border-[#7C3AED]/55 bg-[linear-gradient(135deg,rgba(124,58,237,0.28),rgba(225,29,46,0.12))] shadow-[0_0_28px_rgba(124,58,237,0.18)]' : 'border-[rgba(46,127,255,0.14)] bg-[#07111F]/80 hover:border-[#7C3AED]/35'}`}
-            >
-              <div className="mb-3 flex items-center justify-between">
-                <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#7C3AED]/20 text-[#C4B5FD]"><WandSparkles size={19} /></span>
-                {mode === 'ai' && <AiBadge>Recommended</AiBadge>}
-              </div>
-              <h4 className="text-base font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Start with AI</h4>
-              <p className="mt-1 text-[12px] leading-5 text-[#B8C7DB]">Generate phases, vendors, risks, milestones, budget structure, and KPIs in minutes.</p>
-            </button>
-            <button
-              type="button"
-              onClick={() => onModeChange('manual')}
-              className={`rounded-2xl border p-4 text-left transition-colors ${mode === 'manual' ? 'border-[#E11D2E]/50 bg-[#E11D2E]/10' : 'border-[rgba(46,127,255,0.14)] bg-[#07111F]/70 hover:border-[rgba(46,127,255,0.28)]'}`}
-            >
-              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#E11D2E]/12 text-red-200"><SlidersHorizontal size={19} /></div>
-              <h4 className="text-base font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Manual Setup</h4>
-              <p className="mt-1 text-[12px] leading-5 text-[#7A94B4]">Enter details yourself, then let AI validate readiness before creation.</p>
-            </button>
-          </div>
-        )}
+    <div className="rounded-lg border border-[#24486F] bg-[linear-gradient(180deg,rgba(10,29,51,0.98),rgba(6,21,41,0.98))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[12px] font-black text-white">{title}</p>
+          <p className="mt-1 text-[12px] text-[#8FB4E4]">{value}</p>
+        </div>
+        <span className="rounded-md bg-[#102F55] px-2 py-1 text-[11px] font-black text-[#8EC2FF]">{count}</span>
       </div>
-      {children}
+      <div className="mb-3 rounded-md border border-[#1D3F64] bg-[#061529] px-3 py-2">
+        <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#6F89AA]">Source excerpt</p>
+        <p className="mt-1 text-[11px] font-bold leading-relaxed text-[#C7D9EF]">{sourceExcerpt}</p>
+      </div>
+      <div className="mb-3 h-1.5 overflow-hidden rounded-full bg-[#10213B]">
+        <div className="h-full rounded-full bg-[linear-gradient(90deg,#2E7FFF,#38D98A)] transition-all" style={{ width: `${confidence}%` }} />
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <ConfidenceBadge value={confidence} />
+        {needsConfirmation ? <NeedsConfirmationBadge /> : null}
+      </div>
     </div>
   );
 }
 
-function LabeledField({ label, children, span = false }: { label: string; children: ReactNode; span?: boolean }) {
+function BaselineSummaryCard({
+  icon: Icon,
+  label,
+  value,
+  detail,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: string;
+  detail: string;
+}) {
   return (
-    <label className={`space-y-1.5 ${span ? 'md:col-span-2' : ''}`}>
-      <span className="text-[10px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">{label}</span>
+    <div className="rounded-lg border border-[#24486F] bg-[#07192D] p-4">
+      <div className="mb-3 flex items-center gap-3">
+        <IconBox icon={Icon} tone="green" />
+        <div>
+          <p className="text-[18px] font-black text-white">{value}</p>
+          <p className="text-[11px] font-black uppercase tracking-[0.12em] text-[#8FA7C5]">{label}</p>
+        </div>
+      </div>
+      <p className="text-[12px] leading-relaxed text-[#A9C5E8]">{detail}</p>
+    </div>
+  );
+}
+
+function WizardProgress({ currentStep }: { currentStep: CreateProjectStep }) {
+  const currentIndex = createSteps.findIndex(item => item.id === currentStep);
+  return (
+    <div className="grid gap-2 md:grid-cols-5">
+      {createSteps.map((item, index) => {
+        const active = item.id === currentStep;
+        const complete = index < currentIndex;
+        return (
+          <div
+            key={item.id}
+            className={`rounded-lg border px-3 py-2 text-[11px] font-black transition ${
+              active
+                ? 'border-blue-300/70 bg-blue-500/20 text-white shadow-[0_0_28px_rgba(47,124,255,0.22)]'
+                : complete
+                  ? 'border-emerald-400/30 bg-emerald-500/10 text-emerald-200'
+                  : 'border-[#24486F] bg-[#07192D] text-[#7E98B8]'
+            }`}
+          >
+            <span className="mr-2">{index + 1}</span>
+            {item.label}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function StepFrame({ children, footer }: { children: ReactNode; footer?: ReactNode }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+      transition={{ duration: 0.18 }}
+      className="flex h-full min-h-0 flex-1 flex-col"
+    >
+      <div className="min-h-0 flex-1 overflow-y-auto pr-1">{children}</div>
+      {footer ? <div className="mt-5 border-t border-[#1E3C61] pt-4">{footer}</div> : null}
+    </motion.div>
+  );
+}
+
+function PrimaryButton({ children, onClick, disabled }: { children: ReactNode; onClick: () => void; disabled?: boolean }) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onPointerDown={event => activatePointer(event, onClick)}
+      onClick={event => activateClick(event, onClick)}
+      className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-500 px-5 py-3 text-[13px] font-black text-white shadow-lg shadow-blue-950/25 transition hover:bg-blue-400 disabled:cursor-not-allowed disabled:opacity-50"
+    >
       {children}
+    </button>
+  );
+}
+
+function SecondaryButton({ children, onClick }: { children: ReactNode; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onPointerDown={event => activatePointer(event, onClick)}
+      onClick={event => activateClick(event, onClick)}
+      className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#24486F] bg-[#07192D] px-5 py-3 text-[13px] font-black text-[#BFD8F7] transition hover:border-blue-300/50 hover:text-white"
+    >
+      {children}
+    </button>
+  );
+}
+
+function ProjectContextImportStep({
+  material,
+  onFile,
+  onText,
+  onUseSample,
+  onManual,
+  onContinue,
+}: {
+  material: ProjectMaterialState;
+  onFile: (fileName: string) => void;
+  onText: (value: string) => void;
+  onUseSample: () => void;
+  onManual: () => void;
+  onContinue: () => void;
+}) {
+  const canContinue = Boolean(material.fileName || material.pastedText.trim() || material.useSample);
+  return (
+    <StepFrame
+      footer={
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onPointerDown={event => activatePointer(event, onUseSample)}
+              onClick={event => activateClick(event, onUseSample)}
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-300/45 bg-blue-500/15 px-4 py-3 text-[12px] font-black text-blue-100 transition hover:border-blue-200/80 hover:bg-blue-500/25"
+            >
+              <FileText className="h-4 w-4" />
+              Use sample Bayz 102 document
+            </button>
+            <button type="button" onClick={onManual} className="text-[12px] font-bold text-[#8FB4E4] underline-offset-4 hover:text-white hover:underline">
+              Continue manually
+            </button>
+          </div>
+          <PrimaryButton onClick={onContinue} disabled={!canContinue}>
+            Start AI Understanding
+            <ArrowRight className="h-4 w-4" />
+          </PrimaryButton>
+        </div>
+      }
+    >
+      <section className="mb-5 overflow-hidden rounded-lg border border-blue-300/25 bg-[radial-gradient(circle_at_18%_0%,rgba(46,127,255,0.22),transparent_34%),linear-gradient(135deg,rgba(7,25,45,0.98),rgba(6,20,38,0.96))] p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-start gap-4">
+            <IconBox icon={ScanLine} tone="blue" />
+            <div>
+              <h3 className="text-[22px] font-black text-white">Start from the construction document</h3>
+              <p className="mt-2 max-w-3xl text-[13px] leading-relaxed text-[#A9C5E8]">
+                The demo now begins the way a real controls kickoff would: ingest LOA, contract award, BOQ, programme note, or project brief, then extract the baseline from the evidence.
+              </p>
+            </div>
+          </div>
+          <div className="grid min-w-[280px] grid-cols-2 gap-2">
+            {sampleDocumentHighlights.map(item => (
+              <div key={item.label} className="rounded-lg border border-[#24486F] bg-[#061529]/78 px-3 py-2">
+                <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#6F89AA]">{item.label}</p>
+                <p className="mt-1 text-[11px] font-black leading-snug text-white">{item.value}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+      <div className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
+        <section className="rounded-lg border border-[#24486F] bg-[#07192D] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
+          <div className="flex items-start gap-4">
+            <IconBox icon={UploadCloud} tone="blue" />
+            <div>
+              <h3 className="text-[20px] font-black text-white">Upload LOA, BOQ, contract award, or project summary</h3>
+              <p className="mt-2 text-[13px] leading-relaxed text-[#9DBBE0]">
+                ProjectCommand reads document context first, then creates construction controls from the source material.
+              </p>
+            </div>
+          </div>
+
+          <label
+            htmlFor="project-context-file"
+            className="group mt-5 flex cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-blue-300/45 bg-[linear-gradient(180deg,rgba(46,127,255,0.12),rgba(6,21,41,0.74))] px-5 py-8 text-center transition hover:border-blue-200/80 hover:bg-blue-500/15"
+          >
+            <span className="inline-flex h-14 w-14 items-center justify-center rounded-lg border border-blue-300/30 bg-blue-500/15 text-blue-100 transition group-hover:scale-[1.03]">
+              <FileUp className="h-7 w-7" />
+            </span>
+            <span className="mt-3 text-[14px] font-black text-white">{material.fileName || 'Drop in a project document'}</span>
+            <span className="mt-1 text-[12px] text-[#8FB4E4]">PDF, DOC, DOCX, XLS, XLSX accepted for the demo intake</span>
+          </label>
+          <input
+            id="project-context-file"
+            type="file"
+            accept=".pdf,.doc,.docx,.xls,.xlsx"
+            className="sr-only"
+            onChange={event => {
+              const file = event.target.files?.[0];
+              if (file) onFile(file.name);
+            }}
+          />
+
+          <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-bold text-[#8FA7C5]">
+            {['LOA', 'Project brief', 'Contract summary', 'BOQ summary', 'Programme summary', 'Consultant report'].map(item => (
+              <span key={item} className="rounded-md border border-[#24486F] bg-[#0A1D33] px-2 py-1">
+                {item}
+              </span>
+            ))}
+          </div>
+          <div className="mt-5 rounded-lg border border-[#24486F] bg-[#061529] p-4">
+            <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#6F89AA]">Document parser will extract</p>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {['Property and project identity', 'Budget and commercial terms', 'Work packages and milestones', 'Vendors, obligations, evidence'].map(item => (
+                <div key={item} className="flex items-center gap-2 text-[12px] font-bold text-[#C7D9EF]">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-300" />
+                  {item}
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="rounded-lg border border-[#24486F] bg-[#07192D] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
+          <div className="flex items-start gap-4">
+            <IconBox icon={FileText} tone="green" />
+            <div>
+              <h3 className="text-[18px] font-black text-white">Paste a brief or launch the Bayz sample</h3>
+              <p className="mt-2 text-[13px] leading-relaxed text-[#9DBBE0]">
+                The sample button preloads the Bayz 102 LOA/project summary and starts extraction immediately.
+              </p>
+            </div>
+          </div>
+          <div className="mt-5 rounded-lg border border-emerald-300/22 bg-emerald-500/8 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-[0.14em] text-emerald-200">Live demo document</p>
+                <p className="mt-1 text-[13px] font-black text-white">Sample Bayz 102 LOA / Project Summary.pdf</p>
+              </div>
+              <SampleDocumentButton onClick={onUseSample} />
+            </div>
+          </div>
+          <textarea
+            value={material.pastedText}
+            onChange={event => onText(event.target.value)}
+            placeholder={sampleBayz102Brief.slice(0, 180)}
+            className="mt-4 min-h-[180px] w-full resize-none rounded-lg border border-[#24486F] bg-[#061529] px-4 py-3 text-[13px] leading-relaxed text-white outline-none transition placeholder:text-[#5F7898] focus:border-blue-300/60"
+          />
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap gap-2">
+              <SourcePill>OCR-ready later</SourcePill>
+              <SourcePill>Mock extraction now</SourcePill>
+            </div>
+            <span className="text-[12px] font-bold text-[#7E98B8]">{material.pastedText.length} characters</span>
+          </div>
+        </section>
+      </div>
+    </StepFrame>
+  );
+}
+
+function AIProjectUnderstandingStep({
+  loadingIndex,
+  done,
+  extracted,
+  sourceName,
+  onBack,
+  onContinue,
+}: {
+  loadingIndex: number;
+  done: boolean;
+  extracted: ExtractedProjectContext | null;
+  sourceName: string;
+  onBack: () => void;
+  onContinue: () => void;
+}) {
+  const scanProgress = Math.min(100, Math.round(((loadingIndex + 1) / extractionSteps.length) * 100));
+
+  if (!done || !extracted) {
+    return (
+      <StepFrame
+        footer={
+          <div className="flex justify-between">
+            <SecondaryButton onClick={onBack}>
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </SecondaryButton>
+          </div>
+        }
+      >
+        <div className="rounded-lg border border-[#24486F] bg-[#07192D] p-6">
+          <div className="mb-6 flex items-center gap-4">
+            <span className="relative inline-flex h-12 w-12 items-center justify-center rounded-lg border border-blue-300/35 bg-blue-500/15 text-blue-100 shadow-[0_0_28px_rgba(47,124,255,0.22)]">
+              <Loader2 className="h-6 w-6 animate-spin" />
+            </span>
+            <div>
+              <h3 className="text-[22px] font-black text-white">AI is understanding the project material</h3>
+              <p className="mt-1 text-[13px] text-[#9DBBE0]">The demo engine is extracting control signals from the imported context.</p>
+            </div>
+          </div>
+          <div className="mb-6 grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
+            <div className="rounded-lg border border-blue-300/24 bg-[#061529] p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#6F89AA]">Document currently being read</p>
+                  <p className="mt-1 text-[14px] font-black text-white">{sourceName}</p>
+                </div>
+                <span className="rounded-md border border-blue-300/30 bg-blue-500/12 px-3 py-1 text-[11px] font-black text-blue-100">{scanProgress}% scanned</span>
+              </div>
+              <div className="mt-4 h-2 overflow-hidden rounded-full bg-[#10213B]">
+                <motion.div
+                  className="h-full rounded-full bg-[linear-gradient(90deg,#2E7FFF,#38D98A)]"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${scanProgress}%` }}
+                  transition={{ duration: 0.28 }}
+                />
+              </div>
+              <div className="mt-4 space-y-2">
+                {[
+                  'Letter of Award and project summary for Bayz 102...',
+                  'Contract value: AED 420,000,000. Target handover: 12 August 2026.',
+                  'Packages include preliminaries, design approvals, substructure...',
+                ].map((line, index) => (
+                  <div key={line} className="flex items-center gap-3 rounded-md border border-[#1D3F64] bg-[#07192D] px-3 py-2">
+                    <span className={`h-2 w-2 rounded-full ${index <= loadingIndex % 3 ? 'bg-emerald-300' : 'bg-[#315071]'}`} />
+                    <span className="text-[11px] font-bold text-[#A9C5E8]">{line}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="rounded-lg border border-[#24486F] bg-[#061529] p-4">
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#6F89AA]">Signals forming</p>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                {['Property', 'Project', 'Budget', 'Vendors', 'Packages', 'Milestones', 'Risks', 'Evidence'].map((item, index) => {
+                  const live = index <= loadingIndex;
+                  return (
+                    <div key={item} className={`rounded-md border px-3 py-2 text-[11px] font-black transition ${live ? 'border-emerald-300/30 bg-emerald-500/10 text-emerald-100' : 'border-[#1D3F64] bg-[#07192D] text-[#6F89AA]'}`}>
+                      {item}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            {extractionSteps.map((item, index) => {
+              const complete = index < loadingIndex;
+              const active = index === loadingIndex;
+              return (
+                <div
+                  key={item}
+                  className={`rounded-lg border p-4 transition ${
+                    active
+                      ? 'border-blue-300/70 bg-blue-500/16 text-white shadow-[0_0_26px_rgba(47,124,255,0.2)]'
+                      : complete
+                        ? 'border-emerald-400/30 bg-emerald-500/10 text-emerald-200'
+                        : 'border-[#24486F] bg-[#061529] text-[#7E98B8]'
+                  }`}
+                >
+                  <div className="mb-3 flex h-7 w-7 items-center justify-center rounded-md bg-[#102F55]">
+                    {complete ? <CheckCircle2 className="h-4 w-4" /> : <BrainCircuit className="h-4 w-4" />}
+                  </div>
+                  <p className="text-[12px] font-black">{item}</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </StepFrame>
+    );
+  }
+
+  return (
+    <StepFrame
+      footer={
+        <div className="flex flex-wrap justify-between gap-3">
+          <SecondaryButton onClick={onBack}>
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </SecondaryButton>
+          <PrimaryButton onClick={onContinue}>
+            Review Extracted Data
+            <ArrowRight className="h-4 w-4" />
+          </PrimaryButton>
+        </div>
+      }
+    >
+      <div className="rounded-lg border border-[#24486F] bg-[#07192D] p-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex items-start gap-4">
+            <IconBox icon={BrainCircuit} tone="blue" />
+            <div>
+              <h3 className="text-[22px] font-black text-white">AI extracted {extracted.signalCount} project signals</h3>
+              <p className="mt-2 text-[13px] leading-relaxed text-[#9DBBE0]">
+                Document-aware extraction found the property, project scope, budget, vendor responsibilities, milestones, risks, obligations, and evidence requirements.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-col items-start gap-2 rounded-lg border border-[#24486F] bg-[#061529] px-4 py-3 sm:items-end">
+            <span className="text-[12px] font-black text-white">Project understanding confidence: {extracted.confidence}%</span>
+            <ConfidenceBadge value={extracted.confidence} />
+            <span className="text-[12px] font-bold text-[#8FB4E4]">{extracted.confirmationCount} items require confirmation</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4 rounded-lg border border-[#24486F] bg-[#061529] p-4">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#8FA7C5]">Confidence scoring</p>
+          <SourcePill>{extracted.sourceName}</SourcePill>
+        </div>
+        <div className="grid gap-3 md:grid-cols-5">
+          {confidenceBreakdown.map(item => (
+            <div key={item.label} className="rounded-lg border border-[#1D3F64] bg-[#07192D] p-3">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <span className="text-[11px] font-black text-white">{item.label}</span>
+                <span className="text-[11px] font-black text-emerald-200">{item.value}%</span>
+              </div>
+              <div className="h-1.5 overflow-hidden rounded-full bg-[#10213B]">
+                <div className="h-full rounded-full bg-[linear-gradient(90deg,#2E7FFF,#38D98A)]" style={{ width: `${item.value}%` }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-3 md:grid-cols-3">
+        {extracted.extractionSignals.map(signal => (
+          <ExtractedSignalCard key={signal.id} {...signal} />
+        ))}
+      </div>
+    </StepFrame>
+  );
+}
+
+function TextInput({
+  label,
+  value,
+  onChange,
+  type = 'text',
+}: {
+  label: string;
+  value: string | number;
+  onChange: (value: string) => void;
+  type?: string;
+}) {
+  return (
+    <label className="block">
+      <span className="text-[11px] font-black uppercase tracking-[0.12em] text-[#7E98B8]">{label}</span>
+      <input
+        type={type}
+        value={value}
+        onChange={event => onChange(event.target.value)}
+        className="mt-2 h-11 w-full rounded-lg border border-[#24486F] bg-[#061529] px-3 text-[13px] font-bold text-white outline-none transition focus:border-blue-300/60"
+      />
     </label>
   );
 }
 
-function AiProjectSetupStep({
-  form,
-  setForm,
-  mode,
+function TextAreaList({ label, values, onChange }: { label: string; values: string[]; onChange: (values: string[]) => void }) {
+  return (
+    <label className="block">
+      <span className="text-[11px] font-black uppercase tracking-[0.12em] text-[#7E98B8]">{label}</span>
+      <textarea
+        value={values.join('\n')}
+        onChange={event => onChange(event.target.value.split('\n').map(item => item.trim()).filter(Boolean))}
+        className="mt-2 min-h-[118px] w-full resize-none rounded-lg border border-[#24486F] bg-[#061529] px-3 py-3 text-[13px] font-bold leading-relaxed text-white outline-none transition focus:border-blue-300/60"
+      />
+    </label>
+  );
+}
+
+function ExtractedProjectReviewStep({
+  extracted,
+  onUpdate,
+  onConfirmAll,
+  onRegenerate,
+  onBack,
   onContinue,
 }: {
-  form: ProjectFormState;
-  setForm: (form: ProjectFormState) => void;
-  mode: ProjectSetupMode;
+  extracted: ExtractedProjectContext;
+  onUpdate: (next: ExtractedProjectContext) => void;
+  onConfirmAll: () => void;
+  onRegenerate: () => void;
+  onBack: () => void;
   onContinue: () => void;
 }) {
-  const portfoliosForOrganization = projectCommandPortfolios.filter(item => item.organizationId === form.organizationId);
-  const selectedPortfolio = projectCommandPortfolios.find(item => item.id === form.portfolioId) ?? portfoliosForOrganization[0] ?? projectCommandPortfolios[0];
-  const propertiesForPortfolio = projectCommandProperties.filter(item => item.portfolioId === selectedPortfolio.id);
-  const selectedProperty = projectCommandProperties.find(item => item.id === form.propertyId) ?? propertiesForPortfolio[0];
-
-  const update = <K extends keyof ProjectFormState>(key: K, value: ProjectFormState[K]) => setForm({ ...form, [key]: value });
-
-  const applyProperty = (property: PropertyDevelopment, portfolio = selectedPortfolio) => {
-    setForm({
-      ...form,
-      portfolioId: portfolio.id,
-      propertyMode: 'existing',
-      propertyId: property.id,
-      propertyName: property.name,
-      propertyLocation: property.location,
-      propertyType: toPropertyType(property.type),
-      propertyBuildings: floorsForProperty(property),
-      propertyUnits: String(property.units),
-      propertySize: property.size ?? '',
-      client: portfolio.name,
-      location: property.location,
-      size: [property.size, property.units ? `${property.units} units` : ''].filter(Boolean).join(', '),
-    });
-  };
-
-  const handleOrganizationChange = (organizationId: string) => {
-    const nextPortfolio = projectCommandPortfolios.find(item => item.organizationId === organizationId) ?? projectCommandPortfolios[0];
-    const nextProperty = projectCommandProperties.find(item => item.portfolioId === nextPortfolio.id);
-    setForm({
-      ...form,
-      organizationId,
-      portfolioId: nextPortfolio.id,
-      client: nextPortfolio.name,
-      ...(nextProperty
-        ? {
-            propertyMode: 'existing' as const,
-            propertyId: nextProperty.id,
-            propertyName: nextProperty.name,
-            propertyLocation: nextProperty.location,
-            propertyType: toPropertyType(nextProperty.type),
-            propertyBuildings: floorsForProperty(nextProperty),
-            propertyUnits: String(nextProperty.units),
-            propertySize: nextProperty.size ?? '',
-            location: nextProperty.location,
-            size: [nextProperty.size, nextProperty.units ? `${nextProperty.units} units` : ''].filter(Boolean).join(', '),
-          }
-        : {}),
-    });
-  };
-
-  const handlePortfolioChange = (portfolioId: string) => {
-    const nextPortfolio = projectCommandPortfolios.find(item => item.id === portfolioId) ?? selectedPortfolio;
-    const nextProperty = projectCommandProperties.find(item => item.portfolioId === nextPortfolio.id);
-    setForm({
-      ...form,
-      portfolioId: nextPortfolio.id,
-      client: nextPortfolio.name,
-      ...(nextProperty
-        ? {
-            propertyMode: 'existing' as const,
-            propertyId: nextProperty.id,
-            propertyName: nextProperty.name,
-            propertyLocation: nextProperty.location,
-            propertyType: toPropertyType(nextProperty.type),
-            propertyBuildings: floorsForProperty(nextProperty),
-            propertyUnits: String(nextProperty.units),
-            propertySize: nextProperty.size ?? '',
-            location: nextProperty.location,
-            size: [nextProperty.size, nextProperty.units ? `${nextProperty.units} units` : ''].filter(Boolean).join(', '),
-          }
-        : { propertyMode: 'new' as const, propertyId: '' }),
-    });
-  };
-
-  const updatePropertyDraft = (patch: Partial<ProjectFormState>) => {
-    const next = { ...form, ...patch };
-    next.location = next.propertyLocation;
-    next.size = [next.propertySize, next.propertyUnits ? `${next.propertyUnits} units` : ''].filter(Boolean).join(', ');
-    setForm(next);
+  const update = (recipe: (draft: ExtractedProjectContext) => void) => {
+    const next = cloneExtraction(extracted);
+    recipe(next);
+    onUpdate(next);
   };
 
   return (
-    <div className="min-h-0 flex flex-1 flex-col">
-      <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto p-5 pb-4">
-        <div className="mb-4 rounded-2xl border border-[#7C3AED]/25 bg-[#7C3AED]/10 p-4">
-          <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#C4B5FD]">Where does this project belong?</p>
-              <p className="mt-1 text-[12px] leading-5 text-[#B8C7DB]">
-                ProjectCommand controls temporary project delivery under a permanent property/development. Select an existing property or create one first.
-              </p>
-            </div>
-            <div className="rounded-full border border-[rgba(46,127,255,0.18)] bg-[#07111F] px-3 py-1 text-[10px] font-bold text-[#7EB8F7]">
-              Organization - Portfolio - Property - Project
-            </div>
+    <StepFrame
+      footer={
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap gap-3">
+            <SecondaryButton onClick={onBack}>
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </SecondaryButton>
+            <SecondaryButton onClick={onRegenerate}>
+              <RefreshCw className="h-4 w-4" />
+              Regenerate
+            </SecondaryButton>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <SecondaryButton onClick={onConfirmAll}>
+              <CheckCircle2 className="h-4 w-4" />
+              Confirm All
+            </SecondaryButton>
+            <PrimaryButton onClick={onContinue}>
+              Generate Control Baseline
+              <ArrowRight className="h-4 w-4" />
+            </PrimaryButton>
           </div>
         </div>
-
-        <div className="grid gap-4 md:grid-cols-2">
-          <LabeledField label="Organization">
-            <select className={`${fieldInput} w-full`} value={form.organizationId} onChange={event => handleOrganizationChange(event.target.value)}>
-              {projectCommandOrganizations.map(organization => <option key={organization.id} value={organization.id}>{organization.name}</option>)}
-            </select>
-          </LabeledField>
-          <LabeledField label="Portfolio">
-            <select className={`${fieldInput} w-full`} value={form.portfolioId} onChange={event => handlePortfolioChange(event.target.value)}>
-              {portfoliosForOrganization.map(portfolio => <option key={portfolio.id} value={portfolio.id}>{portfolio.name}</option>)}
-            </select>
-          </LabeledField>
-          <div className="md:col-span-2 rounded-2xl border border-[rgba(46,127,255,0.16)] bg-[#07111F]/70 p-4">
-            <div className="mb-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex items-center gap-2 text-sm font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#7C3AED]/14 text-[#C4B5FD]"><Building2 size={16} /></span>
-                Property / Development
-              </div>
-              <div className="flex rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#0A1628] p-1">
-                {(['existing', 'new'] as const).map(modeOption => (
-                  <button
-                    key={modeOption}
-                    type="button"
-                    onClick={() => {
-                      if (modeOption === 'existing' && selectedProperty) {
-                        applyProperty(selectedProperty);
-                      } else {
-                        setForm({ ...form, propertyMode: 'new', propertyId: '', propertyName: '', propertyLocation: form.location, propertyBuildings: '102', propertyUnits: '', propertySize: '' });
-                      }
-                    }}
-                    className={`rounded-lg px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.1em] ${form.propertyMode === modeOption ? 'bg-[#7C3AED] text-white' : 'text-[#7A94B4] hover:text-[#EEF3FA]'}`}
-                  >
-                    {modeOption === 'existing' ? 'Existing property' : 'Create new property'}
-                  </button>
-                ))}
-              </div>
-            </div>
-            {form.propertyMode === 'existing' ? (
-              <div className="grid gap-3 lg:grid-cols-[1fr_1.2fr]">
-                <LabeledField label="Property / Development">
-                  <select
-                    className={`${fieldInput} w-full`}
-                    value={selectedProperty?.id ?? ''}
-                    onChange={event => {
-                      const property = projectCommandProperties.find(item => item.id === event.target.value);
-                      if (property) applyProperty(property);
-                    }}
-                  >
-                    {propertiesForPortfolio.map(property => <option key={property.id} value={property.id}>{property.name}</option>)}
-                  </select>
-                </LabeledField>
-                <div className="rounded-xl border border-[rgba(46,127,255,0.12)] bg-[#0A1628] px-3 py-2">
-                  <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">Selected property context</p>
-                  <p className="mt-1 text-[12px] font-bold text-[#DDE6F8]">
-                    {form.propertyName} - {form.propertyType} - {form.propertyLocation}
-                  </p>
-                  <p className="mt-1 text-[10px] text-[#7A94B4]">{form.propertySize || `${form.propertyBuildings || '1'} floors`}, {form.propertyUnits || '0'} units, developer / portfolio: {form.client}</p>
-                </div>
-              </div>
-            ) : (
-              <div className="grid gap-3 md:grid-cols-2">
-                <LabeledField label="Property name">
-                  <input className={`${fieldInput} w-full`} value={form.propertyName} onChange={event => updatePropertyDraft({ propertyName: event.target.value })} />
-                </LabeledField>
-                <LabeledField label="Property location">
-                  <input className={`${fieldInput} w-full`} value={form.propertyLocation} onChange={event => updatePropertyDraft({ propertyLocation: event.target.value })} />
-                </LabeledField>
-                <LabeledField label="Property type">
-                  <select className={`${fieldInput} w-full`} value={form.propertyType} onChange={event => updatePropertyDraft({ propertyType: event.target.value as PropertyType })}>
-                    {propertyTypes.map(type => <option key={type}>{type}</option>)}
-                  </select>
-                </LabeledField>
-                <div className="grid grid-cols-3 gap-3">
-                  <LabeledField label="Floors">
-                    <input className={`${fieldInput} w-full`} value={form.propertyBuildings} onChange={event => updatePropertyDraft({ propertyBuildings: event.target.value })} />
-                  </LabeledField>
-                  <LabeledField label="Units">
-                    <input className={`${fieldInput} w-full`} value={form.propertyUnits} onChange={event => updatePropertyDraft({ propertyUnits: event.target.value })} />
-                  </LabeledField>
-                  <LabeledField label="Size / GFA">
-                    <input className={`${fieldInput} w-full`} value={form.propertySize} onChange={event => updatePropertyDraft({ propertySize: event.target.value })} />
-                  </LabeledField>
-                </div>
-              </div>
-            )}
-          </div>
-          <LabeledField label="Project name">
-            <input className={`${fieldInput} w-full`} value={form.name} onChange={event => update('name', event.target.value)} />
-          </LabeledField>
-          <LabeledField label="Project type">
-            <select className={`${fieldInput} w-full`} value={form.type} onChange={event => update('type', event.target.value as ProjectType)}>
-              {projectTypes.map(type => <option key={type}>{type}</option>)}
-            </select>
-          </LabeledField>
-          <LabeledField label="Contracting strategy">
-            <input className={`${fieldInput} w-full`} value={form.contractingStrategy} onChange={event => update('contractingStrategy', event.target.value)} />
-          </LabeledField>
-          <LabeledField label="Main contractor">
-            <input className={`${fieldInput} w-full`} value={form.mainContractor} onChange={event => update('mainContractor', event.target.value)} />
-          </LabeledField>
-          <LabeledField label="Target handover date">
-            <input type="date" className={`${fieldInput} w-full`} value={form.targetHandover} onChange={event => update('targetHandover', event.target.value)} />
-          </LabeledField>
-          <LabeledField label="Current stage">
-            <select className={`${fieldInput} w-full`} value={form.stage} onChange={event => update('stage', event.target.value as ProjectStage)}>
-              {projectStages.map(stage => <option key={stage}>{stage}</option>)}
-            </select>
-          </LabeledField>
-          <LabeledField label="Describe the project briefly" span>
-            <textarea
-              className={`${fieldInput} min-h-[96px] w-full resize-none py-3 leading-5`}
-              value={form.prompt}
-              placeholder="48-floor residential tower in Dubai Sports City with basement parking, podium amenities, MEP, fit-out, and handover target in Q4."
-              onChange={event => update('prompt', event.target.value)}
-            />
-          </LabeledField>
-        </div>
-      </div>
-      <div className="flex shrink-0 flex-col gap-3 border-t border-[#7C3AED]/25 bg-[linear-gradient(135deg,rgba(124,58,237,0.22),rgba(9,21,42,0.98))] p-4 shadow-[0_-18px_36px_rgba(3,8,18,0.72)] backdrop-blur sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex items-center gap-2 text-sm font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-          <Sparkles size={16} className="text-[#C4B5FD]" />
-            {mode === 'ai' ? 'Project context ready' : 'Manual project context ready'}
-          </div>
-          <p className="mt-1 text-[12px] text-[#B8C7DB]">Next, set how the budget will be controlled so the Cost tab can trace every number back to a source.</p>
-        </div>
-        <button
-          type="button"
-          onClick={onContinue}
-          className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#7C3AED] px-5 text-[12px] font-black text-white shadow-lg shadow-violet-950/25 transition-colors hover:bg-[#6D28D9]"
-        >
-          <ArrowRight size={15} />
-          Continue to Budget Control
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function BudgetControlSetupStep({
-  form,
-  setForm,
-  mode,
-  onBack,
-  onGenerate,
-}: {
-  form: ProjectFormState;
-  setForm: (form: ProjectFormState) => void;
-  mode: ProjectSetupMode;
-  onBack: () => void;
-  onGenerate: () => void;
-}) {
-  const update = <K extends keyof ProjectFormState>(key: K, value: ProjectFormState[K]) => setForm({ ...form, [key]: value });
-
-  return (
-    <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto p-5">
-      <div className="mb-4 rounded-3xl border border-[#7C3AED]/25 bg-[linear-gradient(135deg,rgba(124,58,237,0.18),rgba(7,17,31,0.84))] p-5">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      }
+    >
+      <div className="mb-5 rounded-lg border border-[#24486F] bg-[#07192D] p-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <AiBadge>{mode === 'ai' ? 'Budget intelligence' : 'Budget control'}</AiBadge>
-            <h3 className="mt-3 text-xl font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Create the Budget Control model</h3>
-            <p className="mt-1 max-w-3xl text-[12px] leading-5 text-[#B8C7DB]">
-              This is the source of truth for the Cost tab. It tells ProjectCommand what was approved for this project, how costs will be captured, and how AI should forecast drift. This budget belongs to the selected project, not the permanent property operating budget.
+            <h3 className="text-[22px] font-black text-white">Review & Correct AI Extraction</h3>
+            <p className="mt-2 max-w-3xl text-[13px] leading-relaxed text-[#9DBBE0]">
+              The AI has made the document extraction reviewable before it becomes a live control model. Adjust only what the kickoff team would actually challenge.
             </p>
           </div>
-          <div className="rounded-2xl border border-[#C8A020]/25 bg-[#C8A020]/10 px-4 py-3 text-[11px] font-bold text-[#FDE68A]">
-            Budget map will feed Cost Control immediately after creation.
+          <div className="flex flex-wrap gap-2">
+            <ConfidenceBadge value={extracted.confidence} />
+            {extracted.confirmationCount > 0 ? <NeedsConfirmationBadge /> : null}
           </div>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-4">
+          {[
+            ['Source', extracted.sourceName],
+            ['Detected budget', formatMoney(extracted.budget.approvedBudget.value)],
+            ['Handover target', formatDate(extracted.project.targetHandover.value)],
+            ['Review status', extracted.confirmationCount ? `${extracted.confirmationCount} confirmations` : 'All confirmed'],
+          ].map(([label, value]) => (
+            <div key={label} className="rounded-lg border border-[#24486F] bg-[#061529] px-3 py-2">
+              <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#6F89AA]">{label}</p>
+              <p className="mt-1 truncate text-[12px] font-black text-white">{value}</p>
+            </div>
+          ))}
         </div>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-3">
-        <SectionCard title="1. Set The Budget" icon={DollarSign}>
-          <div className="grid gap-3">
-            <LabeledField label="Contract value / approved budget">
-              <input className={`${fieldInput} w-full`} value={form.budget} onChange={event => update('budget', event.target.value)} />
-            </LabeledField>
-            <div className="grid grid-cols-2 gap-3">
-              <LabeledField label="Currency">
-                <select className={`${fieldInput} w-full`} value={form.currency} onChange={event => update('currency', event.target.value as Currency)}>
-                  {currencies.map(currency => <option key={currency}>{currency}</option>)}
-                </select>
-              </LabeledField>
-              <LabeledField label="Contingency %">
-                <input className={`${fieldInput} w-full`} value={form.contingency} onChange={event => update('contingency', event.target.value)} />
-              </LabeledField>
-            </div>
-            <LabeledField label="Budget baseline date">
-              <input type="date" className={`${fieldInput} w-full`} value={form.baselineDate} onChange={event => update('baselineDate', event.target.value)} />
-            </LabeledField>
-            <LabeledField label="Budget structure method">
-              <select className={`${fieldInput} w-full`} value={form.budgetStructureMethod} onChange={event => update('budgetStructureMethod', event.target.value as BudgetStructureMethod)}>
-                {budgetStructureMethods.map(method => <option key={method}>{method}</option>)}
-              </select>
-            </LabeledField>
-            <LabeledField label="Cost tracking level">
-              <select className={`${fieldInput} w-full`} value={form.costTrackingLevel} onChange={event => update('costTrackingLevel', event.target.value as CostTrackingLevel)}>
-                {costTrackingLevels.map(level => <option key={level}>{level}</option>)}
-              </select>
-            </LabeledField>
-            <LabeledField label="Reporting frequency">
-              <select className={`${fieldInput} w-full`} value={form.reportingFrequency} onChange={event => update('reportingFrequency', event.target.value as ReportingFrequency)}>
-                {reportingFrequencies.map(frequency => <option key={frequency}>{frequency}</option>)}
-              </select>
-            </LabeledField>
+      <div className="grid gap-4 xl:grid-cols-2">
+        <SectionShell title="Property" right={<><SourcePill>LOA header</SourcePill> <ConfidenceBadge value={extracted.property.name.confidence} /></>}>
+          <div className="grid gap-3 md:grid-cols-2">
+            <TextInput label="Property name" value={extracted.property.name.value} onChange={value => update(draft => { draft.property.name.value = value; })} />
+            <TextInput label="Location" value={extracted.property.location.value} onChange={value => update(draft => { draft.property.location.value = value; })} />
+            <TextInput label="Property type" value={extracted.property.type.value} onChange={value => update(draft => { draft.property.type.value = value; })} />
+            <TextInput label="Floors" type="number" value={extracted.property.floors.value} onChange={value => update(draft => { draft.property.floors.value = Number(value) || 0; })} />
+            <TextInput label="Units" type="number" value={extracted.property.units.value} onChange={value => update(draft => { draft.property.units.value = Number(value) || 0; })} />
           </div>
-        </SectionCard>
+        </SectionShell>
 
-        <SectionCard title="2. Capture What Changes" icon={ClipboardCheck}>
-          <div className="grid gap-3">
-            <LabeledField label="Commitments source">
-              <select className={`${fieldInput} w-full`} value={form.commitmentTracking} onChange={event => update('commitmentTracking', event.target.value as CommitmentTracking)}>
-                {commitmentTrackingOptions.map(option => <option key={option}>{option}</option>)}
-              </select>
-            </LabeledField>
-            <LabeledField label="Actual cost source">
-              <select className={`${fieldInput} w-full`} value={form.actualCostSource} onChange={event => update('actualCostSource', event.target.value as ActualCostSource)}>
-                {actualCostSourceOptions.map(option => <option key={option}>{option}</option>)}
-              </select>
-            </LabeledField>
-            <LabeledField label="Variation control">
-              <select className={`${fieldInput} w-full`} value={form.variationControl} onChange={event => update('variationControl', event.target.value as VariationControl)}>
-                {variationControlOptions.map(option => <option key={option}>{option}</option>)}
-              </select>
-            </LabeledField>
-            <div className="rounded-2xl border border-[rgba(46,127,255,0.12)] bg-[#0A1628] p-3">
-              <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#7A94B4]">Data traceability</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {['Contracts', 'Actuals', 'Invoices', 'Claims', 'Variations', 'Evidence'].map(item => (
-                  <span key={item} className="rounded-full border border-emerald-400/18 bg-emerald-400/8 px-2 py-1 text-[9px] font-black uppercase tracking-[0.08em] text-emerald-100">{item}</span>
-                ))}
-              </div>
-            </div>
+        <SectionShell title="Project" right={<><SourcePill>Award scope</SourcePill> <ConfidenceBadge value={extracted.project.name.confidence} /></>}>
+          <div className="grid gap-3 md:grid-cols-2">
+            <TextInput label="Project name" value={extracted.project.name.value} onChange={value => update(draft => { draft.project.name.value = value; })} />
+            <TextInput label="Project type" value={extracted.project.type.value} onChange={value => update(draft => { draft.project.type.value = value; })} />
+            <TextInput label="Contract value" type="number" value={extracted.project.contractValue.value} onChange={value => update(draft => { draft.project.contractValue.value = Number(value) || 0; draft.budget.approvedBudget.value = Number(value) || 0; })} />
+            <TextInput label="Target handover" type="date" value={extracted.project.targetHandover.value} onChange={value => update(draft => { draft.project.targetHandover.value = value; })} />
+            <TextInput label="Current stage" value={extracted.project.currentStage.value} onChange={value => update(draft => { draft.project.currentStage.value = value; })} />
+            <TextInput label="Main contractor" value={extracted.project.mainContractor.value} onChange={value => update(draft => { draft.project.mainContractor.value = value; })} />
           </div>
-        </SectionCard>
+        </SectionShell>
 
-        <SectionCard title="3. Decide What To Do" icon={BrainCircuit}>
-          <div className="grid gap-3">
-            <LabeledField label="Cashflow basis">
-              <select className={`${fieldInput} w-full`} value={form.cashflowBasis} onChange={event => update('cashflowBasis', event.target.value as CashflowBasis)}>
-                {cashflowBasisOptions.map(option => <option key={option}>{option}</option>)}
-              </select>
-            </LabeledField>
-            <LabeledField label="AI forecast mode">
-              <select className={`${fieldInput} w-full`} value={form.aiForecastMode} onChange={event => update('aiForecastMode', event.target.value as AiForecastMode)}>
-                {aiForecastModeOptions.map(option => <option key={option}>{option}</option>)}
-              </select>
-            </LabeledField>
-            <div className="rounded-2xl border border-[#7C3AED]/20 bg-[#7C3AED]/10 p-3">
-              <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#C4B5FD]">Manager action queue</p>
-              <div className="mt-2 grid gap-2">
-                {['Approve variations', 'Review over-budget packages', 'Escalate vendor claims', 'Protect contingency'].map(item => (
-                  <div key={item} className="rounded-xl bg-[#07111F]/80 px-3 py-2 text-[11px] font-bold text-[#DDE6F8]">{item}</div>
-                ))}
-              </div>
-            </div>
+        <SectionShell title="Budget" right={<><SourcePill>Contract value</SourcePill> <ConfidenceBadge value={extracted.budget.approvedBudget.confidence} /></>}>
+          <div className="grid gap-3 md:grid-cols-2">
+            <TextInput label="Approved budget" type="number" value={extracted.budget.approvedBudget.value} onChange={value => update(draft => { draft.budget.approvedBudget.value = Number(value) || 0; draft.project.contractValue.value = Number(value) || 0; })} />
+            <TextInput label="Currency" value={extracted.budget.currency.value} onChange={value => update(draft => { draft.budget.currency.value = value as 'AED'; })} />
+            <TextInput label="Contingency %" type="number" value={extracted.budget.contingency.value} onChange={value => update(draft => { draft.budget.contingency.value = Number(value) || 0; })} />
+            <TextInput label="Tracking level" value={extracted.budget.trackingLevel.value} onChange={value => update(draft => { draft.budget.trackingLevel.value = value; })} />
+            <TextInput label="Reporting" value={extracted.budget.reporting.value} onChange={value => update(draft => { draft.budget.reporting.value = value; })} />
           </div>
-        </SectionCard>
+        </SectionShell>
+
+        <SectionShell title="Vendors" right={<><SourcePill>Vendor paragraph</SourcePill> <ConfidenceBadge value={84} /> <NeedsConfirmationBadge /></>}>
+          <TextAreaList
+            label="One vendor per line, use Name - Scope"
+            values={extracted.vendors.map(vendor => `${vendor.name} - ${vendor.scope}`)}
+            onChange={values => update(draft => {
+              draft.vendors = values.map((line, index) => {
+                const [name, scope] = line.split(' - ');
+                return {
+                  name: name?.trim() || line,
+                  scope: scope?.trim() || 'Project vendor',
+                  confidence: index === 3 ? 78 : 86,
+                  needsConfirmation: index === 3,
+                };
+              });
+            })}
+          />
+        </SectionShell>
+
+        <SectionShell title="Work Packages" right={<><SourcePill>Package list</SourcePill> <ConfidenceBadge value={extracted.workPackages.confidence} /></>}>
+          <TextAreaList label="Detected work packages" values={extracted.workPackages.value} onChange={values => update(draft => { draft.workPackages.value = values; })} />
+        </SectionShell>
+
+        <SectionShell title="Milestones" right={<><SourcePill>Dates + inferred gates</SourcePill> <ConfidenceBadge value={extracted.milestones.confidence} /></>}>
+          <TextAreaList label="Detected milestones" values={extracted.milestones.value} onChange={values => update(draft => { draft.milestones.value = values; })} />
+        </SectionShell>
+
+        <SectionShell title="Risks" right={<><SourcePill>AI risk inference</SourcePill> <ConfidenceBadge value={extracted.risks.confidence} /></>}>
+          <TextAreaList label="Early risks" values={extracted.risks.value} onChange={values => update(draft => { draft.risks.value = values; })} />
+        </SectionShell>
+
+        <SectionShell title="Obligations & Evidence" right={<><SourcePill>Controls required</SourcePill> <ConfidenceBadge value={extracted.obligations.confidence} /> <NeedsConfirmationBadge /></>}>
+          <div className="grid gap-3 md:grid-cols-2">
+            <TextAreaList label="Obligations" values={extracted.obligations.value} onChange={values => update(draft => { draft.obligations.value = values; })} />
+            <TextAreaList label="Evidence requirements" values={extracted.evidence.value} onChange={values => update(draft => { draft.evidence.value = values; })} />
+          </div>
+        </SectionShell>
       </div>
-
-      <div className="sticky bottom-0 mt-5 flex flex-col gap-2 border-t border-[rgba(46,127,255,0.12)] bg-[#09152A]/95 py-4 backdrop-blur sm:flex-row sm:justify-end">
-        <button onClick={onBack} className="rounded-xl border border-[rgba(46,127,255,0.22)] px-4 py-2 text-[12px] font-bold text-[#B8C7DB] hover:bg-white/5">Back</button>
-        <button
-          type="button"
-          onClick={onGenerate}
-          className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#7C3AED] px-5 text-[12px] font-black text-white shadow-lg shadow-violet-950/25 transition-colors hover:bg-[#6D28D9]"
-        >
-          <WandSparkles size={15} />
-          {mode === 'ai' ? 'Generate Budget Baseline' : 'Build Budget Baseline'}
-        </button>
-      </div>
-    </div>
+    </StepFrame>
   );
 }
 
-function GenerationLoading({ index }: { index: number }) {
-  return (
-    <div className="flex min-h-0 flex-1 items-center justify-center p-6">
-      <div className="w-full max-w-3xl rounded-3xl border border-[#7C3AED]/30 bg-[radial-gradient(circle_at_top,rgba(124,58,237,0.24),rgba(7,17,31,0.96)_48%)] p-6 shadow-2xl shadow-black/30">
-        <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full border border-[#7C3AED]/35 bg-[#07111F] shadow-[0_0_42px_rgba(124,58,237,0.28)]">
-          <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 3, ease: 'linear' }}>
-            <Loader2 size={42} className="text-[#C4B5FD]" />
-          </motion.div>
+function ControlBaselineGenerationStep({
+  loadingIndex,
+  done,
+  baseline,
+  extracted,
+  onBack,
+  onLaunch,
+}: {
+  loadingIndex: number;
+  done: boolean;
+  baseline: GeneratedProjectControlBaseline | null;
+  extracted: ExtractedProjectContext;
+  onBack: () => void;
+  onLaunch: () => void;
+}) {
+  if (!done || !baseline) {
+    return (
+      <StepFrame
+        footer={
+          <div className="flex justify-between">
+            <SecondaryButton onClick={onBack}>
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </SecondaryButton>
+          </div>
+        }
+      >
+        <div className="rounded-lg border border-[#24486F] bg-[#07192D] p-6">
+          <div className="mb-6 flex items-center gap-4">
+            <span className="inline-flex h-12 w-12 items-center justify-center rounded-lg border border-emerald-300/35 bg-emerald-500/15 text-emerald-100">
+              <Loader2 className="h-6 w-6 animate-spin" />
+            </span>
+            <div>
+              <h3 className="text-[22px] font-black text-white">Generating live project control baseline</h3>
+              <p className="mt-1 text-[13px] text-[#9DBBE0]">ProjectCommand is connecting programme, cost, risk, vendors, gates, evidence, and manager decisions.</p>
+            </div>
+          </div>
+          <div className="mb-6 rounded-lg border border-emerald-300/22 bg-emerald-500/8 p-4">
+            <div className="mb-3 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-emerald-200">
+              <Layers3 className="h-4 w-4" />
+              Control baseline pipeline
+            </div>
+            <div className="grid gap-2 md:grid-cols-5">
+              {baselinePipeline.map((item, index) => {
+                const Icon = item.icon;
+                const live = index <= Math.floor((loadingIndex / Math.max(baselineSteps.length - 1, 1)) * (baselinePipeline.length - 1));
+                return (
+                  <div key={item.label} className={`rounded-lg border px-3 py-3 transition ${live ? 'border-emerald-300/35 bg-emerald-500/12 text-white' : 'border-[#24486F] bg-[#061529] text-[#6F89AA]'}`}>
+                    <Icon className="mb-2 h-4 w-4" />
+                    <p className="text-[11px] font-black">{item.label}</p>
+                    <p className="mt-1 text-[10px] font-bold opacity-80">{item.detail}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            {baselineSteps.map((item, index) => {
+              const complete = index < loadingIndex;
+              const active = index === loadingIndex;
+              return (
+                <div
+                  key={item}
+                  className={`rounded-lg border p-4 transition ${
+                    active
+                      ? 'border-emerald-300/70 bg-emerald-500/16 text-white shadow-[0_0_26px_rgba(56,217,138,0.16)]'
+                      : complete
+                        ? 'border-emerald-400/30 bg-emerald-500/10 text-emerald-200'
+                        : 'border-[#24486F] bg-[#061529] text-[#7E98B8]'
+                  }`}
+                >
+                  <div className="mb-3 flex h-7 w-7 items-center justify-center rounded-md bg-[#102F55]">
+                    {complete ? <CheckCircle2 className="h-4 w-4" /> : <WandSparkles className="h-4 w-4" />}
+                  </div>
+                  <p className="text-[12px] font-black">{item}</p>
+                </div>
+              );
+            })}
+          </div>
         </div>
-        <h3 className="text-center text-xl font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Generating project baseline</h3>
-        <p className="mx-auto mt-2 max-w-xl text-center text-[12px] leading-5 text-[#B8C7DB]">AI is turning the project brief into a practical operating model for ProjectCommand.</p>
-        <div className="mt-6 grid gap-2 sm:grid-cols-2">
-          {loadingSteps.map((step, stepIndex) => {
-            const active = stepIndex === index;
-            const done = stepIndex < index;
+      </StepFrame>
+    );
+  }
+
+  return (
+    <StepFrame
+      footer={
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <SecondaryButton onClick={onBack}>
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </SecondaryButton>
+          <PrimaryButton onClick={onLaunch}>
+            Launch ProjectCommand Overview
+            <Rocket className="h-4 w-4" />
+          </PrimaryButton>
+        </div>
+      }
+    >
+      <div className="rounded-lg border border-emerald-300/30 bg-emerald-500/10 p-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex items-start gap-4">
+            <IconBox icon={CheckCircle2} tone="green" />
+            <div>
+              <h3 className="text-[22px] font-black text-white">Project Control Baseline Ready</h3>
+              <p className="mt-2 max-w-3xl text-[13px] leading-relaxed text-[#B7D5F8]">
+                AI converted {baseline.sourceName} into a connected project controls operating model for {extracted.property.name.value}.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-col items-start gap-3 sm:items-end">
+            <ConfidenceBadge value={baseline.readinessScore} />
+            <button
+              type="button"
+              onPointerDown={event => activatePointer(event, onLaunch)}
+              onClick={event => activateClick(event, onLaunch)}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-500 px-4 py-2.5 text-[12px] font-black text-white shadow-lg shadow-blue-950/25 transition hover:bg-blue-400"
+            >
+              Launch live overview
+              <Rocket className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-5 rounded-lg border border-[#24486F] bg-[#061529] p-4">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#8FA7C5]">Connected control model</p>
+          <SourcePill>Baseline created from extraction, not manual form entry</SourcePill>
+        </div>
+        <div className="grid gap-2 md:grid-cols-5">
+          {baselinePipeline.map(item => {
+            const Icon = item.icon;
             return (
-              <motion.div
-                key={step}
-                animate={active ? { scale: [1, 1.02, 1] } : { scale: 1 }}
-                transition={{ repeat: active ? Infinity : 0, duration: 1.1 }}
-                className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-[12px] font-bold ${done ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200' : active ? 'border-[#7C3AED]/45 bg-[#7C3AED]/16 text-[#E9D5FF]' : 'border-[rgba(46,127,255,0.12)] bg-[#07111F]/80 text-[#7A94B4]'}`}
-              >
-                {done ? <CheckCircle2 size={16} /> : active ? <Sparkles size={16} /> : <span className="h-4 w-4 rounded-full border border-[#264468]" />}
-                {step}...
-              </motion.div>
+              <div key={item.label} className="rounded-lg border border-[#24486F] bg-[#07192D] px-3 py-3">
+                <Icon className="mb-2 h-4 w-4 text-emerald-200" />
+                <p className="text-[11px] font-black text-white">{item.label}</p>
+                <p className="mt-1 text-[10px] font-bold text-[#8FB4E4]">{item.detail}</p>
+              </div>
             );
           })}
         </div>
       </div>
-    </div>
-  );
-}
 
-function WorkPackageList({ items }: { items: WorkPackage[] }) {
-  return (
-    <div className="space-y-2">
-      {items.map(item => (
-        <div key={item.name} className="rounded-xl border border-[rgba(46,127,255,0.12)] bg-[#0A1628] p-3">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-[12px] font-bold text-[#EEF3FA]">{item.name}</p>
-              <p className="mt-0.5 text-[10px] text-[#7A94B4]">{item.detail}</p>
-            </div>
-            {item.critical && <span className="rounded-full border border-[#E11D2E]/30 bg-[#E11D2E]/10 px-2 py-1 text-[9px] font-black uppercase text-red-200">Critical</span>}
-          </div>
-          <div className="mt-3 h-1.5 rounded-full bg-[#122240]"><div className="h-full rounded-full bg-[#7C3AED]" style={{ width: `${item.progress}%` }} /></div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function TeamRoleList({ roles }: { roles: string[] }) {
-  return <div className="flex flex-wrap gap-2">{roles.map(role => <span key={role} className="rounded-full border border-[rgba(46,127,255,0.2)] bg-[#0A1628] px-3 py-1.5 text-[10px] font-bold text-[#B8C7DB]">{role}</span>)}</div>;
-}
-
-function VendorCategoryList({ vendors }: { vendors: string[] }) {
-  return <div className="grid gap-2 sm:grid-cols-2">{vendors.map(vendor => <div key={vendor} className="rounded-xl border border-[rgba(46,127,255,0.12)] bg-[#0A1628] px-3 py-2 text-[11px] font-bold text-[#B8C7DB]">{vendor}</div>)}</div>;
-}
-
-function BaselineChipList({ items }: { items: string[] }) {
-  return <div className="flex flex-wrap gap-2">{items.map(item => <span key={item} className="rounded-full border border-[rgba(46,127,255,0.18)] bg-[#0A1628] px-3 py-1.5 text-[10px] font-bold text-[#B8C7DB]">{item}</span>)}</div>;
-}
-
-function BudgetBreakdownCard({ items, currency }: { items: BudgetPackage[]; currency: Currency }) {
-  return (
-    <div className="space-y-3">
-      {items.map(item => (
-        <div key={item.label} className="rounded-xl border border-[rgba(46,127,255,0.12)] bg-[#0A1628] p-3">
-          <div className="mb-2 flex items-start justify-between gap-3 text-[11px]">
-            <div>
-              <span className="font-bold text-[#DDE6F8]">{item.label}</span>
-              <p className="mt-0.5 text-[10px] text-[#7A94B4]">{item.plannedStart} to {item.plannedEnd}</p>
-            </div>
-            <span className="font-mono text-right text-[#C4B5FD]">{item.percent}% - {money(item.amount, currency)}</span>
-          </div>
-          <div className="h-1.5 rounded-full bg-[#122240]"><div className="h-full rounded-full bg-[#C8A020]" style={{ width: `${item.percent}%` }} /></div>
-          <div className="mt-2 grid gap-2 sm:grid-cols-3">
-            <div className="rounded-lg bg-[#07111F] px-2 py-1.5">
-              <p className="text-[8px] font-black uppercase tracking-wide text-[#5A6E88]">Linked phase</p>
-              <p className="mt-0.5 text-[10px] font-bold text-[#B8C7DB]">{item.linkedProgrammePhase}</p>
-            </div>
-            <div className="rounded-lg bg-[#07111F] px-2 py-1.5">
-              <p className="text-[8px] font-black uppercase tracking-wide text-[#5A6E88]">Vendor category</p>
-              <p className="mt-0.5 text-[10px] font-bold text-[#B8C7DB]">{item.vendor}</p>
-            </div>
-            <div className="rounded-lg bg-[#07111F] px-2 py-1.5">
-              <p className="text-[8px] font-black uppercase tracking-wide text-[#5A6E88]">Risk allowance</p>
-              <p className="mt-0.5 text-[10px] font-bold text-[#B8C7DB]">{money(item.riskAllowance, currency)}</p>
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function StarterRiskRegister({ risks }: { risks: StarterRisk[] }) {
-  return (
-    <div className="space-y-2">
-      {risks.map(risk => (
-        <div key={risk.title} className="rounded-xl border border-[rgba(46,127,255,0.12)] bg-[#0A1628] p-3">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-[12px] font-bold text-[#EEF3FA]">{risk.title}</p>
-            <span className={`rounded-full px-2 py-1 text-[9px] font-black uppercase ${risk.severity === 'critical' ? 'bg-red-400/12 text-red-200' : risk.severity === 'high' ? 'bg-amber-400/12 text-amber-200' : 'bg-[#7C3AED]/12 text-[#C4B5FD]'}`}>{risk.severity}</span>
-          </div>
-          <p className="mt-1 text-[10px] leading-4 text-[#7A94B4]">{risk.mitigation}</p>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function ProjectBaselinePreview({
-  baseline,
-  form,
-  onApply,
-  onRegenerate,
-  onEdit,
-}: {
-  baseline: ProjectBaseline;
-  form: ProjectFormState;
-  onApply: () => void;
-  onRegenerate: () => void;
-  onEdit: () => void;
-}) {
-  return (
-    <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto p-5">
-      <div className="mb-4 rounded-3xl border border-[#7C3AED]/25 bg-[linear-gradient(135deg,rgba(124,58,237,0.18),rgba(225,29,46,0.08))] p-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <AiBadge>Baseline ready</AiBadge>
-            <h3 className="mt-3 text-2xl font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{form.name}</h3>
-            <p className="mt-1 text-[12px] text-[#B8C7DB]">{baseline.summary.projectType} - {baseline.summary.stage} - {baseline.summary.handoverTarget}</p>
-          </div>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
-            {[
-              ['Total budget', money(Number(form.budget) || 0, form.currency)],
-              ['Phases', baseline.programmePhases.length],
-              ['Vendors', baseline.vendorCategories.length],
-              ['Stage gates', baseline.stageGates.length],
-              ['Risks seeded', baseline.risks.length],
-              ['Evidence', baseline.evidenceRequirements.length],
-            ].map(([label, value]) => (
-              <div key={label} className="rounded-2xl border border-[rgba(46,127,255,0.16)] bg-[#07111F]/80 p-3">
-                <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">{label}</p>
-                <p className="mt-1 text-[12px] font-black text-[#EEF3FA]">{value}</p>
-              </div>
-            ))}
-          </div>
-        </div>
+      <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <BaselineSummaryCard icon={ClipboardCheck} label="Work Packages Created" value={`${baseline.workPackagesCreated}`} detail="Delivery packages are mapped to programme, cost, risk, and vendor ownership." />
+        <BaselineSummaryCard icon={Database} label="Stage Gates Created" value={`${baseline.stageGatesCreated}`} detail="Control gates now link approvals, evidence, milestones, and decisions." />
+        <BaselineSummaryCard icon={FileText} label="Evidence Requirements Added" value={`${baseline.evidenceRequirementsAdded}`} detail="Authority, inspection, commissioning, fire, lift, warranty, and handover proof is tracked." />
+        <BaselineSummaryCard icon={BrainCircuit} label="Risks Seeded" value={`${baseline.risksSeeded}`} detail="Early risk register is tied to facade, crane, authority, MEP, and summer productivity exposure." />
+        <BaselineSummaryCard icon={Sparkles} label="Vendors Mapped" value={`${baseline.vendorsMapped}`} detail="Main contractor and specialist vendors are ready for score, issue, and recovery tracking." />
+        <BaselineSummaryCard icon={Rocket} label="Budget Baseline Created" value={baseline.budgetBaselineLabel} detail={`Approved budget: ${formatMoney(extracted.budget.approvedBudget.value)} with ${extracted.budget.contingency.value}% contingency.`} />
       </div>
-      <div className="mb-4 rounded-2xl border border-emerald-400/20 bg-emerald-400/8 p-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.16em] text-emerald-200">
-              <CheckCircle2 size={14} />
-              Budget Baseline Created
+
+      <section className="mt-5 rounded-lg border border-[#24486F] bg-[#07192D] p-5">
+        <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#8FA7C5]">AI Top Threat</p>
+        <p className="mt-2 text-[18px] font-black leading-snug text-white">{baseline.topThreat}</p>
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          {baseline.initialManagerActions.map(action => (
+            <div key={action} className="rounded-lg border border-[#24486F] bg-[#061529] p-3">
+              <p className="text-[12px] font-black text-white">{action}</p>
+              <p className="mt-1 text-[12px] text-[#8FB4E4]">Queued as a manager action after launch.</p>
             </div>
-            <p className="mt-1 text-[12px] leading-5 text-[#B8C7DB]">
-              {form.budgetStructureMethod} created {baseline.budgetBreakdown.length} packages linked to programme phases, vendor categories, commitments, actual cost sources, and variation controls.
-            </p>
-            <p className="mt-2 max-w-3xl text-[12px] leading-5 text-[#DDE6F8]">
-              This baseline will populate Budget Control with approved budget, revised budget, commitments, actuals, variations, cashflow, cost risks, CPI/SPI/EAC, and manager actions.
-            </p>
-          </div>
-          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-            {[
-              ['Approved budget', money(Number(form.budget) || 0, form.currency)],
-              ['Contingency', `${form.contingency}%`],
-              ['Tracking level', form.costTrackingLevel],
-              ['Reporting', form.reportingFrequency],
-            ].map(([label, value]) => (
-              <div key={label} className="rounded-xl border border-emerald-400/14 bg-[#07111F]/80 px-3 py-2">
-                <p className="text-[9px] font-black uppercase tracking-[0.12em] text-[#7A94B4]">{label}</p>
-                <p className="mt-1 text-[11px] font-black text-[#EEF3FA]">{value}</p>
-              </div>
-            ))}
-          </div>
+          ))}
         </div>
-        <div className="mt-4 grid gap-3 lg:grid-cols-3">
+      </section>
+    </StepFrame>
+  );
+}
+
+function LaunchStep({ onLaunch, onBack }: { onLaunch: () => void; onBack: () => void }) {
+  return (
+    <StepFrame
+      footer={
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <SecondaryButton onClick={onBack}>
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </SecondaryButton>
+          <PrimaryButton onClick={onLaunch}>
+            Open ProjectCommand Overview
+            <Rocket className="h-4 w-4" />
+          </PrimaryButton>
+        </div>
+      }
+    >
+      <div className="overflow-hidden rounded-lg border border-blue-300/30 bg-[radial-gradient(circle_at_50%_0%,rgba(46,127,255,0.24),transparent_36%),linear-gradient(180deg,rgba(46,127,255,0.12),rgba(6,21,41,0.96))] p-8 text-center">
+        <div className="mx-auto inline-flex h-16 w-16 items-center justify-center rounded-2xl border border-blue-300/35 bg-blue-500/15 text-blue-100 shadow-[0_0_34px_rgba(47,124,255,0.24)]">
+          <Rocket className="h-8 w-8" />
+        </div>
+        <h3 className="mt-4 text-[24px] font-black text-white">ProjectCommand is ready with a populated baseline</h3>
+        <p className="mx-auto mt-2 max-w-2xl text-[13px] leading-relaxed text-[#B7D5F8]">
+          The overview opens with the Bayz 102 control story already alive: health score, KPI causes, top threat, What Changed Today, forecast scenarios, and AI manager actions.
+        </p>
+        <div className="mx-auto mt-6 grid max-w-4xl gap-3 md:grid-cols-4">
           {[
-              ['Set budget', ['Approved budget', 'Cost packages', 'Programme phases', form.costTrackingLevel]],
-              ['Capture changes', [form.commitmentTracking, form.actualCostSource, form.variationControl, 'Evidence links']],
-              ['Decide actions', [form.cashflowBasis, form.aiForecastMode, 'Cost risks', 'Manager action queue']],
-          ].map(([title, items]) => (
-            <div key={title as string} className="rounded-2xl border border-emerald-400/14 bg-[#07111F]/80 p-3">
-              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-emerald-200">{title}</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {(items as string[]).map(item => (
-                  <span key={item} className="rounded-full border border-[rgba(46,127,255,0.14)] bg-[#0A1628] px-2 py-1 text-[9px] font-bold text-[#B8C7DB]">{item}</span>
-                ))}
-              </div>
+            ['Health', '74/100'],
+            ['Completion', '28%'],
+            ['CPI / SPI', '0.81 / 0.90'],
+            ['Float', '12d'],
+          ].map(([label, value]) => (
+            <div key={label} className="rounded-lg border border-[#24486F] bg-[#061529]/82 px-4 py-3">
+              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#7E98B8]">{label}</p>
+              <p className="mt-1 text-[18px] font-black text-white">{value}</p>
             </div>
           ))}
         </div>
-      </div>
-      <div className="grid gap-4 xl:grid-cols-2">
-        <SectionCard title="Work Packages" icon={ClipboardCheck}><WorkPackageList items={baseline.components} /></SectionCard>
-        <SectionCard title="Budget Breakdown" icon={DollarSign}><BudgetBreakdownCard items={baseline.budgetBreakdown} currency={form.currency} /></SectionCard>
-        <SectionCard title="Programme Phases" icon={ClipboardCheck}><BaselineChipList items={baseline.programmePhases} /></SectionCard>
-        <SectionCard title="Stage Gates" icon={CheckCircle2}><BaselineChipList items={baseline.stageGates} /></SectionCard>
-        <SectionCard title="Suggested Team Structure" icon={Users}><TeamRoleList roles={baseline.teamRoles} /></SectionCard>
-        <SectionCard title="Vendors Created" icon={HardHat}><VendorCategoryList vendors={baseline.vendorCategories} /></SectionCard>
-        <SectionCard title="Risk Register Starter" icon={ShieldAlert}><StarterRiskRegister risks={baseline.risks} /></SectionCard>
-        <SectionCard title="Obligations" icon={ClipboardCheck}><BaselineChipList items={baseline.obligations} /></SectionCard>
-        <SectionCard title="Evidence Required" icon={CheckCircle2}><BaselineChipList items={baseline.evidenceRequirements} /></SectionCard>
-        <SectionCard title="Milestones" icon={ClipboardCheck}><BaselineChipList items={baseline.milestones} /></SectionCard>
-        <SectionCard title="Suggested KPIs" icon={BrainCircuit}>
-          <div className="flex flex-wrap gap-2">{baseline.kpis.map(kpi => <span key={kpi} className="rounded-full border border-[#7C3AED]/25 bg-[#7C3AED]/10 px-3 py-1.5 text-[10px] font-bold text-[#C4B5FD]">{kpi}</span>)}</div>
-        </SectionCard>
-      </div>
-      <div className="sticky bottom-0 mt-5 flex flex-col gap-2 border-t border-[rgba(46,127,255,0.12)] bg-[#09152A]/95 py-4 backdrop-blur sm:flex-row sm:justify-end">
-        <button onClick={onEdit} className="rounded-xl border border-[rgba(46,127,255,0.22)] px-4 py-2 text-[12px] font-bold text-[#B8C7DB] hover:bg-white/5">Edit Manually</button>
-        <button onClick={onRegenerate} className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#7C3AED]/35 bg-[#7C3AED]/10 px-4 py-2 text-[12px] font-bold text-[#C4B5FD] hover:bg-[#7C3AED]/16"><RefreshCw size={14} /> Regenerate</button>
-        <button onClick={onApply} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#7C3AED] px-5 py-2 text-[12px] font-black text-white hover:bg-[#6D28D9]">Create Project Control Baseline <ArrowRight size={14} /></button>
-      </div>
-    </div>
-  );
-}
-
-function AiReadinessScore({ score }: { score: number }) {
-  const circumference = 2 * Math.PI * 42;
-  const dash = (score / 100) * circumference;
-  return (
-    <div className="flex items-center gap-4 rounded-2xl border border-[#7C3AED]/25 bg-[#07111F]/80 p-4">
-      <svg width="104" height="104" viewBox="0 0 104 104" aria-label={`AI setup readiness ${score}%`}>
-        <circle cx="52" cy="52" r="42" fill="none" stroke="#1C3050" strokeWidth="10" />
-        <motion.circle
-          cx="52"
-          cy="52"
-          r="42"
-          fill="none"
-          stroke="#7C3AED"
-          strokeLinecap="round"
-          strokeWidth="10"
-          strokeDasharray={`${dash} ${circumference - dash}`}
-          initial={{ strokeDasharray: `0 ${circumference}` }}
-          animate={{ strokeDasharray: `${dash} ${circumference - dash}` }}
-          transform="rotate(-90 52 52)"
-        />
-        <text x="52" y="50" textAnchor="middle" className="fill-[#EEF3FA] text-2xl font-black">{score}</text>
-        <text x="52" y="67" textAnchor="middle" className="fill-[#7A94B4] text-[11px] font-bold">/100</text>
-      </svg>
-      <div>
-        <AiBadge>AI readiness</AiBadge>
-        <h4 className="mt-2 text-lg font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>AI Setup Readiness: {score}%</h4>
-        <p className="mt-1 text-[12px] leading-5 text-[#B8C7DB]">Strong enough to create a draft project baseline. Vendor assignment and contingency review remain the next controls.</p>
-      </div>
-    </div>
-  );
-}
-
-function ProjectReviewStep({
-  form,
-  baseline,
-  onBack,
-  onCreate,
-  onSaveDraft,
-}: {
-  form: ProjectFormState;
-  baseline: ProjectBaseline;
-  onBack: () => void;
-  onCreate: () => void;
-  onSaveDraft: () => void;
-}) {
-  const selectedPortfolio = projectCommandPortfolios.find(item => item.id === form.portfolioId) ?? projectCommandPortfolios[0];
-  const selectedOrganization = projectCommandOrganizations.find(item => item.id === selectedPortfolio.organizationId) ?? projectCommandOrganizations[0];
-  const selectedProperty = projectCommandProperties.find(item => item.id === form.propertyId);
-  const propertyLabel = form.propertyMode === 'new'
-    ? `${form.propertyName || 'New property'} (new property)`
-    : selectedProperty?.name ?? form.propertyName;
-
-  const reviewItems = [
-    ['Organization', selectedOrganization.name],
-    ['Portfolio', selectedPortfolio.name],
-    ['Property / Development', propertyLabel],
-    ['Budget owner', 'ProjectCommand project budget'],
-    ['Project name', form.name],
-    ['Project type', form.type],
-    ['Approved project budget', money(Number(form.budget) || 0, form.currency)],
-    ['Contracting strategy', form.contractingStrategy],
-    ['Main contractor', form.mainContractor],
-    ['Budget baseline date', form.baselineDate],
-    ['Target handover', baseline.summary.handoverTarget],
-    ['Budget structure', form.budgetStructureMethod],
-    ['Cost tracking', form.costTrackingLevel],
-    ['Commitments source', form.commitmentTracking],
-    ['Actuals source', form.actualCostSource],
-    ['Variation control', form.variationControl],
-    ['Cashflow basis', form.cashflowBasis],
-    ['AI forecast mode', form.aiForecastMode],
-    ['Phases created', baseline.components.length],
-    ['Stage gates created', baseline.stageGates.length],
-    ['Team roles created', baseline.teamRoles.length],
-    ['Vendors created', baseline.vendorCategories.length],
-    ['Risks seeded', baseline.risks.length],
-    ['Obligations seeded', baseline.obligations.length],
-    ['Evidence required', baseline.evidenceRequirements.length],
-    ['Milestones created', baseline.milestones.length],
-    ['KPIs enabled', baseline.kpis.length],
-  ];
-
-  return (
-    <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto p-5">
-      <div className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
-        <AiReadinessScore score={baseline.readinessScore} />
-        <div className="rounded-2xl border border-[rgba(46,127,255,0.16)] bg-[#07111F]/80 p-4">
-          <h4 className="text-sm font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Readiness warnings</h4>
-          <div className="mt-3 space-y-2">
-            {baseline.warnings.map(warning => (
-              <div key={warning} className="flex gap-2 rounded-xl border border-amber-400/18 bg-amber-400/8 px-3 py-2 text-[11px] text-amber-100">
-                <ShieldAlert size={14} className="mt-0.5 shrink-0" />
-                {warning}
-              </div>
-            ))}
-          </div>
+        <div className="mx-auto mt-5 max-w-3xl rounded-lg border border-[#24486F] bg-[#061529]/82 px-4 py-3 text-left">
+          <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#8FA7C5]">First feed item</p>
+          <p className="mt-1 text-[13px] font-black text-white">Project baseline created from uploaded LOA/project summary.</p>
+          <p className="mt-1 text-[12px] text-[#8FB4E4]">This becomes the first live cause behind the overview metrics.</p>
         </div>
       </div>
-      <div className="mt-4 rounded-2xl border border-[rgba(46,127,255,0.16)] bg-[#07111F]/80 p-4">
-        <h4 className="mb-3 text-sm font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Final review</h4>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {reviewItems.map(([label, value]) => (
-            <div key={label} className="rounded-xl border border-[rgba(46,127,255,0.12)] bg-[#0A1628] p-3">
-              <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">{label}</p>
-              <p className="mt-1 text-[12px] font-bold text-[#DDE6F8]">{value}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-      <div className="sticky bottom-0 mt-5 flex flex-col gap-2 border-t border-[rgba(46,127,255,0.12)] bg-[#09152A]/95 py-4 backdrop-blur sm:flex-row sm:justify-end">
-        <button onClick={onBack} className="rounded-xl border border-[rgba(46,127,255,0.22)] px-4 py-2 text-[12px] font-bold text-[#B8C7DB] hover:bg-white/5">Back</button>
-        <button onClick={onSaveDraft} className="rounded-xl border border-[#C8A020]/35 bg-[#C8A020]/10 px-4 py-2 text-[12px] font-bold text-[#FDE68A] hover:bg-[#C8A020]/16">Save Draft</button>
-        <button onClick={onCreate} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#E11D2E] px-5 py-2 text-[12px] font-black text-white shadow-lg shadow-red-950/25 hover:bg-[#C51625]">
-          <Building2 size={14} />
-          Create Project Control Baseline
-        </button>
-      </div>
-    </div>
+    </StepFrame>
   );
 }
 
-export function AddProjectModal({
+function CreateProjectModal({
   onClose,
   onCreate,
   onToast,
@@ -1477,97 +1069,215 @@ export function AddProjectModal({
   onCreate: (dataset: ProjectCommandDataset) => void;
   onToast?: (message: string, type?: 'success' | 'warning' | 'error' | 'info') => void;
 }) {
-  const [mode, setMode] = useState<ProjectSetupMode>('ai');
-  const [step, setStep] = useState<WizardStep>('setup');
-  const [form, setForm] = useState<ProjectFormState>(initialForm);
-  const [baseline, setBaseline] = useState<ProjectBaseline | null>(null);
-  const [loadingIndex, setLoadingIndex] = useState(0);
+  const [step, setStep] = useState<CreateProjectStep>('import');
+  const [material, setMaterial] = useState<ProjectMaterialState>({
+    fileName: 'Sample Bayz 102 LOA / Project Summary.pdf',
+    pastedText: sampleBayz102Brief,
+    useSample: true,
+    manual: false,
+  });
+  const [extracted, setExtracted] = useState<ExtractedProjectContext | null>(null);
+  const [baseline, setBaseline] = useState<GeneratedProjectControlBaseline | null>(null);
+  const [understandingIndex, setUnderstandingIndex] = useState(0);
+  const [understandingDone, setUnderstandingDone] = useState(false);
+  const [baselineIndex, setBaselineIndex] = useState(0);
+  const [baselineDone, setBaselineDone] = useState(false);
+
+  const subtitle = useMemo(() => {
+    if (step === 'import') return 'Start from real project material, not a blank form.';
+    if (step === 'understanding') return 'AI extracts construction signals from the imported context.';
+    if (step === 'review') return 'Confirm the extracted property, project, cost, vendor, risk, and evidence structure.';
+    if (step === 'baseline') return 'Generate the connected project controls baseline.';
+    return 'Launch into the live ProjectCommand operating layer.';
+  }, [step]);
 
   useEffect(() => {
-    if (step !== 'generating') return undefined;
-    setLoadingIndex(0);
+    if (step !== 'understanding' || understandingDone) return;
+
+    let cancelled = false;
+    setUnderstandingIndex(0);
+
     const interval = window.setInterval(() => {
-      setLoadingIndex(current => {
-        if (current >= loadingSteps.length - 1) {
+      setUnderstandingIndex(current => {
+        if (current >= extractionSteps.length - 1) {
           window.clearInterval(interval);
-          setBaseline(generateBaseline(form));
-          setStep('baseline');
+          extractProjectContext({
+            fileName: material.fileName || undefined,
+            pastedText: material.pastedText,
+            useSample: material.useSample,
+            manual: material.manual,
+          }).then(result => {
+            if (!cancelled) {
+              setExtracted(result);
+              setUnderstandingDone(true);
+            }
+          });
           return current;
         }
         return current + 1;
       });
-    }, 680);
-    return () => window.clearInterval(interval);
-  }, [step]);
+    }, 360);
 
-  const canCreate = useMemo(() => baseline && form.name.trim().length > 0, [baseline, form.name]);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [material.fileName, material.manual, material.pastedText, material.useSample, step, understandingDone]);
 
-  const handleCreate = () => {
-    if (!baseline || !canCreate) return;
-    onCreate(buildDataset(form, baseline));
-    onToast?.('Project created with AI baseline', 'success');
-    onClose();
+  useEffect(() => {
+    if (step !== 'baseline' || baselineDone || !extracted) return;
+
+    let cancelled = false;
+    setBaselineIndex(0);
+
+    const interval = window.setInterval(() => {
+      setBaselineIndex(current => {
+        if (current >= baselineSteps.length - 1) {
+          window.clearInterval(interval);
+          if (!cancelled) {
+            setBaseline(generateProjectControlBaseline(extracted));
+            setBaselineDone(true);
+          }
+          return current;
+        }
+        return current + 1;
+      });
+    }, 360);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [baselineDone, extracted, step]);
+
+  const startUnderstanding = (nextMaterial?: Partial<ProjectMaterialState>) => {
+    setMaterial(current => ({ ...current, ...nextMaterial }));
+    setUnderstandingDone(false);
+    setBaselineDone(false);
+    setBaseline(null);
+    setStep('understanding');
   };
 
-  const handleSaveDraft = () => {
-    onToast?.('Project draft saved locally', 'info');
+  const confirmAll = () => {
+    if (!extracted) return;
+    const next = cloneExtraction(extracted);
+    next.confirmationCount = 0;
+    next.extractionSignals = next.extractionSignals.map(signal => ({ ...signal, needsConfirmation: false, confidence: Math.max(signal.confidence, 90) }));
+    next.vendors = next.vendors.map(vendor => ({ ...vendor, needsConfirmation: false, confidence: Math.max(vendor.confidence, 90) }));
+    next.obligations.status = 'high';
+    next.evidence.status = 'high';
+    setExtracted(next);
+  };
+
+  const handleLaunch = () => {
+    if (!extracted || !baseline) return;
+    const dataset = buildProjectCommandDatasetFromExtraction(extracted, baseline);
+    onCreate(dataset);
+    onToast?.('ProjectCommand launched from uploaded LOA/project summary', 'success');
     onClose();
   };
 
   return (
-    <motion.div
-      className="fixed inset-0 z-[2500] flex items-center justify-center bg-black/62 p-2 backdrop-blur-sm sm:p-4"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-    >
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4 backdrop-blur-md">
       <motion.div
-        initial={{ opacity: 0, y: 28, scale: 0.98 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: 20, scale: 0.98 }}
-        transition={{ type: 'spring', stiffness: 260, damping: 28 }}
-        className="flex max-h-[96vh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl border border-[rgba(46,127,255,0.24)] bg-[#09152A] shadow-2xl shadow-black/50"
+        initial={{ opacity: 0, scale: 0.97, y: 18 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.97, y: 18 }}
+        transition={{ duration: 0.18 }}
+        className="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-lg border border-[#2A527D] bg-[#061426] shadow-2xl shadow-black/45"
       >
-        <div className="flex flex-col gap-4 border-b border-[rgba(46,127,255,0.12)] bg-[linear-gradient(135deg,rgba(124,58,237,0.18),rgba(9,21,42,0.98)_48%,rgba(225,29,46,0.08))] p-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[#7C3AED]/35 bg-[#7C3AED]/12 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-[#C4B5FD]">
-              <BrainCircuit size={12} />
-              ProjectCommand AI Setup
+        <header className="border-b border-[#1E3C61] bg-[#07192D] px-6 py-5">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="flex items-start gap-4">
+              <IconBox icon={WandSparkles} tone="blue" />
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#8FA7C5]">Create New Project</p>
+                <h2 className="mt-1 text-[24px] font-black text-white">AI Project Control Baseline</h2>
+                <p className="mt-2 text-[13px] text-[#9DBBE0]">{subtitle}</p>
+              </div>
             </div>
-            <h2 className="text-2xl font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Create New Project</h2>
-            <p className="mt-1 max-w-2xl text-[12px] leading-5 text-[#B8C7DB]">Set up your project structure manually or let AI generate a complete project baseline.</p>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close create project modal"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#24486F] bg-[#061529] text-[#9BB4D4] transition hover:border-red-300/50 hover:text-white"
+            >
+              <X className="h-5 w-5" />
+            </button>
           </div>
-          <button onClick={onClose} className="self-start rounded-xl p-2 text-[#7A94B4] transition-colors hover:bg-white/5 hover:text-white" aria-label="Close Add Project">
-            <X size={19} />
-          </button>
-        </div>
+          <div className="mt-5">
+            <WizardProgress currentStep={step} />
+          </div>
+        </header>
 
-        <ProjectSetupWizard mode={mode} onModeChange={setMode} step={step}>
+        <main className="flex min-h-0 flex-1 flex-col p-5">
           <AnimatePresence mode="wait">
-            {step === 'setup' && (
-              <motion.div key="setup" className="flex min-h-0 flex-1 flex-col overflow-hidden" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
-                <AiProjectSetupStep form={form} setForm={setForm} mode={mode} onContinue={() => setStep('budget')} />
-              </motion.div>
+            {step === 'import' && (
+              <ProjectContextImportStep
+                key="import"
+                material={material}
+                onFile={fileName => setMaterial(current => ({ ...current, fileName, useSample: false, manual: false }))}
+                onText={pastedText => setMaterial(current => ({ ...current, pastedText, useSample: false, manual: false }))}
+                onUseSample={() => startUnderstanding({ fileName: 'Sample Bayz 102 LOA / Project Summary.pdf', pastedText: sampleBayz102Brief, useSample: true, manual: false })}
+                onManual={() => startUnderstanding({ manual: true })}
+                onContinue={() => startUnderstanding()}
+              />
             )}
-            {step === 'budget' && (
-              <motion.div key="budget" className="flex min-h-0 flex-1 flex-col overflow-hidden" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
-                <BudgetControlSetupStep form={form} setForm={setForm} mode={mode} onBack={() => setStep('setup')} onGenerate={() => setStep('generating')} />
-              </motion.div>
+
+            {step === 'understanding' && (
+              <AIProjectUnderstandingStep
+                key="understanding"
+                loadingIndex={understandingIndex}
+                done={understandingDone}
+                extracted={extracted}
+                sourceName={material.fileName || (material.pastedText.trim() ? 'Pasted project brief' : 'Manual project context')}
+                onBack={() => setStep('import')}
+                onContinue={() => setStep('review')}
+              />
             )}
-            {step === 'generating' && <motion.div key="generating" className="flex min-h-0 flex-1 flex-col overflow-hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><GenerationLoading index={loadingIndex} /></motion.div>}
-            {step === 'baseline' && baseline && (
-              <motion.div key="baseline" className="flex min-h-0 flex-1 flex-col overflow-hidden" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
-                <ProjectBaselinePreview baseline={baseline} form={form} onApply={() => setStep('review')} onRegenerate={() => setStep('generating')} onEdit={() => { setMode('manual'); setStep('budget'); }} />
-              </motion.div>
+
+            {step === 'review' && extracted && (
+              <ExtractedProjectReviewStep
+                key="review"
+                extracted={extracted}
+                onUpdate={setExtracted}
+                onConfirmAll={confirmAll}
+                onRegenerate={() => {
+                  setUnderstandingDone(false);
+                  setStep('understanding');
+                }}
+                onBack={() => setStep('understanding')}
+                onContinue={() => {
+                  setBaselineDone(false);
+                  setStep('baseline');
+                }}
+              />
             )}
-            {step === 'review' && baseline && (
-              <motion.div key="review" className="flex min-h-0 flex-1 flex-col overflow-hidden" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
-                <ProjectReviewStep form={form} baseline={baseline} onBack={() => setStep('baseline')} onCreate={handleCreate} onSaveDraft={handleSaveDraft} />
-              </motion.div>
+
+            {step === 'baseline' && extracted && (
+              <ControlBaselineGenerationStep
+                key="baseline"
+                loadingIndex={baselineIndex}
+                done={baselineDone}
+                baseline={baseline}
+                extracted={extracted}
+                onBack={() => setStep('review')}
+                onLaunch={handleLaunch}
+              />
             )}
+
+            {step === 'launch' && <LaunchStep key="launch" onBack={() => setStep('baseline')} onLaunch={handleLaunch} />}
           </AnimatePresence>
-        </ProjectSetupWizard>
+        </main>
       </motion.div>
-    </motion.div>
+    </div>
   );
+}
+
+export function AddProjectModal(props: {
+  onClose: () => void;
+  onCreate: (dataset: ProjectCommandDataset) => void;
+  onToast?: (message: string, type?: 'success' | 'warning' | 'error' | 'info') => void;
+}) {
+  return <CreateProjectModal {...props} />;
 }

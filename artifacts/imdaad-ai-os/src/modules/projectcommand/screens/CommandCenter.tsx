@@ -534,7 +534,8 @@ function DemoControls({
 }) {
   if (!demoMode) return null;
   const latest = events[events.length - 1];
-  const next = projectEventOptions[events.length % projectEventOptions.length];
+  const simulatedCount = events.filter(event => event.type !== 'baseline-created').length;
+  const next = projectEventOptions[simulatedCount % projectEventOptions.length];
   return (
     <section className="rounded-xl border border-[#7C3AED]/28 bg-[linear-gradient(135deg,rgba(124,58,237,0.16),rgba(7,17,31,0.88))] p-4">
       <div className="mb-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
