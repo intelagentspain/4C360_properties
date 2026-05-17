@@ -16,7 +16,7 @@ import { useClients } from '@/context/ClientsContext';
 import { useIncidents } from '@/context/IncidentContext';
 
 const REGIONS   = ['All', 'Dubai East', 'Downtown', 'Business Bay', 'Dubai Marina', 'Jumeirah'];
-const SECTORS   = ['All', 'Mixed-Use Residential', 'Commercial Retail', 'Commercial Office', 'Residential Community', 'Luxury Residential'];
+const SECTORS   = ['All', 'Real Estate', 'Mixed-Use Residential', 'Commercial Retail', 'Commercial Office', 'Residential Community', 'Luxury Residential'];
 const STATUSES  = ['All', 'live', 'warning', 'critical'];
 const RISK_LVLS = ['All', 'low', 'medium', 'high', 'critical'];
 const SORT_OPTS = [
@@ -32,7 +32,7 @@ const PORTFOLIO_DISPLAY_ORDER: Record<string, number> = {
   'JLT North Cluster': 0,
   'Business Bay Tower Complex': 1,
   lagoons: 2,
-  Shohba: 3,
+  'Sobha Realty': 3,
   Damac: 4,
   'DIFC Tower': 5,
   'Dubai Silicon Oasis': 6,
@@ -222,6 +222,7 @@ function formatAed(value: number) {
 
 type PortfolioKpiKey = 'properties' | 'sites' | 'workOrders' | 'incidents' | 'sla' | 'dataSources';
 type PortfolioStatusKey = 'critical' | 'warning' | 'live';
+type ExecutiveImpactKey = 'aedRisk' | 'penaltiesAvoided' | 'residentSentiment' | 'aiPrevented' | 'technicianUtilization';
 
 interface PortfolioKpi {
   key: PortfolioKpiKey;
@@ -245,6 +246,26 @@ interface PortfolioStatusSummary {
   icon: React.ReactNode;
   summary: string;
   chips: string[];
+}
+
+interface ExecutiveAction {
+  label: string;
+  owner: string;
+  impact: string;
+  channel: string;
+}
+
+interface ExecutiveImpactCard {
+  key: ExecutiveImpactKey;
+  label: string;
+  value: string;
+  sub: string;
+  icon: React.ReactNode;
+  tone: string;
+  summary: string;
+  trigger: string;
+  recommended: string;
+  actions: ExecutiveAction[];
 }
 
 const STATUS_SUMMARY_CONFIG: Record<PortfolioStatusKey, Omit<PortfolioStatusSummary, 'key' | 'count' | 'clients'>> = {
@@ -637,34 +658,248 @@ function PortfolioSummaryStrip({ clients, onToast }: { clients: PortfolioClient[
   );
 }
 
-function ExecutiveImpactStrip({ clients }: { clients: PortfolioClient[] }) {
+function ExecutiveImpactActionModal({ card, onClose, onToast }: { card: ExecutiveImpactCard; onClose: () => void; onToast: ToastFn }) {
+  const [selectedActions, setSelectedActions] = useState<string[]>(card.actions.slice(0, 3).map(action => action.label));
+
+  const toggleAction = (action: string) => {
+    setSelectedActions(prev => prev.includes(action) ? prev.filter(item => item !== action) : [...prev, action]);
+  };
+
+  const queueActions = () => {
+    onToast(`${card.label}: ${selectedActions.length} action${selectedActions.length === 1 ? '' : 's'} queued`, 'success');
+    onClose();
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.96, y: 12 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.96, y: 12 }}
+      transition={{ duration: 0.18 }}
+      className="fixed left-1/2 top-1/2 z-[320] w-[min(680px,calc(100%-32px))] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl border border-[rgba(46,127,255,0.28)] bg-[#0B172A] shadow-2xl"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`${card.label} action options`}
+    >
+      <div className="flex items-start justify-between gap-3 border-b border-[rgba(46,127,255,0.16)] bg-[#112040] px-4 py-3">
+        <div className="flex min-w-0 items-start gap-3">
+          <div className={`mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg ${card.tone}`}>
+            {card.icon}
+          </div>
+          <div className="min-w-0">
+            <div className="text-[9px] font-bold uppercase tracking-wide text-[#7A94B4]">Executive Action Chooser</div>
+            <h3 className="mt-0.5 text-sm font-bold leading-tight text-[#EEF3FA]">{card.label} - {card.value}</h3>
+            <p className="mt-1 text-[11px] leading-relaxed text-[#9DB9E8]">{card.summary}</p>
+          </div>
+        </div>
+        <button onClick={onClose} className="rounded-lg p-1.5 text-[#7A94B4] transition-colors hover:bg-white/5 hover:text-white" aria-label="Close action chooser">
+          <X size={15} />
+        </button>
+      </div>
+
+      <div className="space-y-3 p-4">
+        <div className="grid gap-2 md:grid-cols-3">
+          {[
+            { label: 'Trigger', value: card.trigger },
+            { label: 'Recommended', value: card.recommended },
+            { label: 'Metric', value: `${card.value} ${card.sub}` },
+          ].map(item => (
+            <div key={item.label} className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#0A1628] p-3">
+              <div className="text-[9px] uppercase tracking-wide text-[#7A94B4]">{item.label}</div>
+              <div className="mt-1 text-[11px] font-semibold leading-snug text-[#EEF3FA]">{item.value}</div>
+            </div>
+          ))}
+        </div>
+
+        <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/10 p-3">
+          <div className="mb-1 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wide text-cyan-200">
+            <Bot size={12} /> Context-aware playbook
+          </div>
+          <p className="text-[11px] leading-relaxed text-[#D8E7FA]">
+            Select the actions to queue now. The demo treats these as pre-configured command actions tied to the card condition, so a low sentiment signal opens resident communications instead of generic dashboard options.
+          </p>
+        </div>
+
+        <div className="grid gap-2 md:grid-cols-2">
+          {card.actions.map(action => {
+            const active = selectedActions.includes(action.label);
+            return (
+              <button
+                key={action.label}
+                onClick={() => toggleAction(action.label)}
+                className={`rounded-xl border p-3 text-left transition-all ${
+                  active
+                    ? 'border-[#2E7FFF]/70 bg-[#2E7FFF]/18 shadow-[0_0_16px_rgba(46,127,255,0.18)]'
+                    : 'border-[rgba(46,127,255,0.14)] bg-[#0A1628] hover:border-[#2E7FFF]/45 hover:bg-[#102544]'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 text-[12px] font-bold text-[#EEF3FA]">
+                      {active && <Check size={12} className="text-blue-200" />}
+                      {action.label}
+                    </div>
+                    <p className="mt-1 text-[10px] leading-relaxed text-[#8EA7C7]">{action.impact}</p>
+                  </div>
+                  <span className="shrink-0 rounded-md border border-white/10 bg-white/5 px-2 py-0.5 text-[8px] font-bold uppercase tracking-wide text-[#9DB9E8]">
+                    {action.channel}
+                  </span>
+                </div>
+                <div className="mt-2 text-[9px] font-semibold uppercase tracking-wide text-[#6F89AA]">Owner: {action.owner}</div>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="flex items-center justify-between gap-3 border-t border-[rgba(46,127,255,0.12)] pt-3">
+          <div className="text-[10px] text-[#7A94B4]">{selectedActions.length} pre-configured actions selected</div>
+          <div className="flex gap-2">
+            <button onClick={onClose} className="rounded-lg border border-[rgba(46,127,255,0.18)] px-3 py-2 text-[11px] font-semibold text-[#9DB9E8] transition-colors hover:bg-white/5">Review Later</button>
+            <button onClick={queueActions} className="rounded-lg bg-[#2E7FFF] px-3 py-2 text-[11px] font-bold text-white shadow-[0_0_14px_rgba(46,127,255,0.32)] transition-colors hover:bg-blue-500">Queue Actions</button>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+function ExecutiveImpactStrip({ clients, onToast }: { clients: PortfolioClient[]; onToast: ToastFn }) {
   const profiles = clients.map(getCommandProfile);
   const aedAtRisk = profiles.reduce((sum, p) => sum + p.atRisk, 0);
   const penaltiesAvoided = profiles.reduce((sum, p) => sum + p.prevented, 0);
   const avgSentiment = Math.round(profiles.reduce((sum, p) => sum + p.sentiment, 0) / Math.max(profiles.length, 1));
   const avgUtilization = Math.round(profiles.reduce((sum, p) => sum + p.utilization, 0) / Math.max(profiles.length, 1));
+  const [selectedCard, setSelectedCard] = useState<ExecutiveImpactCard | null>(null);
 
-  const items = [
-    { label: 'AED at Risk', value: formatAed(aedAtRisk), sub: 'live exposure', icon: <AlertTriangle size={13} />, tone: 'text-red-300 bg-red-500/10 border-red-500/20' },
-    { label: 'Penalties Avoided', value: formatAed(penaltiesAvoided), sub: 'AI prevention', icon: <Shield size={13} />, tone: 'text-emerald-300 bg-emerald-500/10 border-emerald-500/20' },
-    { label: 'Resident Sentiment', value: `${avgSentiment}%`, sub: 'portfolio pulse', icon: <Users size={13} />, tone: 'text-cyan-300 bg-cyan-500/10 border-cyan-500/20' },
-    { label: 'AI Prevented Failures', value: '14', sub: 'this quarter', icon: <Bot size={13} />, tone: 'text-blue-300 bg-blue-500/10 border-blue-500/20' },
-    { label: 'Technician Utilization', value: `${avgUtilization}%`, sub: 'field load', icon: <Activity size={13} />, tone: 'text-amber-300 bg-amber-500/10 border-amber-500/20' },
+  const sentimentTrigger = avgSentiment < 75
+    ? 'Resident sentiment is low and requires proactive outreach.'
+    : avgSentiment < 88
+      ? 'Resident sentiment is softening; prevent escalation before complaints spike.'
+      : 'Resident sentiment is healthy; maintain visible communication and trust.';
+  const utilizationTrigger = avgUtilization >= 85
+    ? 'Technician utilization is stretched and may slow response times.'
+    : avgUtilization >= 72
+      ? 'Field load is elevated; rebalance before SLA queues build.'
+      : 'Field load is stable; use spare capacity for prevention work.';
+
+  const items: ExecutiveImpactCard[] = [
+    {
+      key: 'aedRisk',
+      label: 'AED at Risk',
+      value: formatAed(aedAtRisk),
+      sub: 'live exposure',
+      icon: <AlertTriangle size={13} />,
+      tone: 'text-red-300 bg-red-500/10 border-red-500/20',
+      summary: 'Financial exposure is being driven by active incidents, overdue actions, SLA pressure, and operational drift.',
+      trigger: aedAtRisk > 500_000 ? 'Exposure is above executive review threshold.' : 'Exposure is visible and should be watched.',
+      recommended: 'Open a focused recovery review and assign owners for the top exposure drivers.',
+      actions: [
+        { label: 'Open exposure recovery room', owner: 'Portfolio Director', impact: 'Creates a command review for the largest cost and SLA exposure drivers.', channel: 'Command' },
+        { label: 'Send client risk update', owner: 'Account Manager', impact: 'Gives the client a clear status, recovery plan, and next update time.', channel: 'Email' },
+        { label: 'Freeze non-critical spend', owner: 'Commercial Lead', impact: 'Protects margin while urgent corrective actions are prioritized.', channel: 'Approval' },
+        { label: 'Assign recovery owner', owner: 'Operations Lead', impact: 'Moves the top risk from observation into named accountability.', channel: 'Task' },
+      ],
+    },
+    {
+      key: 'penaltiesAvoided',
+      label: 'Penalties Avoided',
+      value: formatAed(penaltiesAvoided),
+      sub: 'AI prevention',
+      icon: <Shield size={13} />,
+      tone: 'text-emerald-300 bg-emerald-500/10 border-emerald-500/20',
+      summary: 'AI prevention signals are reducing avoidable penalties by catching asset, SLA, and service risks before breach.',
+      trigger: 'Prevention value is material enough to include in the next executive/client update.',
+      recommended: 'Turn avoided failures into a client-facing value story and repeatable prevention loop.',
+      actions: [
+        { label: 'Send avoided-penalty report', owner: 'Account Manager', impact: 'Packages the prevention value into a client-ready performance update.', channel: 'Email' },
+        { label: 'Convert signals into PPMs', owner: 'Reliability Lead', impact: 'Turns one-off avoided failures into scheduled preventive work.', channel: 'PPM' },
+        { label: 'Log prevention evidence', owner: 'QA Lead', impact: 'Stores proof that the issue was detected and acted on before breach.', channel: 'Evidence' },
+        { label: 'Brief client sponsor', owner: 'Portfolio Director', impact: 'Reinforces 4C360 value in the next governance conversation.', channel: 'Meeting' },
+      ],
+    },
+    {
+      key: 'residentSentiment',
+      label: 'Resident Sentiment',
+      value: `${avgSentiment}%`,
+      sub: 'portfolio pulse',
+      icon: <Users size={13} />,
+      tone: 'text-cyan-300 bg-cyan-500/10 border-cyan-500/20',
+      summary: 'Resident sentiment combines SLA performance, incident load, overdue work, and resident-impacting service signals.',
+      trigger: sentimentTrigger,
+      recommended: avgSentiment < 88 ? 'Start proactive resident communication and targeted follow-up now.' : 'Keep resident trust high with visible updates and community touchpoints.',
+      actions: [
+        { label: 'Send email to affected residents', owner: 'Community Manager', impact: 'Acknowledges the issue, explains the fix path, and reduces uncertainty.', channel: 'Email' },
+        { label: 'Hold resident meeting', owner: 'Property Manager', impact: 'Creates a visible forum for concerns, timelines, and accountability.', channel: 'Meeting' },
+        { label: 'Make priority follow-up calls', owner: 'Resident Care Team', impact: 'Calls frustrated or repeat residents before escalation spreads.', channel: 'Calls' },
+        { label: 'Publish service recovery timeline', owner: 'Operations Lead', impact: 'Shows when each resident-facing issue will be resolved.', channel: 'Notice' },
+        { label: 'Create sentiment watch list', owner: 'DevelopmentX Copilot', impact: 'Tracks repeat complaints, open requests, and negative sentiment for 7 days.', channel: 'AI Watch' },
+      ],
+    },
+    {
+      key: 'aiPrevented',
+      label: 'AI Prevented Failures',
+      value: '14',
+      sub: 'this quarter',
+      icon: <Bot size={13} />,
+      tone: 'text-blue-300 bg-blue-500/10 border-blue-500/20',
+      summary: 'Prevented failures represent issues caught by AI before they created resident disruption or SLA breach.',
+      trigger: 'AI prevention is active and should be converted into repeatable operating controls.',
+      recommended: 'Convert the best prevention examples into PPM rules, evidence, and client-facing proof.',
+      actions: [
+        { label: 'Create preventive work orders', owner: 'Maintenance Planner', impact: 'Turns AI detections into actionable field work before failure.', channel: 'WO' },
+        { label: 'Schedule sensor validation', owner: 'IoT Lead', impact: 'Confirms predictive signals are reliable before scaling them.', channel: 'Inspection' },
+        { label: 'Notify engineering team', owner: 'Reliability Lead', impact: 'Shares failure patterns so technicians know what to look for.', channel: 'Message' },
+        { label: 'Add to value dashboard', owner: 'Analytics Lead', impact: 'Shows avoided disruption and avoided penalty value in the executive view.', channel: 'Report' },
+      ],
+    },
+    {
+      key: 'technicianUtilization',
+      label: 'Technician Utilization',
+      value: `${avgUtilization}%`,
+      sub: 'field load',
+      icon: <Activity size={13} />,
+      tone: 'text-amber-300 bg-amber-500/10 border-amber-500/20',
+      summary: 'Field load measures how hard the service teams are being stretched across work orders, incidents, sites, and overdue tasks.',
+      trigger: utilizationTrigger,
+      recommended: avgUtilization >= 72 ? 'Rebalance field load and protect specialist capacity.' : 'Use available capacity for prevention, inspections, and resident follow-ups.',
+      actions: [
+        { label: 'Rebalance field team load', owner: 'Dispatch Lead', impact: 'Moves capacity toward the properties with highest SLA and resident risk.', channel: 'Dispatch' },
+        { label: 'Approve overtime window', owner: 'Operations Lead', impact: 'Creates short-term recovery capacity without changing the roster.', channel: 'Approval' },
+        { label: 'Call standby vendor', owner: 'Vendor Manager', impact: 'Adds external coverage for specialist or overflow work.', channel: 'Calls' },
+        { label: 'Schedule toolbox briefing', owner: 'Field Supervisor', impact: 'Aligns technicians on priorities, safety, and resident-facing messaging.', channel: 'Meeting' },
+      ],
+    },
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-2 px-5 py-2.5 border-b border-[rgba(46,127,255,0.12)] flex-shrink-0 lg:grid-cols-5">
-      {items.map(item => (
-        <div key={item.label} className={`rounded-lg border px-3 py-2 ${item.tone}`}>
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[9px] uppercase tracking-wide opacity-75">{item.label}</span>
-            {item.icon}
-          </div>
-          <div className="mt-1 text-base font-bold leading-tight">{item.value}</div>
-          <div className="text-[9px] opacity-60">{item.sub}</div>
-        </div>
-      ))}
-    </div>
+    <>
+      <div className="grid grid-cols-2 gap-2 px-5 py-2.5 border-b border-[rgba(46,127,255,0.12)] flex-shrink-0 lg:grid-cols-5">
+        {items.map(item => (
+          <button
+            key={item.key}
+            type="button"
+            onClick={() => setSelectedCard(item)}
+            className={`rounded-lg border px-3 py-2 text-left transition-all hover:-translate-y-0.5 hover:border-[#2E7FFF]/45 hover:shadow-[0_0_18px_rgba(46,127,255,0.16)] focus:outline-none focus:ring-1 focus:ring-[#2E7FFF]/70 ${item.tone}`}
+            aria-label={`Open ${item.label} actions`}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[9px] uppercase tracking-wide opacity-75">{item.label}</span>
+              {item.icon}
+            </div>
+            <div className="mt-1 text-base font-bold leading-tight">{item.value}</div>
+            <div className="text-[9px] opacity-60">{item.sub}</div>
+          </button>
+        ))}
+      </div>
+      <AnimatePresence>
+        {selectedCard && (
+          <>
+            <div className="fixed inset-0 z-[300] bg-black/35 backdrop-blur-[1px]" onClick={() => setSelectedCard(null)} />
+            <ExecutiveImpactActionModal card={selectedCard} onClose={() => setSelectedCard(null)} onToast={onToast} />
+          </>
+        )}
+      </AnimatePresence>
+    </>
   );
 }
 
@@ -2073,7 +2308,7 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
 
       <PortfolioSummaryStrip clients={allClients} onToast={onToast} />
 
-      <ExecutiveImpactStrip clients={allClients} />
+      <ExecutiveImpactStrip clients={allClients} onToast={onToast} />
 
       <PortfolioPulseFeed onToast={onToast} />
 

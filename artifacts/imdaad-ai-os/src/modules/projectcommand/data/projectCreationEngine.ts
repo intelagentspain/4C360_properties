@@ -12,7 +12,7 @@ import {
 } from './portfolio';
 import type { Phase } from './phases';
 import type { Risk } from './risks';
-import { sampleBayz102Extraction, type ExtractedProjectContext } from './projectExtractionDemoData';
+import { sampleSobhaPilotExtraction, type ExtractedProjectContext } from './projectExtractionDemoData';
 
 export interface ProjectContextInput {
   fileName?: string;
@@ -39,14 +39,14 @@ export interface GeneratedProjectControlBaseline {
 }
 
 function cloneSampleExtraction() {
-  return JSON.parse(JSON.stringify(sampleBayz102Extraction)) as ExtractedProjectContext;
+  return JSON.parse(JSON.stringify(sampleSobhaPilotExtraction)) as ExtractedProjectContext;
 }
 
 export async function extractProjectContext(input: ProjectContextInput): Promise<ExtractedProjectContext> {
   const extracted = cloneSampleExtraction();
 
   if (input.useSample) {
-    extracted.sourceName = 'Sample Bayz 102 LOA / Project Summary.pdf';
+    extracted.sourceName = 'Sample Sobha Pilot Tower LOA / Project Summary.pdf';
     extracted.sourceType = 'sample-document';
     return extracted;
   }
@@ -71,7 +71,7 @@ export async function extractProjectContext(input: ProjectContextInput): Promise
     return extracted;
   }
 
-  extracted.sourceName = 'Sample Bayz 102 LOA / Project Summary.pdf';
+  extracted.sourceName = 'Sample Sobha Pilot Tower LOA / Project Summary.pdf';
   extracted.sourceType = 'manual';
   return extracted;
 }
@@ -271,7 +271,7 @@ function buildRisks(extracted: ExtractedProjectContext): Risk[] {
   return extracted.risks.value.map((title, index) => {
     const template = templates[index] ?? templates[templates.length - 1];
     return {
-      id: `bayz-created-risk-${index + 1}`,
+      id: `sobha-created-risk-${index + 1}`,
       title,
       category: template.category,
       probability: template.probability,
@@ -290,7 +290,7 @@ function buildMilestones(extracted: ExtractedProjectContext): ProjectMilestones 
   const days = [13, 62, 90, 134, 189, 228];
   const colors = ['#FFCD57', '#FF9B38', '#FF9B38', '#7C3AED', '#7A94B4', '#38D98A'];
   return extracted.milestones.value.map((name, index) => ({
-    id: `bayz-created-milestone-${index + 1}`,
+    id: `sobha-created-milestone-${index + 1}`,
     name,
     daysRemaining: days[index] ?? 90 + index * 18,
     color: colors[index] ?? '#7A94B4',
@@ -299,7 +299,7 @@ function buildMilestones(extracted: ExtractedProjectContext): ProjectMilestones 
 }
 
 function buildAiContent(extracted: ExtractedProjectContext, baseline: GeneratedProjectControlBaseline): ProjectCommandAIContent {
-  const source = projectCommandDatasets['bayz-102'].aiContent;
+  const source = projectCommandDatasets['sobha-pilot-tower'].aiContent;
   return {
     ...source,
     healthScore: {
@@ -398,13 +398,13 @@ function buildProject(extracted: ExtractedProjectContext): ProjectCommandProject
   const plannedValue = Math.round(earnedValue / 0.9);
 
   return {
-    id: 'bayz-102-main-construction-demo',
+    id: 'sobha-pilot-tower-main-construction-demo',
     name: extracted.project.name.value,
     organizationId: 'developmentx',
-    portfolioId: 'danube-properties-portfolio',
-    propertyId: 'bayz-102-property',
+    portfolioId: 'sobha-realty-portfolio',
+    propertyId: 'sobha-pilot-tower-property',
     projectType: 'Main Construction',
-    developer: 'Danube Properties Portfolio',
+    developer: 'Sobha Realty Portfolio',
     location: extracted.property.location.value,
     type: `${extracted.property.floors.value}-floor ${extracted.property.type.value.toLowerCase()}`,
     floors: extracted.property.floors.value,
@@ -436,8 +436,8 @@ export function buildProjectCommandDatasetFromExtraction(
   baseline: GeneratedProjectControlBaseline,
 ): ProjectCommandDataset {
   const organization = projectCommandOrganizations[0];
-  const portfolio = projectCommandPortfolios.find(item => item.id === 'danube-properties-portfolio') ?? projectCommandPortfolios[0];
-  const sourceProperty = projectCommandProperties.find(item => item.id === 'bayz-102-property') ?? projectCommandProperties[0];
+  const portfolio = projectCommandPortfolios.find(item => item.id === 'sobha-realty-portfolio') ?? projectCommandPortfolios[0];
+  const sourceProperty = projectCommandProperties.find(item => item.id === 'sobha-pilot-tower-property') ?? projectCommandProperties[0];
   const property = {
     ...sourceProperty,
     name: extracted.property.name.value,

@@ -105,39 +105,38 @@ export const projectCommandOrganizations: Organization[] = [
 ];
 
 export const projectCommandPortfolios: Portfolio[] = [
-  { id: 'danube-properties-portfolio', organizationId: 'developmentx', name: 'Danube Properties Portfolio' },
-  { id: 'reportage-portfolio', organizationId: 'developmentx', name: 'Reportage Portfolio' },
+  { id: 'sobha-realty-portfolio', organizationId: 'developmentx', name: 'Sobha Realty Portfolio' },
 ];
 
 export const projectCommandProperties: PropertyDevelopment[] = [
   {
-    id: 'bayz-102-property',
-    portfolioId: 'danube-properties-portfolio',
-    name: 'Bayz 102',
+    id: 'sobha-pilot-tower-property',
+    portfolioId: 'sobha-realty-portfolio',
+    name: 'Sobha Pilot Tower',
     type: 'Residential Tower',
-    location: 'Business Bay',
+    location: 'Dubai',
     buildings: 1,
     units: 680,
     size: '102 floors',
     status: 'active',
   },
   {
-    id: 'lawnz-residences-property',
-    portfolioId: 'danube-properties-portfolio',
-    name: 'Lawnz Residences',
-    type: 'Residential Tower',
-    location: 'Dubai Sports City',
-    buildings: 1,
+    id: 'sobha-hartland-property',
+    portfolioId: 'sobha-realty-portfolio',
+    name: 'Sobha Hartland Community',
+    type: 'Master Community',
+    location: 'Dubai',
+    buildings: 6,
     units: 1064,
-    size: '48 floors',
+    size: 'multi-tower community',
     status: 'active',
   },
   {
-    id: 'verdana-tower-property',
-    portfolioId: 'reportage-portfolio',
-    name: 'Verdana Tower',
+    id: 'sobha-handover-tower-property',
+    portfolioId: 'sobha-realty-portfolio',
+    name: 'Sobha Handover Tower',
     type: 'Residential Tower',
-    location: 'Jumeirah Village Circle',
+    location: 'Dubai',
     buildings: 1,
     units: 412,
     size: '34 floors',
@@ -145,7 +144,7 @@ export const projectCommandProperties: PropertyDevelopment[] = [
   },
 ];
 
-export const defaultProjectCommandPropertyId: ProjectCommandPropertyId = 'bayz-102-property';
+export const defaultProjectCommandPropertyId: ProjectCommandPropertyId = 'sobha-pilot-tower-property';
 
 function hierarchyFor(propertyId: ProjectCommandPropertyId) {
   const property = projectCommandProperties.find(item => item.id === propertyId) ?? projectCommandProperties[0];
@@ -198,16 +197,21 @@ function updateRisks(prefix: string, titles: string[], owner = 'PM Team'): Risk[
 }
 
 const lawnzDataset: ProjectCommandDataset = {
-  id: 'lawnz-residences',
-  selectorLabel: 'Lawnz Residences - Main Construction',
-  ...hierarchyFor('lawnz-residences-property'),
+  id: 'sobha-hartland-main-construction',
+  selectorLabel: 'Sobha Hartland Community - Main Construction',
+  ...hierarchyFor('sobha-hartland-property'),
   project: {
     ...lawnzProject,
     name: 'Main Construction',
     organizationId: 'developmentx',
-    portfolioId: 'danube-properties-portfolio',
-    propertyId: 'lawnz-residences-property',
+    portfolioId: 'sobha-realty-portfolio',
+    propertyId: 'sobha-hartland-property',
     projectType: 'Main Construction',
+    developer: 'Sobha Realty',
+    location: 'Dubai',
+    type: 'multi-tower residential community',
+    floors: 48,
+    mainContractor: 'Sobha Construction',
     healthStatus: lawnzProject.healthStatus,
     status: 'on-track',
   },
@@ -220,14 +224,14 @@ const lawnzDataset: ProjectCommandDataset = {
 };
 
 const bayzProject: ProjectCommandProject = {
-  id: 'bayz-102',
+  id: 'sobha-pilot-tower',
   name: 'Main Construction',
   organizationId: 'developmentx',
-  portfolioId: 'danube-properties-portfolio',
-  propertyId: 'bayz-102-property',
+  portfolioId: 'sobha-realty-portfolio',
+  propertyId: 'sobha-pilot-tower-property',
   projectType: 'Main Construction',
-  developer: 'Danube Properties',
-  location: 'Business Bay',
+  developer: 'Sobha Realty',
+  location: 'Dubai',
   type: '102-floor residential tower',
   floors: 102,
   contractValue: 420_000_000,
@@ -237,7 +241,7 @@ const bayzProject: ProjectCommandProject = {
   completion: 28,
   budgetUsed: 39,
   daysToHandover: 420,
-  mainContractor: 'China State Construction Engineering',
+  mainContractor: 'Sobha Construction',
   plannedValue: 166_000_000,
   actualCost: 164_000_000,
   earnedValue: 159_000_000,
@@ -258,7 +262,7 @@ const bayzAiContent: ProjectCommandAIContent = {
     ...lawnzAiContent.healthScore,
     score: 78,
     status: 'good',
-    topThreat: 'Bayz 102 baseline is stable but sensitive to facade procurement, crane productivity, authority approvals, and evidence quality.',
+    topThreat: 'Sobha Pilot Tower baseline is stable but sensitive to facade procurement, crane productivity, authority approvals, and evidence quality.',
     recommendedAction: 'Keep the baseline live: simulate project events, watch control metrics recalculate, and queue manager recovery actions before risk becomes critical.',
     scoreBreakdown: { programme: 78, cost: 76, quality: 82, risk: 74, contractor: 80 },
     forecast30d: { completion: 35, spend: 168, newRisks: 3, sparkline: [28, 29.1, 30.4, 31.6, 32.4, 33.1, 33.8, 34.2, 34.7, 35] },
@@ -279,7 +283,7 @@ const bayzAiContent: ProjectCommandAIContent = {
   },
   costInsights: {
     ...lawnzAiContent.costInsights,
-    narrative: 'Bayz 102 is trending 10.0% above contract value, driven by steel escalation, crane productivity loss and early facade package variance. At CPI 0.81, AI projects AED 462M at completion against a contract value of AED 420M.',
+    narrative: 'Sobha Pilot Tower is trending 10.0% above contract value, driven by steel escalation, crane productivity loss and early facade package variance. At CPI 0.81, AI projects AED 462M at completion against a contract value of AED 420M.',
     eacConfidence: { p10: 446, p50: 462, p90: 488 },
     topCostDrivers: [
       { item: 'Steel reinforcement escalation', value: 11.8, status: 'unabsorbed' },
@@ -314,7 +318,7 @@ const bayzAiContent: ProjectCommandAIContent = {
   },
   askAI: {
     queries: [
-      { question: 'What is the biggest risk to our handover date?', answer: 'For Bayz 102, the biggest handover risk is tower crane logistics. Hook time is nearly saturated, so any interruption cascades into superstructure, facade and MEP riser work. In the base case, this moves completion from 30 Jun to 12 Aug 2026.', sources: ['Crane Utilization Log', 'Programme Rev 2', 'Procurement Register'] },
+      { question: 'What is the biggest risk to our handover date?', answer: 'For Sobha Pilot Tower, the biggest handover risk is tower crane logistics. Hook time is nearly saturated, so any interruption cascades into superstructure, facade and MEP riser work. In the base case, this moves completion from 30 Jun to 12 Aug 2026.', sources: ['Crane Utilization Log', 'Programme Rev 2', 'Procurement Register'] },
       { question: 'How much will this project cost at completion?', answer: 'AI currently forecasts AED 462M at completion against a contract value of AED 420M. The cost pressure is mostly from steel escalation, crane productivity loss and facade package variance. The pessimistic case reaches AED 488M if facade redesign is triggered.', sources: ['EVM Report Apr 2026', 'Package Procurement Log', 'Variation Register'] },
       { question: 'What would happen if the MEP clashes take another 3 weeks to resolve?', answer: 'A further 3-week MEP coordination delay would push riser rough-in and podium plantroom works into the facade start window. The programme impact is roughly 24-30 days unless weekend coordination shifts are approved.', sources: ['MEP Coordination Model', 'Programme Rev 2', 'AI Delay Simulation'] },
     ],
@@ -322,14 +326,14 @@ const bayzAiContent: ProjectCommandAIContent = {
 };
 
 const verdanaProject: ProjectCommandProject = {
-  id: 'verdana-tower',
+  id: 'sobha-handover-tower',
   name: 'Main Construction',
   organizationId: 'developmentx',
-  portfolioId: 'reportage-portfolio',
-  propertyId: 'verdana-tower-property',
+  portfolioId: 'sobha-realty-portfolio',
+  propertyId: 'sobha-handover-tower-property',
   projectType: 'Main Construction',
-  developer: 'Reportage',
-  location: 'Jumeirah Village Circle',
+  developer: 'Sobha Realty',
+  location: 'Dubai',
   type: '34-floor residential tower',
   floors: 34,
   contractValue: 190_000_000,
@@ -339,7 +343,7 @@ const verdanaProject: ProjectCommandProject = {
   completion: 61,
   budgetUsed: 55,
   daysToHandover: 190,
-  mainContractor: 'Ginco Contracting',
+  mainContractor: 'Sobha Construction',
   plannedValue: 118_000_000,
   actualCost: 116_000_000,
   earnedValue: 121_000_000,
@@ -360,7 +364,7 @@ const verdanaAiContent: ProjectCommandAIContent = {
     ...lawnzAiContent.healthScore,
     score: 84,
     status: 'good',
-    topThreat: 'Authority inspection sequencing is the only meaningful handover risk. Site progress is ahead of baseline, but late civil defence booking could consume float.',
+    topThreat: 'Authority inspection sequencing is the only meaningful handover risk. Sobha Handover Tower progress is ahead of baseline, but late civil defence booking could consume float.',
     recommendedAction: 'Book civil defence and municipality inspections now, freeze snagging ownership, and protect the facade cleaning sequence.',
     scoreBreakdown: { programme: 86, cost: 88, quality: 82, risk: 80, contractor: 84 },
     forecast30d: { completion: 68, spend: 132, newRisks: 1, sparkline: [61, 62.2, 63.1, 64.4, 65.2, 66.1, 66.7, 67.2, 67.7, 68] },
@@ -375,13 +379,13 @@ const verdanaAiContent: ProjectCommandAIContent = {
   programmeInsights: {
     ...lawnzAiContent.programmeInsights,
     delayProbabilities: { design: 0, enabling: 0, substructure: 4, superstructure: 8, mep: 24, fitout: 29, handover: 34 },
-    criticalPathNarrative: 'Verdana Tower is ahead of the current baseline. The critical path now sits in inspections, lift commissioning, final MEP testing and snag closure rather than core construction.',
+    criticalPathNarrative: 'Sobha Handover Tower is ahead of the current baseline. The critical path now sits in inspections, lift commissioning, final MEP testing and snag closure rather than core construction.',
     baselineVariance: { substructure: 6, superstructure: 8, mep: 4, fitout: 3 },
     rescheduleSuggestion: 'Keeping inspection bookings two weeks ahead of site readiness can preserve 30+ days of float and bring practical completion forward by up to 13 days.',
   },
   costInsights: {
     ...lawnzAiContent.costInsights,
-    narrative: 'Verdana Tower is tracking below budget. CPI is 1.04 and SPI is 1.03, with AI forecasting AED 188M at completion against a contract value of AED 190M. Current exposure is concentrated in commissioning and authority re-test allowances.',
+    narrative: 'Sobha Handover Tower is tracking below budget. CPI is 1.04 and SPI is 1.03, with AI forecasting AED 188M at completion against a contract value of AED 190M. Current exposure is concentrated in commissioning and authority re-test allowances.',
     eacConfidence: { p10: 184, p50: 188, p90: 196 },
     topCostDrivers: [
       { item: 'Lift commissioning allowance', value: 1.1, status: 'forecast' },
@@ -416,9 +420,9 @@ const verdanaAiContent: ProjectCommandAIContent = {
   },
   askAI: {
     queries: [
-      { question: 'What is the biggest risk to our handover date?', answer: 'For Verdana Tower, the biggest handover risk is authority inspection sequencing. Construction is ahead of baseline, but if civil defence and municipality inspections are booked late, that administrative delay can consume most of the remaining float.', sources: ['Inspection Readiness Log', 'Programme Rev 5', 'Handover Tracker'] },
-      { question: 'How much will this project cost at completion?', answer: 'Verdana Tower is forecast at AED 188M against a contract value of AED 190M. CPI is 1.04, so the project is currently performing better than budget. The main watch items are lift commissioning support and possible civil defence re-test costs.', sources: ['EVM Report Apr 2026', 'Cost Report #11', 'VO Pipeline'] },
-      { question: 'What would happen if the MEP clashes take another 3 weeks to resolve?', answer: 'MEP clash risk is largely closed on Verdana Tower. A new 3-week delay would mostly affect testing and commissioning rather than rough-in. The likely impact is 10-14 days unless inspection bookings are moved at the same time.', sources: ['Commissioning Tracker', 'MEP Closure Log', 'Programme Rev 5'] },
+      { question: 'What is the biggest risk to our handover date?', answer: 'For Sobha Handover Tower, the biggest handover risk is authority inspection sequencing. Construction is ahead of baseline, but if civil defence and municipality inspections are booked late, that administrative delay can consume most of the remaining float.', sources: ['Inspection Readiness Log', 'Programme Rev 5', 'Handover Tracker'] },
+      { question: 'How much will this project cost at completion?', answer: 'Sobha Handover Tower is forecast at AED 188M against a contract value of AED 190M. CPI is 1.04, so the project is currently performing better than budget. The main watch items are lift commissioning support and possible civil defence re-test costs.', sources: ['EVM Report Apr 2026', 'Cost Report #11', 'VO Pipeline'] },
+      { question: 'What would happen if the MEP clashes take another 3 weeks to resolve?', answer: 'MEP clash risk is largely closed on Sobha Handover Tower. A new 3-week delay would mostly affect testing and commissioning rather than rough-in. The likely impact is 10-14 days unless inspection bookings are moved at the same time.', sources: ['Commissioning Tracker', 'MEP Closure Log', 'Programme Rev 5'] },
     ],
   },
 };
@@ -511,20 +515,20 @@ function projectVariant(
 
 const bayzHandoverDataset = projectVariant(
   {
-    id: 'bayz-102',
-    selectorLabel: 'Bayz 102 - Main Construction',
-    ...hierarchyFor('bayz-102-property'),
+    id: 'sobha-pilot-tower',
+    selectorLabel: 'Sobha Pilot Tower - Main Construction',
+    ...hierarchyFor('sobha-pilot-tower-property'),
     project: bayzProject,
     phases: updatePhases({ design: 100, enabling: 100, substructure: 52, superstructure: 18, mep: 6, fitout: 0, handover: 0 }, { substructure: '52% - piling recovery', superstructure: 'Crane bottleneck', mep: 'Riser model pending' }),
     costSeries: scaleCostSeries(1.56),
     evmSummary: { pv: 166, ac: 164, ev: 159, cpi: 0.97, spi: 0.96, cv: -5, sv: -7, eac: 420, etc: 256, vac: 0, tcpi: 1 },
-    risks: updateRisks('bayz', ['Tower crane availability constraint'], 'Construction Director'),
-    milestones: updateMilestones('bayz', 80),
+    risks: updateRisks('sobha', ['Tower crane availability constraint'], 'Construction Director'),
+    milestones: updateMilestones('sobha', 80),
     aiContent: bayzAiContent,
   },
   {
-    id: 'bayz-102-handover-snagging',
-    selectorLabel: 'Bayz 102 - Handover & Snagging Programme',
+    id: 'sobha-pilot-tower-handover-snagging',
+    selectorLabel: 'Sobha Pilot Tower - Handover & Snagging Programme',
     name: 'Handover & Snagging Programme',
     projectType: 'Handover & Snagging',
     contractValue: 18_000_000,
@@ -544,8 +548,8 @@ const bayzHandoverDataset = projectVariant(
 );
 
 const bayzSmartAccessDataset = projectVariant(bayzHandoverDataset, {
-  id: 'bayz-102-smart-access',
-  selectorLabel: 'Bayz 102 - Smart Access Upgrade',
+  id: 'sobha-pilot-tower-smart-access',
+  selectorLabel: 'Sobha Pilot Tower - Smart Access Upgrade',
   name: 'Smart Access Upgrade',
   projectType: 'Smart Building Rollout',
   contractValue: 6_500_000,
@@ -564,8 +568,8 @@ const bayzSmartAccessDataset = projectVariant(bayzHandoverDataset, {
 });
 
 const bayzWarrantyDataset = projectVariant(bayzHandoverDataset, {
-  id: 'bayz-102-dlp-remediation',
-  selectorLabel: 'Bayz 102 - Warranty / DLP Remediation',
+  id: 'sobha-pilot-tower-dlp-remediation',
+  selectorLabel: 'Sobha Pilot Tower - Warranty / DLP Remediation',
   name: 'Warranty / DLP Remediation',
   projectType: 'Warranty / DLP Remediation',
   contractValue: 9_000_000,
@@ -584,8 +588,8 @@ const bayzWarrantyDataset = projectVariant(bayzHandoverDataset, {
 });
 
 const lawnzLandscapeDataset = projectVariant(lawnzDataset, {
-  id: 'lawnz-landscape-enhancement',
-  selectorLabel: 'Lawnz Residences - Landscape Enhancement',
+  id: 'sobha-hartland-landscape-enhancement',
+  selectorLabel: 'Sobha Hartland Community - Landscape Enhancement',
   name: 'Landscape Enhancement',
   projectType: 'Capital Improvement',
   contractValue: 12_000_000,
@@ -604,8 +608,8 @@ const lawnzLandscapeDataset = projectVariant(lawnzDataset, {
 });
 
 const lawnzWarrantyDataset = projectVariant(lawnzDataset, {
-  id: 'lawnz-warranty-control',
-  selectorLabel: 'Lawnz Residences - Warranty Control Programme',
+  id: 'sobha-hartland-warranty-control',
+  selectorLabel: 'Sobha Hartland Community - Warranty Control Programme',
   name: 'Warranty Control Programme',
   projectType: 'Warranty / DLP Remediation',
   contractValue: 7_000_000,
@@ -624,39 +628,39 @@ const lawnzWarrantyDataset = projectVariant(lawnzDataset, {
 });
 
 export const projectCommandDatasets = {
-  'lawnz-residences': lawnzDataset,
-  'bayz-102': {
-    id: 'bayz-102',
-    selectorLabel: 'Bayz 102 - Main Construction',
-    ...hierarchyFor('bayz-102-property'),
+  'sobha-hartland-main-construction': lawnzDataset,
+  'sobha-pilot-tower': {
+    id: 'sobha-pilot-tower',
+    selectorLabel: 'Sobha Pilot Tower - Main Construction',
+    ...hierarchyFor('sobha-pilot-tower-property'),
     project: bayzProject,
     phases: updatePhases({ design: 100, enabling: 100, substructure: 52, superstructure: 18, mep: 6, fitout: 0, handover: 0 }, { substructure: '52% - piling recovery', superstructure: 'Crane bottleneck', mep: 'Riser model pending' }),
     costSeries: scaleCostSeries(1.56),
     evmSummary: { pv: 166, ac: 164, ev: 159, cpi: 0.97, spi: 0.96, cv: -5, sv: -7, eac: 420, etc: 256, vac: 0, tcpi: 1 },
-    risks: updateRisks('bayz', ['Tower crane availability constraint', 'Facade procurement lead time - high zone', 'Steel reinforcement escalation', 'MEP riser coordination freeze delayed', 'Night-pour permit sequence not approved', 'Podium plantroom coordination issue', 'Core wall cycle time above target', 'Neighbouring tower logistics conflict', 'Concrete cooling plan during peak heat', 'Temporary works approval backlog', 'High-zone safety lift plan review', 'Subcontractor productivity variance'], 'Construction Director'),
-    milestones: updateMilestones('bayz', 80),
+    risks: updateRisks('sobha', ['Tower crane availability constraint', 'Facade procurement lead time - high zone', 'Steel reinforcement escalation', 'MEP riser coordination freeze delayed', 'Night-pour permit sequence not approved', 'Podium plantroom coordination issue', 'Core wall cycle time above target', 'Neighbouring tower logistics conflict', 'Concrete cooling plan during peak heat', 'Temporary works approval backlog', 'High-zone safety lift plan review', 'Subcontractor productivity variance'], 'Construction Director'),
+    milestones: updateMilestones('sobha', 80),
     aiContent: bayzAiContent,
   },
-  'verdana-tower': {
-    id: 'verdana-tower',
-    selectorLabel: 'Verdana Tower - Main Construction',
-    ...hierarchyFor('verdana-tower-property'),
+  'sobha-handover-tower': {
+    id: 'sobha-handover-tower',
+    selectorLabel: 'Sobha Handover Tower - Main Construction',
+    ...hierarchyFor('sobha-handover-tower-property'),
     project: verdanaProject,
     phases: updatePhases({ design: 100, enabling: 100, substructure: 100, superstructure: 100, mep: 72, fitout: 58, handover: 12 }, { mep: 'T&C on track', fitout: 'Snag velocity ahead', handover: 'Inspection slots needed' }),
     costSeries: scaleCostSeries(0.67),
     evmSummary: { pv: 118, ac: 116, ev: 121, cpi: 1.04, spi: 1.03, cv: 5, sv: 3, eac: 188, etc: 72, vac: 2, tcpi: 0.96 },
-    risks: updateRisks('verdana', ['Civil defence inspection slot availability', 'Lift commissioning document comments', 'Facade cleaning access conflict', 'Fire alarm integration re-test', 'Snagging closeout velocity slowdown', 'Authority document compilation delay', 'Balcony finishing access overlap', 'Common area handover checklist gap', 'Final DEWA inspection readiness', 'Unit owner walkthrough backlog', 'Testing certificate delay', 'Practical completion documentation risk'], 'Handover Manager'),
-    milestones: updateMilestones('verdana', -22),
+    risks: updateRisks('sobha-handover', ['Civil defence inspection slot availability', 'Lift commissioning document comments', 'Facade cleaning access conflict', 'Fire alarm integration re-test', 'Snagging closeout velocity slowdown', 'Authority document compilation delay', 'Balcony finishing access overlap', 'Common area handover checklist gap', 'Final DEWA inspection readiness', 'Unit owner walkthrough backlog', 'Testing certificate delay', 'Practical completion documentation risk'], 'Handover Manager'),
+    milestones: updateMilestones('sobha-handover', -22),
     aiContent: verdanaAiContent,
   },
-  'bayz-102-handover-snagging': bayzHandoverDataset,
-  'bayz-102-smart-access': bayzSmartAccessDataset,
-  'bayz-102-dlp-remediation': bayzWarrantyDataset,
-  'lawnz-landscape-enhancement': lawnzLandscapeDataset,
-  'lawnz-warranty-control': lawnzWarrantyDataset,
+  'sobha-pilot-tower-handover-snagging': bayzHandoverDataset,
+  'sobha-pilot-tower-smart-access': bayzSmartAccessDataset,
+  'sobha-pilot-tower-dlp-remediation': bayzWarrantyDataset,
+  'sobha-hartland-landscape-enhancement': lawnzLandscapeDataset,
+  'sobha-hartland-warranty-control': lawnzWarrantyDataset,
 } satisfies Record<string, ProjectCommandDataset>;
 
-export const defaultProjectCommandProjectId: ProjectCommandProjectId = 'bayz-102';
+export const defaultProjectCommandProjectId: ProjectCommandProjectId = 'sobha-pilot-tower';
 
 export const projectCommandProjectOptions = Object.values(projectCommandDatasets).map(dataset => ({
   id: dataset.id as ProjectCommandProjectId,

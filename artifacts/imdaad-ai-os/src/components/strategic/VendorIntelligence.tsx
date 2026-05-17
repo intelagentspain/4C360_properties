@@ -303,6 +303,218 @@ type VendorMetricInsight = {
   recommendation: string;
 };
 
+type VendorCopilotAction = 'rfq' | 'compare' | 'background' | 'price' | 'negotiation';
+
+type VendorCopilotResult = {
+  action: VendorCopilotAction;
+  title: string;
+  status: string;
+  summary: string;
+  primaryCta: string;
+  sections: { title: string; lines: string[] }[];
+};
+
+function formatVendorAction(action: VendorCopilotAction): string {
+  return {
+    rfq: 'RFQ drafted',
+    compare: 'Quotes compared',
+    background: 'Background check completed',
+    price: 'Price analysis completed',
+    negotiation: 'Action pack prepared',
+  }[action];
+}
+
+function buildVendorCopilotResult(vendor: VendorIntelData, peers: VendorIntelData[], action: VendorCopilotAction): VendorCopilotResult {
+  const score = computeVendorScore(vendor);
+  const risk = classifyVendorRisk(score);
+  const peerAvgCost = Math.round(peers.reduce((sum, peer) => sum + peer.avgCostPerJob, 0) / Math.max(1, peers.length));
+  const sortedPeers = [...peers].sort((a, b) => computeVendorScore(b) - computeVendorScore(a));
+  const strongestPeer = sortedPeers.find(peer => peer.id !== vendor.id) ?? sortedPeers[0] ?? vendor;
+  const cheapestPeer = [...peers].sort((a, b) => a.avgCostPerJob - b.avgCostPerJob).find(peer => peer.id !== vendor.id) ?? vendor;
+  const costDelta = vendor.avgCostPerJob - peerAvgCost;
+  const dueDate = '7 working days';
+
+  if (action === 'rfq') {
+    return {
+      action,
+      title: `RFQ package for ${vendor.category}`,
+      status: 'Ready for procurement review',
+      summary: `Drafted an RFQ using ${vendor.name}'s current scope, KPI gaps, evidence rules, and site coverage.`,
+      primaryCta: 'Send RFQ to shortlisted vendors',
+      sections: [
+        {
+          title: 'Scope',
+          lines: [
+            `Service category: ${vendor.category}.`,
+            `Sites in scope: ${vendor.sites.join(', ')}.`,
+            `Current workload reference: ${vendor.jobsLast30d} jobs in the last 30 days.`,
+          ],
+        },
+        {
+          title: 'Mandatory commercial response',
+          lines: [
+            `Submit fixed rate card and average job cost target at or below AED ${Math.max(250, peerAvgCost - 25)}.`,
+            `Confirm SLA commitment above ${Math.max(88, vendor.slaCompliance + 3)}% and first-time fix above ${Math.max(86, vendor.firstTimeFixRate + 2)}%.`,
+            `Response deadline: ${dueDate}, including exclusions, parts markup, escalation matrix, and mobilization date.`,
+          ],
+        },
+        {
+          title: 'Evidence and governance',
+          lines: [
+            'Attach trade licenses, insurance, technician certifications, HSE records, and three comparable client references.',
+            'Completion evidence must include before/after photos, asset tag, timestamp, root cause, and resident confirmation where applicable.',
+            `Evaluation weighting: 35% performance, 25% cost, 20% compliance, 20% capacity and response model.`,
+          ],
+        },
+      ],
+    };
+  }
+
+  if (action === 'compare') {
+    const vendorGap = computeVendorScore(strongestPeer) - score;
+    return {
+      action,
+      title: 'Quote and vendor comparison',
+      status: strongestPeer.id === vendor.id ? 'Current vendor leads peer set' : `${strongestPeer.name} is the recommended benchmark`,
+      summary: `Compared ${vendor.name} against peer vendors using score, SLA, first-time fix, evidence quality, cost, and risk flags.`,
+      primaryCta: strongestPeer.id === vendor.id ? 'Keep vendor in current rotation' : `Invite ${strongestPeer.name} to bid`,
+      sections: [
+        {
+          title: 'Decision view',
+          lines: [
+            `${vendor.name}: ${score}/100, ${risk}, AED ${vendor.avgCostPerJob}/job.`,
+            `${strongestPeer.name}: ${computeVendorScore(strongestPeer)}/100, ${classifyVendorRisk(computeVendorScore(strongestPeer))}, AED ${strongestPeer.avgCostPerJob}/job.`,
+            vendorGap > 0 ? `Performance gap: ${vendorGap} points behind the strongest peer.` : 'No score gap against the strongest available peer.',
+          ],
+        },
+        {
+          title: 'Commercial signal',
+          lines: [
+            `${cheapestPeer.name} is the lowest cost reference at AED ${cheapestPeer.avgCostPerJob}/job.`,
+            costDelta > 0 ? `${vendor.name} is AED ${costDelta} above the peer average.` : `${vendor.name} is AED ${Math.abs(costDelta)} below the peer average.`,
+            `Quality check: ${vendor.firstTimeFixRate}% first-time fix and ${vendor.evidenceCompliance}% evidence compliance.`,
+          ],
+        },
+        {
+          title: 'Recommended next step',
+          lines: [
+            strongestPeer.id === vendor.id ? 'Retain the vendor, but request updated pricing if the category benchmark is lower.' : 'Run a controlled RFQ with the current vendor and the stronger peer as minimum participants.',
+            'Require bidders to price the same job basket so comparisons are like-for-like.',
+            'Use evidence compliance and repeat failure history as commercial scoring gates, not only price.',
+          ],
+        },
+      ],
+    };
+  }
+
+  if (action === 'background') {
+    return {
+      action,
+      title: 'Vendor background check',
+      status: vendor.contractFlags.length === 0 && vendor.evidenceCompliance >= 88 ? 'No blocking issues found' : 'Review required before expansion',
+      summary: `Checked contract flags, documentation quality, dependency risk, and operational behavior for ${vendor.name}.`,
+      primaryCta: vendor.contractFlags.length === 0 ? 'Approve controlled sourcing' : 'Request missing documents',
+      sections: [
+        {
+          title: 'Checks completed',
+          lines: [
+            `Contract flags found: ${vendor.contractFlags.length}.`,
+            `Evidence compliance: ${vendor.evidenceCompliance}%.`,
+            `Dependency risk: ${vendor.dependencyRisk}.`,
+          ],
+        },
+        {
+          title: 'Findings',
+          lines: [
+            vendor.contractFlags.length > 0 ? vendor.contractFlags.map(flag => flag.description).join(' ') : 'No active breach, missing evidence, or warning flags are recorded.',
+            vendor.repeatFailureRate > 10 ? `Repeat failure is elevated at ${vendor.repeatFailureRate}%.` : `Repeat failure is within control at ${vendor.repeatFailureRate}%.`,
+            `30-day predicted risk is ${vendor.predictedRisk30d}%.`,
+          ],
+        },
+        {
+          title: 'Action required',
+          lines: [
+            vendor.evidenceCompliance < 88 ? 'Request a complete close-out evidence pack for the next 10 jobs.' : 'Keep standard evidence sampling in place.',
+            vendor.dependencyRisk === 'High' || vendor.dependencyRisk === 'Critical' ? 'Prepare a backup vendor before adding scope.' : 'Dependency is manageable for the current site footprint.',
+            'Store checked documents against the vendor record before contract renewal.',
+          ],
+        },
+      ],
+    };
+  }
+
+  if (action === 'price') {
+    const annualizedOpportunity = Math.max(0, costDelta) * Math.max(1, vendor.jobsLast30d) * 12;
+    return {
+      action,
+      title: 'Price and value analysis',
+      status: costDelta > 0 ? `Potential annual saving: AED ${annualizedOpportunity.toLocaleString()}` : 'Current pricing beats peer average',
+      summary: `Analysed average job cost against peer pricing and quality signals so price is not judged in isolation.`,
+      primaryCta: costDelta > 0 ? 'Open renegotiation brief' : 'Protect current rate card',
+      sections: [
+        {
+          title: 'Price position',
+          lines: [
+            `${vendor.name}: AED ${vendor.avgCostPerJob}/job.`,
+            `Peer average: AED ${peerAvgCost}/job.`,
+            costDelta > 0 ? `Premium: AED ${costDelta}/job.` : `Advantage: AED ${Math.abs(costDelta)}/job below peer average.`,
+          ],
+        },
+        {
+          title: 'Value guardrails',
+          lines: [
+            `First-time fix: ${vendor.firstTimeFixRate}%.`,
+            `SLA compliance: ${vendor.slaCompliance}%.`,
+            `Evidence compliance: ${vendor.evidenceCompliance}%.`,
+          ],
+        },
+        {
+          title: 'Recommendation',
+          lines: [
+            costDelta > 0 ? `Ask for a rate-card reduction toward AED ${peerAvgCost} while preserving SLA penalties.` : 'Do not push for lower price unless quality remains protected.',
+            'Separate labor, materials, emergency call-out, and repeat-visit pricing in the next commercial review.',
+            'Use avoidable repeat visits as a credit note trigger.',
+          ],
+        },
+      ],
+    };
+  }
+
+  return {
+    action,
+    title: 'Vendor action pack',
+    status: 'Ready to issue',
+    summary: `Prepared a practical action pack for ${vendor.name} based on risk, pricing, compliance, and service history.`,
+    primaryCta: risk === 'Preferred' ? 'Schedule quarterly business review' : 'Issue corrective action plan',
+    sections: [
+      {
+        title: 'Message to vendor',
+        lines: [
+          `We reviewed your current performance score of ${score}/100, ${vendor.slaCompliance}% SLA compliance, and AED ${vendor.avgCostPerJob}/job average cost.`,
+          risk === 'Preferred' ? 'Your current standing supports continued allocation, subject to rate-card confirmation and evidence quality.' : 'Your current standing requires corrective actions before additional critical work is assigned.',
+          `Please respond within ${dueDate} with commitments, owners, and dates.`,
+        ],
+      },
+      {
+        title: 'Internal approvals',
+        lines: [
+          'Procurement: validate commercial terms and RFQ requirement.',
+          'Operations: confirm site impact and backup vendor coverage.',
+          'Compliance: verify licenses, insurance, HSE, certifications, and evidence records.',
+        ],
+      },
+      {
+        title: 'Tracked outcomes',
+        lines: [
+          `Raise SLA to at least ${Math.max(88, vendor.slaCompliance + 3)}%.`,
+          `Reduce repeat failure below ${Math.min(8, Math.max(4, vendor.repeatFailureRate - 2))}%.`,
+          `Hold average job cost at or below AED ${Math.min(vendor.avgCostPerJob, peerAvgCost)}.`,
+        ],
+      },
+    ],
+  };
+}
+
 function vendorMetricStatus(metricName: VendorMetricName, value: number, score: number): VendorMetricInsight['status'] {
   if (metricName === 'Avg Resolution') {
     if (value > 60) return 'critical';
@@ -551,6 +763,114 @@ function VendorMetricInsightPanel({ insight, onClose }: { insight: VendorMetricI
   );
 }
 
+function VendorCopilotWorkbench({
+  result,
+  log,
+  onRun,
+}: {
+  result: VendorCopilotResult;
+  log: string[];
+  onRun: (action: VendorCopilotAction) => void;
+}) {
+  const actions: { id: VendorCopilotAction; label: string; detail: string; tone: string; icon: React.ReactNode }[] = [
+    { id: 'rfq', label: 'Write RFQ', detail: 'Scope, questions, scoring, and evidence rules', tone: 'border-blue-400/30 bg-blue-400/10 text-blue-200', icon: <FileWarning size={13} /> },
+    { id: 'compare', label: 'Compare Quotes', detail: 'Score peers by cost, SLA, quality, and risk', tone: 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200', icon: <BarChart3 size={13} /> },
+    { id: 'background', label: 'Background Checks', detail: 'Contracts, evidence, risk, and dependency', tone: 'border-violet-400/30 bg-violet-400/10 text-violet-200', icon: <ShieldCheck size={13} /> },
+    { id: 'price', label: 'Price Analysis', detail: 'Peer average, savings, and rate-card ask', tone: 'border-amber-400/30 bg-amber-400/10 text-amber-200', icon: <DollarSign size={13} /> },
+    { id: 'negotiation', label: 'Action Pack', detail: 'Vendor message, approvals, and KPI targets', tone: 'border-red-400/30 bg-red-400/10 text-red-200', icon: <Target size={13} /> },
+  ];
+
+  return (
+    <div className="grid gap-3 lg:grid-cols-[0.95fr_1.25fr]">
+      <div className="space-y-3">
+        <div className="rounded-xl border border-violet-400/20 bg-[linear-gradient(135deg,rgba(46,127,255,0.14),rgba(124,58,237,0.12))] p-4">
+          <div className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-violet-100">
+            <Sparkles size={13} />
+            Procurement Copilot
+          </div>
+          <p className="text-[12px] leading-5 text-[#DDE6F8]">
+            Choose a job and the copilot prepares the working artifact, applies vendor data, and records the action for follow-up.
+          </p>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
+          {actions.map(action => (
+            <button
+              key={action.id}
+              type="button"
+              onClick={() => onRun(action.id)}
+              className={`group rounded-xl border p-3 text-left transition-all hover:-translate-y-0.5 hover:border-white/30 ${action.tone}`}
+            >
+              <div className="flex items-center gap-2">
+                <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-black/18">{action.icon}</span>
+                <span className="text-[12px] font-black text-[#EEF3FA]">{action.label}</span>
+                <ChevronRight size={13} className="ml-auto opacity-60 transition-transform group-hover:translate-x-0.5" />
+              </div>
+              <div className="mt-2 text-[10px] leading-4 text-[#9CB1CC]">{action.detail}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#0D1E3A] p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[rgba(46,127,255,0.12)] pb-3">
+          <div>
+            <h4 className="text-sm font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{result.title}</h4>
+            <p className="mt-1 text-[11px] leading-5 text-[#8AA6C8]">{result.summary}</p>
+          </div>
+          <span className="rounded-full border border-emerald-400/25 bg-emerald-400/10 px-3 py-1 text-[10px] font-black text-emerald-200">
+            {result.status}
+          </span>
+        </div>
+
+        <div className="mt-3 space-y-3">
+          {result.sections.map(section => (
+            <div key={section.title} className="rounded-xl border border-[rgba(46,127,255,0.12)] bg-[#07111F] p-3">
+              <div className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#8DBDFF]">
+                <ListChecks size={12} />
+                {section.title}
+              </div>
+              <ul className="space-y-2">
+                {section.lines.map(line => (
+                  <li key={line} className="flex gap-2 text-[11px] leading-5 text-[#C8D8EE]">
+                    <CheckCircle size={11} className="mt-1 shrink-0 text-emerald-400" />
+                    {line}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#2E7FFF]/20 bg-[#2E7FFF]/10 p-3">
+          <div>
+            <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#8DBDFF]">Next action</div>
+            <div className="mt-1 text-[12px] font-bold text-[#EEF3FA]">{result.primaryCta}</div>
+          </div>
+          <button
+            type="button"
+            onClick={() => onRun(result.action)}
+            className="rounded-lg bg-[#2E7FFF] px-3 py-2 text-[11px] font-black text-white transition-all hover:bg-[#4B91FF]"
+          >
+            Refresh artifact
+          </button>
+        </div>
+
+        <div className="mt-3 rounded-xl border border-[rgba(46,127,255,0.12)] bg-[#07111F] p-3">
+          <div className="mb-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#7A94B4]">Copilot activity</div>
+          <div className="space-y-1.5">
+            {log.slice(0, 4).map(item => (
+              <div key={item} className="flex items-center gap-2 text-[10px] text-[#9CB1CC]">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#2E7FFF]" />
+                {item}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function MiniChart({ data, field, color }: { data: { month: string; [key: string]: number | string }[]; field: string; color: string }) {
   const values = data.map(d => d[field] as number);
   const min = Math.min(...values);
@@ -597,6 +917,10 @@ function VendorDetailPage({ vendor, onBack, onToast }: { vendor: VendorIntelData
   const [showReassignModal, setShowReassignModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [selectedMetricInsight, setSelectedMetricInsight] = useState<VendorMetricInsight | null>(null);
+  const [copilotAction, setCopilotAction] = useState<VendorCopilotAction>('rfq');
+  const [copilotLog, setCopilotLog] = useState<string[]>([
+    'Ready to draft RFQs, compare quotes, run checks, and prepare price actions.',
+  ]);
   const { vendors: allVendors } = useVendors();
 
   const score = computeVendorScore(vendor);
@@ -607,8 +931,17 @@ function VendorDetailPage({ vendor, onBack, onToast }: { vendor: VendorIntelData
   const rankedVendors = [...allVendors].sort((a, b) => computeVendorScore(b) - computeVendorScore(a));
   const benchmarkRank = rankedVendors.findIndex(v => v.id === vendor.id) + 1;
 
-  const sections = ['Overview', 'AI Insights', 'Contract Compliance', 'Cost vs Performance', 'Benchmarking', 'Predictive Risk', 'Recommendations', 'Dependency Risk'];
+  const copilotResult = buildVendorCopilotResult(vendor, allVendors, copilotAction);
+  const sections = ['Overview', 'Procurement Copilot', 'AI Insights', 'Contract Compliance', 'Cost vs Performance', 'Benchmarking', 'Predictive Risk', 'Recommendations', 'Dependency Risk'];
   const openMetricInsight = (metricName: VendorMetricName) => setSelectedMetricInsight(buildVendorMetricInsight(vendor, metricName));
+  const runCopilotAction = (action: VendorCopilotAction) => {
+    setCopilotAction(action);
+    setCopilotLog(prev => [
+      `${formatVendorAction(action)} for ${vendor.name}`,
+      ...prev.filter(item => item !== `${formatVendorAction(action)} for ${vendor.name}`),
+    ]);
+    onToast(`${formatVendorAction(action)} for ${vendor.name}`, action === 'background' ? 'warning' : 'success');
+  };
 
   return (
     <div className="relative h-full flex flex-col overflow-hidden">
@@ -710,6 +1043,16 @@ function VendorDetailPage({ vendor, onBack, onToast }: { vendor: VendorIntelData
                 <p className="text-[11px] text-red-300">{vendor.anomaly}</p>
               </div>
             )}
+          </DetailSection>
+        </div>
+
+        <div id="vendor-section-Procurement-Copilot">
+          <DetailSection icon={<Sparkles size={12} className="text-[#2E7FFF]" />} title="Procurement Copilot">
+            <VendorCopilotWorkbench
+              result={copilotResult}
+              log={copilotLog}
+              onRun={runCopilotAction}
+            />
           </DetailSection>
         </div>
 

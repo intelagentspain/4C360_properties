@@ -12,7 +12,7 @@ Position 4C360 as the live operating layer that protects Sobha's premium promise
 ## Live Demo Path
 1. Open ProjectCommand overview.
 2. Click Add Project.
-3. Use the Bayz 102 sample document to show AI reading a project summary / LOA-style input.
+3. Use the Sobha Pilot Tower sample document to show AI reading a project summary / LOA-style input.
 4. Generate the project control baseline: programme, cost, gates, vendors, risks, obligations, evidence, and forecast.
 5. Launch ProjectCommand overview.
 6. Trigger Facade Delay.
