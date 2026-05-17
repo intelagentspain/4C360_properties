@@ -179,16 +179,16 @@ function buildContext(screen: ProjectCommandScreen, dataset: ProjectCommandDatas
 
   const commonActions: CopilotRecommendation[] = [
     {
-      id: 'waterproofing-escalation',
-      title: 'Escalate waterproofing delay',
+      id: 'critical-path-escalation',
+      title: 'Escalate critical path recovery',
       why: 'Float is being consumed and downstream phases are exposed.',
-      urgency: 'critical',
-      linkedObject: 'Substructure / critical path',
+      urgency: 'high',
+      linkedObject: 'Programme / critical path',
       cta: 'Draft escalation',
       kind: 'draft',
       confidence: 91,
       effect: 'Recover 2d',
-      draft: `Subject: Critical recovery action required\n\nThe current waterproofing delay is consuming available float and exposing downstream programme phases. Please confirm the recovery crew plan, revised dates, and daily output targets by close of business today.\n\nRequired action: submit an updated recovery programme and evidence plan.\nDeadline: today.`,
+      draft: `Subject: Critical path recovery action required\n\nThe current project control events are consuming available float and exposing downstream programme phases. Please confirm the recovery crew plan, revised dates, and daily output targets by close of business today.\n\nRequired action: submit an updated recovery programme and evidence plan.\nDeadline: today.`,
     },
     {
       id: 'authority-approval',
@@ -475,19 +475,34 @@ function buildContext(screen: ProjectCommandScreen, dataset: ProjectCommandDatas
       signal: 'Health recalculation',
       confidence: 92,
     },
+    ...control.controlExceptions.slice(0, 2).map(exception => ({
+      title: exception.title,
+      detail: `${exception.impact} ${exception.impactMetric ? `Metric impact: ${exception.impactMetric}.` : ''}`,
+      urgency: exception.severity === 'critical' ? 'critical' : exception.severity === 'high' ? 'high' : 'medium',
+      signal: exception.sourceEvent ?? exception.linkedObject,
+      confidence: 91,
+      dependencyChain: [exception.sourceEvent ?? 'Control exception', exception.linkedObject, exception.impactMetric ?? 'Metric impact', exception.cta],
+    } satisfies CopilotInsight)),
   ];
 
-  const dynamicRecommendations: CopilotRecommendation[] = control.managerActions.slice(0, 3).map(action => ({
+  const dynamicRecommendations: CopilotRecommendation[] = control.managerActions.slice(0, 3).map(action => {
+    const linkedToLatest = Boolean(control.latestEvent && action.triggerLabel === control.latestEvent.title);
+    const urgency = linkedToLatest
+      ? 'critical'
+      : action.priority === 'critical' ? 'critical' : action.priority === 'high' ? 'high' : action.priority === 'medium' ? 'medium' : 'info';
+    return ({
     id: action.id,
     title: action.title,
     why: action.whyItMatters,
-    urgency: action.priority === 'critical' ? 'critical' : action.priority === 'high' ? 'high' : action.priority === 'medium' ? 'medium' : 'info',
-    linkedObject: action.linkedEvent,
+    urgency,
+    linkedObject: action.triggerLabel,
     cta: action.cta,
     kind: 'task',
-    confidence: 93,
+    confidence: linkedToLatest ? 96 : 93,
     effect: action.expectedImpact,
-  }));
+    draft: `Project event: ${action.triggerLabel}\nRecommended decision: ${action.title}\nWhy it matters: ${action.whyItMatters}\nExpected impact: ${action.expectedImpact}\nCost implication: ${action.costImplication}`,
+    });
+  });
 
   const selectedContext = contexts[screen];
   return {
@@ -572,6 +587,28 @@ function getPriorityNext(action: CopilotRecommendation) {
 }
 
 function getBlockerDisplay(insight: CopilotInsight, index: number) {
+  if (insight.signal === 'What changed today' || insight.signal === 'Health recalculation') {
+    return {
+      title: insight.title.replace('Latest change: ', ''),
+      summary: insight.detail,
+      why: insight.detail,
+      evidence: insight.signal === 'What changed today' ? 'Live project event, recalculated metrics, and manager action queue.' : 'Health scoring model plus latest event impact.',
+      action: insight.signal === 'What changed today' ? 'Open event action' : 'Explain health movement',
+      chain: insight.dependencyChain ?? [insight.signal, 'Control metrics recalculated', 'Decision queue updated', 'Forecast refreshed'],
+    };
+  }
+
+  if (insight.detail.includes('Metric impact:')) {
+    return {
+      title: insight.title,
+      summary: insight.detail,
+      why: insight.detail,
+      evidence: `Linked object: ${insight.signal}.`,
+      action: 'Open linked action',
+      chain: insight.dependencyChain ?? [insight.signal, 'Control exception', 'Manager action', 'Forecast refreshed'],
+    };
+  }
+
   const stageGateBlockers = [
     {
       title: 'Missing authority approval',
@@ -609,7 +646,8 @@ function getBlockerDisplay(insight: CopilotInsight, index: number) {
   };
 }
 
-function getBlockerAction(index: number, actions: CopilotRecommendation[]) {
+function getBlockerAction(index: number, actions: CopilotRecommendation[], insight?: CopilotInsight) {
+  if (insight?.signal === 'What changed today' || insight?.signal === 'Health recalculation') return actions[0];
   if (index === 0) return actions.find(action => action.id.includes('authority')) ?? actions[0];
   if (index === 1) return actions.find(action => action.id.includes('closeout')) ?? actions.find(action => action.kind === 'task') ?? actions[0];
   if (index === 2) return actions.find(action => action.id.includes('warranty')) ?? actions.find(action => action.id.includes('authority')) ?? actions[0];
@@ -654,6 +692,7 @@ function AIConfidenceBadge({ value = 92 }: { value?: number }) {
 
 function CopilotMonitoringStrip({ context }: { context: CopilotContext }) {
   const signals = ['Gates', 'Float', 'Evidence', 'Variations', 'Contractors'];
+  const latest = context.control.latestEvent;
 
   return (
     <div className="border-b border-[rgba(46,127,255,0.10)] bg-[#07111F]/78 px-5 py-3.5">
@@ -670,6 +709,11 @@ function CopilotMonitoringStrip({ context }: { context: CopilotContext }) {
             {item}
           </span>
         ))}
+        {latest && (
+          <span className="rounded-full border border-[#7C3AED]/30 bg-[#7C3AED]/12 px-2.5 py-1 text-[10px] font-black text-[#DDD6FE]">
+            Event: {latest.title}
+          </span>
+        )}
       </div>
       <motion.p
         className="mt-3 rounded-2xl bg-amber-300/7 px-3 py-2 text-[11px] font-semibold leading-5 text-[#DCE8F8] ring-1 ring-amber-300/12"
@@ -678,6 +722,7 @@ function CopilotMonitoringStrip({ context }: { context: CopilotContext }) {
         transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
       >
         Prediction: {context.prediction.handoverRisk} handover risk if blockers remain after <span className="font-black text-amber-100">{context.prediction.unresolvedAfterDate}</span>.
+        {' '}Health {context.control.healthMovement.from} {'->'} {context.control.healthMovement.to}; EAC {formatProjectCurrency(context.control.metrics.eac)}.
       </motion.p>
     </div>
   );
@@ -801,7 +846,7 @@ function CopilotAttentionList({
       <div className="divide-y divide-[rgba(46,127,255,0.10)] overflow-hidden rounded-2xl bg-[#07111F]/62">
         {insights.slice(0, 3).map((insight, index) => {
           const blocker = getBlockerDisplay(insight, index);
-          const rowAction = getBlockerAction(index, actions);
+          const rowAction = getBlockerAction(index, actions, insight);
           const isOpen = expanded === index;
 
           return (
@@ -885,6 +930,7 @@ function CopilotNextActionCard({
       </div>
       <h4 className="text-[16px] font-black leading-5 text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{recommendation.title}</h4>
       <div className="mt-3 grid gap-2 text-[12px] leading-5 text-[#DCE8F8]">
+        <p className="rounded-2xl border border-[#7C3AED]/18 bg-[#7C3AED]/10 px-3 py-2"><span className="font-black text-[#DDD6FE]">Triggered by: </span>{recommendation.linkedObject}</p>
         <p className="rounded-2xl bg-white/[0.035] px-3 py-2"><span className="font-black text-white">Why: </span>{getPriorityWhy(recommendation)}</p>
         <p className="rounded-2xl bg-white/[0.035] px-3 py-2"><span className="font-black text-white">Next: </span>{getPriorityNext(recommendation)}</p>
       </div>
@@ -1012,6 +1058,7 @@ function CopilotResponse({
         <div className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#07111F] px-3 py-2">
           <p className="font-black text-white">Recommended action</p>
           <p className="mt-1 text-[#DCE8F8]">{nextAction?.title}: {nextAction?.why}</p>
+          <p className="mt-1 text-[10px] font-bold text-[#C4B5FD]">Triggered by: {nextAction?.linkedObject}</p>
           <p className="mt-2 text-[10px] font-bold text-[#7A94B4]">Sources: {context.sourceSignals.slice(0, 3).join(' - ')} - Confidence {context.prediction.confidence}%</p>
         </div>
       </div>

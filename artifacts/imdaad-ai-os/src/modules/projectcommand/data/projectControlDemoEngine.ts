@@ -76,6 +76,7 @@ export interface ManagerAction {
   projectId: string;
   title: string;
   linkedEvent: string;
+  triggerLabel: string;
   priority: 'low' | 'medium' | 'high' | 'critical';
   whyItMatters: string;
   expectedImpact: string;
@@ -99,6 +100,9 @@ export interface ProjectControlMetric {
   source: string;
   lastUpdated: string;
   aiExplanation: string;
+  cause: string;
+  deltaLabel: string;
+  deltaTone: 'good' | 'bad' | 'neutral';
   relatedEvents: string[];
   tone: string;
 }
@@ -109,6 +113,8 @@ export interface ControlException {
   severity: Exclude<ProjectSeverity, 'positive'>;
   linkedObject: string;
   impact: string;
+  sourceEvent?: string;
+  impactMetric?: string;
   cta: string;
 }
 
@@ -465,12 +471,53 @@ function dateFromNow(timestamp: string) {
   return `${Math.round(diff / dayMs)}d ago`;
 }
 
+function signedNumber(value: number | string, suffix = '') {
+  const numeric = typeof value === 'number' ? value : Number(value);
+  const sign = Number.isFinite(numeric) && numeric > 0 ? '+' : '';
+  return `${sign}${value}${suffix}`;
+}
+
+function signedDecimal(value: number) {
+  const sign = value > 0 ? '+' : '';
+  return `${sign}${value.toFixed(2)}`;
+}
+
+function formatMetricDelta(label: ProjectControlMetric['label'], delta: number) {
+  if (Math.abs(delta) < 0.01) return 'No movement';
+  if (label === 'EAC') return `${delta > 0 ? '+' : '-'}${formatProjectCurrency(Math.abs(delta))}`;
+  if (label === 'Float Remaining') return signedNumber(Math.round(delta), 'd');
+  if (label === 'CPI' || label === 'SPI') return signedDecimal(delta);
+  return signedNumber(Number(delta.toFixed(1)).toString().replace('.0', ''), label === 'Completion' || label === 'Budget Used' ? ' pts' : '');
+}
+
+function metricDeltaTone(label: ProjectControlMetric['label'], delta: number): ProjectControlMetric['deltaTone'] {
+  if (Math.abs(delta) < 0.01) return 'neutral';
+  if (label === 'EAC' || label === 'Budget Used') return delta > 0 ? 'bad' : 'good';
+  if (label === 'Completion' || label === 'CPI' || label === 'SPI' || label === 'Float Remaining') return delta > 0 ? 'good' : 'bad';
+  return delta > 0 ? 'good' : 'bad';
+}
+
 function buildMetricCards(dataset: ProjectCommandDataset, events: ProjectEvent[], metrics: ProjectControlContext['metrics']): ProjectControlMetric[] {
+  const base = baseMetrics(dataset);
   const latest = events[events.length - 1];
   const lastUpdated = latest ? dateFromNow(latest.timestamp) : 'Baseline';
   const related = events.slice(-3).map(event => event.title);
+  const cause = latest
+    ? `${latest.title} -> ${latest.impactLabel}`
+    : 'AI baseline generated from property, budget, programme, vendors, risks, obligations, and evidence requirements.';
+  const withDelta = (
+    label: ProjectControlMetric['label'],
+    delta: number,
+    metric: Omit<ProjectControlMetric, 'deltaLabel' | 'deltaTone' | 'cause'>,
+  ): ProjectControlMetric => ({
+    ...metric,
+    cause,
+    deltaLabel: formatMetricDelta(label, delta),
+    deltaTone: metricDeltaTone(label, delta),
+  });
+
   return [
-    {
+    withDelta('Completion', metrics.completion - base.completion, {
       label: 'Completion',
       value: `${metrics.completion.toFixed(1).replace('.0', '')}%`,
       rawValue: metrics.completion,
@@ -479,8 +526,8 @@ function buildMetricCards(dataset: ProjectCommandDataset, events: ProjectEvent[]
       aiExplanation: 'Completion moves only when events affect progress certainty or recovery output.',
       relatedEvents: related,
       tone: '#38D98A',
-    },
-    {
+    }),
+    withDelta('Budget Used', metrics.budgetUsed - base.budgetUsed, {
       label: 'Budget Used',
       value: `${metrics.budgetUsed.toFixed(1).replace('.0', '')}%`,
       rawValue: metrics.budgetUsed,
@@ -489,8 +536,8 @@ function buildMetricCards(dataset: ProjectCommandDataset, events: ProjectEvent[]
       aiExplanation: 'Budget used is linked to actual cost, pending variation exposure, and EAC movement.',
       relatedEvents: related,
       tone: '#FFCD57',
-    },
-    {
+    }),
+    withDelta('CPI', metrics.cpi - base.cpi, {
       label: 'CPI',
       value: metrics.cpi.toFixed(2),
       rawValue: metrics.cpi,
@@ -499,8 +546,8 @@ function buildMetricCards(dataset: ProjectCommandDataset, events: ProjectEvent[]
       aiExplanation: 'CPI responds to cost events such as crane loss, variation exposure, and recovery savings.',
       relatedEvents: related,
       tone: metrics.cpi >= 1 ? '#38D98A' : '#FF9B38',
-    },
-    {
+    }),
+    withDelta('SPI', metrics.spi - base.spi, {
       label: 'SPI',
       value: metrics.spi.toFixed(2),
       rawValue: metrics.spi,
@@ -509,8 +556,8 @@ function buildMetricCards(dataset: ProjectCommandDataset, events: ProjectEvent[]
       aiExplanation: 'SPI responds to delay events, blocked gates, failed inspections, and approved recovery.',
       relatedEvents: related,
       tone: metrics.spi >= 1 ? '#38D98A' : '#FF9B38',
-    },
-    {
+    }),
+    withDelta('Float Remaining', metrics.floatRemaining - base.floatRemaining, {
       label: 'Float Remaining',
       value: `${metrics.floatRemaining}d`,
       rawValue: metrics.floatRemaining,
@@ -519,8 +566,8 @@ function buildMetricCards(dataset: ProjectCommandDataset, events: ProjectEvent[]
       aiExplanation: 'Float is consumed by delay, missing approval, rejected evidence, and contractor productivity events.',
       relatedEvents: related,
       tone: metrics.floatRemaining <= 10 ? '#FF4B4B' : metrics.floatRemaining <= 22 ? '#FF9B38' : '#38D98A',
-    },
-    {
+    }),
+    withDelta('EAC', metrics.eac - base.eac, {
       label: 'EAC',
       value: formatProjectCurrency(metrics.eac),
       rawValue: metrics.eac,
@@ -529,7 +576,7 @@ function buildMetricCards(dataset: ProjectCommandDataset, events: ProjectEvent[]
       aiExplanation: 'EAC is recalculated from cost events, pending variations, and approved recovery effects.',
       relatedEvents: related,
       tone: metrics.eac > dataset.project.contractValue ? '#FF9B38' : '#38D98A',
-    },
+    }),
   ];
 }
 
@@ -630,6 +677,7 @@ function buildManagerActions(dataset: ProjectCommandDataset, events: ProjectEven
   const latest = events[events.length - 1];
   const linkedEvent = latest?.id ?? 'baseline';
   const actions: ManagerAction[] = [];
+  const triggerFor = (types: ProjectEventType[], fallback: string) => [...events].reverse().find(event => types.includes(event.type))?.title ?? fallback;
 
   if (!latest || events.some(event => event.type === 'crane-loss')) {
     actions.push({
@@ -637,6 +685,7 @@ function buildManagerActions(dataset: ProjectCommandDataset, events: ProjectEven
       projectId: dataset.id,
       title: 'Resequence tower crane utilization',
       linkedEvent,
+      triggerLabel: triggerFor(['crane-loss', 'contractor-underperformance'], latest?.title ?? 'AI baseline risk model'),
       priority: metrics.floatRemaining < 18 ? 'critical' : 'high',
       whyItMatters: 'Crane hook time is constraining superstructure, facade logistics, and MEP riser flow.',
       expectedImpact: 'Protects 16 days of superstructure float.',
@@ -652,6 +701,7 @@ function buildManagerActions(dataset: ProjectCommandDataset, events: ProjectEven
       projectId: dataset.id,
       title: 'Release facade long-lead procurement',
       linkedEvent,
+      triggerLabel: triggerFor(['facade-delay'], latest?.title ?? 'AI baseline risk model'),
       priority: 'high',
       whyItMatters: 'Facade release drives envelope closure and the fit-out start window.',
       expectedImpact: 'Avoids Q3 envelope delay.',
@@ -667,6 +717,7 @@ function buildManagerActions(dataset: ProjectCommandDataset, events: ProjectEven
       projectId: dataset.id,
       title: 'Clear blocked approval and evidence gates',
       linkedEvent,
+      triggerLabel: triggerFor(['missing-approval', 'evidence-rejected', 'inspection-failure'], latest?.title ?? 'AI baseline evidence requirements'),
       priority: metrics.evidenceCompleteness < 75 ? 'critical' : 'high',
       whyItMatters: 'Stage gates cannot clear without accepted proof and authority evidence.',
       expectedImpact: 'Restores gate readiness and reduces audit risk.',
@@ -681,6 +732,7 @@ function buildManagerActions(dataset: ProjectCommandDataset, events: ProjectEven
     projectId: dataset.id,
     title: 'Approve night-shift concrete pour window',
     linkedEvent,
+    triggerLabel: latest?.title ?? 'Baseline acceleration option',
     priority: metrics.spi < 0.9 ? 'high' : 'medium',
     whyItMatters: 'Night pours recover days without adding a second crane.',
     expectedImpact: 'Recovers 9 days without adding second crane.',
@@ -694,6 +746,7 @@ function buildManagerActions(dataset: ProjectCommandDataset, events: ProjectEven
 
 function buildExceptions(events: ProjectEvent[], metrics: ProjectControlContext['metrics'], stageGates: ProjectControlContext['stageGateSummary'], evidence: ProjectControlContext['evidenceSummary'], vendors: ProjectControlContext['vendorSummary']): ControlException[] {
   const exceptions: ControlException[] = [];
+  const latestGateEvent = [...events].reverse().find(event => event.impacts.gateStatusChange);
   stageGates.filter(gate => gate.status === 'critical').forEach(gate => {
     exceptions.push({
       id: `gate-${gate.name}`,
@@ -701,46 +754,60 @@ function buildExceptions(events: ProjectEvent[], metrics: ProjectControlContext[
       severity: 'critical',
       linkedObject: gate.name,
       impact: gate.reason,
+      sourceEvent: latestGateEvent?.title,
+      impactMetric: `Float ${metrics.floatRemaining}d / Evidence ${metrics.evidenceCompleteness}%`,
       cta: gate.name === 'Commissioning Ready' ? 'Request authority approval' : 'Open gate recovery',
     });
   });
   evidence.filter(item => item.status === 'Missing' || item.status === 'Rejected').forEach(item => {
+    const sourceEvent = [...events].reverse().find(event => event.type === 'missing-approval' || event.type === 'evidence-rejected' || event.type === 'inspection-failure');
     exceptions.push({
       id: `evidence-${item.title}`,
       title: `${item.title} ${item.status.toLowerCase()}`,
       severity: item.status === 'Rejected' ? 'high' : 'critical',
       linkedObject: item.gate,
       impact: 'Gate readiness and audit trail cannot be trusted until evidence is corrected.',
+      sourceEvent: sourceEvent?.title,
+      impactMetric: `Evidence readiness ${metrics.evidenceCompleteness}%`,
       cta: 'Request corrected evidence',
     });
   });
   if (metrics.pendingVariationExposure > 0) {
+    const sourceEvent = [...events].reverse().find(event => event.type === 'variation-submitted' || event.type === 'crane-loss');
     exceptions.push({
       id: 'pending-variation',
       title: 'Pending variation exposure',
       severity: 'high',
       linkedObject: 'VO-32 / Commercial review',
       impact: `${formatProjectCurrency(metrics.pendingVariationExposure)} is waiting for manager decision and affects EAC.`,
+      sourceEvent: sourceEvent?.title,
+      impactMetric: `EAC ${formatProjectCurrency(metrics.eac)}`,
       cta: 'Review variation',
     });
   }
   vendors.filter(vendor => vendor.score < 75).forEach(vendor => {
+    const sourceEvent = [...events].reverse().find(event => event.type === 'facade-delay' || event.type === 'contractor-underperformance' || event.type === 'crane-loss' || event.type === 'inspection-failure');
     exceptions.push({
       id: `vendor-${vendor.name}`,
       title: `${vendor.scope} vendor score falling`,
       severity: vendor.score < 65 ? 'critical' : 'high',
       linkedObject: vendor.name,
       impact: `${vendor.name} is now ${vendor.score}/100 and is linked to latest project control events.`,
+      sourceEvent: sourceEvent?.title,
+      impactMetric: `Vendor score ${vendor.score}/100`,
       cta: 'Issue recovery notice',
     });
   });
   if (metrics.riskExposure > 38_000_000 || events.some(event => event.type === 'contractor-underperformance')) {
+    const sourceEvent = [...events].reverse().find(event => event.impacts.riskDelta > 0);
     exceptions.push({
       id: 'risk-exposure',
       title: 'Risk exposure escalated',
       severity: eventSeverity(-5),
       linkedObject: 'Risk register',
       impact: `${formatProjectCurrency(metrics.riskExposure)} exposure is now active across cost, programme, and vendor controls.`,
+      sourceEvent: sourceEvent?.title,
+      impactMetric: `Risk exposure ${formatProjectCurrency(metrics.riskExposure)}`,
       cta: 'Open risk review',
     });
   }

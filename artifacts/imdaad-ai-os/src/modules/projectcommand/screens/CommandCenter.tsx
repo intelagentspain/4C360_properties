@@ -66,6 +66,53 @@ function statusClass(status: ProjectControlContext['projectControlStatus']) {
   return 'border-red-300/30 bg-red-400/12 text-red-100';
 }
 
+function deltaClass(tone: 'good' | 'bad' | 'neutral') {
+  if (tone === 'good') return 'border-emerald-300/24 bg-emerald-300/10 text-emerald-100';
+  if (tone === 'bad') return 'border-red-300/24 bg-red-400/10 text-red-100';
+  return 'border-[rgba(46,127,255,0.18)] bg-[#07111F] text-[#8EA7C7]';
+}
+
+function impactTone(value: number, positiveIsGood = true) {
+  if (value === 0) return 'neutral';
+  const isGood = positiveIsGood ? value > 0 : value < 0;
+  return isGood ? 'good' : 'bad';
+}
+
+function signed(value: number, suffix = '') {
+  const rounded = Number(value.toFixed(Math.abs(value) < 1 ? 2 : 1)).toString().replace('.0', '');
+  return `${value > 0 ? '+' : ''}${rounded}${suffix}`;
+}
+
+function EventImpactChips({ event, compact = false }: { event: ProjectControlContext['events'][number]; compact?: boolean }) {
+  const chips = [
+    event.impacts.healthDelta !== 0 ? { label: 'Health', value: signed(event.impacts.healthDelta), tone: impactTone(event.impacts.healthDelta) } : null,
+    event.impacts.spiDelta !== 0 ? { label: 'SPI', value: signed(event.impacts.spiDelta), tone: impactTone(event.impacts.spiDelta) } : null,
+    event.impacts.floatDelta !== 0 ? { label: 'Float', value: signed(event.impacts.floatDelta, 'd'), tone: impactTone(event.impacts.floatDelta) } : null,
+    event.impacts.eacDelta !== 0 ? { label: 'EAC', value: `${event.impacts.eacDelta > 0 ? '+' : '-'}${formatProjectCurrency(Math.abs(event.impacts.eacDelta))}`, tone: impactTone(event.impacts.eacDelta, false) } : null,
+    event.impacts.riskDelta !== 0 ? { label: 'Risk', value: signed(event.impacts.riskDelta, 'M'), tone: impactTone(event.impacts.riskDelta, false) } : null,
+    event.impacts.evidenceChange !== 0 ? { label: 'Evidence', value: signed(event.impacts.evidenceChange, ' pts'), tone: impactTone(event.impacts.evidenceChange) } : null,
+  ].filter((chip): chip is { label: string; value: string; tone: 'good' | 'bad' | 'neutral' } => Boolean(chip));
+
+  if (chips.length === 0) return null;
+
+  return (
+    <div className={`flex flex-wrap ${compact ? 'gap-1.5' : 'gap-2'}`}>
+      {chips.map(chip => (
+        <motion.span
+          key={`${event.id}-${chip.label}`}
+          initial={{ opacity: 0, y: 4, scale: 0.96 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.22 }}
+          className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-black uppercase ${deltaClass(chip.tone)}`}
+        >
+          {chip.label}
+          <span>{chip.value}</span>
+        </motion.span>
+      ))}
+    </div>
+  );
+}
+
 function MetricCard({
   metric,
   onExplain,
@@ -79,22 +126,39 @@ function MetricCard({
       onClick={onExplain}
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      className="group relative min-h-[142px] overflow-hidden rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-3 text-left transition-colors hover:border-[#7C3AED]/35 hover:bg-[rgba(17,32,64,0.92)]"
+      className="group relative min-h-[176px] overflow-hidden rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-3 text-left transition-colors hover:border-[#7C3AED]/35 hover:bg-[rgba(17,32,64,0.92)]"
     >
       <AIInsightBadge onClick={onExplain} />
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#7A94B4]">{metric.label}</div>
-          <div className="mt-2 text-[26px] font-black" style={{ color: metric.tone, fontFamily: 'Space Grotesk, sans-serif' }}>{metric.value}</div>
+          <motion.div
+            key={`${metric.label}-${metric.value}`}
+            initial={{ scale: 0.94, opacity: 0.6 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="mt-2 text-[26px] font-black"
+            style={{ color: metric.tone, fontFamily: 'Space Grotesk, sans-serif' }}
+          >
+            {metric.value}
+          </motion.div>
         </div>
-        <span className="rounded-full border border-[rgba(46,127,255,0.18)] bg-[#07111F] px-2 py-1 text-[9px] font-black uppercase text-[#8EA7C7]">
-          {metric.lastUpdated}
-        </span>
+        <div className="flex flex-col items-end gap-1.5">
+          <span className={`rounded-full border px-2 py-1 text-[9px] font-black uppercase ${deltaClass(metric.deltaTone)}`}>{metric.deltaLabel}</span>
+          <span className="rounded-full border border-[rgba(46,127,255,0.18)] bg-[#07111F] px-2 py-1 text-[9px] font-black uppercase text-[#8EA7C7]">
+            {metric.lastUpdated}
+          </span>
+        </div>
       </div>
       <p className="mt-3 line-clamp-2 text-[10px] leading-4 text-[#8EA7C7]">{metric.aiExplanation}</p>
-      <div className="mt-3 rounded-lg border border-[rgba(46,127,255,0.12)] bg-[#07111F]/70 px-2.5 py-2">
-        <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#5A6E88]">Source</p>
-        <p className="mt-0.5 truncate text-[10px] font-bold text-[#B8C7DB]">{metric.source}</p>
+      <div className="mt-3 grid gap-2">
+        <div className="rounded-lg border border-[rgba(46,127,255,0.12)] bg-[#07111F]/70 px-2.5 py-2">
+          <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#5A6E88]">Cause</p>
+          <p className="mt-0.5 line-clamp-2 text-[10px] font-bold leading-4 text-[#DCE8F8]">{metric.cause}</p>
+        </div>
+        <div className="rounded-lg border border-[rgba(46,127,255,0.12)] bg-[#07111F]/70 px-2.5 py-2">
+          <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#5A6E88]">Source</p>
+          <p className="mt-0.5 truncate text-[10px] font-bold text-[#B8C7DB]">{metric.source}</p>
+        </div>
       </div>
       <div className="absolute bottom-0 left-0 h-1 bg-[#7C3AED] transition-all group-hover:bg-[#00C6FF]" style={{ width: `${Math.min(100, Math.max(8, metric.rawValue))}%` }} />
     </motion.button>
@@ -145,9 +209,27 @@ function ProjectPulse({
   const movement = context.healthMovement.from !== context.healthMovement.to
     ? `Health changed from ${context.healthMovement.from} -> ${context.healthMovement.to} after latest events.`
     : 'Health is holding at baseline. Simulate a project event to show live recalculation.';
+  const latest = context.latestEvent;
+  const chain = latest
+    ? [
+        { label: 'Event', value: latest.title },
+        { label: 'Control impact', value: latest.affectedModule },
+        { label: 'Manager action', value: context.managerActions[0]?.title ?? latest.cta },
+      ]
+    : [
+        { label: 'Input', value: 'Property + project created' },
+        { label: 'AI baseline', value: 'Controls generated' },
+        { label: 'Ready', value: 'Awaiting live event' },
+      ];
 
   return (
-    <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
+    <motion.section
+      key={latest?.id ?? 'baseline-pulse'}
+      initial={{ boxShadow: '0 0 0 rgba(124,58,237,0)' }}
+      animate={{ boxShadow: latest ? '0 0 34px rgba(124,58,237,0.16)' : '0 0 0 rgba(124,58,237,0)' }}
+      transition={{ duration: 0.35 }}
+      className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4"
+    >
       <div className="grid gap-5 xl:grid-cols-[116px_1fr_330px] xl:items-center">
         <HealthScoreGauge score={context.metrics.healthScore} status={context.projectControlStatus === 'critical' ? 'critical' : context.projectControlStatus === 'on-track' ? 'good' : 'monitor'} />
         <div className="min-w-0 border-l-2 pl-5" style={{ borderColor: projectStatusColor(context.projectControlStatus) }}>
@@ -168,6 +250,20 @@ function ProjectPulse({
           <h3 className="text-[18px] font-black leading-6 text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{context.topThreat}</h3>
           <p className="mt-2 text-[12px] leading-5 text-[#B8C7DB]">{context.latestImpact}</p>
           <div className="mt-3 rounded-lg border border-[rgba(46,127,255,0.14)] bg-[#07111F]/70 px-3 py-2 text-[11px] font-bold text-[#DCE8F8]">{movement}</div>
+          {latest && (
+            <div className="mt-3">
+              <EventImpactChips event={latest} />
+            </div>
+          )}
+          <div className="mt-3 grid gap-2 sm:grid-cols-3">
+            {chain.map((item, index) => (
+              <div key={item.label} className="relative rounded-lg border border-[rgba(46,127,255,0.12)] bg-[#07111F]/60 px-3 py-2">
+                <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#5A6E88]">{item.label}</p>
+                <p className="mt-1 line-clamp-2 text-[10px] font-black leading-4 text-[#DCE8F8]">{item.value}</p>
+                {index < chain.length - 1 && <ArrowRight className="absolute -right-3 top-1/2 hidden -translate-y-1/2 text-[#5A6E88] sm:block" size={14} />}
+              </div>
+            ))}
+          </div>
         </div>
         <div className="grid grid-cols-2 gap-2">
           {[
@@ -183,7 +279,7 @@ function ProjectPulse({
           ))}
         </div>
       </div>
-    </section>
+    </motion.section>
   );
 }
 
@@ -223,16 +319,26 @@ function WhatChangedToday({ context, goTo }: { context: ProjectControlContext; g
         <span className="rounded-full border border-[rgba(46,127,255,0.18)] bg-[#07111F] px-2.5 py-1 text-[10px] font-black text-[#8EA7C7]">{feed.length} updates</span>
       </div>
       <div className="space-y-2">
-        {feed.slice(0, 6).map(event => (
-          <div key={event.id} className="grid gap-3 rounded-xl border border-[rgba(46,127,255,0.13)] bg-[#07111F]/72 p-3 lg:grid-cols-[1fr_130px] lg:items-center">
+        {feed.slice(0, 6).map((event, index) => (
+          <motion.div
+            key={event.id}
+            layout
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: index * 0.03 }}
+            className="grid gap-3 rounded-xl border border-[rgba(46,127,255,0.13)] bg-[#07111F]/72 p-3 lg:grid-cols-[1fr_150px] lg:items-center"
+          >
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black uppercase ${severityClass[event.severity]}`}>{event.type.replaceAll('-', ' ')}</span>
+                <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black uppercase ${severityClass[event.severity]} ${index === 0 && context.changedToday.length > 0 ? 'animate-pulse' : ''}`}>{event.type.replaceAll('-', ' ')}</span>
                 <span className="text-[10px] font-bold text-[#7A94B4]">{event.affectedModule}</span>
                 <span className="text-[10px] text-[#5A6E88]">{formatProjectEventTime(event.timestamp)}</span>
               </div>
               <p className="mt-2 text-[12px] font-black text-[#EEF3FA]">{event.title}</p>
               <p className="mt-1 text-[11px] leading-4 text-[#B8C7DB]">{event.impactLabel}</p>
+              <div className="mt-2">
+                <EventImpactChips event={event} compact />
+              </div>
             </div>
             <button
               type="button"
@@ -242,7 +348,7 @@ function WhatChangedToday({ context, goTo }: { context: ProjectControlContext; g
               {event.cta}
               <ArrowRight size={12} />
             </button>
-          </div>
+          </motion.div>
         ))}
       </div>
     </section>
@@ -264,7 +370,12 @@ function ControlExceptions({ context, goTo }: { context: ProjectControlContext; 
       ) : (
         <div className="grid gap-2 lg:grid-cols-2">
           {exceptions.map(exception => (
-            <div key={exception.id} className="rounded-xl border border-[rgba(46,127,255,0.13)] bg-[#07111F]/72 p-3">
+            <motion.div
+              key={exception.id}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="rounded-xl border border-[rgba(46,127,255,0.13)] bg-[#07111F]/72 p-3"
+            >
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black uppercase ${severityClass[exception.severity]}`}>{exception.severity}</span>
@@ -274,6 +385,16 @@ function ControlExceptions({ context, goTo }: { context: ProjectControlContext; 
                 <FileWarning size={17} className="shrink-0 text-[#FFCD57]" />
               </div>
               <p className="mt-2 min-h-[34px] text-[11px] leading-4 text-[#B8C7DB]">{exception.impact}</p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                <div className="rounded-lg bg-[#0A1628] px-2.5 py-2">
+                  <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#5A6E88]">Caused by</p>
+                  <p className="mt-0.5 truncate text-[10px] font-bold text-[#DCE8F8]">{exception.sourceEvent ?? 'Baseline control rule'}</p>
+                </div>
+                <div className="rounded-lg bg-[#0A1628] px-2.5 py-2">
+                  <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#5A6E88]">Metric hit</p>
+                  <p className="mt-0.5 truncate text-[10px] font-bold text-[#DCE8F8]">{exception.impactMetric ?? 'Gate readiness'}</p>
+                </div>
+              </div>
               <button
                 type="button"
                 onClick={() => goTo(exception.title.includes('evidence') ? 'evidence' : exception.title.includes('variation') ? 'cost' : exception.title.includes('vendor') || exception.title.includes('Risk') ? 'risk' : 'stagegates')}
@@ -282,7 +403,7 @@ function ControlExceptions({ context, goTo }: { context: ProjectControlContext; 
                 {exception.cta}
                 <ArrowRight size={12} />
               </button>
-            </div>
+            </motion.div>
           ))}
         </div>
       )}
@@ -292,7 +413,11 @@ function ControlExceptions({ context, goTo }: { context: ProjectControlContext; 
 
 function DecisionCard({ action, onQueue }: { action: ManagerAction; onQueue: (action: ManagerAction) => void }) {
   return (
-    <div className="rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#07111F]/78 p-3">
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#07111F]/78 p-3"
+    >
       <div className="flex items-start justify-between gap-3">
         <div>
           <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black uppercase ${severityClass[action.priority === 'critical' ? 'critical' : action.priority === 'high' ? 'high' : action.priority === 'medium' ? 'medium' : 'low']}`}>{action.priority}</span>
@@ -301,6 +426,7 @@ function DecisionCard({ action, onQueue }: { action: ManagerAction; onQueue: (ac
         <Target size={17} className="shrink-0 text-[#C4B5FD]" />
       </div>
       <div className="mt-3 space-y-2 text-[11px] leading-4 text-[#B8C7DB]">
+        <p className="rounded-lg border border-[#7C3AED]/18 bg-[#7C3AED]/10 px-2.5 py-2"><span className="font-black text-[#DDD6FE]">Triggered by: </span>{action.triggerLabel}</p>
         <p><span className="font-black text-white">Why: </span>{action.whyItMatters}</p>
         <p><span className="font-black text-white">Impact: </span>{action.expectedImpact}</p>
         <p><span className="font-black text-white">Cost: </span>{action.costImplication}</p>
@@ -313,12 +439,13 @@ function DecisionCard({ action, onQueue }: { action: ManagerAction; onQueue: (ac
         <CheckCircle2 size={13} />
         {action.cta}
       </button>
-    </div>
+    </motion.div>
   );
 }
 
-function ForecastCard({ scenario }: { scenario: ForecastScenario }) {
+function ForecastCard({ scenario, context }: { scenario: ForecastScenario; context: ProjectControlContext }) {
   const tone = scenario.type === 'optimistic' ? '#38D98A' : scenario.type === 'base' ? '#00C6FF' : '#FF9B38';
+  const eventLabel = context.latestEvent?.title ?? 'AI baseline';
   return (
     <div className="rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#07111F]/78 p-3">
       <div className="flex items-start justify-between gap-3">
@@ -329,6 +456,10 @@ function ForecastCard({ scenario }: { scenario: ForecastScenario }) {
         <span className="rounded-full border border-[rgba(46,127,255,0.18)] bg-[#0A1628] px-2 py-1 text-[10px] font-black text-[#DCE8F8]">{scenario.confidence}%</span>
       </div>
       <p className="mt-2 text-[13px] font-black" style={{ color: tone }}>{formatProjectCurrency(scenario.forecastCost)}</p>
+      <div className="mt-3 rounded-lg border border-[rgba(46,127,255,0.12)] bg-[#0A1628] px-2.5 py-2">
+        <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#5A6E88]">Scenario driver</p>
+        <p className="mt-0.5 line-clamp-2 text-[10px] font-bold leading-4 text-[#DCE8F8]">{eventLabel} / {context.events.length} event(s) applied</p>
+      </div>
       <div className="mt-3 space-y-1">
         {scenario.assumptions.slice(0, 3).map(item => (
           <div key={item} className="flex gap-2 text-[10px] leading-4 text-[#8EA7C7]">
@@ -402,25 +533,46 @@ function DemoControls({
   onSimulate: (type?: ProjectEventType) => void;
 }) {
   if (!demoMode) return null;
+  const latest = events[events.length - 1];
+  const next = projectEventOptions[events.length % projectEventOptions.length];
   return (
     <section className="rounded-xl border border-[#7C3AED]/28 bg-[linear-gradient(135deg,rgba(124,58,237,0.16),rgba(7,17,31,0.88))] p-4">
       <div className="mb-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#C4B5FD]"><Zap size={13} /> Demo Controls</div>
-          <p className="mt-1 text-[11px] text-[#8EA7C7]">Presentation controls for the live project controls demo engine. {events.length} event(s) active.</p>
+          <p className="mt-1 text-[11px] text-[#8EA7C7]">
+            Presentation controls drive the story. {events.length} event(s) active{latest ? ` - latest: ${latest.title}` : ''}.
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button onClick={onReset} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[rgba(46,127,255,0.18)] bg-[#07111F] px-3 text-[10px] font-black text-[#DCE8F8] hover:bg-white/5"><RefreshCw size={12} /> Reset Baseline</button>
-          <button onClick={() => onSimulate()} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#7C3AED] px-3 text-[10px] font-black text-white hover:bg-[#6D28D9]"><Play size={12} /> Simulate Project Event</button>
+          <button onClick={() => onSimulate()} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#7C3AED] px-3 text-[10px] font-black text-white shadow-[0_0_22px_rgba(124,58,237,0.26)] hover:bg-[#6D28D9]"><Play size={12} /> Simulate Project Event <span className="text-white/70">({next.label.replace('Simulate ', '')})</span></button>
         </div>
       </div>
+      <div className="mb-3 grid gap-2 md:grid-cols-3">
+        {[
+          ['1', 'Create baseline', events.length === 0 ? 'Ready for first event' : 'Baseline active'],
+          ['2', 'Inject disruption', latest?.title ?? 'Choose a live event'],
+          ['3', 'Queue decision', latest ? 'Watch Pulse, KPIs, Copilot update' : 'Recommendations are waiting'],
+        ].map(([step, title, detail]) => (
+          <div key={step} className="rounded-lg border border-[#7C3AED]/18 bg-[#07111F]/62 px-3 py-2">
+            <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#A78BFA]">Demo step {step}</p>
+            <p className="mt-0.5 text-[11px] font-black text-[#EEF3FA]">{title}</p>
+            <p className="mt-0.5 truncate text-[10px] font-bold text-[#8EA7C7]">{detail}</p>
+          </div>
+        ))}
+      </div>
       <div className="flex flex-wrap gap-2">
-        {projectEventOptions.filter(option => ['facade-delay', 'crane-loss', 'variation-submitted', 'evidence-rejected', 'recovery-approved'].includes(option.type)).map(option => (
+        {projectEventOptions.map(option => (
           <button
             key={option.type}
             type="button"
             onClick={() => onSimulate(option.type)}
-            className="rounded-lg border border-[#7C3AED]/24 bg-[#07111F]/82 px-3 py-2 text-[10px] font-black text-[#DDD6FE] hover:border-[#7C3AED]/45 hover:bg-[#7C3AED]/14"
+            className={`rounded-lg border px-3 py-2 text-[10px] font-black transition-colors ${
+              latest?.type === option.type
+                ? 'border-[#7C3AED]/55 bg-[#7C3AED]/22 text-white shadow-[0_0_18px_rgba(124,58,237,0.22)]'
+                : 'border-[#7C3AED]/24 bg-[#07111F]/82 text-[#DDD6FE] hover:border-[#7C3AED]/45 hover:bg-[#7C3AED]/14'
+            }`}
           >
             {option.label}
           </button>
@@ -500,7 +652,7 @@ export function CommandCenter({ goTo, onToast }: { goTo: (screen: ProjectCommand
                     onClick={() => setProjectCommandState({ activeScenario: scenario.type })}
                     className={`block w-full text-left transition-transform hover:scale-[1.01] ${baseScenario.type === scenario.type ? 'rounded-xl ring-1 ring-[#7C3AED]/40' : ''}`}
                   >
-                    <ForecastCard scenario={scenario} />
+                    <ForecastCard scenario={scenario} context={context} />
                   </button>
                 ))}
               </div>
