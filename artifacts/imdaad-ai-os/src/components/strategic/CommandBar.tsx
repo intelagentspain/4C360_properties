@@ -1,10 +1,19 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { Search, Bell, ChevronDown, Zap, Bot, Hand, Plus, X, Building2, MapPin, FileText, User, Users, Sparkles, Loader2, MessageSquare, BookOpen, DollarSign, Package } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMemberProfiles } from '@/context/MemberProfilesContext';
 import type { MockMemberProfile } from '@/data/mockData';
 import { useMemberFilter, isFilterActive } from '@/context/MemberFilterContext';
+import { useClients } from '@/context/ClientsContext';
 import { WhatsAppModal } from '@/components/shared/WhatsAppModal';
+import {
+  COMMAND_FILTER_ALL_VALUES,
+  COMMAND_SERVICE_OPTIONS,
+  COMMAND_ZONE_OPTIONS,
+  uniqueCommandOptions,
+  type CommandFilterKey,
+  type CommandFilters,
+} from '@/lib/commandFilters';
 
 export type AutomationMode = 'manual' | 'hybrid' | 'ai';
 
@@ -12,6 +21,8 @@ interface Props {
   mode: AutomationMode;
   onModeChange: (m: AutomationMode) => void;
   onToast: (msg: string, type?: 'success' | 'warning' | 'error' | 'info') => void;
+  selectedFilters?: CommandFilters;
+  onFiltersChange?: (filters: CommandFilters) => void;
 }
 
 const modeConfig: Record<AutomationMode, { label: string; icon: React.ReactNode; color: string; bg: string; desc: string }> = {
@@ -36,11 +47,6 @@ const modeConfig: Record<AutomationMode, { label: string; icon: React.ReactNode;
     bg: 'bg-emerald-500/20',
     desc: 'AI dispatches and assigns autonomously within defined rules',
   },
-};
-
-const STATIC_FILTERS = {
-  Zone:    ['All Zones', 'Cluster A', 'Cluster B', 'Block C', 'Recreation Area', 'Main Gate'],
-  Service: ['All Services', 'HVAC', 'Plumbing', 'Electrical', 'General'],
 };
 
 const INITIALS_COLORS = [
@@ -2181,49 +2187,75 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
   );
 }
 
-type FilterKey = 'Client' | 'Zone' | 'Service';
-
-const FILTER_LABELS: Record<FilterKey, string> = {
+const FILTER_LABELS: Record<CommandFilterKey, string> = {
   Client: 'Property',
   Zone: 'Zone',
   Service: 'Service',
 };
 
-const FILTER_ALL_VALUES: Record<FilterKey, string> = {
-  Client: 'All Properties',
-  Zone: 'All Zones',
-  Service: 'All Services',
-};
+interface ClientFilterOption {
+  name: string;
+  sector?: string;
+  slaTier?: string;
+  initialsColor: string;
+}
 
-export function CommandBar({ mode, onModeChange, onToast }: Props) {
+export function CommandBar({ mode, onModeChange, onToast, selectedFilters, onFiltersChange }: Props) {
   const { addProfiles }                         = useMemberProfiles();
   const memberFilter                            = useMemberFilter();
   const isMemberMode                            = isFilterActive(memberFilter);
+  const { clients }                             = useClients();
 
-  const initialSelected: Record<FilterKey, string> = {
+  const initialSelected: CommandFilters = {
     Client: isMemberMode && memberFilter.assignedClients.length === 1
       ? memberFilter.assignedClients[0]
-      : FILTER_ALL_VALUES.Client,
+      : COMMAND_FILTER_ALL_VALUES.Client,
     Zone: isMemberMode && memberFilter.zones.length === 1
       ? memberFilter.zones[0]
-      : FILTER_ALL_VALUES.Zone,
-    Service: FILTER_ALL_VALUES.Service,
+      : COMMAND_FILTER_ALL_VALUES.Zone,
+    Service: COMMAND_FILTER_ALL_VALUES.Service,
   };
 
   const [search, setSearch]                     = useState('');
   const [clientData, setClientData]             = useState<ClientData[]>(INITIAL_CLIENT_DATA);
-  const [openFilter, setOpenFilter]             = useState<FilterKey | null>(null);
-  const [selected, setSelected]                 = useState<Record<FilterKey, string>>(initialSelected);
+  const [openFilter, setOpenFilter]             = useState<CommandFilterKey | null>(null);
+  const [selected, setSelected]                 = useState<CommandFilters>(initialSelected);
   const [showModeDropdown, setShowModeDropdown] = useState(false);
   const [showAddClient, setShowAddClient]       = useState(false);
 
-  const clientNames = ['All Properties', ...clientData.map(c => c.name)];
-  const selectedClientInfo = clientData.find(c => c.name === selected.Client);
+  const activeSelected = selectedFilters ?? selected;
+  const updateSelected = (next: CommandFilters) => {
+    setSelected(next);
+    onFiltersChange?.(next);
+  };
 
-  const filters: Record<FilterKey, string[]> = {
+  const clientOptions = useMemo<ClientFilterOption[]>(() => {
+    return uniqueCommandOptions([...clients.map(c => c.name), ...clientData.map(c => c.name)]).map((name, index) => {
+      const portfolioClient = clients.find(c => c.name === name);
+      const localClient = clientData.find(c => c.name === name);
+      return {
+        name,
+        sector: portfolioClient?.sector ?? localClient?.sector,
+        slaTier: portfolioClient?.contract.tier ?? localClient?.slaTier,
+        initialsColor: localClient?.initialsColor ?? INITIALS_COLORS[index % INITIALS_COLORS.length],
+      };
+    });
+  }, [clients, clientData]);
+
+  const clientNames = [COMMAND_FILTER_ALL_VALUES.Client, ...clientOptions.map(c => c.name)];
+  const selectedClientInfo = clientOptions.find(c => c.name === activeSelected.Client);
+
+  const zoneOptions = useMemo(() => uniqueCommandOptions([
+    COMMAND_FILTER_ALL_VALUES.Zone,
+    ...clients.map(c => c.region),
+    ...clients.flatMap(c => c.topSites.map(site => site.name)),
+    ...COMMAND_ZONE_OPTIONS.filter(option => option !== COMMAND_FILTER_ALL_VALUES.Zone),
+  ]), [clients]);
+
+  const filters: Record<CommandFilterKey, string[]> = {
     Client:  clientNames,
-    Zone:    STATIC_FILTERS.Zone,
-    Service: STATIC_FILTERS.Service,
+    Zone:    zoneOptions,
+    Service: COMMAND_SERVICE_OPTIONS,
   };
 
   const handleModeChange = (m: AutomationMode) => {
@@ -2232,14 +2264,14 @@ export function CommandBar({ mode, onModeChange, onToast }: Props) {
     onToast(`Automation mode set to ${modeConfig[m].label}`, m === 'ai' ? 'success' : 'info');
   };
 
-  const handleFilter = (key: FilterKey, val: string) => {
-    setSelected(prev => ({ ...prev, [key]: val }));
+  const handleFilter = (key: CommandFilterKey, val: string) => {
+    updateSelected({ ...activeSelected, [key]: val });
     setOpenFilter(null);
   };
 
   const handleAddClient = (data: ClientData, teamMembers: TeamMember[], inviteOk: boolean, failedCount: number) => {
     setClientData(prev => [...prev, data]);
-    setSelected(prev => ({ ...prev, Client: data.name }));
+    updateSelected({ ...activeSelected, Client: data.name });
     setShowAddClient(false);
     setOpenFilter(null);
     addProfiles(teamMembers);
@@ -2278,12 +2310,12 @@ export function CommandBar({ mode, onModeChange, onToast }: Props) {
         <div className="w-px h-5 bg-[rgba(46,127,255,0.2)]" />
 
         <div className="flex items-center gap-1.5">
-          {(Object.keys(filters) as FilterKey[]).map(key => (
+          {(Object.keys(filters) as CommandFilterKey[]).map(key => (
             <div key={key} className="relative">
               <button
                 onClick={() => setOpenFilter(openFilter === key ? null : key)}
                 className={`flex items-center gap-1 px-2.5 py-1 rounded-md border text-[11px] font-medium transition-all duration-150 ${
-                  selected[key] !== FILTER_ALL_VALUES[key]
+                  activeSelected[key] !== COMMAND_FILTER_ALL_VALUES[key]
                     ? 'border-[#2E7FFF] bg-[rgba(46,127,255,0.15)] text-[#EEF3FA]'
                     : 'border-[rgba(46,127,255,0.22)] text-[#7A94B4] hover:text-[#EEF3FA] hover:border-[rgba(46,127,255,0.4)]'
                 }`}
@@ -2296,7 +2328,7 @@ export function CommandBar({ mode, onModeChange, onToast }: Props) {
                     {selectedClientInfo.name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()}
                   </span>
                 )}
-                {FILTER_LABELS[key]}: <span className="text-[#EEF3FA] ml-0.5">{selected[key].replace(FILTER_ALL_VALUES[key], 'All')}</span>
+                {FILTER_LABELS[key]}: <span className="text-[#EEF3FA] ml-0.5">{activeSelected[key].replace(COMMAND_FILTER_ALL_VALUES[key], 'All')}</span>
                 <ChevronDown size={10} className={`transition-transform ${openFilter === key ? 'rotate-180' : ''}`} />
               </button>
 
@@ -2312,13 +2344,13 @@ export function CommandBar({ mode, onModeChange, onToast }: Props) {
                       className={`absolute top-8 left-0 z-[200] bg-[#112040] border border-[rgba(46,127,255,0.3)] rounded-lg overflow-hidden shadow-xl ${key === 'Client' ? 'w-56' : 'w-44'}`}
                     >
                       {filters[key].map(opt => {
-                        const info = key === 'Client' ? clientData.find(c => c.name === opt) : null;
+                        const info = key === 'Client' ? clientOptions.find(c => c.name === opt) : null;
                         return (
                           <button
                             key={opt}
                             onClick={() => handleFilter(key, opt)}
                             className={`w-full flex items-center gap-2 px-3 py-1.5 text-[11px] transition-colors hover:bg-white/5 ${
-                              selected[key] === opt ? 'text-[#2E7FFF] font-semibold' : 'text-[#7A94B4]'
+                              activeSelected[key] === opt ? 'text-[#2E7FFF] font-semibold' : 'text-[#7A94B4]'
                             }`}
                           >
                             {info && (

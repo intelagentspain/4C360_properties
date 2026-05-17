@@ -2,8 +2,14 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AlertTriangle, Clock, Bot, CheckCircle, X, MapPin, User, ArrowRight, QrCode } from 'lucide-react';
 import { useIncidents } from '@/context/IncidentContext';
+import { useClients } from '@/context/ClientsContext';
 import { useMemberFilter, isFilterActive } from '@/context/MemberFilterContext';
 import { IncidentFullDetailPanel } from './IncidentFullDetailPanel';
+import {
+  getSelectedCommandClient,
+  matchesCommandFilterText,
+  type CommandFilters,
+} from '@/lib/commandFilters';
 
 type EventType = 'incident' | 'sla' | 'ai' | 'task';
 
@@ -153,6 +159,7 @@ function EventDrawer({ event, onClose, onToast, onViewFullDetail }: DrawerProps)
 
 interface Props {
   onToast: (msg: string, type?: 'success' | 'warning' | 'error' | 'info') => void;
+  filters?: CommandFilters;
 }
 
 function matchesZone(location: string | undefined, zones: string[]): boolean {
@@ -161,8 +168,9 @@ function matchesZone(location: string | undefined, zones: string[]): boolean {
   return zones.some(z => loc.includes(z.toLowerCase()) || z.toLowerCase().includes(loc));
 }
 
-export function LivePulseFeed({ onToast }: Props) {
+export function LivePulseFeed({ onToast, filters }: Props) {
   const { incidents } = useIncidents();
+  const { clients } = useClients();
   const memberFilter = useMemberFilter();
   const isMemberMode = isFilterActive(memberFilter);
 
@@ -172,10 +180,40 @@ export function LivePulseFeed({ onToast }: Props) {
   const [tick, setTick] = useState(0);
   const seenIncidentIds = useRef<Set<string>>(new Set(initialEvents.map(e => e.id)));
 
+  const selectedClient = getSelectedCommandClient(filters, clients);
+  const scopedEvents = useMemo<PulseEvent[]>(() => {
+    if (!selectedClient) return events;
+    return selectedClient.recentActivity.map((activity, index) => {
+      const type: EventType = activity.type === 'escalation'
+        ? 'sla'
+        : activity.type === 'ai'
+          ? 'ai'
+          : activity.type === 'ok' || activity.type === 'task'
+            ? 'task'
+            : 'incident';
+      return {
+        id: `client-${selectedClient.id}-${index}`,
+        type,
+        title: activity.event,
+        sub: `${selectedClient.name} · ${selectedClient.region}`,
+        time: activity.time,
+        location: selectedClient.region,
+        severity: type === 'sla' ? 'critical' : type === 'incident' ? selectedClient.riskLevel : 'info',
+        new: index === 0,
+      };
+    });
+  }, [events, selectedClient]);
+
   const visibleEvents = useMemo(() => {
-    if (!isMemberMode || memberFilter.zones.length === 0) return events;
-    return events.filter(e => matchesZone(e.location, memberFilter.zones));
-  }, [events, isMemberMode, memberFilter.zones]);
+    let base = scopedEvents;
+    if (isMemberMode && memberFilter.zones.length > 0) {
+      base = base.filter(e => matchesZone(e.location, memberFilter.zones));
+    }
+    if (filters) {
+      base = base.filter(e => matchesCommandFilterText(filters, [e.id, e.type, e.title, e.sub, e.location, e.severity], clients));
+    }
+    return base;
+  }, [clients, filters, isMemberMode, memberFilter.zones, scopedEvents]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -224,6 +262,11 @@ export function LivePulseFeed({ onToast }: Props) {
       </div>
 
       <div className="flex-1 overflow-y-auto custom-scrollbar">
+        {visibleEvents.length === 0 && (
+          <div className="h-full flex items-center justify-center px-4 text-center text-[11px] text-[#7A94B4]">
+            No pulse events match the current command filters
+          </div>
+        )}
         <AnimatePresence initial={false}>
           {visibleEvents.map(ev => {
             const cfg = typeConfig[ev.type];

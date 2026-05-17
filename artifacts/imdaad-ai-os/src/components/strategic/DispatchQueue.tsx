@@ -4,22 +4,36 @@ import { Bot, CheckCircle, MapPin, Clock } from 'lucide-react';
 import { mockDispatchJobs } from '@/data/mockData';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { useMemberFilter, isFilterActive } from '@/context/MemberFilterContext';
+import { useClients } from '@/context/ClientsContext';
+import { matchesCommandFilterText, type CommandFilters } from '@/lib/commandFilters';
 
 interface Props {
   onToast: (msg: string, type?: 'success' | 'warning' | 'error' | 'info') => void;
+  filters?: CommandFilters;
 }
 
-export function DispatchQueue({ onToast }: Props) {
+export function DispatchQueue({ onToast, filters }: Props) {
   const memberFilter = useMemberFilter();
   const isMemberMode = isFilterActive(memberFilter);
+  const { clients } = useClients();
   const [assigned, setAssigned] = useState<Record<string, boolean>>({});
 
   const visibleJobs = useMemo(() => {
-    if (!isMemberMode || memberFilter.zones.length === 0) return mockDispatchJobs;
-    return mockDispatchJobs.filter(job =>
-      memberFilter.zones.some(z => job.title.toLowerCase().includes(z.toLowerCase()))
-    );
-  }, [isMemberMode, memberFilter.zones]);
+    let base = mockDispatchJobs;
+    if (isMemberMode && memberFilter.zones.length > 0) {
+      base = base.filter(job =>
+        memberFilter.zones.some(z => job.title.toLowerCase().includes(z.toLowerCase()))
+      );
+    }
+    if (filters) {
+      base = base.filter(job => matchesCommandFilterText(
+        filters,
+        [job.id, job.title, job.severity, job.aiMatch.tech, job.aiMatch.reason],
+        clients,
+      ));
+    }
+    return base;
+  }, [clients, filters, isMemberMode, memberFilter.zones]);
 
   const handleAssign = (id: string, tech: string) => {
     setAssigned(prev => ({ ...prev, [id]: true }));
@@ -42,6 +56,11 @@ export function DispatchQueue({ onToast }: Props) {
         </span>
       </div>
       <div className="flex flex-col gap-2">
+        {visibleJobs.length === 0 && (
+          <div className="rounded-lg border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.55)] p-4 text-center text-[11px] text-[#7A94B4]">
+            No dispatch suggestions match the current command filters
+          </div>
+        )}
         {visibleJobs.map(job => (
           <motion.div
             key={job.id}

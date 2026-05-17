@@ -14,6 +14,14 @@ import { useMemberFilter, isFilterActive } from '@/context/MemberFilterContext';
 import { useIncidents } from '@/context/IncidentContext';
 import type { Incident } from '@/context/IncidentContext';
 import {
+  COMMAND_FILTER_ALL_VALUES,
+  commandFilterMatchesIncident,
+  getSelectedCommandClient,
+  isCommandFilterActive,
+  matchesCommandFilterText,
+  type CommandFilters,
+} from '@/lib/commandFilters';
+import {
   X, Users, AlertTriangle, Layers, ClipboardList,
   ShieldAlert, Cpu, MapPin, Clock, Star, Wrench,
   Activity, ChevronRight, Package,
@@ -393,6 +401,8 @@ function MapViewController({ filterClientId, clients }: MapViewControllerProps) 
 interface Props {
   onToast?: (msg: string, type?: 'success' | 'warning' | 'error' | 'info') => void;
   selectedClientId?: string | null;
+  commandFilters?: CommandFilters;
+  onFiltersChange?: (filters: CommandFilters) => void;
 }
 
 function matchesZone(location: string, zones: string[]): boolean {
@@ -401,21 +411,25 @@ function matchesZone(location: string, zones: string[]): boolean {
   return zones.some(z => loc.includes(z.toLowerCase()) || z.toLowerCase().includes(loc));
 }
 
-export function CommunityMap({ onToast, selectedClientId }: Props) {
+export function CommunityMap({ onToast, selectedClientId, commandFilters, onFiltersChange }: Props) {
   const memberFilter = useMemberFilter();
   const isMemberMode = isFilterActive(memberFilter);
   const { clients } = useClients();
   const { incidents: contextIncidents } = useIncidents();
 
   const [filterClientId, setFilterClientId] = useState<string>(selectedClientId ?? '');
+  const selectedCommandClient = useMemo(
+    () => getSelectedCommandClient(commandFilters, clients),
+    [clients, commandFilters],
+  );
 
   useEffect(() => {
-    setFilterClientId(selectedClientId ?? '');
-  }, [selectedClientId]);
+    setFilterClientId(commandFilters ? selectedCommandClient?.id ?? '' : selectedClientId ?? '');
+  }, [commandFilters, selectedClientId, selectedCommandClient?.id]);
 
   const focusedClient = useMemo(
-    () => (filterClientId ? clients.find(c => c.id === filterClientId) ?? null : null),
-    [filterClientId, clients],
+    () => selectedCommandClient ?? (filterClientId ? clients.find(c => c.id === filterClientId) ?? null : null),
+    [filterClientId, clients, selectedCommandClient],
   );
 
   const visibleIncidents = useMemo(() => {
@@ -423,21 +437,32 @@ export function CommunityMap({ onToast, selectedClientId }: Props) {
     if (isMemberMode && memberFilter.zones.length > 0) {
       base = base.filter(inc => matchesZone(inc.location, memberFilter.zones));
     }
+    if (commandFilters) {
+      base = base.filter(inc => commandFilterMatchesIncident(inc, commandFilters, clients));
+    }
     if (filterClientId) {
       base = base.filter(inc => inc.clientId === filterClientId);
     }
     return base;
-  }, [contextIncidents, isMemberMode, memberFilter.zones, filterClientId]);
+  }, [clients, commandFilters, contextIncidents, isMemberMode, memberFilter.zones, filterClientId]);
 
   const focusedClientIncidentCount = useMemo(() => {
-    if (!filterClientId) return 0;
-    return contextIncidents.filter(inc => inc.clientId === filterClientId).length;
-  }, [contextIncidents, filterClientId]);
+    if (!focusedClient) return 0;
+    const detailedFilterActive = isCommandFilterActive(commandFilters, 'Zone') || isCommandFilterActive(commandFilters, 'Service');
+    if (detailedFilterActive) return visibleIncidents.length;
+    return focusedClient.incidents || contextIncidents.filter(inc => inc.clientId === focusedClient.id).length;
+  }, [commandFilters, contextIncidents, focusedClient, visibleIncidents.length]);
 
   const visibleTasks = useMemo(() => {
-    if (!isMemberMode || memberFilter.zones.length === 0) return mockTasks;
-    return mockTasks.filter(t => matchesZone(t.title, memberFilter.zones));
-  }, [isMemberMode, memberFilter.zones]);
+    let base = mockTasks;
+    if (isMemberMode && memberFilter.zones.length > 0) {
+      base = base.filter(t => matchesZone(t.title, memberFilter.zones));
+    }
+    if (commandFilters) {
+      base = base.filter(t => matchesCommandFilterText(commandFilters, [t.id, t.title, t.skill, t.status, t.priority], clients));
+    }
+    return base;
+  }, [clients, commandFilters, isMemberMode, memberFilter.zones]);
 
   const [activeLayers, setActiveLayers] = useState<Record<LayerKey, boolean>>({
     technicians: true,
@@ -453,6 +478,29 @@ export function CommunityMap({ onToast, selectedClientId }: Props) {
   const toggleLayer = (key: LayerKey) => setActiveLayers(prev => ({ ...prev, [key]: !prev[key] }));
 
   const open = (item: DrawerItem) => { setDrawer(item); };
+  const mapStats = focusedClient
+    ? [
+      {
+        label: 'Engineers On-site',
+        value: String(focusedClient.people.technicians.filter(t => t.status === 'on-site' || t.status === 'transit' || t.status === 'available').length),
+      },
+      { label: 'Open Jobs', value: String(focusedClient.workOrders) },
+      { label: 'SLA Compliance', value: `${focusedClient.sla}%` },
+      {
+        label: 'Avg Response',
+        value: focusedClient.riskLevel === 'critical'
+          ? '18 min'
+          : focusedClient.riskLevel === 'high'
+            ? '14 min'
+            : '11 min',
+      },
+    ]
+    : [
+      { label: 'Engineers On-site', value: '5' },
+      { label: 'Open Jobs', value: '4' },
+      { label: 'SLA Compliance', value: '94%' },
+      { label: 'Avg Response', value: '11 min' },
+    ];
 
   return (
     <div className="relative w-full h-full rounded-xl overflow-hidden border border-[rgba(46,127,255,0.22)]">
@@ -557,7 +605,17 @@ export function CommunityMap({ onToast, selectedClientId }: Props) {
         </div>
         <select
           value={filterClientId}
-          onChange={e => setFilterClientId(e.target.value)}
+          onChange={e => {
+            const nextClientId = e.target.value;
+            setFilterClientId(nextClientId);
+            if (commandFilters && onFiltersChange) {
+              const nextClient = clients.find(c => c.id === nextClientId);
+              onFiltersChange({
+                ...commandFilters,
+                Client: nextClient?.name ?? COMMAND_FILTER_ALL_VALUES.Client,
+              });
+            }
+          }}
           className="bg-[rgba(10,22,40,0.85)] border border-[rgba(46,127,255,0.3)] rounded-full px-3 py-1 text-[11px] text-[#EEF3FA] backdrop-blur-md cursor-pointer outline-none appearance-none"
         >
           <option value="">All Properties</option>
@@ -607,12 +665,7 @@ export function CommunityMap({ onToast, selectedClientId }: Props) {
       </div>
 
       <div className="absolute bottom-14 left-3 z-[400] flex gap-2" style={{ right: '100px' }}>
-        {[
-          { label: 'Engineers On-site', value: '5' },
-          { label: 'Open Jobs', value: '4' },
-          { label: 'SLA Compliance', value: '94%' },
-          { label: 'Avg Response', value: '11 min' },
-        ].map(s => (
+        {mapStats.map(s => (
           <div key={s.label} className="flex-1 bg-[rgba(10,22,40,0.9)] border border-[rgba(46,127,255,0.2)] rounded-lg px-2 py-2 backdrop-blur-md text-center">
             <div className="text-[14px] font-bold text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{s.value}</div>
             <div className="text-[9px] text-[#7A94B4] leading-tight mt-0.5">{s.label}</div>
