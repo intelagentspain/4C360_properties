@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bot, MapPin, Clock, ChevronDown, UserCheck, RotateCcw, CheckCircle, QrCode, MessageSquare } from 'lucide-react';
 import { mockSmartDispatch } from '@/data/mockData';
@@ -6,7 +6,13 @@ import { SEVERITY_BADGE, AVAIL_COLOR, scoreColor, type ToastFn } from '@/lib/ui'
 import { AnimatedBar } from '@/components/shared/AnimatedBar';
 import { TechAvatar } from '@/components/shared/TechAvatar';
 import { useIncidents } from '@/context/IncidentContext';
+import { useClients } from '@/context/ClientsContext';
 import { WhatsAppModal } from '@/components/shared/WhatsAppModal';
+import {
+  commandFilterMatchesIncident,
+  matchesCommandFilterText,
+  type CommandFilters,
+} from '@/lib/commandFilters';
 
 const TECH_POOL = [
   { tech: 'Karim R.', techId: 'KR', skill: 'HVAC', distance: '0.4 km', eta: '8 min', skillMatch: 92, availability: 'available' as const, reason: 'HVAC specialist · Available now · QR scan priority' },
@@ -30,14 +36,18 @@ const TECH_WHATSAPP: Record<string, string> = {
 
 interface Props {
   onToast: ToastFn;
+  filters?: CommandFilters;
 }
 
-export function SmartDispatchPanel({ onToast }: Props) {
+export function SmartDispatchPanel({ onToast, filters }: Props) {
   const { incidents } = useIncidents();
+  const { clients } = useClients();
 
   const allDispatch = useMemo(() => {
-    const qrUnassigned = incidents
-      .filter(inc => inc.source === 'QR Scan' && !inc.assignedTech && inc.status !== 'closed')
+    const existingIncidentIds = new Set(mockSmartDispatch.map(dispatch => dispatch.incidentId));
+    const liveActionable = incidents
+      .filter(inc => !existingIncidentIds.has(inc.id))
+      .filter(inc => inc.status !== 'closed' && (!inc.assignedTech || inc.status === 'open' || inc.status === 'overdue'))
       .map(inc => {
         const tech = matchTech(inc.aiMetadata?.category ?? 'General');
         return {
@@ -49,7 +59,7 @@ export function SmartDispatchPanel({ onToast }: Props) {
           recommendations: [{ ...tech, reason: tech.reason }],
         };
       });
-    return [...mockSmartDispatch, ...qrUnassigned];
+    return [...mockSmartDispatch, ...liveActionable];
   }, [incidents]);
 
   const [activeIncident, setActiveIncident] = useState(mockSmartDispatch[0].incidentId);
@@ -57,7 +67,31 @@ export function SmartDispatchPanel({ onToast }: Props) {
   const [showAll, setShowAll] = useState<Record<string, boolean>>({});
   const [whatsappTarget, setWhatsappTarget] = useState<{ name: string; phone: string; message: string } | null>(null);
 
-  const current = allDispatch.find(d => d.incidentId === activeIncident) ?? allDispatch[0];
+  const visibleDispatch = useMemo(() => {
+    if (!filters) return allDispatch;
+    return allDispatch.filter(dispatch => {
+      const incident = incidents.find(inc => inc.id === dispatch.incidentId);
+      if (incident) return commandFilterMatchesIncident(incident, filters, clients);
+      return matchesCommandFilterText(
+        filters,
+        [
+          dispatch.incidentId,
+          dispatch.incidentTitle,
+          dispatch.severity,
+          ...dispatch.recommendations.flatMap(rec => [rec.tech, rec.skill, rec.reason]),
+        ],
+        clients,
+      );
+    });
+  }, [allDispatch, clients, filters, incidents]);
+
+  useEffect(() => {
+    if (visibleDispatch.length > 0 && !visibleDispatch.some(dispatch => dispatch.incidentId === activeIncident)) {
+      setActiveIncident(visibleDispatch[0].incidentId);
+    }
+  }, [activeIncident, visibleDispatch]);
+
+  const current = visibleDispatch.find(d => d.incidentId === activeIncident) ?? visibleDispatch[0];
 
   const handleAssign = (incId: string, techName: string) => {
     setAssigned(prev => ({ ...prev, [incId]: techName }));
@@ -87,7 +121,7 @@ export function SmartDispatchPanel({ onToast }: Props) {
             AI Smart Dispatch
           </h3>
           <span className="px-1.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-400 text-[10px] font-bold border border-cyan-500/30">
-            {allDispatch.length}
+            {visibleDispatch.length}
           </span>
         </div>
         <div className="flex items-center gap-1 text-[10px] text-[#7A94B4]">
@@ -95,8 +129,14 @@ export function SmartDispatchPanel({ onToast }: Props) {
         </div>
       </div>
 
+      {visibleDispatch.length === 0 ? (
+        <div className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.55)] p-4 text-center text-[11px] text-[#7A94B4]">
+          No smart dispatch recommendations match the current command filters
+        </div>
+      ) : (
+        <>
       <div className="flex gap-1 mb-3 overflow-x-auto pb-0.5 no-scrollbar">
-        {allDispatch.map(d => (
+        {visibleDispatch.map(d => (
           <button
             key={d.incidentId}
             onClick={() => setActiveIncident(d.incidentId)}
@@ -255,6 +295,8 @@ export function SmartDispatchPanel({ onToast }: Props) {
           )}
         </motion.div>
       </AnimatePresence>
+        </>
+      )}
     </div>
   );
 }

@@ -1,8 +1,14 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TrendingUp, TrendingDown, Minus, Info } from 'lucide-react';
 import { type ToastFn } from '@/lib/ui';
+import { useClients } from '@/context/ClientsContext';
 import { useIncidents } from '@/context/IncidentContext';
+import {
+  commandFilterMatchesIncident,
+  getSelectedCommandClient,
+  type CommandFilters,
+} from '@/lib/commandFilters';
 
 interface KPI {
   label: string;
@@ -18,16 +24,28 @@ interface KPI {
 interface Props {
   onToast?: ToastFn;
   onNavigateToIncident?: (incidentId: string) => void;
+  filters?: CommandFilters;
 }
 
-export function KPIPanel({ onToast, onNavigateToIncident }: Props) {
+export function KPIPanel({ onToast, onNavigateToIncident, filters }: Props) {
   const { incidents } = useIncidents();
+  const { clients } = useClients();
   const [activeKpi, setActiveKpi] = useState<string | null>(null);
   const [hoveredKpi, setHoveredKpi] = useState<string | null>(null);
 
-  const criticalCount = incidents.filter(i => i.severity === 'critical' && i.status !== 'closed').length;
-  const openCount = incidents.filter(i => i.status === 'open' || i.status === 'dispatched').length;
-  const qrCount = incidents.filter(i => i.source === 'QR Scan').length;
+  const filteredIncidents = useMemo(
+    () => incidents.filter(incident => commandFilterMatchesIncident(incident, filters, clients)),
+    [clients, filters, incidents],
+  );
+  const selectedClient = getSelectedCommandClient(filters, clients);
+  const criticalIncidents = filteredIncidents.filter(i => i.severity === 'critical' && i.status !== 'closed');
+  const criticalCount = criticalIncidents.length;
+  const openCount = filteredIncidents.filter(i => i.status === 'open' || i.status === 'dispatched').length;
+  const qrCount = filteredIncidents.filter(i => i.source === 'QR Scan').length;
+  const engineerCount = selectedClient ? selectedClient.people.technicians.length : 5;
+  const engineerDetail = selectedClient
+    ? `${selectedClient.people.technicians.filter(t => t.status === 'available').length} available · ${selectedClient.people.technicians.filter(t => t.status === 'on-site').length} on site · ${selectedClient.people.technicians.filter(t => t.status === 'transit').length} en route`
+    : '2 available · 2 on job · 1 en route';
 
   const kpis: KPI[] = [
     {
@@ -35,40 +53,40 @@ export function KPIPanel({ onToast, onNavigateToIncident }: Props) {
       value: String(criticalCount),
       color: 'text-red-400',
       trend: 'down',
-      trendValue: '−2 vs yesterday',
+      trendValue: selectedClient ? `${selectedClient.incidents} total on property` : '-2 vs yesterday',
       trendGood: true,
       tooltip: 'Open critical severity incidents requiring immediate action',
-      detail: incidents.filter(i => i.severity === 'critical').map(i => i.id).join(', ') || 'None',
+      detail: criticalIncidents.map(i => i.id).join(', ') || 'None',
     },
     {
       label: 'SLA Alerts',
       value: String(openCount),
       color: 'text-amber-400',
       trend: openCount > 4 ? 'up' : 'flat',
-      trendValue: qrCount > 0 ? `+${qrCount} via QR scan` : '+3 vs yesterday',
+      trendValue: qrCount > 0 ? `+${qrCount} via QR scan` : selectedClient ? `${selectedClient.overdueTasks} overdue tasks` : '+3 vs yesterday',
       trendGood: false,
       tooltip: 'Jobs approaching or past their SLA window',
-      detail: `${incidents.filter(i => i.status === 'overdue').length} breached · ${openCount} open`,
+      detail: `${filteredIncidents.filter(i => i.status === 'overdue').length} breached · ${openCount} open`,
     },
     {
       label: 'Compliance',
-      value: '94%',
+      value: selectedClient ? `${selectedClient.sla}%` : '94%',
       color: 'text-emerald-400',
-      trend: 'up',
-      trendValue: '+1.2% this week',
-      trendGood: true,
+      trend: selectedClient && selectedClient.sla < 90 ? 'down' : 'up',
+      trendValue: selectedClient ? `${selectedClient.compliance}% evidence` : '+1.2% this week',
+      trendGood: !selectedClient || selectedClient.sla >= 90,
       tooltip: 'SLA compliance rate across all active work orders',
-      detail: 'Target: 95% · 47/50 on track',
+      detail: selectedClient ? `Target: 95% · ${selectedClient.workOrders} active WOs · ${selectedClient.overdueTasks} overdue` : 'Target: 95% · 47/50 on track',
     },
     {
       label: 'Active Engineers',
-      value: '5',
+      value: String(engineerCount),
       color: 'text-[#EEF3FA]',
       trend: 'flat',
-      trendValue: 'same as yesterday',
+      trendValue: selectedClient ? selectedClient.region : 'same as yesterday',
       trendGood: true,
       tooltip: 'Engineers currently on duty across the community',
-      detail: '2 available · 2 on job · 1 en route',
+      detail: engineerDetail,
     },
   ];
 

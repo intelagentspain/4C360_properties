@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { CommunityMap } from './CommunityMap';
 import { IntegrationBanner } from './IntegrationBanner';
@@ -20,6 +20,9 @@ import { PPMSchedule } from './PPMSchedule';
 import { AICapture } from './AICapture';
 import { DispatchAIRules } from './DispatchAIRules';
 import { initialDispatchSettings, type DispatchSettings } from '@/data/dispatchSettings';
+import { useClients } from '@/context/ClientsContext';
+import { useMemberFilter, isFilterActive } from '@/context/MemberFilterContext';
+import { COMMAND_FILTER_ALL_VALUES, type CommandFilters } from '@/lib/commandFilters';
 import { ManageClients } from './ManageClients';
 import { AssetsSettings } from './AssetsSettings';
 import { RolesSettings } from './RolesSettings';
@@ -60,29 +63,64 @@ function Dashboard({ onToast, selectedClientId, onNavigateToIncident, onNavigate
   ppmCreatedTasks: Record<string, PPMRiskPayload>;
 }) {
   const [mode, setMode] = useState<AutomationMode>('hybrid');
+  const { clients } = useClients();
+  const memberFilter = useMemberFilter();
+  const isMemberMode = isFilterActive(memberFilter);
+  const [commandFilters, setCommandFilters] = useState<CommandFilters>(() => ({
+    Client: isMemberMode && memberFilter.assignedClients.length === 1
+      ? memberFilter.assignedClients[0]
+      : COMMAND_FILTER_ALL_VALUES.Client,
+    Zone: isMemberMode && memberFilter.zones.length === 1
+      ? memberFilter.zones[0]
+      : COMMAND_FILTER_ALL_VALUES.Zone,
+    Service: COMMAND_FILTER_ALL_VALUES.Service,
+  }));
+
+  useEffect(() => {
+    if (!selectedClientId) return;
+    const selectedClient = clients.find(client => client.id === selectedClientId);
+    if (!selectedClient) return;
+    setCommandFilters(prev => (
+      prev.Client === selectedClient.name
+        ? prev
+        : { ...prev, Client: selectedClient.name }
+    ));
+  }, [clients, selectedClientId]);
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <CommandBar mode={mode} onModeChange={setMode} onToast={onToast} />
-      <IntegrationBanner />
+      <CommandBar
+        mode={mode}
+        onModeChange={setMode}
+        onToast={onToast}
+        selectedFilters={commandFilters}
+        onFiltersChange={setCommandFilters}
+      />
+      <IntegrationBanner filters={commandFilters} />
       <div className="flex flex-1 overflow-hidden">
         <div className="flex-[62] flex flex-col p-3 pr-1.5 overflow-hidden gap-2">
           <div className="flex-[65] overflow-hidden">
-            <CommunityMap onToast={onToast} selectedClientId={selectedClientId} />
+            <CommunityMap
+              onToast={onToast}
+              selectedClientId={selectedClientId}
+              commandFilters={commandFilters}
+              onFiltersChange={setCommandFilters}
+            />
           </div>
           <div className="flex-[35] bg-[rgba(17,32,64,0.85)] border border-[rgba(46,127,255,0.22)] rounded-xl overflow-hidden">
-            <LivePulseFeed onToast={onToast} />
+            <LivePulseFeed onToast={onToast} filters={commandFilters} />
           </div>
         </div>
         <div className="flex-[38] p-3 pl-1.5 overflow-y-auto custom-scrollbar">
-          <KPIPanel onToast={onToast} onNavigateToIncident={onNavigateToIncident} />
-          <SmartDispatchPanel onToast={onToast} />
+          <KPIPanel onToast={onToast} onNavigateToIncident={onNavigateToIncident} filters={commandFilters} />
+          <SmartDispatchPanel onToast={onToast} filters={commandFilters} />
           <AIInsightsPanel onToast={onToast} />
           <PPMRiskPanel
             onNavigateToWorkOrders={onNavigateToTasks}
             createdTasks={ppmCreatedTasks}
             onMarkCreated={onMarkPPMCreated}
           />
-          <DispatchQueue onToast={onToast} />
+          <DispatchQueue onToast={onToast} filters={commandFilters} />
         </div>
       </div>
     </div>

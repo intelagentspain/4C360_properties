@@ -274,6 +274,10 @@ const STATUS_SUMMARY_CONFIG: Record<PortfolioStatusKey, Omit<PortfolioStatusSumm
   },
 };
 
+function propertyNoun(count: number): string {
+  return count === 1 ? 'Property' : 'Properties';
+}
+
 function topClientRows(clients: PortfolioClient[], getValue: (client: PortfolioClient) => number, suffix = '') {
   return [...clients]
     .sort((a, b) => getValue(b) - getValue(a))
@@ -300,6 +304,9 @@ function StatusSummaryModal({
     ? Math.round(summary.clients.reduce((sum, client) => sum + client.sla, 0) / summary.clients.length)
     : 0;
   const visibleClients = summary.clients.slice(0, 5);
+  const footprintSummary = summary.count > 0
+    ? `${summary.count} ${summary.label.toLowerCase()} ${propertyNoun(summary.count).toLowerCase()} spans ${totalSites.toLocaleString()} site${totalSites === 1 ? '' : 's'} with ${totalIncidents.toLocaleString()} active incident${totalIncidents === 1 ? '' : 's'} across that footprint.`
+    : `No ${summary.label.toLowerCase()} properties are currently in this portfolio slice.`;
 
   const toggleChip = (chip: string) => {
     setSelectedChips(prev => prev.includes(chip) ? prev.filter(c => c !== chip) : [...prev, chip]);
@@ -342,8 +349,8 @@ function StatusSummaryModal({
           {[
             { label: 'Properties', value: String(summary.count), tone: summary.color },
             { label: 'Sites', value: totalSites.toLocaleString(), tone: 'text-cyan-300' },
+            { label: 'Active Incidents', value: totalIncidents.toLocaleString(), tone: totalIncidents > 0 ? 'text-amber-300' : 'text-emerald-300' },
             { label: 'Work Orders', value: totalWorkOrders.toLocaleString(), tone: 'text-blue-300' },
-            { label: 'Avg SLA', value: summary.count > 0 ? `${avgSla}%` : 'N/A', tone: avgSla >= 90 ? 'text-emerald-300' : avgSla >= 80 ? 'text-amber-300' : 'text-red-300' },
           ].map(item => (
             <div key={item.label} className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#0A1628] p-3">
               <div className="text-[9px] uppercase tracking-wide text-[#7A94B4]">{item.label}</div>
@@ -351,20 +358,25 @@ function StatusSummaryModal({
             </div>
           ))}
         </div>
+        <div className="rounded-xl border border-[rgba(46,127,255,0.12)] bg-[#081528] px-3 py-2 text-[11px] leading-relaxed text-[#9DB9E8]">
+          {footprintSummary} Avg SLA is <span className={avgSla >= 90 ? 'font-bold text-emerald-300' : avgSla >= 80 ? 'font-bold text-amber-300' : 'font-bold text-red-300'}>{summary.count > 0 ? `${avgSla}%` : 'N/A'}</span>.
+        </div>
 
         <div className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#0A1628] p-3">
           <div className="mb-2 flex items-center justify-between">
             <div className="text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">Property Breakdown</div>
-            <div className="text-[9px] text-[#7A94B4]">{totalIncidents.toLocaleString()} incidents</div>
+            <div className="text-[9px] text-[#7A94B4]">{totalIncidents.toLocaleString()} active incidents</div>
           </div>
           <div className="space-y-1.5">
             {visibleClients.length > 0 ? visibleClients.map(client => (
               <button
                 key={client.id}
                 onClick={() => onOpenClient(client)}
-                className="grid w-full grid-cols-[1fr_auto_auto] items-center gap-2 rounded-lg border border-[rgba(46,127,255,0.08)] bg-[#081528] px-2.5 py-2 text-left transition-colors hover:border-[#2E7FFF]/35 hover:bg-[#102544]"
+                className="grid w-full grid-cols-[1fr_auto_auto_auto_auto] items-center gap-2 rounded-lg border border-[rgba(46,127,255,0.08)] bg-[#081528] px-2.5 py-2 text-left transition-colors hover:border-[#2E7FFF]/35 hover:bg-[#102544]"
               >
                 <span className="min-w-0 truncate text-[11px] font-semibold text-[#EEF3FA]">{client.name}</span>
+                <span className="text-[10px] text-cyan-300">{client.sites} sites</span>
+                <span className={client.incidents > 0 ? 'text-[10px] font-semibold text-amber-300' : 'text-[10px] text-emerald-300'}>{client.incidents} inc.</span>
                 <span className="text-[10px] text-[#7A94B4]">{client.workOrders} WOs</span>
                 <span className={client.sla >= 90 ? 'text-[10px] font-bold text-emerald-300' : client.sla >= 80 ? 'text-[10px] font-bold text-amber-300' : 'text-[10px] font-bold text-red-300'}>{client.sla}% SLA</span>
               </button>
@@ -2046,7 +2058,7 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
               aria-label={`Open ${k.label} status details`}
             >
               <span className="text-[13px] font-bold">{k.count}</span>
-              <span>{k.label}</span>
+              <span>{k.label} {propertyNoun(k.count)}</span>
             </button>
           ))}
           <button

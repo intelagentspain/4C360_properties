@@ -261,7 +261,7 @@ export function AssignInsightModal({ open, insight, onConfirm, onCancel }: Props
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[500] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4"
+          className="fixed inset-0 z-[5000] isolate flex items-center justify-center bg-black/70 backdrop-blur-sm px-4"
           onClick={onCancel}
         >
           <motion.div
@@ -269,7 +269,7 @@ export function AssignInsightModal({ open, insight, onConfirm, onCancel }: Props
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.93, opacity: 0, y: 12 }}
             transition={{ duration: 0.2 }}
-            className="bg-[#0D1E38] border border-[rgba(46,127,255,0.3)] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden"
+            className="relative z-[1] bg-[#0D1E38] border border-[rgba(46,127,255,0.3)] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden"
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-5 py-4 border-b border-[rgba(46,127,255,0.15)]">
