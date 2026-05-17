@@ -134,6 +134,92 @@ const PULSE_SEV_ICON: Record<string, { icon: React.ReactNode; cls: string }> = {
   ok:       { icon: <CheckCircle size={11} />, cls: 'text-emerald-400 bg-emerald-500/20' },
 };
 
+const PULSE_SEV_LABEL: Record<PulseEvent['severity'], string> = {
+  critical: 'Critical',
+  high: 'High',
+  medium: 'Watch',
+  info: 'AI Notice',
+  ok: 'Resolved',
+};
+
+const PULSE_RESOLUTION_CHIPS: Record<PulseEvent['severity'], string[]> = {
+  critical: ['Create emergency WO', 'Assign nearest certified tech', 'Notify supervisor', 'Client SLA update'],
+  high: ['Open escalation task', 'Rebalance field team', 'Notify client ops', 'Start 60-min recovery timer'],
+  medium: ['Schedule PPM slot', 'Attach asset checklist', 'Confirm parts availability', 'Watch SLA drift'],
+  info: ['Convert to preventive WO', 'Keep AI watch active', 'Send proactive update', 'Log avoided failure'],
+  ok: ['Close loop', 'Publish resolution note', 'Update KPI impact', 'Archive evidence'],
+};
+
+const PULSE_RESOLUTION_COPY: Record<PulseEvent['severity'], { impact: string; resolution: string; eta: string }> = {
+  critical: {
+    impact: 'Resident-impacting event with immediate SLA and safety exposure.',
+    resolution: 'Create an emergency work order, dispatch certified response, keep supervisor escalation open, and notify the client with a recovery clock.',
+    eta: '12 min dispatch / 90 min stabilization',
+  },
+  high: {
+    impact: 'Operational risk is rising and may become contractual if unattended.',
+    resolution: 'Open escalation, rebalance available field capacity, clear the oldest breach first, and keep client operations informed.',
+    eta: '30 min triage / same-shift recovery',
+  },
+  medium: {
+    impact: 'Preventive or compliance work is drifting toward SLA pressure.',
+    resolution: 'Schedule the next service slot, attach the right checklist, confirm parts, and monitor for breach risk.',
+    eta: 'Next available PPM window',
+  },
+  info: {
+    impact: 'AI has found an early signal before it becomes a resident-facing issue.',
+    resolution: 'Convert the signal into preventive action, keep the asset under watch, and log the avoided failure value.',
+    eta: 'Preventive response queued',
+  },
+  ok: {
+    impact: 'The event has been stabilized and is ready for closure evidence.',
+    resolution: 'Publish the closure note, update KPI impact, archive evidence, and keep a lightweight watch on recurrence.',
+    eta: 'Close-out ready',
+  },
+};
+
+const SIMULATION_EVENTS: PulseEvent[] = [
+  { id: 'sim-1', client: 'JLT North Cluster', title: 'Resident emergency raised from Tower 5 lift lobby', sub: 'AI triage classifies Critical - lift safety', time: 'Live step 1', severity: 'critical' },
+  { id: 'sim-2', client: 'JLT North Cluster', title: 'AI creates work order WO-LIFT-8842', sub: 'Parts, lift console, and supervisor approval linked', time: 'Live step 2', severity: 'high' },
+  { id: 'sim-3', client: 'JLT North Cluster', title: 'Technician reassigned from Dubai Silicon Oasis', sub: 'ETA reduced from 31 min to 12 min', time: 'Live step 3', severity: 'info' },
+  { id: 'sim-4', client: 'JLT North Cluster', title: 'Client notified and SLA timer stabilized', sub: 'Penalty exposure reduced by AED 18K', time: 'Live step 4', severity: 'ok' },
+];
+
+function getCommandProfile(client: PortfolioClient) {
+  const atRisk = Math.max(0, client.incidents * 18000 + client.overdueTasks * 6500 + Math.max(0, 90 - client.sla) * 4000);
+  const prevented = client.riskLevel === 'low' ? 42000 + client.sites * 2800 : Math.max(22000, client.workOrders * 420);
+  const sentiment = client.sla >= 95 ? 94 : client.sla >= 90 ? 88 : client.sla >= 80 ? 74 : 58;
+  const utilization = Math.min(98, Math.max(42, Math.round(client.workOrders / Math.max(client.sites, 1) * 7 + client.incidents * 3)));
+  const coverage = client.dataSources.length === 0 ? 34 : Math.min(98, 54 + client.dataSources.length * 13 + (client.dataSources.some(ds => ds.count === 0) ? -18 : 0));
+  const firstDue = client.dataSources.length === 0 ? 'First PPM schedule due in 6 days' : client.overdueTasks > 0 ? `${client.overdueTasks} overdue actions need dispatch review` : 'Next PPM batch on track';
+
+  const narrative =
+    client.riskLevel === 'critical'
+      ? `${client.name} is deteriorating because overdue tasks, resident-impacting incidents, and SLA pressure are converging. Recommend moving two engineers into the cluster today and keeping supervisor escalation open until the lift safety queue is cleared.`
+      : client.riskLevel === 'high'
+        ? `${client.name} needs intervention because reporting gaps and simultaneous job pressure are masking real SLA exposure. Recommend restoring data sync, assigning one senior supervisor, and closing the oldest open breaches first.`
+        : client.dataSources.length === 0
+          ? `${client.name} is healthy but still in onboarding. The right move is to connect core data feeds, publish the first PPM calendar, and capture baseline service quality before the first monthly review.`
+          : `${client.name} is stable and suitable for proactive operations. Keep the AI prevention loop active, maintain data coverage, and use spare capacity to absorb risk from weaker properties.`;
+
+  const actions =
+    client.riskLevel === 'critical'
+      ? ['Reassign 2 certified engineers before noon', 'Escalate lift checks to supervisor command', 'Notify client with 90-minute recovery plan']
+      : client.riskLevel === 'high'
+        ? ['Restore Power BI token and data sync', 'Clear 3 oldest SLA breaches', 'Move one field supervisor to Tower A']
+        : client.dataSources.length === 0
+          ? ['Connect Maximo or BMS data source', 'Publish first PPM calendar', 'Run onboarding health audit']
+          : ['Keep predictive PPM active', 'Review next asset-risk batch', 'Offer spare capacity to JLT escalation'];
+
+  return { atRisk, prevented, sentiment, utilization, coverage, firstDue, narrative, actions };
+}
+
+function formatAed(value: number) {
+  if (value >= 1000000) return `AED ${(value / 1000000).toFixed(1)}M`;
+  if (value >= 1000) return `AED ${Math.round(value / 1000)}K`;
+  return `AED ${value}`;
+}
+
 function PortfolioSummaryStrip({ clients }: { clients: PortfolioClient[] }) {
   const totalSites       = clients.reduce((s, c) => s + c.sites, 0);
   const totalWO          = clients.reduce((s, c) => s + c.workOrders, 0);
@@ -166,9 +252,140 @@ function PortfolioSummaryStrip({ clients }: { clients: PortfolioClient[] }) {
   );
 }
 
-function PortfolioPulseFeed() {
+function ExecutiveImpactStrip({ clients }: { clients: PortfolioClient[] }) {
+  const profiles = clients.map(getCommandProfile);
+  const aedAtRisk = profiles.reduce((sum, p) => sum + p.atRisk, 0);
+  const penaltiesAvoided = profiles.reduce((sum, p) => sum + p.prevented, 0);
+  const avgSentiment = Math.round(profiles.reduce((sum, p) => sum + p.sentiment, 0) / Math.max(profiles.length, 1));
+  const avgUtilization = Math.round(profiles.reduce((sum, p) => sum + p.utilization, 0) / Math.max(profiles.length, 1));
+
+  const items = [
+    { label: 'AED at Risk', value: formatAed(aedAtRisk), sub: 'live exposure', icon: <AlertTriangle size={13} />, tone: 'text-red-300 bg-red-500/10 border-red-500/20' },
+    { label: 'Penalties Avoided', value: formatAed(penaltiesAvoided), sub: 'AI prevention', icon: <Shield size={13} />, tone: 'text-emerald-300 bg-emerald-500/10 border-emerald-500/20' },
+    { label: 'Resident Sentiment', value: `${avgSentiment}%`, sub: 'portfolio pulse', icon: <Users size={13} />, tone: 'text-cyan-300 bg-cyan-500/10 border-cyan-500/20' },
+    { label: 'AI Prevented Failures', value: '14', sub: 'this quarter', icon: <Bot size={13} />, tone: 'text-blue-300 bg-blue-500/10 border-blue-500/20' },
+    { label: 'Technician Utilization', value: `${avgUtilization}%`, sub: 'field load', icon: <Activity size={13} />, tone: 'text-amber-300 bg-amber-500/10 border-amber-500/20' },
+  ];
+
+  return (
+    <div className="grid grid-cols-2 gap-2 px-5 py-2.5 border-b border-[rgba(46,127,255,0.12)] flex-shrink-0 lg:grid-cols-5">
+      {items.map(item => (
+        <div key={item.label} className={`rounded-lg border px-3 py-2 ${item.tone}`}>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[9px] uppercase tracking-wide opacity-75">{item.label}</span>
+            {item.icon}
+          </div>
+          <div className="mt-1 text-base font-bold leading-tight">{item.value}</div>
+          <div className="text-[9px] opacity-60">{item.sub}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PulseEventModal({ event, onClose, onToast }: { event: PulseEvent; onClose: () => void; onToast: ToastFn }) {
+  const cfg = PULSE_SEV_ICON[event.severity];
+  const resolution = PULSE_RESOLUTION_COPY[event.severity];
+  const chips = PULSE_RESOLUTION_CHIPS[event.severity];
+  const [selectedChips, setSelectedChips] = useState<string[]>(chips.slice(0, 3));
+
+  const toggleChip = (chip: string) => {
+    setSelectedChips(prev => prev.includes(chip) ? prev.filter(c => c !== chip) : [...prev, chip]);
+  };
+
+  const applyResolution = () => {
+    onToast(`${event.client}: ${selectedChips.length} resolution actions queued`, 'success');
+    onClose();
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.96, y: 12 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.96, y: 12 }}
+      transition={{ duration: 0.18 }}
+      className="fixed left-1/2 top-1/2 z-[320] w-[min(560px,calc(100%-32px))] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl border border-[rgba(46,127,255,0.28)] bg-[#0B172A] shadow-2xl"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Portfolio pulse event"
+    >
+      <div className="flex items-start justify-between gap-3 border-b border-[rgba(46,127,255,0.16)] bg-[#112040] px-4 py-3">
+        <div className="flex min-w-0 items-start gap-3">
+          <div className={`mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg ${cfg.cls}`}>
+            {cfg.icon}
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="rounded-md border border-white/10 bg-white/5 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#9DB9E8]">{PULSE_SEV_LABEL[event.severity]}</span>
+              <span className="text-[10px] text-[#7A94B4]">{event.time}</span>
+            </div>
+            <h3 className="mt-1 text-sm font-bold leading-tight text-[#EEF3FA]">{event.title}</h3>
+            <p className="mt-1 text-[11px] text-[#7A94B4]">{event.client} - {event.sub}</p>
+          </div>
+        </div>
+        <button onClick={onClose} className="rounded-lg p-1.5 text-[#7A94B4] transition-colors hover:bg-white/5 hover:text-white" aria-label="Close event details">
+          <X size={15} />
+        </button>
+      </div>
+
+      <div className="space-y-3 p-4">
+        <div className="grid gap-2 md:grid-cols-3">
+          {[
+            { label: 'Impact', value: resolution.impact },
+            { label: 'Resolution ETA', value: resolution.eta },
+            { label: 'Owner', value: event.severity === 'critical' ? 'Duty Supervisor' : event.severity === 'ok' ? 'Account Manager' : 'Operations Lead' },
+          ].map(item => (
+            <div key={item.label} className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#0A1628] p-3">
+              <div className="text-[9px] uppercase tracking-wide text-[#7A94B4]">{item.label}</div>
+              <div className="mt-1 text-[11px] font-semibold leading-snug text-[#EEF3FA]">{item.value}</div>
+            </div>
+          ))}
+        </div>
+
+        <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/10 p-3">
+          <div className="mb-1 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wide text-cyan-200">
+            <Bot size={12} /> AI Resolution Brief
+          </div>
+          <p className="text-[11px] leading-relaxed text-[#D8E7FA]">{resolution.resolution}</p>
+        </div>
+
+        <div>
+          <div className="mb-2 text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">Resolution Chips</div>
+          <div className="flex flex-wrap gap-2">
+            {chips.map(chip => {
+              const active = selectedChips.includes(chip);
+              return (
+                <button
+                  key={chip}
+                  onClick={() => toggleChip(chip)}
+                  className={`rounded-lg border px-2.5 py-1.5 text-[10px] font-semibold transition-all ${active ? 'border-[#2E7FFF] bg-[#2E7FFF]/20 text-blue-100' : 'border-[rgba(46,127,255,0.16)] bg-[#0A1628] text-[#7A94B4] hover:text-[#EEF3FA]'}`}
+                >
+                  {active && <Check size={10} className="mr-1 inline" />}
+                  {chip}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between gap-3 border-t border-[rgba(46,127,255,0.12)] pt-3">
+          <div className="text-[10px] text-[#7A94B4]">{selectedChips.length} actions selected for command queue</div>
+          <div className="flex gap-2">
+            <button onClick={onClose} className="rounded-lg border border-[rgba(46,127,255,0.18)] px-3 py-2 text-[11px] font-semibold text-[#9DB9E8] transition-colors hover:bg-white/5">Review Later</button>
+            <button onClick={applyResolution} className="rounded-lg bg-[#2E7FFF] px-3 py-2 text-[11px] font-bold text-white shadow-[0_0_14px_rgba(46,127,255,0.32)] transition-colors hover:bg-blue-500">Queue Resolution</button>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+function PortfolioPulseFeed({ onToast }: { onToast: ToastFn }) {
   const [events, setEvents] = useState<PulseEvent[]>(PULSE_EVENTS.slice(0, 5));
   const [idx, setIdx] = useState(0);
+  const [filter, setFilter] = useState<'all' | PulseEvent['severity']>('all');
+  const [simRunning, setSimRunning] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<PulseEvent | null>(null);
 
   useEffect(() => {
     const t = setInterval(() => {
@@ -187,6 +404,21 @@ function PortfolioPulseFeed() {
     }
   }, [idx]);
 
+  const visibleEvents = filter === 'all' ? events : events.filter(ev => ev.severity === filter);
+
+  function runSimulation() {
+    if (simRunning) return;
+    setSimRunning(true);
+    SIMULATION_EVENTS.forEach((event, step) => {
+      window.setTimeout(() => {
+        setEvents(prev => [{ ...event, id: `${event.id}-${Date.now()}` }, ...prev].slice(0, 8));
+        if (step === SIMULATION_EVENTS.length - 1) {
+          window.setTimeout(() => setSimRunning(false), 900);
+        }
+      }, step * 900);
+    });
+  }
+
   return (
     <div className="mx-5 mb-3 rounded-xl border border-[rgba(46,127,255,0.2)] bg-[rgba(17,32,64,0.7)] overflow-hidden flex-shrink-0">
       <div className="flex items-center justify-between px-3 py-2 border-b border-[rgba(46,127,255,0.12)]">
@@ -195,21 +427,40 @@ function PortfolioPulseFeed() {
           <span className="text-[10px] font-bold text-[#EEF3FA] uppercase tracking-wide">Portfolio Pulse</span>
           <span className="text-[9px] text-[#7A94B4]">Cross-property live events</span>
         </div>
-        <span className="text-[9px] text-[#7A94B4]">{events.length} events</span>
+        <div className="flex items-center gap-1.5">
+          {(['all', 'critical', 'high', 'info', 'ok'] as const).map(option => (
+            <button
+              key={option}
+              onClick={() => setFilter(option)}
+              className={`rounded-md px-2 py-1 text-[9px] font-semibold capitalize transition-colors ${filter === option ? 'bg-[#2E7FFF] text-white' : 'bg-[#0A1628] text-[#7A94B4] hover:text-[#EEF3FA]'}`}
+            >
+              {option}
+            </button>
+          ))}
+          <button
+            onClick={runSimulation}
+            disabled={simRunning}
+            className="rounded-md border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-1 text-[9px] font-bold text-cyan-300 transition-colors hover:bg-cyan-500/15 disabled:opacity-50"
+          >
+            {simRunning ? 'Running' : 'Run Live Simulation'}
+          </button>
+          <span className="text-[9px] text-[#7A94B4]">{visibleEvents.length} events</span>
+        </div>
       </div>
       <div className="flex overflow-x-auto custom-scrollbar">
         <AnimatePresence initial={false}>
-          {events.map(ev => {
+          {visibleEvents.map(ev => {
             const border = PULSE_SEV_BORDER[ev.severity];
             const cfg    = PULSE_SEV_ICON[ev.severity];
             return (
-              <motion.div
+              <motion.button
                 key={ev.id}
                 initial={{ opacity: 0, x: -16 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, height: 0 }}
                 transition={{ duration: 0.22 }}
-                className={`flex-1 min-w-[220px] lg:min-w-0 flex items-start gap-2 px-3 py-2 border-r border-[rgba(46,127,255,0.08)] border-l-2 ${border} last:border-r-0`}
+                onClick={() => setSelectedEvent(ev)}
+                className={`flex-1 min-w-[220px] lg:min-w-0 flex items-start gap-2 px-3 py-2 text-left border-r border-[rgba(46,127,255,0.08)] border-l-2 ${border} last:border-r-0 transition-colors hover:bg-[#17315A]/55 focus:outline-none focus:ring-1 focus:ring-[#2E7FFF]/70`}
               >
                 <div className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 mt-0.5 ${cfg.cls}`}>
                   {cfg.icon}
@@ -220,11 +471,19 @@ function PortfolioPulseFeed() {
                   <div className="text-[9px] text-[#7A94B4] mt-0.5 truncate">{ev.sub}</div>
                   <div className="text-[8px] text-[#7A94B4] opacity-60 mt-0.5">{ev.time}</div>
                 </div>
-              </motion.div>
+              </motion.button>
             );
           })}
         </AnimatePresence>
       </div>
+      <AnimatePresence>
+        {selectedEvent && (
+          <>
+            <div className="fixed inset-0 z-[300] bg-black/35 backdrop-blur-[1px]" onClick={() => setSelectedEvent(null)} />
+            <PulseEventModal event={selectedEvent} onClose={() => setSelectedEvent(null)} onToast={onToast} />
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -234,6 +493,65 @@ function MetricPill({ label, value, color }: { label: string; value: string | nu
     <div className="flex min-w-0 flex-col items-center bg-[#0A1628] rounded-lg px-2 py-1.5">
       <span className={`text-[13px] font-bold leading-tight ${color}`}>{value}</span>
       <span className="text-[8px] text-[#7A94B4] uppercase tracking-wide mt-0.5 text-center">{label}</span>
+    </div>
+  );
+}
+
+function PortfolioRiskMap({ clients, onSelect }: { clients: PortfolioClient[]; onSelect: (client: PortfolioClient) => void }) {
+  const placedClients = clients.filter(c => c.lat && c.lng);
+  const hasCoordinates = placedClients.length > 0;
+  const minLat = hasCoordinates ? Math.min(...placedClients.map(c => c.lat ?? 0)) : 0;
+  const maxLat = hasCoordinates ? Math.max(...placedClients.map(c => c.lat ?? 0)) : 1;
+  const minLng = hasCoordinates ? Math.min(...placedClients.map(c => c.lng ?? 0)) : 0;
+  const maxLng = hasCoordinates ? Math.max(...placedClients.map(c => c.lng ?? 0)) : 1;
+
+  const position = (client: PortfolioClient) => {
+    const latRange = Math.max(maxLat - minLat, 0.01);
+    const lngRange = Math.max(maxLng - minLng, 0.01);
+    const x = 10 + (((client.lng ?? minLng) - minLng) / lngRange) * 80;
+    const y = 82 - (((client.lat ?? minLat) - minLat) / latRange) * 64;
+    return { x, y };
+  };
+
+  return (
+    <div className="mb-3 rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#0B1A30] p-3">
+      <div className="mb-2 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <MapPin size={13} className="text-cyan-300" />
+          <div>
+            <div className="text-[11px] font-bold uppercase tracking-wide text-[#EEF3FA]">Dubai Risk Map</div>
+            <div className="text-[9px] text-[#7A94B4]">Click a marker to open property command context</div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 text-[9px] text-[#7A94B4]">
+          <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-full bg-red-400" /> Critical</span>
+          <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-full bg-orange-400" /> High</span>
+          <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-full bg-emerald-400" /> Low</span>
+        </div>
+      </div>
+      <div className="relative h-36 overflow-hidden rounded-lg border border-[rgba(46,127,255,0.12)] bg-[radial-gradient(circle_at_24%_18%,rgba(46,127,255,0.18),transparent_20%),linear-gradient(135deg,#081528,#0E2741)]">
+        <div className="absolute inset-0 opacity-35" style={{ backgroundImage: 'linear-gradient(rgba(126,184,247,.12) 1px, transparent 1px), linear-gradient(90deg, rgba(126,184,247,.12) 1px, transparent 1px)', backgroundSize: '42px 42px' }} />
+        <div className="absolute left-[18%] top-[18%] h-[58%] w-[62%] rounded-[55%] border border-cyan-400/20 rotate-[-14deg]" />
+        <div className="absolute left-[28%] top-[42%] h-[1px] w-[52%] bg-cyan-300/20 rotate-[8deg]" />
+        {placedClients.map(client => {
+          const { x, y } = position(client);
+          const color = client.riskLevel === 'critical' ? 'bg-red-400 shadow-red-500/60' : client.riskLevel === 'high' ? 'bg-orange-400 shadow-orange-500/60' : client.riskLevel === 'medium' ? 'bg-amber-400 shadow-amber-500/60' : 'bg-emerald-400 shadow-emerald-500/60';
+          return (
+            <button
+              key={client.id}
+              onClick={() => onSelect(client)}
+              className="absolute -translate-x-1/2 -translate-y-1/2 group"
+              style={{ left: `${x}%`, top: `${y}%` }}
+              title={client.name}
+            >
+              <span className={`block h-3 w-3 rounded-full ${color} shadow-[0_0_18px_currentColor] ring-4 ring-white/5`} />
+              <span className="pointer-events-none absolute left-1/2 top-4 hidden min-w-28 -translate-x-1/2 rounded-md border border-white/10 bg-[#061225] px-2 py-1 text-[9px] font-semibold text-[#EEF3FA] shadow-xl group-hover:block">
+                {client.name}
+              </span>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -302,6 +620,8 @@ function ClientPortfolioCard({
 }) {
   const slaColor = client.sla >= 90 ? 'text-emerald-400' : client.sla >= 80 ? 'text-amber-400' : 'text-red-400';
   const compColor = client.compliance >= 90 ? 'text-emerald-400' : client.compliance >= 80 ? 'text-amber-400' : 'text-red-400';
+  const commandProfile = getCommandProfile(client);
+  const visibleSources = client.dataSources.length > 0 ? client.dataSources : [{ label: 'Data onboarding', count: commandProfile.coverage }];
 
   if (view === 'list') {
     return (
@@ -340,7 +660,7 @@ function ClientPortfolioCard({
             {client.riskLevel}
           </div>
           <div className="flex max-w-full flex-wrap gap-1 xl:flex-shrink-0">
-            {client.dataSources.map(ds => (
+            {visibleSources.map(ds => (
               <span key={ds.label} className="text-[9px] bg-[rgba(46,127,255,0.1)] border border-[rgba(46,127,255,0.2)] text-blue-300 px-1.5 py-0.5 rounded-full whitespace-nowrap">
                 {ds.label} <span className="opacity-60">·{ds.count.toLocaleString()}</span>
               </span>
@@ -398,7 +718,7 @@ function ClientPortfolioCard({
         </div>
 
         <div className="flex flex-wrap gap-1">
-          {client.dataSources.map(ds => (
+          {visibleSources.map(ds => (
             <span key={ds.label} className="text-[9px] bg-[rgba(46,127,255,0.1)] border border-[rgba(46,127,255,0.2)] text-blue-300 px-1.5 py-0.5 rounded-full whitespace-nowrap">
               {ds.label} <span className="opacity-60">·{ds.count.toLocaleString()}</span>
             </span>
@@ -407,7 +727,7 @@ function ClientPortfolioCard({
 
         <div className="flex items-start gap-1.5 p-2 bg-[rgba(6,182,212,0.05)] border border-cyan-500/10 rounded-lg">
           <Zap size={10} className="text-cyan-400 flex-shrink-0 mt-0.5" />
-          <span className="text-[10px] text-[#7A94B4] leading-snug line-clamp-2">{client.aiInsight}</span>
+          <span className="text-[10px] text-[#7A94B4] leading-snug line-clamp-2">{client.aiInsight || `${commandProfile.firstDue}. Data coverage at ${commandProfile.coverage}%.`}</span>
         </div>
 
         <div className="flex items-center justify-between gap-2">
@@ -1027,6 +1347,8 @@ function ClientDetailDrawer({
     if (ds.count >= 100) return 88;
     return 74;
   };
+  const commandProfile = getCommandProfile(client);
+  const visibleSources = client.dataSources.length > 0 ? client.dataSources : [{ label: 'Data onboarding', count: commandProfile.coverage }];
 
   return (
     <AnimatePresence>
@@ -1055,6 +1377,28 @@ function ClientDetailDrawer({
           </div>
 
           <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4">
+            <div>
+              <div className="text-[10px] text-[#7A94B4] uppercase tracking-wide mb-2">AI Why This Matters</div>
+              <div className="p-3 bg-[rgba(46,127,255,0.08)] border border-blue-500/20 rounded-xl">
+                <div className="flex items-start gap-2">
+                  <Bot size={13} className="text-blue-300 flex-shrink-0 mt-0.5" />
+                  <p className="text-[11px] text-[#EEF3FA] leading-relaxed">{commandProfile.narrative}</p>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <div className="text-[10px] text-[#7A94B4] uppercase tracking-wide mb-2">Next 3 Actions</div>
+              <div className="space-y-1.5">
+                {commandProfile.actions.map((action, i) => (
+                  <div key={action} className="flex items-center gap-2 rounded-lg border border-[rgba(46,127,255,0.1)] bg-[#0A1628] p-2">
+                    <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md bg-[#2E7FFF]/15 text-[10px] font-bold text-blue-300">{i + 1}</span>
+                    <span className="text-[10px] text-[#EEF3FA] leading-snug">{action}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <div>
               <div className="text-[10px] text-[#7A94B4] uppercase tracking-wide mb-2">Property Overview</div>
               <div className="grid grid-cols-3 gap-2">
@@ -1113,9 +1457,31 @@ function ClientDetailDrawer({
             </div>
 
             <div>
+              <div className="text-[10px] text-[#7A94B4] uppercase tracking-wide mb-2">Executive Impact</div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-2">
+                  <div className="text-[8px] uppercase tracking-wide text-red-200/70">AED at Risk</div>
+                  <div className="text-[13px] font-bold text-red-200">{formatAed(commandProfile.atRisk)}</div>
+                </div>
+                <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-2">
+                  <div className="text-[8px] uppercase tracking-wide text-emerald-200/70">Avoided</div>
+                  <div className="text-[13px] font-bold text-emerald-200">{formatAed(commandProfile.prevented)}</div>
+                </div>
+                <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/10 p-2">
+                  <div className="text-[8px] uppercase tracking-wide text-cyan-200/70">Sentiment</div>
+                  <div className="text-[13px] font-bold text-cyan-200">{commandProfile.sentiment}%</div>
+                </div>
+                <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-2">
+                  <div className="text-[8px] uppercase tracking-wide text-amber-200/70">Utilization</div>
+                  <div className="text-[13px] font-bold text-amber-200">{commandProfile.utilization}%</div>
+                </div>
+              </div>
+            </div>
+
+            <div>
               <div className="text-[10px] text-[#7A94B4] uppercase tracking-wide mb-2">Data Source Quality</div>
               <div className="space-y-2">
-                {client.dataSources.map(ds => {
+                {visibleSources.map(ds => {
                   const q = dsQuality(ds);
                   const qColor = q >= 90 ? '#38D98A' : q >= 70 ? '#FF9B38' : '#FF4B4B';
                   return (
@@ -1154,7 +1520,7 @@ function ClientDetailDrawer({
               <div className="text-[10px] text-[#7A94B4] uppercase tracking-wide mb-2">AI Insight</div>
               <div className="p-3 bg-[rgba(6,182,212,0.06)] border border-cyan-500/20 rounded-xl flex items-start gap-2">
                 <Zap size={12} className="text-cyan-400 flex-shrink-0 mt-0.5" />
-                <p className="text-[11px] text-[#EEF3FA] leading-relaxed">{client.aiInsight}</p>
+                <p className="text-[11px] text-[#EEF3FA] leading-relaxed">{client.aiInsight || `${commandProfile.firstDue}. Data coverage at ${commandProfile.coverage}%.`}</p>
               </div>
             </div>
           </div>
@@ -1313,7 +1679,9 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
 
       <PortfolioSummaryStrip clients={allClients} />
 
-      <PortfolioPulseFeed />
+      <ExecutiveImpactStrip clients={allClients} />
+
+      <PortfolioPulseFeed onToast={onToast} />
 
       <div className="flex items-stretch gap-2 px-5 pb-2.5 flex-shrink-0 flex-wrap gap-y-2">
         <div className="flex min-w-[180px] flex-1 items-center gap-1.5 bg-[#112040] rounded-lg px-2.5 py-1.5 border border-[rgba(46,127,255,0.2)] sm:flex-none">
@@ -1392,6 +1760,8 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
       </div>
 
       <div className="flex-1 overflow-y-auto custom-scrollbar px-5 pb-4">
+        <PortfolioRiskMap clients={allClients} onSelect={setSelected} />
+
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3">
             <Users size={32} className="text-[#7A94B4] opacity-30" />
@@ -1411,7 +1781,7 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
           <div className="grid grid-cols-1 gap-3 xl:grid-cols-2 2xl:grid-cols-3">
             <AnimatePresence initial={false}>
               {filtered.map(c => (
-                <ClientPortfolioCard key={c.id} client={c} onSelect={client => onClientSelect(client.id)} onDismiss={handleDismissClient} onToast={onToast} onReport={setReportClient} view="grid" onNavigateToIncidents={onNavigateToIncidents} onNavigateToCommand={onNavigateToCommand} />
+                <ClientPortfolioCard key={c.id} client={c} onSelect={setSelected} onDismiss={handleDismissClient} onToast={onToast} onReport={setReportClient} view="grid" onNavigateToIncidents={onNavigateToIncidents} onNavigateToCommand={onNavigateToCommand} />
               ))}
             </AnimatePresence>
           </div>
@@ -1419,7 +1789,7 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
           <div className="flex flex-col gap-2">
             <AnimatePresence initial={false}>
               {filtered.map(c => (
-                <ClientPortfolioCard key={c.id} client={c} onSelect={client => onClientSelect(client.id)} onDismiss={handleDismissClient} onToast={onToast} onReport={setReportClient} view="list" onNavigateToIncidents={onNavigateToIncidents} onNavigateToCommand={onNavigateToCommand} />
+                <ClientPortfolioCard key={c.id} client={c} onSelect={setSelected} onDismiss={handleDismissClient} onToast={onToast} onReport={setReportClient} view="list" onNavigateToIncidents={onNavigateToIncidents} onNavigateToCommand={onNavigateToCommand} />
               ))}
             </AnimatePresence>
           </div>
