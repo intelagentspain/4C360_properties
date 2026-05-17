@@ -79,6 +79,43 @@ const ALL_STATUSES   = ['All', 'open', 'dispatched', 'in-progress', 'overdue', '
 const ALL_SOURCES    = ['All', 'AI Capture', 'QR Scan', 'WhatsApp → Manual', 'Resident App', 'Manual'];
 const NEW_INC_SOURCES = ['AI Capture', 'QR Scan', 'WhatsApp → Manual', 'Resident App', 'Manual'];
 
+type IncidentHeaderMetricKey = 'critical' | 'open' | 'overdue';
+
+interface IncidentHeaderMetric {
+  key: IncidentHeaderMetricKey;
+  label: string;
+  value: number;
+  incidents: Incident[];
+  color: string;
+  icon: React.ReactNode;
+  summary: string;
+  chips: string[];
+}
+
+const INCIDENT_HEADER_CONFIG: Record<IncidentHeaderMetricKey, Omit<IncidentHeaderMetric, 'key' | 'value' | 'incidents'>> = {
+  critical: {
+    label: 'Critical',
+    color: 'text-red-400 bg-red-500/10 border-red-500/30',
+    icon: <AlertTriangle size={13} />,
+    summary: 'Critical incidents need immediate command visibility, safety ownership, and client-facing SLA recovery updates.',
+    chips: ['Open critical bridge', 'Assign supervisor', 'Notify client lead', 'Create emergency WO'],
+  },
+  open: {
+    label: 'Open',
+    color: 'text-[#7A94B4] bg-white/5 border-white/10',
+    icon: <Clock size={13} />,
+    summary: 'Open incidents are waiting for triage, ownership, or field movement. Use this queue to prevent SLA drift.',
+    chips: ['Review open queue', 'Assign missing owners', 'Nudge technicians', 'Sort by SLA risk'],
+  },
+  overdue: {
+    label: 'Overdue',
+    color: 'text-amber-400 bg-amber-500/10 border-amber-500/30',
+    icon: <Hourglass size={13} />,
+    summary: 'Overdue incidents are already outside target timing and should be escalated into a recovery plan.',
+    chips: ['Start overdue recovery', 'Escalate account manager', 'Create WO bundle', 'Send SLA update'],
+  },
+};
+
 const DETAIL_TABS = ['Overview', 'Photos', 'Timeline', 'AI Analysis', 'Actions'];
 
 const AI_SIGNALS: Record<string, { label: string; value: string; match: number }[]> = {
@@ -109,6 +146,143 @@ function SLABar({ incident }: { incident: Incident }) {
         <span className="text-[9px] text-[#7A94B4]">{incident.elapsed}m elapsed</span>
       </div>
     </div>
+  );
+}
+
+function IncidentHeaderMetricModal({
+  metric,
+  onClose,
+  onToast,
+  onOpenIncident,
+}: {
+  metric: IncidentHeaderMetric;
+  onClose: () => void;
+  onToast: ToastFn;
+  onOpenIncident: (incident: Incident) => void;
+}) {
+  const [selectedChips, setSelectedChips] = useState<string[]>(metric.chips.slice(0, 3));
+  const avgElapsed = metric.incidents.length > 0
+    ? Math.round(metric.incidents.reduce((sum, inc) => sum + inc.elapsed, 0) / metric.incidents.length)
+    : 0;
+  const highRiskCount = metric.incidents.filter(inc => inc.severity === 'critical' || inc.status === 'overdue').length;
+  const assignedCount = metric.incidents.filter(inc => inc.assignedTech).length;
+  const visibleIncidents = [...metric.incidents]
+    .sort((a, b) => b.elapsed - a.elapsed)
+    .slice(0, 5);
+
+  const toggleChip = (chip: string) => {
+    setSelectedChips(prev => prev.includes(chip) ? prev.filter(c => c !== chip) : [...prev, chip]);
+  };
+
+  const queueActions = () => {
+    onClose();
+    window.setTimeout(() => {
+      onToast(`${metric.label}: ${selectedChips.length} incident actions queued`, 'success');
+    }, 0);
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.96, y: 12 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.96, y: 12 }}
+      transition={{ duration: 0.18 }}
+      className="fixed left-1/2 top-1/2 z-[320] w-[min(560px,calc(100%-32px))] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl border border-[rgba(46,127,255,0.28)] bg-[#0B172A] shadow-2xl"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`${metric.label} incident details`}
+    >
+      <div className="flex items-start justify-between gap-3 border-b border-[rgba(46,127,255,0.16)] bg-[#112040] px-4 py-3">
+        <div className="flex min-w-0 items-start gap-3">
+          <div className={`mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg border ${metric.color}`}>
+            {metric.icon}
+          </div>
+          <div className="min-w-0">
+            <div className="text-[9px] font-bold uppercase tracking-wide text-[#7A94B4]">Incident Command</div>
+            <h3 className="mt-0.5 text-sm font-bold leading-tight text-[#EEF3FA]">{metric.label} Incidents</h3>
+            <p className="mt-1 text-[11px] leading-relaxed text-[#9DB9E8]">{metric.summary}</p>
+          </div>
+        </div>
+        <button onClick={onClose} className="rounded-lg p-1.5 text-[#7A94B4] transition-colors hover:bg-white/5 hover:text-white" aria-label="Close incident metric details">
+          <X size={15} />
+        </button>
+      </div>
+
+      <div className="space-y-3 p-4">
+        <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+          {[
+            { label: 'Incidents', value: String(metric.value), tone: metric.key === 'critical' ? 'text-red-300' : metric.key === 'overdue' ? 'text-amber-300' : 'text-[#EEF3FA]' },
+            { label: 'High Risk', value: String(highRiskCount), tone: 'text-red-300' },
+            { label: 'Assigned', value: String(assignedCount), tone: 'text-blue-300' },
+            { label: 'Avg Elapsed', value: `${avgElapsed} min`, tone: avgElapsed > 90 ? 'text-amber-300' : 'text-emerald-300' },
+          ].map(item => (
+            <div key={item.label} className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#0A1628] p-3">
+              <div className="text-[9px] uppercase tracking-wide text-[#7A94B4]">{item.label}</div>
+              <div className={`mt-1 text-[14px] font-bold leading-tight ${item.tone}`}>{item.value}</div>
+            </div>
+          ))}
+        </div>
+
+        <div className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#0A1628] p-3">
+          <div className="mb-2 flex items-center justify-between">
+            <div className="text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">Incident Breakdown</div>
+            <div className="text-[9px] text-[#7A94B4]">oldest first</div>
+          </div>
+          <div className="space-y-1.5">
+            {visibleIncidents.length > 0 ? visibleIncidents.map(incident => {
+              const cfg = STATUS_CONFIG[incident.status] || STATUS_CONFIG.open;
+              const sla = slaStatus(incident.elapsed, incident.slaMinutes);
+              return (
+                <button
+                  key={incident.id}
+                  onClick={() => {
+                    onClose();
+                    onOpenIncident(incident);
+                  }}
+                  className="grid w-full grid-cols-[1fr_auto_auto] items-center gap-2 rounded-lg border border-[rgba(46,127,255,0.08)] bg-[#081528] px-2.5 py-2 text-left transition-colors hover:border-[#2E7FFF]/35 hover:bg-[#102544]"
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate text-[11px] font-semibold text-[#EEF3FA]">{incident.title}</span>
+                    <span className="block truncate text-[9px] text-[#7A94B4]">{incident.id} - {incident.location}</span>
+                  </span>
+                  <span className={`rounded border px-1.5 py-0.5 text-[9px] font-semibold ${cfg.bg} ${cfg.text}`}>{cfg.label}</span>
+                  <span className={sla.percent >= 90 ? 'text-[10px] font-bold text-red-300' : sla.percent >= 70 ? 'text-[10px] font-bold text-amber-300' : 'text-[10px] font-bold text-emerald-300'}>{sla.percent}%</span>
+                </button>
+              );
+            }) : (
+              <div className="rounded-lg border border-[rgba(46,127,255,0.08)] bg-[#081528] px-2.5 py-3 text-[11px] text-[#7A94B4]">No incidents currently match this group.</div>
+            )}
+          </div>
+        </div>
+
+        <div>
+          <div className="mb-2 text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">Command Chips</div>
+          <div className="flex flex-wrap gap-2">
+            {metric.chips.map(chip => {
+              const active = selectedChips.includes(chip);
+              return (
+                <button
+                  key={chip}
+                  onClick={() => toggleChip(chip)}
+                  className={`rounded-lg border px-2.5 py-1.5 text-[10px] font-semibold transition-all ${active ? 'border-[#2E7FFF] bg-[#2E7FFF]/20 text-blue-100' : 'border-[rgba(46,127,255,0.16)] bg-[#0A1628] text-[#7A94B4] hover:text-[#EEF3FA]'}`}
+                >
+                  {active && <CheckCircle size={10} className="mr-1 inline" />}
+                  {chip}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between gap-3 border-t border-[rgba(46,127,255,0.12)] pt-3">
+          <div className="text-[10px] text-[#7A94B4]">{selectedChips.length} incident actions selected</div>
+          <div className="flex gap-2">
+            <button onClick={onClose} className="rounded-lg border border-[rgba(46,127,255,0.18)] px-3 py-2 text-[11px] font-semibold text-[#9DB9E8] transition-colors hover:bg-white/5">Review Later</button>
+            <button onClick={queueActions} className="rounded-lg bg-[#2E7FFF] px-3 py-2 text-[11px] font-bold text-white shadow-[0_0_14px_rgba(46,127,255,0.32)] transition-colors hover:bg-blue-500">Queue Actions</button>
+          </div>
+        </div>
+      </div>
+    </motion.div>
   );
 }
 
@@ -1671,6 +1845,7 @@ export function Incidents({ onToast, initialClientId, initialIncidentId, onIniti
   const [sortDir,     setSortDir]     = useState<SortDir>('asc');
   const [showModal,   setShowModal]   = useState(false);
   const [woModalFor,  setWoModalFor]  = useState<Incident | null>(null);
+  const [selectedHeaderMetricKey, setSelectedHeaderMetricKey] = useState<IncidentHeaderMetricKey | null>(null);
   const handledRef = useRef(false);
 
   useEffect(() => {
@@ -1788,11 +1963,19 @@ export function Incidents({ onToast, initialClientId, initialIncidentId, onIniti
     ? (incidents.find(i => i.id === selected.id) ?? selected)
     : null;
 
-  const counts = {
-    critical: incidents.filter(i => i.severity === 'critical').length,
-    open:     incidents.filter(i => i.status === 'open').length,
-    overdue:  incidents.filter(i => i.status === 'overdue').length,
-  };
+  const headerMetrics: IncidentHeaderMetric[] = (['critical', 'open', 'overdue'] as const).map(key => {
+    const matching =
+      key === 'critical'
+        ? incidents.filter(i => i.severity === 'critical')
+        : incidents.filter(i => i.status === key);
+    return {
+      key,
+      value: matching.length,
+      incidents: matching,
+      ...INCIDENT_HEADER_CONFIG[key],
+    };
+  });
+  const selectedHeaderMetric = selectedHeaderMetricKey ? headerMetrics.find(metric => metric.key === selectedHeaderMetricKey) ?? null : null;
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
@@ -1809,6 +1992,19 @@ export function Incidents({ onToast, initialClientId, initialIncidentId, onIniti
           onConfirm={handleCreateWorkOrder}
         />
       )}
+      <AnimatePresence>
+        {selectedHeaderMetric && (
+          <>
+            <div className="fixed inset-0 z-[300] bg-black/35 backdrop-blur-[1px]" onClick={() => setSelectedHeaderMetricKey(null)} />
+            <IncidentHeaderMetricModal
+              metric={selectedHeaderMetric}
+              onClose={() => setSelectedHeaderMetricKey(null)}
+              onToast={onToast}
+              onOpenIncident={openIncident}
+            />
+          </>
+        )}
+      </AnimatePresence>
 
       <div className="flex items-center justify-between px-5 py-3 border-b border-[rgba(46,127,255,0.15)] flex-shrink-0">
         <div>
@@ -1816,15 +2012,16 @@ export function Incidents({ onToast, initialClientId, initialIncidentId, onIniti
           <p className="text-[11px] text-[#7A94B4]">All active incidents · Silicon Oasis · {incidents.length} total</p>
         </div>
         <div className="flex items-center gap-3">
-          {[
-            { label: 'Critical', value: counts.critical, color: 'text-red-400 bg-red-500/10 border-red-500/30' },
-            { label: 'Open',     value: counts.open,     color: 'text-[#7A94B4] bg-white/5 border-white/10' },
-            { label: 'Overdue',  value: counts.overdue,  color: 'text-amber-400 bg-amber-500/10 border-amber-500/30' },
-          ].map(k => (
-            <div key={k.label} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[10px] font-semibold ${k.color}`}>
+          {headerMetrics.map(k => (
+            <button
+              key={k.key}
+              onClick={() => setSelectedHeaderMetricKey(k.key)}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[10px] font-semibold transition-all hover:-translate-y-0.5 hover:border-[#2E7FFF]/45 hover:shadow-[0_0_14px_rgba(46,127,255,0.16)] focus:outline-none focus:ring-1 focus:ring-[#2E7FFF]/70 ${k.color}`}
+              aria-label={`Open ${k.label} incident details`}
+            >
               <span className="text-[13px] font-bold">{k.value}</span>
               <span>{k.label}</span>
-            </div>
+            </button>
           ))}
           <button
             onClick={() => setShowModal(true)}
