@@ -221,6 +221,7 @@ function formatAed(value: number) {
 }
 
 type PortfolioKpiKey = 'properties' | 'sites' | 'workOrders' | 'incidents' | 'sla' | 'dataSources';
+type PortfolioStatusKey = 'critical' | 'warning' | 'live';
 
 interface PortfolioKpi {
   key: PortfolioKpiKey;
@@ -234,11 +235,174 @@ interface PortfolioKpi {
   chips: string[];
 }
 
+interface PortfolioStatusSummary {
+  key: PortfolioStatusKey;
+  label: string;
+  count: number;
+  clients: PortfolioClient[];
+  color: string;
+  bg: string;
+  icon: React.ReactNode;
+  summary: string;
+  chips: string[];
+}
+
+const STATUS_SUMMARY_CONFIG: Record<PortfolioStatusKey, Omit<PortfolioStatusSummary, 'key' | 'count' | 'clients'>> = {
+  critical: {
+    label: 'Critical',
+    color: 'text-red-400',
+    bg: 'bg-red-500/10 border-red-500/30',
+    icon: <AlertTriangle size={13} />,
+    summary: 'Critical properties need immediate command attention, supervisor ownership, and client-facing recovery updates.',
+    chips: ['Open command bridge', 'Assign supervisor', 'Notify client lead', 'Start SLA recovery'],
+  },
+  warning: {
+    label: 'Warning',
+    color: 'text-amber-400',
+    bg: 'bg-amber-500/10 border-amber-500/30',
+    icon: <Clock size={13} />,
+    summary: 'Warning properties are trending toward SLA or operational risk and should be stabilized before they become critical.',
+    chips: ['Review warning queue', 'Rebalance field load', 'Schedule recovery check', 'Watch oldest breaches'],
+  },
+  live: {
+    label: 'Live',
+    color: 'text-emerald-400',
+    bg: 'bg-emerald-500/10 border-emerald-500/30',
+    icon: <CheckCircle size={13} />,
+    summary: 'Live properties are healthy enough to support proactive maintenance, prevention loops, and spare-capacity planning.',
+    chips: ['Open healthy roster', 'Keep AI watch active', 'Export live portfolio', 'Share spare capacity'],
+  },
+};
+
 function topClientRows(clients: PortfolioClient[], getValue: (client: PortfolioClient) => number, suffix = '') {
   return [...clients]
     .sort((a, b) => getValue(b) - getValue(a))
     .slice(0, 3)
     .map(client => ({ label: client.name, value: `${getValue(client).toLocaleString()}${suffix}`, tone: 'text-[#EEF3FA]' }));
+}
+
+function StatusSummaryModal({
+  summary,
+  onClose,
+  onToast,
+  onOpenClient,
+}: {
+  summary: PortfolioStatusSummary;
+  onClose: () => void;
+  onToast: ToastFn;
+  onOpenClient: (client: PortfolioClient) => void;
+}) {
+  const [selectedChips, setSelectedChips] = useState<string[]>(summary.chips.slice(0, 3));
+  const totalSites = summary.clients.reduce((sum, client) => sum + client.sites, 0);
+  const totalWorkOrders = summary.clients.reduce((sum, client) => sum + client.workOrders, 0);
+  const totalIncidents = summary.clients.reduce((sum, client) => sum + client.incidents, 0);
+  const avgSla = summary.clients.length > 0
+    ? Math.round(summary.clients.reduce((sum, client) => sum + client.sla, 0) / summary.clients.length)
+    : 0;
+  const visibleClients = summary.clients.slice(0, 5);
+
+  const toggleChip = (chip: string) => {
+    setSelectedChips(prev => prev.includes(chip) ? prev.filter(c => c !== chip) : [...prev, chip]);
+  };
+
+  const queueActions = () => {
+    onToast(`${summary.label}: ${selectedChips.length} status actions queued`, 'success');
+    onClose();
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.96, y: 12 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.96, y: 12 }}
+      transition={{ duration: 0.18 }}
+      className="fixed left-1/2 top-1/2 z-[320] w-[min(560px,calc(100%-32px))] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl border border-[rgba(46,127,255,0.28)] bg-[#0B172A] shadow-2xl"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`${summary.label} status details`}
+    >
+      <div className="flex items-start justify-between gap-3 border-b border-[rgba(46,127,255,0.16)] bg-[#112040] px-4 py-3">
+        <div className="flex min-w-0 items-start gap-3">
+          <div className={`mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg ${summary.bg} ${summary.color}`}>
+            {summary.icon}
+          </div>
+          <div className="min-w-0">
+            <div className="text-[9px] font-bold uppercase tracking-wide text-[#7A94B4]">Portfolio Status</div>
+            <h3 className="mt-0.5 text-sm font-bold leading-tight text-[#EEF3FA]">{summary.label} Properties</h3>
+            <p className="mt-1 text-[11px] leading-relaxed text-[#9DB9E8]">{summary.summary}</p>
+          </div>
+        </div>
+        <button onClick={onClose} className="rounded-lg p-1.5 text-[#7A94B4] transition-colors hover:bg-white/5 hover:text-white" aria-label="Close status details">
+          <X size={15} />
+        </button>
+      </div>
+
+      <div className="space-y-3 p-4">
+        <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+          {[
+            { label: 'Properties', value: String(summary.count), tone: summary.color },
+            { label: 'Sites', value: totalSites.toLocaleString(), tone: 'text-cyan-300' },
+            { label: 'Work Orders', value: totalWorkOrders.toLocaleString(), tone: 'text-blue-300' },
+            { label: 'Avg SLA', value: summary.count > 0 ? `${avgSla}%` : 'N/A', tone: avgSla >= 90 ? 'text-emerald-300' : avgSla >= 80 ? 'text-amber-300' : 'text-red-300' },
+          ].map(item => (
+            <div key={item.label} className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#0A1628] p-3">
+              <div className="text-[9px] uppercase tracking-wide text-[#7A94B4]">{item.label}</div>
+              <div className={`mt-1 text-[14px] font-bold leading-tight ${item.tone}`}>{item.value}</div>
+            </div>
+          ))}
+        </div>
+
+        <div className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#0A1628] p-3">
+          <div className="mb-2 flex items-center justify-between">
+            <div className="text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">Property Breakdown</div>
+            <div className="text-[9px] text-[#7A94B4]">{totalIncidents.toLocaleString()} incidents</div>
+          </div>
+          <div className="space-y-1.5">
+            {visibleClients.length > 0 ? visibleClients.map(client => (
+              <button
+                key={client.id}
+                onClick={() => onOpenClient(client)}
+                className="grid w-full grid-cols-[1fr_auto_auto] items-center gap-2 rounded-lg border border-[rgba(46,127,255,0.08)] bg-[#081528] px-2.5 py-2 text-left transition-colors hover:border-[#2E7FFF]/35 hover:bg-[#102544]"
+              >
+                <span className="min-w-0 truncate text-[11px] font-semibold text-[#EEF3FA]">{client.name}</span>
+                <span className="text-[10px] text-[#7A94B4]">{client.workOrders} WOs</span>
+                <span className={client.sla >= 90 ? 'text-[10px] font-bold text-emerald-300' : client.sla >= 80 ? 'text-[10px] font-bold text-amber-300' : 'text-[10px] font-bold text-red-300'}>{client.sla}% SLA</span>
+              </button>
+            )) : (
+              <div className="rounded-lg border border-[rgba(46,127,255,0.08)] bg-[#081528] px-2.5 py-3 text-[11px] text-[#7A94B4]">No properties currently match this status.</div>
+            )}
+          </div>
+        </div>
+
+        <div>
+          <div className="mb-2 text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">Command Chips</div>
+          <div className="flex flex-wrap gap-2">
+            {summary.chips.map(chip => {
+              const active = selectedChips.includes(chip);
+              return (
+                <button
+                  key={chip}
+                  onClick={() => toggleChip(chip)}
+                  className={`rounded-lg border px-2.5 py-1.5 text-[10px] font-semibold transition-all ${active ? 'border-[#2E7FFF] bg-[#2E7FFF]/20 text-blue-100' : 'border-[rgba(46,127,255,0.16)] bg-[#0A1628] text-[#7A94B4] hover:text-[#EEF3FA]'}`}
+                >
+                  {active && <Check size={10} className="mr-1 inline" />}
+                  {chip}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between gap-3 border-t border-[rgba(46,127,255,0.12)] pt-3">
+          <div className="text-[10px] text-[#7A94B4]">{selectedChips.length} status actions selected</div>
+          <div className="flex gap-2">
+            <button onClick={onClose} className="rounded-lg border border-[rgba(46,127,255,0.18)] px-3 py-2 text-[11px] font-semibold text-[#9DB9E8] transition-colors hover:bg-white/5">Review Later</button>
+            <button onClick={queueActions} className="rounded-lg bg-[#2E7FFF] px-3 py-2 text-[11px] font-bold text-white shadow-[0_0_14px_rgba(46,127,255,0.32)] transition-colors hover:bg-blue-500">Queue Actions</button>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
 }
 
 function PortfolioKpiModal({ kpi, onClose, onToast }: { kpi: PortfolioKpi; onClose: () => void; onToast: ToastFn }) {
@@ -1784,6 +1948,7 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
   const [reportClient,  setReportClient]  = useState<PortfolioClient | null>(null);
   const [showAddModal,  setShowAddModal]  = useState(false);
   const [hiddenClientIds, setHiddenClientIds] = useState<string[]>([]);
+  const [selectedStatusKey, setSelectedStatusKey] = useState<PortfolioStatusKey | null>(null);
 
   const handleAddClient = (data: ClientData, teamMembers: TeamMember[], inviteOk: boolean, failedCount: number) => {
     addClient({
@@ -1851,6 +2016,13 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
   const filtered = matchingClients.filter(c => !hiddenClientIds.includes(c.id));
   const hiddenCount = hiddenClientIds.length;
   const hiddenMatchingCount = matchingClients.length - filtered.length;
+  const statusSummaries: PortfolioStatusSummary[] = (['critical', 'warning', 'live'] as const).map(statusKey => ({
+    key: statusKey,
+    count: allClients.filter(c => c.status === statusKey).length,
+    clients: allClients.filter(c => c.status === statusKey),
+    ...STATUS_SUMMARY_CONFIG[statusKey],
+  }));
+  const selectedStatusSummary = selectedStatusKey ? statusSummaries.find(s => s.key === selectedStatusKey) ?? null : null;
 
   return (
     <div className="h-full flex flex-col overflow-hidden relative">
@@ -1866,15 +2038,16 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-          {[
-            { label: 'Critical', count: allClients.filter(c => c.status === 'critical').length, color: 'text-red-400 bg-red-500/10 border-red-500/30' },
-            { label: 'Warning',  count: allClients.filter(c => c.status === 'warning').length,  color: 'text-amber-400 bg-amber-500/10 border-amber-500/30' },
-            { label: 'Live',     count: allClients.filter(c => c.status === 'live').length,     color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30' },
-          ].map(k => (
-            <div key={k.label} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[10px] font-semibold ${k.color}`}>
+          {statusSummaries.map(k => (
+            <button
+              key={k.key}
+              onClick={() => setSelectedStatusKey(k.key)}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[10px] font-semibold transition-all hover:-translate-y-0.5 hover:border-[#2E7FFF]/45 hover:shadow-[0_0_14px_rgba(46,127,255,0.16)] focus:outline-none focus:ring-1 focus:ring-[#2E7FFF]/70 ${k.bg} ${k.color}`}
+              aria-label={`Open ${k.label} status details`}
+            >
               <span className="text-[13px] font-bold">{k.count}</span>
               <span>{k.label}</span>
-            </div>
+            </button>
           ))}
           <button
             onClick={() => setShowAddModal(true)}
@@ -2004,6 +2177,23 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
           </div>
         )}
       </div>
+
+      <AnimatePresence>
+        {selectedStatusSummary && (
+          <>
+            <div className="fixed inset-0 z-[300] bg-black/35 backdrop-blur-[1px]" onClick={() => setSelectedStatusKey(null)} />
+            <StatusSummaryModal
+              summary={selectedStatusSummary}
+              onClose={() => setSelectedStatusKey(null)}
+              onToast={onToast}
+              onOpenClient={client => {
+                setSelectedStatusKey(null);
+                setSelected(client);
+              }}
+            />
+          </>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {selected && (
