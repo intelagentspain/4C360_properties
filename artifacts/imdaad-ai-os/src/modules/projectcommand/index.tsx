@@ -154,7 +154,7 @@ export function ProjectCommand({ onToast }: { onToast?: (message: string, type?:
         {screen === 'forecast' && <AIForecast />}
       </div>
 
-      <ProjectCommandCopilotButton screen={screen} onNavigate={goTo} />
+      {!addProjectOpen && <ProjectCommandCopilotButton screen={screen} onNavigate={goTo} />}
 
       <AnimatePresence>
         {addProjectOpen && (

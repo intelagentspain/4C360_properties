@@ -1,6 +1,7 @@
 import type { ProjectCommandDataset } from './portfolio';
 
 export type ProjectEventType =
+  | 'baseline-created'
   | 'facade-delay'
   | 'crane-loss'
   | 'missing-approval'
@@ -281,6 +282,8 @@ export const bayz102ControlBaseline: ProjectControlBaseline = {
     { id: 'EVD-BAYZ-04', title: 'fire system sign-off', gate: 'Commissioning Ready', status: 'Required' },
     { id: 'EVD-BAYZ-05', title: 'lift inspection sign-off', gate: 'Handover Go/No-Go', status: 'Required' },
     { id: 'EVD-BAYZ-06', title: 'vendor warranty packs', gate: 'Handover Go/No-Go', status: 'Required' },
+    { id: 'EVD-BAYZ-07', title: 'handover evidence pack', gate: 'Handover Go/No-Go', status: 'Required' },
+    { id: 'EVD-BAYZ-08', title: 'BOQ/package budget summary', gate: 'Design Freeze', status: 'Required' },
   ],
   milestones: [
     { title: 'Substructure Complete', target: '2026-05-30', status: 'watch' },
@@ -292,6 +295,17 @@ export const bayz102ControlBaseline: ProjectControlBaseline = {
 };
 
 const eventTemplates: Record<ProjectEventType, Omit<ProjectEvent, 'id' | 'projectId' | 'timestamp'>> = {
+  'baseline-created': {
+    type: 'baseline-created',
+    title: 'Project baseline created from uploaded LOA/project summary.',
+    description: 'AI converted imported project material into a live control baseline with programme, cost, vendor, risk, obligation, evidence, forecast, and manager decision context.',
+    affectedAreas: ['Property', 'Project', 'Programme', 'Cost', 'Risk', 'Vendors', 'Stage Gates', 'Evidence', 'Forecasts', 'Manager decisions'],
+    affectedModule: 'Project Control Baseline',
+    impactLabel: 'Health, CPI, SPI, float, EAC, top threat, forecast scenarios, and manager actions are now linked to the created baseline.',
+    cta: 'Review baseline',
+    severity: 'positive',
+    impacts: { healthDelta: 0, cpiDelta: 0, spiDelta: 0, floatDelta: 0, eacDelta: 0, riskDelta: 0, evidenceChange: 0 },
+  },
   'facade-delay': {
     type: 'facade-delay',
     title: 'Facade procurement delay',
@@ -406,11 +420,12 @@ export function createProjectControlEvent(projectId: string, type: ProjectEventT
 
 export function getNextProjectEventType(events: ProjectEvent[]): ProjectEventType {
   const sequence: ProjectEventType[] = ['facade-delay', 'crane-loss', 'missing-approval', 'variation-submitted', 'evidence-rejected', 'inspection-failure', 'contractor-underperformance', 'recovery-approved'];
-  return sequence[events.length % sequence.length];
+  const simulatedCount = events.filter(event => event.type !== 'baseline-created').length;
+  return sequence[simulatedCount % sequence.length];
 }
 
 function baselineForDataset(dataset: ProjectCommandDataset): ProjectControlBaseline {
-  if (dataset.property.name === 'Bayz 102' && dataset.project.name === 'Main Construction') {
+  if (dataset.id === 'bayz-102') {
     return bayz102ControlBaseline;
   }
 
@@ -436,19 +451,19 @@ function baselineForDataset(dataset: ProjectCommandDataset): ProjectControlBasel
 }
 
 function baseMetrics(dataset: ProjectCommandDataset) {
-  const isBayzMain = dataset.property.name === 'Bayz 102' && dataset.project.name === 'Main Construction';
+  const isStaticBayzMain = dataset.id === 'bayz-102';
   return {
-    healthScore: isBayzMain ? 78 : dataset.project.healthScore,
+    healthScore: isStaticBayzMain ? 78 : dataset.project.healthScore,
     completion: dataset.project.completion,
-    budgetUsed: isBayzMain ? 39 : dataset.project.budgetUsed,
-    cpi: isBayzMain ? 0.97 : dataset.project.cpi,
-    spi: isBayzMain ? 0.96 : dataset.project.spi,
-    floatRemaining: isBayzMain ? 34 : dataset.project.floatRemaining,
-    forecastHandover: isBayzMain ? '2026-08-12' : dataset.project.forecastCompletion,
-    eac: isBayzMain ? dataset.project.contractValue : dataset.project.forecastCost,
-    riskExposure: isBayzMain ? 18_000_000 : Math.max(dataset.project.forecastCost - dataset.project.contractValue, 0),
-    evidenceCompleteness: isBayzMain ? 88 : 76,
-    vendorScore: isBayzMain ? 82 : 78,
+    budgetUsed: isStaticBayzMain ? 39 : dataset.project.budgetUsed,
+    cpi: isStaticBayzMain ? 0.97 : dataset.project.cpi,
+    spi: isStaticBayzMain ? 0.96 : dataset.project.spi,
+    floatRemaining: isStaticBayzMain ? 34 : dataset.project.floatRemaining,
+    forecastHandover: isStaticBayzMain ? '2026-08-12' : dataset.project.forecastCompletion,
+    eac: isStaticBayzMain ? dataset.project.contractValue : dataset.project.forecastCost,
+    riskExposure: isStaticBayzMain ? 18_000_000 : Math.max(dataset.project.forecastCost - dataset.project.contractValue, 0),
+    evidenceCompleteness: isStaticBayzMain ? 88 : 76,
+    vendorScore: isStaticBayzMain ? 82 : 78,
     pendingVariationExposure: 0,
     delayDays: 0,
   };
@@ -678,8 +693,9 @@ function buildManagerActions(dataset: ProjectCommandDataset, events: ProjectEven
   const linkedEvent = latest?.id ?? 'baseline';
   const actions: ManagerAction[] = [];
   const triggerFor = (types: ProjectEventType[], fallback: string) => [...events].reverse().find(event => types.includes(event.type))?.title ?? fallback;
+  const baselineMode = !latest || latest.type === 'baseline-created';
 
-  if (!latest || events.some(event => event.type === 'crane-loss')) {
+  if (baselineMode || events.some(event => event.type === 'crane-loss')) {
     actions.push({
       id: `${dataset.id}-action-crane`,
       projectId: dataset.id,
@@ -695,7 +711,7 @@ function buildManagerActions(dataset: ProjectCommandDataset, events: ProjectEven
     });
   }
 
-  if (!latest || events.some(event => event.type === 'facade-delay')) {
+  if (baselineMode || events.some(event => event.type === 'facade-delay')) {
     actions.push({
       id: `${dataset.id}-action-facade`,
       projectId: dataset.id,
@@ -711,19 +727,19 @@ function buildManagerActions(dataset: ProjectCommandDataset, events: ProjectEven
     });
   }
 
-  if (!latest || events.some(event => event.type === 'missing-approval' || event.type === 'evidence-rejected' || event.type === 'inspection-failure')) {
+  if (baselineMode || events.some(event => event.type === 'missing-approval' || event.type === 'evidence-rejected' || event.type === 'inspection-failure')) {
     actions.push({
       id: `${dataset.id}-action-approval`,
       projectId: dataset.id,
-      title: 'Clear blocked approval and evidence gates',
+      title: baselineMode ? 'Confirm authority approval pathway' : 'Clear blocked approval and evidence gates',
       linkedEvent,
       triggerLabel: triggerFor(['missing-approval', 'evidence-rejected', 'inspection-failure'], latest?.title ?? 'AI baseline evidence requirements'),
       priority: metrics.evidenceCompleteness < 75 ? 'critical' : 'high',
       whyItMatters: 'Stage gates cannot clear without accepted proof and authority evidence.',
-      expectedImpact: 'Restores gate readiness and reduces audit risk.',
+      expectedImpact: baselineMode ? 'Reduces handover gate risk.' : 'Restores gate readiness and reduces audit risk.',
       costImplication: 'Avoids reinspection and late authority submission costs.',
       status: 'Draft',
-      cta: 'Request corrected evidence',
+      cta: baselineMode ? 'Confirm approval path' : 'Request corrected evidence',
     });
   }
 
@@ -894,9 +910,12 @@ export function buildProjectControlContext(dataset: ProjectCommandDataset, event
   const evidenceSummary = buildEvidence(events);
   const vendorSummary = buildVendors(events);
   const latestEvent = events[events.length - 1] ?? null;
+  const latestIsBaseline = latestEvent?.type === 'baseline-created';
   const topThreat = latestEvent
-    ? latestEvent.description
-    : 'Bayz 102 baseline is ready. The live demo can now inject delays, variations, evidence gaps, inspections, and recovery actions.';
+    ? latestIsBaseline
+      ? dataset.aiContent.healthScore.topThreat
+      : latestEvent.description
+    : dataset.aiContent.healthScore.topThreat || 'Bayz 102 baseline is ready. The live demo can now inject delays, variations, evidence gaps, inspections, and recovery actions.';
   const latestImpact = latestEvent?.impactLabel ?? 'AI baseline generated work packages, programme phases, cost baseline, risks, obligations, evidence requirements, milestones, and manager decisions.';
   const forecastScenarios = buildForecastScenarios(dataset, metrics, delayDays);
   const managerActions = buildManagerActions(dataset, events, metrics);

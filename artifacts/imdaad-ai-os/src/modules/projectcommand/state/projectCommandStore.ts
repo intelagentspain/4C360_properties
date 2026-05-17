@@ -69,7 +69,7 @@ export function addProjectCommandDataset(dataset: ProjectCommandDataset) {
     selectedPhaseId: null,
     projectEventsByProjectId: {
       ...state.projectEventsByProjectId,
-      [dataset.id]: [],
+      [dataset.id]: [createProjectControlEvent(dataset.id, 'baseline-created')],
     },
   };
   emit();
