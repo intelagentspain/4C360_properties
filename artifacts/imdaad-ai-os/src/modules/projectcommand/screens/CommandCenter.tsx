@@ -36,7 +36,7 @@ import {
   type ManagerAction,
   type ProjectControlContext,
   type ProjectEventType,
-} from '../data/projectControlDemoEngine';
+} from '@/core/control-twin/projectControlTwin';
 import {
   resetProjectCommandEvents,
   setProjectCommandState,
@@ -795,10 +795,14 @@ function SourceTracePanel({ context }: { context: ProjectControlContext }) {
 
 function DemoControls({
   events,
+  ledgerSource,
+  ledgerStatus,
   onReset,
   onSimulate,
 }: {
   events: ProjectControlContext['events'];
+  ledgerSource: string;
+  ledgerStatus: string;
   onReset: () => void;
   onSimulate: (type?: ProjectEventType) => void;
 }) {
@@ -813,6 +817,9 @@ function DemoControls({
           <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#C4B5FD]"><Zap size={13} /> Demo Controls</div>
           <p className="mt-1 text-[11px] text-[#8EA7C7]">
             Presentation controls drive the story. {events.length} event(s) active{latest ? ` - latest: ${latest.title}` : ''}.
+          </p>
+          <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#A78BFA]">
+            Event ledger: {ledgerStatus} / {ledgerSource}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -855,8 +862,10 @@ function DemoControls({
 
 export function CommandCenter({ goTo, onToast }: { goTo: (screen: ProjectCommandScreen) => void; onToast?: ToastFn }) {
   const dataset = useSelectedProjectCommandData();
-  const { activeScenario, projectEventsByProjectId } = useProjectCommandStore();
+  const { activeScenario, eventLedgerSourceByProjectId, eventLedgerStatusByProjectId, projectEventsByProjectId } = useProjectCommandStore();
   const events = projectEventsByProjectId[dataset.id] ?? [];
+  const ledgerStatus = eventLedgerStatusByProjectId[dataset.id] ?? 'idle';
+  const ledgerSource = eventLedgerSourceByProjectId[dataset.id] ?? 'unloaded';
   const context = useMemo(() => buildProjectControlContext(dataset, events), [dataset, events]);
   const [selectedInsight, setSelectedInsight] = useState<{ metricName: MetricName; value: string | number } | null>(null);
   const [executiveMode, setExecutiveMode] = useState(false);
@@ -884,7 +893,7 @@ export function CommandCenter({ goTo, onToast }: { goTo: (screen: ProjectCommand
     <div className="custom-scrollbar h-full overflow-x-hidden overflow-y-auto px-5 py-4 text-[#EEF3FA]">
       <div className="space-y-4">
         <ProjectHeader context={context} executiveMode={executiveMode} onToggleExecutive={() => setExecutiveMode(value => !value)} />
-        <DemoControls events={events} onReset={handleReset} onSimulate={handleSimulate} />
+        <DemoControls events={events} ledgerSource={ledgerSource} ledgerStatus={ledgerStatus} onReset={handleReset} onSimulate={handleSimulate} />
         <ProjectTwinLayer context={context} executiveMode={executiveMode} />
         <ProjectPulse context={context} onExplain={() => setSelectedInsight({ metricName: 'Float Remaining', value: `${context.metrics.floatRemaining}d` })} />
 

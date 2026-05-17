@@ -1,5 +1,22 @@
 const apiBase = (import.meta.env.VITE_API_URL ?? '/api') as string;
 
+type ProjectCommandEvent = {
+  id: string;
+  projectId: string;
+  type: string;
+  title: string;
+  description: string;
+  affectedAreas: string[];
+  affectedModule: string;
+  impactLabel: string;
+  severity: string;
+  impacts: unknown;
+  sourceModule?: string;
+  sourceObjectId?: string | null;
+  cta: string;
+  timestamp: string;
+};
+
 export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${apiBase}${path}`, {
     headers: { 'Content-Type': 'application/json', ...(options?.headers ?? {}) },
@@ -62,6 +79,19 @@ export const api = {
       apiFetch<{ ok: boolean }>('/push/unsubscribe', {
         method: 'POST',
         body: JSON.stringify({ endpoint }),
+      }),
+  },
+  projectCommand: {
+    listEvents: (projectId: string) =>
+      apiFetch<{ events: ProjectCommandEvent[]; source: 'database' | 'memory' }>(`/projectcommand/projects/${encodeURIComponent(projectId)}/events`),
+    createEvent: (projectId: string, event: ProjectCommandEvent) =>
+      apiFetch<{ event: ProjectCommandEvent; source: 'database' | 'memory' }>(`/projectcommand/projects/${encodeURIComponent(projectId)}/events`, {
+        method: 'POST',
+        body: JSON.stringify(event),
+      }),
+    clearEvents: (projectId: string) =>
+      apiFetch<{ ok: boolean; source: 'database' | 'memory' }>(`/projectcommand/projects/${encodeURIComponent(projectId)}/events`, {
+        method: 'DELETE',
       }),
   },
 };

@@ -1,4 +1,4 @@
-export { db, pool } from "@workspace/db";
+export { db, pool, hasDatabaseConnection } from "@workspace/db";
 export {
   clientsTable,
   sitesTable,
@@ -9,6 +9,7 @@ export {
   photoEvidenceTable,
   pushSubscriptionsTable,
   projectsTable,
+  projectControlEventsTable,
   eq,
   desc,
   asc,
