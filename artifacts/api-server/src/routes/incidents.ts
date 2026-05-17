@@ -44,8 +44,7 @@ const RESOLUTION_CONFIRM_SECRET =
 const resolvedAppUrl: string =
   process.env.APP_URL ??
   process.env.API_BASE_URL?.replace(/\/api$/, "") ??
-  (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "") ??
-  "";
+  (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "");
 
 const router = Router();
 
@@ -772,6 +771,11 @@ async function createAndDispatchWorkOrder(
 ): Promise<void> {
   logger.info({ incidentId: id, approverEmail }, "AM confirmed end-client incident — auto-dispatching Work Order");
 
+  if (!incident.id) {
+    throw new Error("Incident id is required");
+  }
+
+  const incidentId = incident.id;
   const workOrderId = `WO-${Date.now().toString(36).toUpperCase()}`;
   const ai = incident.aiMetadata;
 
@@ -783,7 +787,7 @@ async function createAndDispatchWorkOrder(
     asset: ai?.identifiedAsset ?? "General Asset",
     skill: ai?.issueType ?? "General Maintenance",
     siteId: incident.siteId ?? resolveSiteId(incident),
-    incidentId: incident.id,
+    incidentId,
     description: [
       incident.description,
       ai?.recommendedAction ? `Recommended Action: ${ai.recommendedAction}` : null,
@@ -791,10 +795,10 @@ async function createAndDispatchWorkOrder(
   };
 
   try {
-    await db.insert(workOrdersTable).values({
+    const workOrderRecord: typeof workOrdersTable.$inferInsert = {
       id: wo.id,
       incidentId: wo.incidentId ?? null,
-      title: wo.title,
+      title: wo.title ?? "Work Order",
       location: wo.location ?? null,
       priority: wo.priority ?? "medium",
       asset: wo.asset ?? null,
@@ -802,7 +806,8 @@ async function createAndDispatchWorkOrder(
       siteId: wo.siteId ?? null,
       description: wo.description ?? null,
       status: "open",
-    }).onConflictDoNothing();
+    };
+    await db.insert(workOrdersTable).values(workOrderRecord).onConflictDoNothing();
   } catch (err) {
     logger.warn({ err, workOrderId }, "Failed to persist auto-dispatched work order to DB");
   }

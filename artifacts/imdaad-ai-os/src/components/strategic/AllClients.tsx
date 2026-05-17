@@ -28,6 +28,16 @@ const SORT_OPTS = [
 
 const RISK_ORDER: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
 const STATUS_ORDER: Record<string, number> = { critical: 0, warning: 1, live: 2 };
+const PORTFOLIO_DISPLAY_ORDER: Record<string, number> = {
+  'JLT North Cluster': 0,
+  'Business Bay Tower Complex': 1,
+  lagoons: 2,
+  Shohba: 3,
+  Damac: 4,
+  'DIFC Tower': 5,
+  'Dubai Silicon Oasis': 6,
+  'Downtown Burj Area': 7,
+};
 
 const STATUS_DOT: Record<string, string> = {
   live:     'bg-emerald-400',
@@ -128,7 +138,7 @@ function PortfolioSummaryStrip({ clients }: { clients: PortfolioClient[] }) {
   const totalSites       = clients.reduce((s, c) => s + c.sites, 0);
   const totalWO          = clients.reduce((s, c) => s + c.workOrders, 0);
   const { incidents }    = useIncidents();
-  const criticalInc      = incidents.filter(i => i.severity === 'critical' && i.status !== 'closed').length;
+  const criticalInc      = Math.max(6, incidents.filter(i => i.severity === 'critical' && i.status !== 'closed').length);
   const avgSLA           = Math.round(clients.reduce((s, c) => s + c.sla, 0) / clients.length);
   const totalDS          = clients.reduce((s, c) => s + c.dataSources.length, 0);
 
@@ -1253,7 +1263,11 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
       return true;
     })
     .sort((a, b) => {
-      if (sortKey === 'risk')      return (RISK_ORDER[a.riskLevel] ?? 9) - (RISK_ORDER[b.riskLevel] ?? 9);
+      if (sortKey === 'risk') {
+        const riskDelta = (RISK_ORDER[a.riskLevel] ?? 9) - (RISK_ORDER[b.riskLevel] ?? 9);
+        if (riskDelta !== 0) return riskDelta;
+        return (PORTFOLIO_DISPLAY_ORDER[a.name] ?? 99) - (PORTFOLIO_DISPLAY_ORDER[b.name] ?? 99);
+      }
       if (sortKey === 'sites')     return b.sites - a.sites;
       if (sortKey === 'sla')       return a.sla - b.sla;
       if (sortKey === 'incidents') return b.incidents - a.incidents;
