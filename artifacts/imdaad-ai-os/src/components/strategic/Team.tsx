@@ -1020,7 +1020,7 @@ function OverviewTab({ onEmployeeSelect, onToast }: { onEmployeeSelect: (employe
         <MetricCard title="Utilization" value="78%" note="Live capacity balance across sites, projects, and shifts." icon={<GaugeIcon />} tone="#38D98A" />
       </div>
 
-      <div className="grid grid-cols-[minmax(0,1.35fr)_minmax(390px,0.85fr)] gap-4">
+      <div className="grid grid-cols-1 gap-4 2xl:grid-cols-[minmax(0,1.35fr)_minmax(390px,0.85fr)]">
         <Panel className="overflow-hidden">
           <div className="border-b border-white/[0.08] bg-[#10264A]/55 px-4 py-3">
             <SectionTitle
@@ -1028,7 +1028,7 @@ function OverviewTab({ onEmployeeSelect, onToast }: { onEmployeeSelect: (employe
               title="Workforce Command Pulse"
               action={<Pill className="border-emerald-500/25 bg-emerald-500/10 text-emerald-200">AI signal live</Pill>}
             />
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 gap-2 lg:grid-cols-3">
               {[
                 ['Portfolio load', '78%', 'Healthy, but Bayz 102 needs QA cover'],
                 ['Capacity at risk', '64 people', 'Overload, certification, or quality flags'],
@@ -1043,7 +1043,7 @@ function OverviewTab({ onEmployeeSelect, onToast }: { onEmployeeSelect: (employe
             </div>
           </div>
 
-          <div className="grid grid-cols-[minmax(0,1fr)_260px] gap-4 p-4">
+          <div className="grid grid-cols-1 gap-4 p-4 xl:grid-cols-[minmax(0,1fr)_260px]">
             <div className="min-w-0 rounded-xl border border-white/[0.07] bg-[#071224]/60 p-3">
               <div className="mb-2 flex items-center justify-between gap-3">
                 <div>
