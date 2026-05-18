@@ -762,16 +762,16 @@ function WorkforceProfileDrawer({ employee, onClose }: { employee: Employee; onC
   const employeeAssignments = assignments.filter(item => item.assignedTo === employee.name);
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
+    <div className="fixed inset-0 z-50 flex items-center justify-end p-3 sm:p-4">
       <div className="absolute inset-0 bg-black/55" onClick={onClose} />
       <motion.aside
         initial={{ x: 420, opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
         exit={{ x: 420, opacity: 0 }}
         transition={{ duration: 0.2 }}
-        className="relative h-full w-full max-w-[430px] bg-[#0A1628] border-l border-[#2E7FFF]/25 shadow-2xl overflow-y-auto custom-scrollbar"
+        className="relative flex max-h-[calc(100dvh-2rem)] w-full max-w-[430px] flex-col overflow-hidden rounded-2xl border border-[#2E7FFF]/25 bg-[#0A1628] shadow-2xl"
       >
-        <div className="sticky top-0 z-10 bg-[#0A1628]/95 backdrop-blur border-b border-white/[0.08] px-5 py-4 flex items-center justify-between">
+        <div className="z-10 flex shrink-0 items-center justify-between border-b border-white/[0.08] bg-[#0A1628]/95 px-5 py-4 backdrop-blur">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-11 h-11 rounded-full bg-[#2E7FFF]/20 border border-[#2E7FFF]/35 flex items-center justify-center text-[#EEF3FA] font-bold">
               {getInitials(employee.name)}
@@ -786,7 +786,7 @@ function WorkforceProfileDrawer({ employee, onClose }: { employee: Employee; onC
           </button>
         </div>
 
-        <div className="p-5 space-y-4">
+        <div className="flex-1 space-y-4 overflow-y-auto p-5 pb-6 custom-scrollbar">
           <Panel className="p-4">
             <SectionTitle icon={<User size={15} />} title="Profile" />
             <div className="grid grid-cols-2 gap-3 text-[11px]">
