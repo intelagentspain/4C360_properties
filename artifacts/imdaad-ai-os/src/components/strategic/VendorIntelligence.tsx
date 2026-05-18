@@ -65,6 +65,8 @@ type VendorAiExtraction = {
   source: string;
 };
 
+type QuoteExtractionStatus = 'Read' | 'Missing price' | 'Missing SLA' | 'Needs clarification';
+
 type QuoteAnalysisItem = {
   id: string;
   vendorName: string;
@@ -72,6 +74,12 @@ type QuoteAnalysisItem = {
   sla: number | null;
   warranty: string;
   exclusions: string;
+  extractionStatus: QuoteExtractionStatus;
+  missingFields: string[];
+  clarificationQuestions: string[];
+  commercialDelta: number | null;
+  recommendationReason: string;
+  nextActions: string[];
   score: number;
   risk: 'Low' | 'Medium' | 'High';
   finding: string;
@@ -83,6 +91,17 @@ type QuoteAnalysis = {
   summary: string;
   savings: number;
   findings: string[];
+  commercialSpread: number | null;
+  riskConditions: string[];
+  clarificationQuestions: string[];
+  nextActions: string[];
+};
+
+type QuoteActionArtifact = {
+  title: string;
+  status: string;
+  body: string;
+  lines: string[];
 };
 
 const vendorCategories = [
@@ -272,6 +291,41 @@ function buildQuoteAnalysis(documents: VendorSetupDocument[], notes: string, foc
     const pricePenalty = amount === null ? 0 : Math.max(0, (amount - focusVendor.avgCostPerJob) / 35);
     const score = Math.max(30, Math.min(98, Math.round(52 + Math.min(28, (sla ?? 75) / 4) + evidence + warrantyBonus - exclusionPenalty - pricePenalty - missingPenalty)));
     const risk: QuoteAnalysisItem['risk'] = score >= 78 ? 'Low' : score >= 62 ? 'Medium' : 'High';
+    const missingFields = [
+      amount === null ? 'Price' : null,
+      sla === null ? 'SLA commitment' : null,
+      warranty === 'Not clearly stated' ? 'Warranty' : null,
+      /not included|tbd|to be confirmed/i.test(exclusions) ? 'Exclusions detail' : null,
+      evidence === 0 ? 'Evidence commitment' : null,
+    ].filter((field): field is string => Boolean(field));
+    const extractionStatus: QuoteExtractionStatus = amount === null && sla === null
+      ? 'Needs clarification'
+      : amount === null
+        ? 'Missing price'
+        : sla === null
+          ? 'Missing SLA'
+          : missingFields.length > 0
+            ? 'Needs clarification'
+            : 'Read';
+    const clarificationQuestions = [
+      amount === null ? 'Confirm total commercial offer and whether the rate is fixed or provisional.' : null,
+      sla === null ? 'Confirm committed SLA percentage and response-time basis.' : null,
+      warranty === 'Not clearly stated' ? 'Confirm warranty or defect liability period.' : null,
+      /not included|tbd|to be confirmed/i.test(exclusions) ? 'Itemize exclusions, parts markup, and emergency call-out assumptions.' : null,
+      evidence === 0 ? 'Confirm completion evidence: photos, asset tag, timestamp, root cause, and resident confirmation where applicable.' : null,
+    ].filter((question): question is string => Boolean(question));
+    const commercialDelta = amount === null ? null : amount - focusVendor.avgCostPerJob;
+    const recommendationReason = risk === 'Low'
+      ? 'Strong balance of service commitment, evidence readiness, and commercial control.'
+      : risk === 'Medium'
+        ? 'Commercially usable but needs clarification before award.'
+        : 'Do not award until missing commitments and exclusions are resolved.';
+    const nextActions = [
+      risk === 'Low' ? 'Prepare award brief' : null,
+      missingFields.length > 0 ? 'Draft clarification email' : null,
+      commercialDelta !== null && commercialDelta > 0 ? 'Create negotiation points' : null,
+      risk !== 'Low' ? 'Hold award decision' : null,
+    ].filter((action): action is string => Boolean(action));
     const finding = amount === null
       ? 'Price was not detected. Review this quote before award.'
       : sla === null
@@ -281,12 +335,44 @@ function buildQuoteAnalysis(documents: VendorSetupDocument[], notes: string, foc
       : risk === 'Medium'
         ? 'Usable quote, but clarify scope or commercial assumptions.'
         : 'High-risk quote unless exclusions and SLA commitments improve.';
-    return { id: source.id, vendorName, amount, sla, warranty, exclusions, score, risk, finding };
+    return {
+      id: source.id,
+      vendorName,
+      amount,
+      sla,
+      warranty,
+      exclusions,
+      extractionStatus,
+      missingFields,
+      clarificationQuestions,
+      commercialDelta,
+      recommendationReason,
+      nextActions,
+      score,
+      risk,
+      finding,
+    };
   }).sort((a, b) => b.score - a.score);
   const winner = items[0];
   const amounts = items.map(item => item.amount).filter((amount): amount is number => amount !== null);
   const highestAmount = amounts.length ? Math.max(...amounts) : 0;
+  const lowestAmount = amounts.length ? Math.min(...amounts) : 0;
   const savings = winner.amount === null ? 0 : Math.max(0, highestAmount - winner.amount);
+  const commercialSpread = amounts.length >= 2 ? highestAmount - lowestAmount : null;
+  const winnerLowestPremium = winner.amount === null || amounts.length < 2 ? null : winner.amount - lowestAmount;
+  const clarificationQuestions = items.flatMap(item => item.clarificationQuestions.map(question => `${item.vendorName}: ${question}`)).slice(0, 6);
+  const riskConditions = [
+    items.some(item => item.amount === null) ? 'At least one quote is missing a commercial offer.' : null,
+    items.some(item => item.sla === null) ? 'At least one quote is missing an SLA commitment.' : null,
+    items.some(item => item.risk === 'High') ? 'High-risk quote present; do not award without clarification.' : null,
+    winner.missingFields.length > 0 ? `Recommended bidder still needs confirmation: ${winner.missingFields.join(', ')}.` : null,
+  ].filter((condition): condition is string => Boolean(condition));
+  const nextActions = [
+    'Prepare Award Brief',
+    clarificationQuestions.length > 0 ? 'Draft Clarification Email' : null,
+    items.some(item => item.commercialDelta !== null && item.commercialDelta > 0) ? 'Create Negotiation Points' : null,
+    'Open Vendor Profile',
+  ].filter((action): action is string => Boolean(action));
   return {
     winner,
     items,
@@ -295,10 +381,119 @@ function buildQuoteAnalysis(documents: VendorSetupDocument[], notes: string, foc
       ? `${winner.vendorName} is the strongest readable quote with a ${winner.score}/100 comparison score, but price still needs confirmation.`
       : `${winner.vendorName} is the recommended quote with a ${winner.score}/100 comparison score and AED ${winner.amount.toLocaleString()} commercial offer.`,
     findings: [
-      amounts.length >= 2 && savings > 0 ? `Selecting the recommended quote is AED ${savings.toLocaleString()} below the highest readable offer.` : 'Commercial spread needs complete price extraction before final award.',
+      amounts.length >= 2
+        ? winnerLowestPremium && winnerLowestPremium > 0
+          ? `${winner.vendorName} is AED ${winnerLowestPremium.toLocaleString()} above the lowest quote; award rationale depends on SLA, warranty, evidence, and lower operational risk.`
+          : `Selecting the recommended quote is AED ${savings.toLocaleString()} below the highest readable offer.`
+        : 'Commercial spread needs at least two readable prices before final award.',
       `${winner.vendorName} ${winner.sla === null ? 'needs SLA confirmation' : `offers ${winner.sla}% SLA commitment`} with ${winner.warranty.toLowerCase()} warranty position.`,
       items.some(item => item.risk === 'High') ? 'At least one quote carries high clarification risk before award.' : 'No high-risk quote blockers were detected in the submitted set.',
     ],
+    commercialSpread,
+    riskConditions,
+    clarificationQuestions,
+    nextActions,
+  };
+}
+
+function buildSampleQuotePack(focusVendor: VendorIntelData): VendorSetupDocument[] {
+  return [
+    {
+      id: 'sample-developmentx-core-quote',
+      name: 'DevelopmentX Core - Cleaning Soft FM Quote.pdf',
+      type: 'Sample quote',
+      sizeLabel: '118 KB',
+      content: [
+        'Vendor name: DevelopmentX Core',
+        `Service category: ${focusVendor.category}`,
+        'Quote total: AED 420',
+        'SLA commitment: 96',
+        'Warranty: 18 months workmanship warranty',
+        'Exclusions: No major exclusions detected; emergency parts priced at approved rate card',
+        'Mobilization: 7 days from award',
+        'Evidence: before/after photos, asset tag, timestamp, root cause, resident confirmation, supervisor QA sample',
+      ].join('\n'),
+    },
+    {
+      id: 'sample-gulf-fm-quote',
+      name: 'Gulf FM Services - Commercial Offer.xlsx',
+      type: 'Sample quote',
+      sizeLabel: '82 KB',
+      content: [
+        'Vendor name: Gulf FM Services',
+        `Service category: ${focusVendor.category}`,
+        'Quote total: AED 398',
+        'SLA commitment: 92',
+        'Warranty: 12 months',
+        'Exclusions: Emergency parts above AED 1,500 to be confirmed',
+        'Mobilization: 10 days',
+        'Evidence: completion report, photos, asset tag, supervisor sign-off',
+      ].join('\n'),
+    },
+    {
+      id: 'sample-current-vendor-quote',
+      name: `${focusVendor.name} - Revised Quote.docx`,
+      type: 'Sample quote',
+      sizeLabel: '74 KB',
+      content: [
+        `Vendor name: ${focusVendor.name}`,
+        `Service category: ${focusVendor.category}`,
+        `Quote total: AED ${focusVendor.avgCostPerJob}`,
+        'SLA commitment: 82',
+        'Warranty: Not clearly stated',
+        'Exclusions: Parts to be confirmed; weekend coverage excluded',
+        'Mobilization: 14 days',
+        'Evidence: close-out report only',
+      ].join('\n'),
+    },
+  ];
+}
+
+function buildQuoteActionArtifact(action: string, analysis: QuoteAnalysis, focusVendor: VendorIntelData): QuoteActionArtifact {
+  const winner = analysis.winner;
+  const competitorLines = analysis.items.map(item => `${item.vendorName}: ${item.score}/100, ${item.amount === null ? 'price missing' : `AED ${item.amount.toLocaleString()}`}, ${item.sla === null ? 'SLA missing' : `${item.sla}% SLA`}, ${item.risk} risk.`);
+  if (action === 'Prepare Award Brief') {
+    return {
+      title: 'Award Brief Prepared',
+      status: 'Draft prepared',
+      body: `${winner.vendorName} is recommended subject to resolving listed conditions. The recommendation is based on score, price, SLA, exclusions, evidence readiness, and award risk.`,
+      lines: [
+        `Recommended bidder: ${winner.vendorName}`,
+        `Score: ${winner.score}/100 (${winner.risk} risk)`,
+        winner.amount === null ? 'Commercial offer: requires confirmation' : `Commercial offer: AED ${winner.amount.toLocaleString()}`,
+        winner.sla === null ? 'SLA: requires confirmation' : `SLA: ${winner.sla}%`,
+        analysis.commercialSpread === null ? 'Commercial spread: incomplete until all prices are readable' : `Commercial spread: AED ${analysis.commercialSpread.toLocaleString()}`,
+        `Award conditions: ${analysis.riskConditions.length ? analysis.riskConditions.join(' ') : 'No blocking clarification conditions detected.'}`,
+      ],
+    };
+  }
+  if (action === 'Draft Clarification Email') {
+    return {
+      title: 'Clarification Email Draft',
+      status: 'Draft prepared',
+      body: `Draft clarification request for ${focusVendor.category} bidders. No email is sent in demo mode.`,
+      lines: analysis.clarificationQuestions.length
+        ? analysis.clarificationQuestions
+        : ['Confirm commercial validity, SLA basis, warranty, exclusions, mobilization date, and evidence commitments before award.'],
+    };
+  }
+  if (action === 'Create Negotiation Points') {
+    return {
+      title: 'Negotiation Points Created',
+      status: 'Ready for manager review',
+      body: 'Use the strongest compliant offer as the commercial anchor while protecting SLA and evidence quality.',
+      lines: [
+        `Current vendor benchmark: AED ${focusVendor.avgCostPerJob}/job.`,
+        ...competitorLines,
+        'Ask higher-priced bidders to match the strongest commercial offer without reducing SLA, evidence, or warranty commitments.',
+      ],
+    };
+  }
+  return {
+    title: 'Vendor Profile Link Ready',
+    status: 'Ready to open',
+    body: `Open ${focusVendor.name} to compare historical score, active contracts, cost per job, dependency risk, and compliance flags against this quote decision.`,
+    lines: competitorLines,
   };
 }
 
@@ -1129,6 +1324,7 @@ function PageProcurementCopilotModal({
   const [quoteDocuments, setQuoteDocuments] = useState<VendorSetupDocument[]>([]);
   const [quoteNotes, setQuoteNotes] = useState('');
   const [quoteAnalysis, setQuoteAnalysis] = useState<QuoteAnalysis | null>(null);
+  const [quoteActionArtifact, setQuoteActionArtifact] = useState<QuoteActionArtifact | null>(null);
   const chips: { label: string; detail: string; action: VendorCopilotAction; icon: React.ReactNode }[] = [
     { label: 'Draft RFQ', detail: 'Scope, criteria, evidence, deadlines', action: 'rfq', icon: <FileWarning size={15} /> },
     { label: 'Compare Quotes', detail: 'Rank vendors and recommend winner', action: 'compare', icon: <BarChart3 size={15} /> },
@@ -1167,6 +1363,7 @@ function PageProcurementCopilotModal({
     const nextDocuments = [...docs, ...quoteDocuments].slice(0, 8);
     setQuoteDocuments(nextDocuments);
     setQuoteAnalysis(buildQuoteAnalysis(nextDocuments, quoteNotes, focusVendor));
+    setQuoteActionArtifact(null);
     onRun('compare');
     event.target.value = '';
   }
@@ -1175,18 +1372,76 @@ function PageProcurementCopilotModal({
     if (quoteDocuments.length === 0 && !quoteNotes.trim()) return;
     const analysis = buildQuoteAnalysis(quoteDocuments, quoteNotes, focusVendor);
     setQuoteAnalysis(analysis);
+    setQuoteActionArtifact(null);
     onRun('compare');
     setAssistantNote(`${analysis.winner.vendorName} is currently recommended. Review the findings, exclusions, and next action before award.`);
+  }
+
+  function useSampleQuotePack() {
+    const sampleDocuments = buildSampleQuotePack(focusVendor);
+    const analysis = buildQuoteAnalysis(sampleDocuments, quoteNotes, focusVendor);
+    setQuoteDocuments(sampleDocuments);
+    setQuoteAnalysis(analysis);
+    setQuoteActionArtifact(null);
+    onRun('compare');
+    setAssistantNote(`${analysis.winner.vendorName} is recommended from the sample quote pack. Use the action outputs to show award, clarification, and negotiation artifacts.`);
   }
 
   function clearQuoteIntake() {
     setQuoteDocuments([]);
     setQuoteNotes('');
     setQuoteAnalysis(null);
+    setQuoteActionArtifact(null);
     setAssistantNote('Quote comparison reset. Upload or paste new quotes to analyse again.');
   }
 
+  function prepareQuoteAction(action: string) {
+    if (action === 'Open Vendor Profile') {
+      onOpenProfile();
+      return;
+    }
+    if (!quoteAnalysis) return;
+    setQuoteActionArtifact(buildQuoteActionArtifact(action, quoteAnalysis, focusVendor));
+  }
+
   const isCompareMode = result.action === 'compare';
+  const quoteRequiredSla = Math.max(88, focusVendor.slaCompliance + 3);
+  const readableQuoteCount = quoteAnalysis?.items.filter(item => item.extractionStatus === 'Read').length ?? 0;
+  const quoteChecklist = [
+    'Price / rate card',
+    'Committed SLA',
+    'Exclusions',
+    'Warranty',
+    'Mobilization date',
+    'Evidence commitment',
+  ];
+  const quoteContextItems = [
+    { label: 'Service category', value: focusVendor.category },
+    { label: 'Sites in scope', value: focusVendor.sites.join(', ') },
+    { label: 'Current vendor', value: focusVendor.name },
+    { label: 'Benchmark cost', value: `AED ${focusVendor.avgCostPerJob}/job` },
+    { label: 'Required SLA', value: `${quoteRequiredSla}% minimum` },
+    { label: 'Evidence rules', value: 'Photos, asset tag, timestamp, root cause, resident confirmation' },
+  ];
+  const quoteSteps = [
+    { label: '1 RFQ Context', value: `${focusVendor.category} / ${focusVendor.sites.length} sites`, active: true },
+    { label: '2 Quote Intake', value: `${quoteDocuments.length} file${quoteDocuments.length === 1 ? '' : 's'} / ${quoteNotes.trim() ? 'text pasted' : 'text optional'}`, active: quoteDocuments.length > 0 || Boolean(quoteNotes.trim()) },
+    { label: '3 AI Comparison', value: quoteAnalysis ? `${readableQuoteCount}/${quoteAnalysis.items.length} quotes readable` : 'ready to run', active: Boolean(quoteAnalysis) },
+  ];
+  const quoteItemForDocument = (doc: VendorSetupDocument) => quoteAnalysis?.items.find(item => item.id === doc.id);
+  const quoteStatusTone = (status?: QuoteExtractionStatus) => {
+    if (status === 'Read') return 'border-emerald-400/25 bg-emerald-400/10 text-emerald-200';
+    if (status === 'Missing price' || status === 'Missing SLA') return 'border-amber-400/25 bg-amber-400/10 text-amber-200';
+    if (status === 'Needs clarification') return 'border-red-400/25 bg-red-400/10 text-red-200';
+    return 'border-[#2E7FFF]/22 bg-[#2E7FFF]/10 text-[#8DBDFF]';
+  };
+  const quoteRiskTone = (risk: QuoteAnalysisItem['risk']) => (
+    risk === 'Low'
+      ? 'border-emerald-400/25 bg-emerald-400/10 text-emerald-200'
+      : risk === 'Medium'
+        ? 'border-amber-400/25 bg-amber-400/10 text-amber-200'
+        : 'border-red-400/25 bg-red-400/10 text-red-200'
+  );
 
   return (
     <motion.div
@@ -1199,20 +1454,20 @@ function PageProcurementCopilotModal({
         initial={{ opacity: 0, y: 18, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 12, scale: 0.98 }}
-        className={`flex max-h-[90vh] w-full ${isCompareMode ? 'max-w-3xl' : 'max-w-5xl'} flex-col overflow-hidden rounded-2xl border border-[#2E7FFF]/30 bg-[#081528] shadow-2xl`}
+        className={`flex max-h-[90vh] w-full ${isCompareMode ? (quoteAnalysis ? 'max-w-6xl' : 'max-w-5xl') : 'max-w-5xl'} flex-col overflow-hidden rounded-2xl border border-[#2E7FFF]/30 bg-[#081528] shadow-2xl`}
       >
         <div className="flex items-start justify-between gap-4 border-b border-[rgba(46,127,255,0.16)] bg-[linear-gradient(135deg,rgba(46,127,255,0.18),rgba(124,58,237,0.12))] px-5 py-4">
           <div>
             <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-violet-300/25 bg-violet-400/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-violet-100">
               <MessageSquare size={12} />
-              Procurement assistant
+              {isCompareMode ? 'Quote Comparison Workbench' : 'Procurement assistant'}
             </div>
             <h3 className="text-xl font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-              {isCompareMode ? 'Compare Quotes' : 'How can I help?'}
+              {isCompareMode ? 'Compare supplier quotes' : 'How can I help?'}
             </h3>
             <p className="mt-1 max-w-2xl text-[12px] leading-5 text-[#9CB1CC]">
               {isCompareMode
-                ? 'Upload quote files, run analysis, and review the extracted comparison.'
+                ? 'RFQ context, quote intake, AI scoring, risk flags, and action drafts in one flow.'
                 : <>Tell me the procurement outcome. I will generate the artifact and keep the vendor context anchored to <span className="font-bold text-[#EEF3FA]">{focusVendor.name}</span>.</>}
             </p>
           </div>
@@ -1223,128 +1478,341 @@ function PageProcurementCopilotModal({
 
         {isCompareMode ? (
           <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto p-5">
-            <div className="rounded-2xl border border-emerald-400/22 bg-emerald-500/8 p-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <div className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-200">
-                    <BarChart3 size={13} />
-                    Quote intake
-                  </div>
-                  <h4 className="mt-1 text-sm font-bold text-[#EEF3FA]">Upload quote files</h4>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {quoteSteps.map(step => (
+                <div
+                  key={step.label}
+                  className={`rounded-xl border p-3 transition-all ${
+                    step.active
+                      ? 'border-[#2E7FFF]/38 bg-[#2E7FFF]/14 shadow-[0_0_22px_rgba(46,127,255,0.10)]'
+                      : 'border-[rgba(46,127,255,0.14)] bg-[#07111F]'
+                  }`}
+                >
+                  <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#8DBDFF]">{step.label}</div>
+                  <div className="mt-1 text-[11px] leading-4 text-[#C8D8EE]">{step.value}</div>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-[#2E7FFF]/30 bg-[#2E7FFF]/12 px-3 py-2 text-[11px] font-bold text-[#BFD8FF] transition-all hover:bg-[#2E7FFF]/18">
-                    <UploadCloud size={13} />
-                    Upload quotes
-                    <input
-                      type="file"
-                      multiple
-                      accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.md,.json"
-                      onChange={addQuoteDocuments}
-                      className="hidden"
-                    />
-                  </label>
-                  <button
-                    type="button"
-                    onClick={analyseQuotes}
-                    disabled={quoteDocuments.length === 0 && !quoteNotes.trim()}
-                    className="inline-flex items-center gap-2 rounded-xl bg-[#2E7FFF] px-3 py-2 text-[11px] font-bold text-white shadow-lg shadow-[#2E7FFF]/20 transition-all hover:bg-[#4B91FF] disabled:cursor-not-allowed disabled:bg-[#1A3356] disabled:text-[#7891B0] disabled:shadow-none"
-                  >
-                    <Sparkles size={13} />
-                    Analyse quotes
-                  </button>
-                </div>
-              </div>
+              ))}
+            </div>
 
-              <div className="mt-4 flex flex-wrap gap-2">
-                {quoteDocuments.length === 0 ? (
-                  <div className="rounded-lg border border-dashed border-[#2E7FFF]/25 px-3 py-2 text-[11px] text-[#7A94B4]">
-                    No quote files uploaded
+            <div className="mt-4 grid gap-4 lg:grid-cols-[0.92fr_1.08fr]">
+              <div className="space-y-4">
+                <section className="rounded-2xl border border-[rgba(46,127,255,0.18)] bg-[#07111F] p-4">
+                  <div className="mb-3 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-[#8DBDFF]">
+                    <Target size={13} />
+                    RFQ Context
                   </div>
-                ) : (
-                  quoteDocuments.map(doc => (
-                    <div key={doc.id} className="rounded-lg border border-[#2E7FFF]/18 bg-[#102544] px-3 py-2 text-[10px] text-[#C8D8EE]">
-                      <div className="flex items-center gap-2">
-                        <FileText size={12} className="text-[#8DBDFF]" />
-                        <span className="max-w-[220px] truncate font-semibold">{doc.name}</span>
-                        <span className="text-[#6F89AA]">{doc.sizeLabel}</span>
-                        <button type="button" onClick={() => { setQuoteDocuments(prev => prev.filter(item => item.id !== doc.id)); setQuoteAnalysis(null); }} className="text-[#7A94B4] hover:text-red-300" aria-label={`Remove ${doc.name}`}>
-                          <Trash2 size={11} />
-                        </button>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {quoteContextItems.map(item => (
+                      <div key={item.label} className="rounded-xl border border-[rgba(46,127,255,0.12)] bg-[#0D1E3A] p-3">
+                        <div className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">{item.label}</div>
+                        <div className="mt-1 text-[12px] font-bold leading-5 text-[#EEF3FA]">{item.value}</div>
                       </div>
-                      {doc.warning && <div className="mt-1 text-[9px] leading-4 text-amber-200">{doc.warning}</div>}
-                    </div>
-                  ))
-                )}
-              </div>
+                    ))}
+                  </div>
+                </section>
 
-              <details className="mt-4 rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#07111F]">
-                <summary className="cursor-pointer px-3 py-2 text-[10px] font-bold uppercase tracking-[0.16em] text-[#8DBDFF]">Paste quote text</summary>
-                <div className="border-t border-[rgba(46,127,255,0.12)] p-3">
+                <section className="rounded-2xl border border-emerald-400/22 bg-emerald-500/8 p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <div className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-200">
+                        <BarChart3 size={13} />
+                        Quote Intake
+                      </div>
+                      <h4 className="mt-1 text-sm font-bold text-[#EEF3FA]">Upload, paste, or run the sample pack</h4>
+                      <p className="mt-1 text-[11px] leading-5 text-[#9CB1CC]">
+                        The demo keeps missing price or SLA fields visible as clarification needs.
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-[#2E7FFF]/30 bg-[#2E7FFF]/12 px-3 py-2 text-[11px] font-bold text-[#BFD8FF] transition-all hover:bg-[#2E7FFF]/18">
+                        <UploadCloud size={13} />
+                        Upload quotes
+                        <input
+                          type="file"
+                          multiple
+                          accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.md,.json"
+                          onChange={addQuoteDocuments}
+                          className="hidden"
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={useSampleQuotePack}
+                        className="inline-flex items-center gap-2 rounded-xl border border-violet-300/25 bg-violet-400/12 px-3 py-2 text-[11px] font-bold text-violet-100 transition-all hover:bg-violet-400/18"
+                      >
+                        <Wand2 size={13} />
+                        Use Sample Quote Pack
+                      </button>
+                    </div>
+                  </div>
+
                   <textarea
                     value={quoteNotes}
                     onChange={event => {
                       setQuoteNotes(event.target.value);
                       setQuoteAnalysis(null);
+                      setQuoteActionArtifact(null);
                     }}
-                    placeholder="Paste quote text"
-                    className="min-h-[88px] w-full resize-none rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#050C17] px-3 py-2.5 text-[12px] leading-relaxed text-[#EEF3FA] outline-none transition-all placeholder:text-[#4A6480] focus:border-[#2E7FFF]"
+                    placeholder="Paste supplier quote text here. Separate multiple quotes with --- so the AI can compare them cleanly."
+                    className="mt-4 min-h-[104px] w-full resize-none rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#050C17] px-3 py-2.5 text-[12px] leading-relaxed text-[#EEF3FA] outline-none transition-all placeholder:text-[#4A6480] focus:border-[#2E7FFF]"
                   />
-                </div>
-              </details>
-            </div>
 
-            {quoteAnalysis ? (
-              <div className="mt-4 space-y-3">
-                <div className="rounded-xl border border-emerald-400/25 bg-emerald-500/10 p-4">
-                  <div className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-200">Recommended winner</div>
-                  <div className="mt-1 text-[16px] font-black text-[#EEF3FA]">{quoteAnalysis.winner.vendorName}</div>
-                  <p className="mt-1 text-[12px] leading-5 text-[#C8D8EE]">{quoteAnalysis.summary}</p>
-                </div>
-                <div className="grid gap-2">
-                  {quoteAnalysis.items.map(item => (
-                    <div key={item.id} className="grid gap-3 rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#07111F] p-3 sm:grid-cols-[1fr_auto] sm:items-center">
-                      <div>
-                        <div className="text-[12px] font-bold text-[#EEF3FA]">{item.vendorName}</div>
-                        <div className="mt-1 text-[10px] leading-4 text-[#8AA6C8]">
-                          {item.amount === null ? 'Price not found' : `AED ${item.amount.toLocaleString()}`} / {item.sla === null ? 'SLA not found' : `${item.sla}% SLA`} / {item.warranty} / {item.exclusions}
-                        </div>
-                        <div className="mt-1 text-[10px] text-[#C8D8EE]">{item.finding}</div>
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={analyseQuotes}
+                      disabled={quoteDocuments.length === 0 && !quoteNotes.trim()}
+                      className="inline-flex items-center gap-2 rounded-xl bg-[#2E7FFF] px-3 py-2 text-[11px] font-bold text-white shadow-lg shadow-[#2E7FFF]/20 transition-all hover:bg-[#4B91FF] disabled:cursor-not-allowed disabled:bg-[#1A3356] disabled:text-[#7891B0] disabled:shadow-none"
+                    >
+                      <Sparkles size={13} />
+                      Analyse quotes
+                    </button>
+                    {(quoteDocuments.length > 0 || quoteNotes || quoteAnalysis) && (
+                      <button type="button" onClick={clearQuoteIntake} className="rounded-xl border border-[#2E7FFF]/18 px-3 py-2 text-[10px] font-bold text-[#8AA6C8] transition-colors hover:text-white">
+                        Clear intake
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="mt-4 grid gap-2">
+                    {quoteDocuments.length === 0 ? (
+                      <div className="rounded-xl border border-dashed border-[#2E7FFF]/25 bg-[#07111F] px-3 py-3 text-[11px] leading-5 text-[#8AA6C8]">
+                        No quote files uploaded yet. Use the sample pack for the live path, or paste a supplier quote above.
                       </div>
-                      <div className="flex items-center gap-2 sm:justify-end">
-                        <span className={`rounded-full border px-2 py-1 text-[9px] font-black ${item.risk === 'Low' ? 'border-emerald-400/25 bg-emerald-400/10 text-emerald-200' : item.risk === 'Medium' ? 'border-amber-400/25 bg-amber-400/10 text-amber-200' : 'border-red-400/25 bg-red-400/10 text-red-200'}`}>
-                          {item.risk} risk
-                        </span>
-                        <span className="rounded-full border border-[#2E7FFF]/25 bg-[#2E7FFF]/10 px-2 py-1 text-[9px] font-black text-[#8DBDFF]">
-                          {item.score}/100
-                        </span>
-                      </div>
+                    ) : (
+                      quoteDocuments.map(doc => {
+                        const item = quoteItemForDocument(doc);
+                        const status = item?.extractionStatus ?? 'Uploaded';
+                        return (
+                          <div key={doc.id} className="rounded-xl border border-[#2E7FFF]/18 bg-[#102544] p-3 text-[10px] text-[#C8D8EE]">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <FileText size={12} className="text-[#8DBDFF]" />
+                              <span className="max-w-[260px] truncate font-semibold">{doc.name}</span>
+                              <span className="text-[#6F89AA]">{doc.sizeLabel}</span>
+                              <span className={`ml-auto rounded-full border px-2 py-1 text-[9px] font-black ${quoteStatusTone(item?.extractionStatus)}`}>
+                                {status}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setQuoteDocuments(prev => prev.filter(entry => entry.id !== doc.id));
+                                  setQuoteAnalysis(null);
+                                  setQuoteActionArtifact(null);
+                                }}
+                                className="text-[#7A94B4] hover:text-red-300"
+                                aria-label={`Remove ${doc.name}`}
+                              >
+                                <Trash2 size={11} />
+                              </button>
+                            </div>
+                            {item?.missingFields.length ? (
+                              <div className="mt-2 text-[9px] leading-4 text-amber-200">
+                                Needs clarification: {item.missingFields.join(', ')}
+                              </div>
+                            ) : null}
+                            {doc.warning && <div className="mt-1 text-[9px] leading-4 text-amber-200">{doc.warning}</div>}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </section>
+              </div>
+
+              <div className="space-y-4">
+                {!quoteAnalysis ? (
+                  <section className="rounded-2xl border border-[rgba(46,127,255,0.18)] bg-[#0D1E3A] p-4">
+                    <div className="mb-3 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-[#8DBDFF]">
+                      <Brain size={13} />
+                      What AI will check
                     </div>
-                  ))}
-                </div>
-                <div className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#07111F] p-3">
-                  <div className="mb-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#8DBDFF]">Findings</div>
-                  <ul className="space-y-2">
-                    {quoteAnalysis.findings.map(finding => (
-                      <li key={finding} className="flex gap-2 text-[11px] leading-5 text-[#C8D8EE]">
-                        <CheckCircle size={11} className="mt-1 shrink-0 text-emerald-400" />
-                        {finding}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                <button type="button" onClick={clearQuoteIntake} className="text-[10px] font-bold text-[#8AA6C8] transition-colors hover:text-white">
-                  Clear quote intake
-                </button>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {quoteChecklist.map(item => (
+                        <div key={item} className="flex items-center gap-2 rounded-xl border border-[rgba(46,127,255,0.12)] bg-[#07111F] p-3 text-[11px] font-bold text-[#C8D8EE]">
+                          <CheckCircle size={12} className="shrink-0 text-emerald-400" />
+                          {item}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-4 rounded-xl border border-violet-300/18 bg-violet-400/10 p-4">
+                      <div className="text-[12px] font-black text-[#EEF3FA]">Demo-ready sample path</div>
+                      <p className="mt-1 text-[11px] leading-5 text-[#9CB1CC]">
+                        Loads three supplier submissions with one clean bidder, one commercial condition, and one current-vendor risk so the comparison never stalls.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={useSampleQuotePack}
+                        className="mt-3 inline-flex items-center gap-2 rounded-xl bg-[#2E7FFF] px-3 py-2 text-[11px] font-bold text-white shadow-lg shadow-[#2E7FFF]/20 transition-all hover:bg-[#4B91FF]"
+                      >
+                        <Wand2 size={13} />
+                        Use Sample Quote Pack
+                      </button>
+                    </div>
+                  </section>
+                ) : (
+                  <>
+                    <section className="rounded-2xl border border-emerald-400/25 bg-emerald-500/10 p-4">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <div className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-200">Recommended bidder</div>
+                          <div className="mt-1 text-[18px] font-black text-[#EEF3FA]">{quoteAnalysis.winner.vendorName}</div>
+                          <p className="mt-1 text-[12px] leading-5 text-[#C8D8EE]">{quoteAnalysis.summary}</p>
+                        </div>
+                        <div className="flex gap-2">
+                          <span className={`rounded-full border px-2 py-1 text-[9px] font-black ${quoteRiskTone(quoteAnalysis.winner.risk)}`}>
+                            {quoteAnalysis.winner.risk} risk
+                          </span>
+                          <span className="rounded-full border border-[#2E7FFF]/25 bg-[#2E7FFF]/10 px-2 py-1 text-[9px] font-black text-[#8DBDFF]">
+                            {quoteAnalysis.winner.score}/100
+                          </span>
+                        </div>
+                      </div>
+                      <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                        <div className="rounded-xl border border-emerald-400/18 bg-[#07111F] p-3">
+                          <div className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">Commercial spread</div>
+                          <div className="mt-1 text-[13px] font-black text-[#EEF3FA]">
+                            {quoteAnalysis.commercialSpread === null ? 'Incomplete' : `AED ${quoteAnalysis.commercialSpread.toLocaleString()}`}
+                          </div>
+                        </div>
+                        <div className="rounded-xl border border-emerald-400/18 bg-[#07111F] p-3">
+                          <div className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">Vs benchmark</div>
+                          <div className="mt-1 text-[13px] font-black text-emerald-200">
+                            {quoteAnalysis.winner.commercialDelta === null
+                              ? 'Needs price'
+                              : `${quoteAnalysis.winner.commercialDelta >= 0 ? '+' : '-'}AED ${Math.abs(quoteAnalysis.winner.commercialDelta).toLocaleString()}`}
+                          </div>
+                        </div>
+                        <div className="rounded-xl border border-emerald-400/18 bg-[#07111F] p-3">
+                          <div className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">Clarifications</div>
+                          <div className="mt-1 text-[13px] font-black text-amber-200">{quoteAnalysis.clarificationQuestions.length}</div>
+                        </div>
+                      </div>
+                    </section>
+
+                    <section className="rounded-2xl border border-[rgba(46,127,255,0.18)] bg-[#07111F] p-4">
+                      <div className="mb-3 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-[#8DBDFF]">
+                        <ListChecks size={13} />
+                        AI Comparison
+                      </div>
+                      <div className="space-y-2">
+                        {quoteAnalysis.items.map(item => (
+                          <div key={item.id} className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#0D1E3A] p-3">
+                            <div className="grid gap-3 lg:grid-cols-[1.1fr_0.7fr_auto] lg:items-start">
+                              <div>
+                                <div className="text-[12px] font-black text-[#EEF3FA]">{item.vendorName}</div>
+                                <div className="mt-1 text-[10px] leading-4 text-[#8AA6C8]">{item.recommendationReason}</div>
+                              </div>
+                              <div className="text-[10px] leading-5 text-[#C8D8EE]">
+                                <div>{item.amount === null ? 'Price not found' : `Price: AED ${item.amount.toLocaleString()}`}</div>
+                                <div>{item.sla === null ? 'SLA not found' : `SLA: ${item.sla}%`}</div>
+                                <div>Warranty: {item.warranty}</div>
+                                <div>Delta: {item.commercialDelta === null ? 'not available' : `${item.commercialDelta >= 0 ? '+' : '-'}AED ${Math.abs(item.commercialDelta).toLocaleString()} vs benchmark`}</div>
+                              </div>
+                              <div className="flex flex-wrap gap-2 lg:justify-end">
+                                <span className={`rounded-full border px-2 py-1 text-[9px] font-black ${quoteStatusTone(item.extractionStatus)}`}>
+                                  {item.extractionStatus}
+                                </span>
+                                <span className={`rounded-full border px-2 py-1 text-[9px] font-black ${quoteRiskTone(item.risk)}`}>
+                                  {item.risk} risk
+                                </span>
+                                <span className="rounded-full border border-[#2E7FFF]/25 bg-[#2E7FFF]/10 px-2 py-1 text-[9px] font-black text-[#8DBDFF]">
+                                  {item.score}/100
+                                </span>
+                              </div>
+                            </div>
+                            <div className="mt-2 text-[10px] leading-5 text-[#8AA6C8]">Exclusions: {item.exclusions}</div>
+                            {item.clarificationQuestions.length > 0 && (
+                              <div className="mt-2 rounded-lg border border-amber-400/18 bg-amber-400/8 p-2 text-[10px] leading-5 text-amber-100">
+                                {item.clarificationQuestions[0]}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+
+                    <section className="rounded-2xl border border-[rgba(46,127,255,0.18)] bg-[#07111F] p-4">
+                      <div className="mb-3 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-[#8DBDFF]">
+                        <Sparkles size={13} />
+                        Recommendation and actions
+                      </div>
+                      <div className="grid gap-3 lg:grid-cols-[1fr_0.9fr]">
+                        <div className="space-y-2">
+                          {quoteAnalysis.findings.map(finding => (
+                            <div key={finding} className="flex gap-2 rounded-xl border border-[rgba(46,127,255,0.12)] bg-[#0D1E3A] p-3 text-[11px] leading-5 text-[#C8D8EE]">
+                              <CheckCircle size={12} className="mt-1 shrink-0 text-emerald-400" />
+                              {finding}
+                            </div>
+                          ))}
+                          {quoteAnalysis.riskConditions.map(condition => (
+                            <div key={condition} className="flex gap-2 rounded-xl border border-amber-400/18 bg-amber-400/8 p-3 text-[11px] leading-5 text-amber-100">
+                              <AlertTriangle size={12} className="mt-1 shrink-0" />
+                              {condition}
+                            </div>
+                          ))}
+                        </div>
+                        <div className="space-y-2">
+                          {quoteAnalysis.nextActions.map(action => (
+                            <button
+                              key={action}
+                              type="button"
+                              onClick={() => prepareQuoteAction(action)}
+                              className="flex w-full items-center justify-between gap-3 rounded-xl border border-[#2E7FFF]/20 bg-[#2E7FFF]/10 px-3 py-2.5 text-left text-[11px] font-bold text-[#DDE6F8] transition-all hover:-translate-y-0.5 hover:border-[#2E7FFF]/45 hover:bg-[#2E7FFF]/16"
+                            >
+                              <span>{action}</span>
+                              <ChevronRight size={13} className="text-[#8DBDFF]" />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </section>
+
+                    {quoteActionArtifact && (
+                      <section className="rounded-2xl border border-violet-300/22 bg-violet-400/10 p-4">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <div className="text-[10px] font-black uppercase tracking-[0.16em] text-violet-100">{quoteActionArtifact.status}</div>
+                            <div className="mt-1 text-[15px] font-black text-[#EEF3FA]">{quoteActionArtifact.title}</div>
+                            <p className="mt-1 text-[11px] leading-5 text-[#C8D8EE]">{quoteActionArtifact.body}</p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const text = [quoteActionArtifact.title, quoteActionArtifact.body, ...quoteActionArtifact.lines].join('\n');
+                                void navigator.clipboard?.writeText(text);
+                                setAssistantNote(`${quoteActionArtifact.title} copied for manager review.`);
+                              }}
+                              className="rounded-xl border border-[#2E7FFF]/28 bg-[#2E7FFF]/12 px-3 py-2 text-[10px] font-bold text-[#BFD8FF] transition-all hover:bg-[#2E7FFF]/18"
+                            >
+                              Copy Draft
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setQuoteActionArtifact(prev => prev ? { ...prev, status: 'Ready for manager review' } : prev);
+                                setAssistantNote('The draft is marked ready in demo mode. Nothing has been sent externally.');
+                              }}
+                              className="rounded-xl bg-[#2E7FFF] px-3 py-2 text-[10px] font-bold text-white transition-all hover:bg-[#4B91FF]"
+                            >
+                              Mark Ready
+                            </button>
+                          </div>
+                        </div>
+                        <div className="mt-3 space-y-2">
+                          {quoteActionArtifact.lines.map(line => (
+                            <div key={line} className="flex gap-2 rounded-xl border border-violet-300/14 bg-[#07111F] p-3 text-[11px] leading-5 text-[#DDE6F8]">
+                              <CheckCircle size={12} className="mt-1 shrink-0 text-violet-200" />
+                              {line}
+                            </div>
+                          ))}
+                        </div>
+                      </section>
+                    )}
+                  </>
+                )}
               </div>
-            ) : (
-              <div className="mt-4 rounded-2xl border border-[rgba(46,127,255,0.16)] bg-[#07111F] p-6 text-center">
-                <div className="mx-auto grid h-10 w-10 place-items-center rounded-xl bg-[#2E7FFF]/12 text-[#8DBDFF]">
-                  <UploadCloud size={18} />
-                </div>
-                <div className="mt-3 text-[13px] font-bold text-[#EEF3FA]">Upload quotes to see the comparison</div>
-              </div>
-            )}
+            </div>
           </div>
         ) : (
         <div className="grid min-h-0 flex-1 lg:grid-cols-[0.9fr_1.1fr]">
