@@ -113,6 +113,28 @@ function formatDate(value: string) {
   return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+function sourceTypeLabel(sourceType: ExtractedProjectContext['sourceType']) {
+  switch (sourceType) {
+    case 'uploaded-file':
+      return 'Uploaded document parsed';
+    case 'pasted-brief':
+      return 'Pasted brief parsed';
+    case 'sample-document':
+      return 'Sobha sample document';
+    case 'manual':
+      return 'Manual context';
+    default:
+      return 'Project context';
+  }
+}
+
+function sourceTypeTone(sourceType: ExtractedProjectContext['sourceType']) {
+  if (sourceType === 'uploaded-file') return 'border-emerald-300/35 bg-emerald-500/12 text-emerald-100';
+  if (sourceType === 'sample-document') return 'border-blue-300/35 bg-blue-500/12 text-blue-100';
+  if (sourceType === 'pasted-brief') return 'border-purple-300/35 bg-purple-500/12 text-purple-100';
+  return 'border-amber-300/35 bg-amber-500/12 text-amber-100';
+}
+
 function cloneExtraction(extracted: ExtractedProjectContext) {
   return JSON.parse(JSON.stringify(extracted)) as ExtractedProjectContext;
 }
@@ -237,6 +259,43 @@ function ExtractedSignalCard({
       <div className="flex flex-wrap items-center gap-2">
         <ConfidenceBadge value={confidence} />
         {needsConfirmation ? <NeedsConfirmationBadge /> : null}
+      </div>
+    </div>
+  );
+}
+
+function SourceAuditStrip({ extracted }: { extracted: ExtractedProjectContext }) {
+  const parserSignal = extracted.extractionSignals.find(signal => signal.id === 'parser');
+  const sourceSignal = extracted.extractionSignals.find(signal => signal.id !== 'parser' && signal.sourceExcerpt);
+  const sourceExcerpt = sourceSignal?.sourceExcerpt || parserSignal?.sourceExcerpt || 'No source excerpt was captured for this extraction.';
+  const parserDetail = parserSignal?.value || `${extracted.signalCount} project signals extracted from the selected context.`;
+
+  return (
+    <div className="sticky top-0 z-20 mb-5 rounded-lg border border-blue-300/30 bg-[#07192D]/96 p-4 shadow-[0_18px_34px_rgba(0,0,0,0.28)] backdrop-blur">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex min-w-0 items-start gap-3">
+          <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-blue-300/35 bg-blue-500/15 text-blue-100">
+            <FileText className="h-5 w-5" />
+          </span>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-[12px] font-black uppercase tracking-[0.14em] text-[#8FA7C5]">AI source proof</p>
+              <span className={`rounded-md border px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${sourceTypeTone(extracted.sourceType)}`}>
+                {sourceTypeLabel(extracted.sourceType)}
+              </span>
+            </div>
+            <p className="mt-1 truncate text-[14px] font-black text-white">{extracted.sourceName}</p>
+            <p className="mt-2 text-[12px] leading-relaxed text-[#9DBBE0]">{parserDetail}</p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <ConfidenceBadge value={extracted.confidence} />
+          {extracted.confirmationCount > 0 ? <NeedsConfirmationBadge /> : null}
+        </div>
+      </div>
+      <div className="mt-3 rounded-lg border border-[#24486F] bg-[#061529] px-3 py-2">
+        <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#6F89AA]">Evidence excerpt</p>
+        <p className="mt-1 line-clamp-2 text-[12px] font-bold leading-relaxed text-[#B8D7FF]">{sourceExcerpt}</p>
       </div>
     </div>
   );
@@ -504,7 +563,7 @@ function ProjectContextImportStep({
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap gap-2">
               <SourcePill>OCR-ready later</SourcePill>
-              <SourcePill>Mock extraction now</SourcePill>
+              <SourcePill>Local PDF/DOC extraction now</SourcePill>
             </div>
             <span className="text-[12px] font-bold text-[#7E98B8]">{material.pastedText.length} characters</span>
           </div>
@@ -693,11 +752,13 @@ function TextInput({
   value,
   onChange,
   type = 'text',
+  helper,
 }: {
   label: string;
   value: string | number;
   onChange: (value: string) => void;
   type?: string;
+  helper?: string;
 }) {
   return (
     <label className="block">
@@ -708,6 +769,7 @@ function TextInput({
         onChange={event => onChange(event.target.value)}
         className="mt-2 h-11 w-full rounded-lg border border-[#24486F] bg-[#061529] px-3 text-[13px] font-bold text-white outline-none transition focus:border-blue-300/60"
       />
+      {helper ? <span className="mt-1 block text-[11px] font-bold text-[#8FB4E4]">{helper}</span> : null}
     </label>
   );
 }
@@ -801,6 +863,8 @@ function ExtractedProjectReviewStep({
         </div>
       </div>
 
+      <SourceAuditStrip extracted={extracted} />
+
       <div className="grid gap-4 xl:grid-cols-2">
         <SectionShell title="Property" right={<><SourcePill>LOA header</SourcePill> <ConfidenceBadge value={extracted.property.name.confidence} /></>}>
           <div className="grid gap-3 md:grid-cols-2">
@@ -817,7 +881,7 @@ function ExtractedProjectReviewStep({
             <TextInput label="Project name" value={extracted.project.name.value} onChange={value => update(draft => { draft.project.name.value = value; })} />
             <TextInput label="Project type" value={extracted.project.type.value} onChange={value => update(draft => { draft.project.type.value = value; })} />
             <TextInput label="Contract value" type="number" value={extracted.project.contractValue.value} onChange={value => update(draft => { draft.project.contractValue.value = Number(value) || 0; draft.budget.approvedBudget.value = Number(value) || 0; })} />
-            <TextInput label="Target handover" type="date" value={extracted.project.targetHandover.value} onChange={value => update(draft => { draft.project.targetHandover.value = value; })} />
+            <TextInput label="Target handover" type="date" value={extracted.project.targetHandover.value} helper={`Parsed as ${formatDate(extracted.project.targetHandover.value)}`} onChange={value => update(draft => { draft.project.targetHandover.value = value; })} />
             <TextInput label="Current stage" value={extracted.project.currentStage.value} onChange={value => update(draft => { draft.project.currentStage.value = value; })} />
             <TextInput label="Main contractor" value={extracted.project.mainContractor.value} onChange={value => update(draft => { draft.project.mainContractor.value = value; })} />
           </div>
@@ -1101,13 +1165,13 @@ function CreateProjectModal({
 }) {
   const [step, setStep] = useState<CreateProjectStep>('import');
   const [material, setMaterial] = useState<ProjectMaterialState>({
-    fileName: 'Sample Sobha Pilot Tower LOA / Project Summary.pdf',
-    documentText: sampleSobhaPilotBrief,
-    parserMethod: 'sample-document',
+    fileName: '',
+    documentText: '',
+    parserMethod: '',
     parserWarning: '',
-    fileParseStatus: 'ready',
-    pastedText: sampleSobhaPilotBrief,
-    useSample: true,
+    fileParseStatus: 'idle',
+    pastedText: '',
+    useSample: false,
     manual: false,
   });
   const [extracted, setExtracted] = useState<ExtractedProjectContext | null>(null);

@@ -46,7 +46,7 @@ function cloneSampleExtraction() {
 }
 
 function cleanSourceText(value: string) {
-  return value.replace(/\r/g, '\n').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+  return value.replace(/\u0000/g, ' ').replace(/\r/g, '\n').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
 }
 
 function confidenceStatus(confidence: number) {
@@ -66,6 +66,14 @@ function firstMatch(text: string, patterns: RegExp[]) {
     if (value) return value.replace(/\s+/g, ' ').replace(/[.;,]$/, '');
   }
   return '';
+}
+
+function labelValue(text: string, label: string, stopLabels: string[]) {
+  const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const stopPattern = stopLabels.map(item => item.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+  const pattern = new RegExp(`${escapedLabel}\\s*:?\\s*([\\s\\S]{2,220}?)(?=\\s+(?:${stopPattern})\\s*:?|\\n|$)`, 'i');
+  const match = text.match(pattern);
+  return match?.[1]?.trim().replace(/\s+/g, ' ').replace(/[.;,]$/, '') ?? '';
 }
 
 function findNumber(text: string, patterns: RegExp[]) {
@@ -177,27 +185,33 @@ function buildUploadedExtraction(input: ProjectContextInput, base: ExtractedProj
   const text = cleanSourceText(`${input.documentText ?? ''}\n${input.pastedText ?? ''}`);
   const weakText = text.length < 80;
   const sourceName = input.fileName || (input.pastedText?.trim() ? 'Pasted project brief' : 'Uploaded project document');
-  const projectNameRaw = firstMatch(text, [
+  const projectNameField = labelValue(text, 'Project Name', ['Developer', 'Portfolio', 'Location', 'Project Type', 'Tower Height', 'Units', 'CONTRACT AWARD SUMMARY']);
+  const projectNameParts = projectNameField.split(/\s+[–-]\s+/).map(part => part.trim()).filter(Boolean);
+  const projectNameRaw = projectNameParts.find(part => /construction|fit-out|handover|works|project/i.test(part)) || firstMatch(text, [
     /project\s*[:\-]\s*([^\n.]+)/i,
     /scope\s*[:\-]\s*([^\n.]+)/i,
   ]);
-  const propertyName = firstMatch(text, [
+  const propertyName = projectNameParts[0] || firstMatch(text, [
+    /project name\s*[:\-]\s*([^–\-\n.]+)/i,
     /(?:property|tower|development)\s*(?:name)?\s*[:\-]\s*([^\n.]+)/i,
     /project summary for\s+([^,\n.]+)/i,
     /\b((?:Bayz|BAYZ)\s*102)\b/i,
     /\b(Sobha\s+Pilot\s+Tower)\b/i,
   ]);
-  const propertyType = firstMatch(text, [
+  const propertyType = labelValue(text, 'Project Type', ['Tower Height', 'Units', 'Basement Levels', 'Podium Levels', 'Estimated GFA', 'CONTRACT AWARD SUMMARY']) || firstMatch(text, [
     /\b((?:residential|commercial|mixed-use|hospitality|retail)\s+(?:tower|building|development|community|office))\b/i,
     /type\s*[:\-]\s*([^\n.]+)/i,
   ]);
-  const location = firstMatch(text, [
+  const location = labelValue(text, 'Location', ['Project Type', 'Tower Height', 'Units', 'Basement Levels', 'Podium Levels', 'Estimated GFA', 'CONTRACT AWARD SUMMARY']) || firstMatch(text, [
     /location\s*[:\-]\s*([^\n.]+)/i,
     /\b(Business Bay,\s*Dubai)\b/i,
+    /\b(Dubai Harbour,\s*Dubai,\s*UAE)\b/i,
+    /\b(Dubai Harbour,\s*Dubai)\b/i,
     /\b(Business Bay)\b/i,
     /\b(Dubai)\b/i,
   ]);
   const floors = findNumber(text, [
+    /tower height\D{0,18}(\d{1,3})\s*(?:floor|floors|storey|storeys|stories)/i,
     /(\d{1,3})\s*(?:floor|floors|storey|storeys|stories)/i,
   ]);
   const units = findNumber(text, [
@@ -210,6 +224,7 @@ function buildUploadedExtraction(input: ProjectContextInput, base: ExtractedProj
     /stage\s*[:\-]\s*([^\n.]+)/i,
   ]);
   const mainContractor = firstMatch(text, [
+    /main contractor\s+([A-Z][A-Za-z0-9& .'-]+?)(?=\s+Contract Value|\s+Contract Duration|\s+Mobilization|\s+The contractor|$)/i,
     /main contractor\s*[:\-]\s*([^\n.]+)/i,
     /contractor\s*[:\-]\s*([^\n.]+)/i,
     /\b(China State Construction)\b/i,
@@ -221,12 +236,19 @@ function buildUploadedExtraction(input: ProjectContextInput, base: ExtractedProj
     'Preliminaries',
     'Design & Approvals',
     'Design Approvals',
+    'Design & Authority Approvals',
+    'Marine & Waterfront Works',
     'Substructure',
     'Superstructure',
     'Facade',
     'Façade',
+    'Façade & Balcony Systems',
     'MEP',
+    'MEP Systems',
     'Fit-out',
+    'Luxury Fit-out',
+    'Amenity & Wellness Areas',
+    'Retail Podium',
     'Testing & Commissioning',
     'Handover & Snagging',
     'Contingency',
@@ -234,18 +256,33 @@ function buildUploadedExtraction(input: ProjectContextInput, base: ExtractedProj
   const packageList = Array.from(new Set([
     ...detectItems(text, packageTerms).map(item => item === 'Design Approvals' ? 'Design & Approvals' : item === 'Façade' ? 'Facade' : item),
     ...extractCommaList(text, [/packages include\s*([^\n.]+)/i, /work packages\s*[:\-]\s*([^\n.]+)/i]),
-  ])).slice(0, 12);
+  ])).slice(0, 14);
 
   const vendorNames = Array.from(new Set([
-    ...extractCommaList(text, [/specialist teams include\s*([^\n.]+)/i, /vendors include\s*([^\n.]+)/i, /subcontractors include\s*([^\n.]+)/i]),
     ...(mainContractor ? [mainContractor] : []),
+    ...extractCommaList(text, [/specialist teams include\s*([^\n.]+)/i, /vendors include\s*([^\n.]+)/i, /subcontractors include\s*([^\n.]+)/i]),
+    ...detectItems(text, [
+      'Gulf Façade Systems',
+      'Gulf Facade Systems',
+      'Emirates MEP Services',
+      'Luxury Stone Interiors',
+      'Marina Lift Technologies',
+      'SafeFire Systems',
+      'Vision Smart Technologies',
+      'BlueWave Pools & Leisure',
+      'GreenScape Gulf',
+    ]),
   ])).filter(item => item.length > 2);
 
   const riskTerms = [
     'Facade procurement lead time',
+    'Façade procurement lead time',
+    'Luxury marble procurement',
     'Tower crane utilization bottleneck',
     'Authority approval dependency',
     'MEP coordination clashes',
+    'Smart access integration',
+    'Pool deck waterproofing quality',
     'Summer concrete productivity loss',
     'Procurement delay',
     'Inspection failure',
@@ -253,14 +290,21 @@ function buildUploadedExtraction(input: ProjectContextInput, base: ExtractedProj
   ];
   const evidenceTerms = [
     'Authority approvals',
+    'Authority approval certificates',
     'Inspection reports',
     'Commissioning certificates',
     'Fire system sign-off',
+    'Fire system commissioning report',
     'Lift inspection sign-off',
     'Vendor warranty packs',
     'Handover evidence pack',
+    'QA/QC closeout records',
+    'Luxury fit-out inspection reports',
+    'Smart access integration sign-off',
+    'Testing & commissioning evidence',
+    'Resident handover pack',
+    'As-built drawings',
     'BOQ summary',
-    'Fire commissioning report',
   ];
   const obligationTerms = [
     'Authority approval certificates',
@@ -268,16 +312,26 @@ function buildUploadedExtraction(input: ProjectContextInput, base: ExtractedProj
     'Lift inspection sign-off',
     'Vendor warranty packs',
     'Handover evidence pack',
+    'QA/QC evidence',
+    'Safety compliance',
+    'Warranty documentation',
     'Approvals',
     'Warranties',
   ];
   const milestoneTerms = [
+    'Design Freeze',
+    'Marine Works Complete',
     'Substructure Complete',
     'Superstructure Level 50',
+    'Superstructure Level 40',
     'Facade Release',
+    'Façade Mockup Approval',
+    'Envelope Completion',
     'MEP Rough-In Ready',
+    'Luxury Fit-out Release',
     'Commissioning Ready',
     'Handover Go/No-Go',
+    'Final Handover',
   ];
 
   const risks = detectItems(text, riskTerms);
