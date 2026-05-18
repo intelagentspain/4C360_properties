@@ -1197,18 +1197,18 @@ function ActionPlanWorkbench({
               <FileText size={12} />
               {activeAction.detail.artifact.title}
             </div>
-            <pre className="max-h-56 whitespace-pre-wrap rounded-lg border border-[rgba(46,127,255,0.10)] bg-[#050C17] p-3 text-[11px] leading-relaxed text-[#D8E7FA]">
+            <div className="max-h-72 overflow-y-auto whitespace-pre-wrap break-words rounded-lg border border-[rgba(46,127,255,0.10)] bg-[#050C17] p-3 font-sans text-[12px] leading-6 text-[#D8E7FA] custom-scrollbar">
               {activeAction.detail.artifact.body}
-            </pre>
+            </div>
           </div>
 
-          <div className="mt-3">
+          <div className="mt-4">
             <div className="rounded-xl border border-[rgba(46,127,255,0.12)] bg-[#0A1628] p-3">
               <div className="mb-2 text-[9px] font-bold uppercase tracking-wide text-[#8DBDFF]">Manager checklist</div>
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 {activeAction.detail.checklist.map(item => (
-                  <div key={item} className="flex items-start gap-2 text-[10px] leading-relaxed text-[#C8D8EE]">
-                    <Check size={10} className="mt-0.5 shrink-0 text-emerald-300" />
+                  <div key={item} className="flex items-start gap-2 rounded-lg bg-white/[0.02] px-2.5 py-2 text-[11px] leading-relaxed text-[#C8D8EE]">
+                    <Check size={11} className="mt-0.5 shrink-0 text-emerald-300" />
                     {item}
                   </div>
                 ))}
