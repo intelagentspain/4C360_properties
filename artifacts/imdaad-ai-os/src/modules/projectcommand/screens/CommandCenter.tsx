@@ -47,6 +47,8 @@ import { useSelectedProjectCommandData } from '../useProjectCommandData';
 
 type ToastFn = (message: string, type?: 'success' | 'warning' | 'error' | 'info') => void;
 
+const dayMs = 86_400_000;
+
 const severityClass = {
   critical: 'border-red-400/30 bg-red-400/12 text-red-100',
   high: 'border-orange-400/30 bg-orange-400/12 text-orange-100',
@@ -623,62 +625,133 @@ function ForecastCard({ scenario, context }: { scenario: ForecastScenario; conte
   );
 }
 
+function daysBetweenDates(start: string, end: string) {
+  const startTime = new Date(start).getTime();
+  const endTime = new Date(end).getTime();
+  if (Number.isNaN(startTime) || Number.isNaN(endTime)) return 0;
+  return Math.round((endTime - startTime) / dayMs);
+}
+
+function formatDayMovement(days: number) {
+  if (days === 0) return 'No date movement';
+  return `${days > 0 ? '+' : ''}${days}d`;
+}
+
+function formatCostMovement(value: number) {
+  if (value === 0) return 'No cost movement';
+  return `${value > 0 ? '+' : '-'}${formatProjectCurrency(Math.abs(value))}`;
+}
+
 function CompactForecastSummary({ context, onOpenForecast }: { context: ProjectControlContext; onOpenForecast: () => void }) {
+  const latest = latestLiveEvent(context);
   const baseScenario = context.forecastScenarios.find(scenario => scenario.type === 'base') ?? context.forecastScenarios[0];
   const optimistic = context.forecastScenarios.find(scenario => scenario.type === 'optimistic');
   const pessimistic = context.forecastScenarios.find(scenario => scenario.type === 'pessimistic');
+  const handoverDeltaDays = daysBetweenDates(context.baseline.project.targetHandover, context.metrics.forecastHandover);
+  const costDelta = context.metrics.eac - context.baseline.project.approvedBudget;
+  const confidenceLabel = latest?.severity === 'positive'
+    ? 'Improving'
+    : context.metrics.handoverConfidence < 64
+      ? 'At risk'
+      : context.metrics.handoverConfidence < 76
+        ? 'Watch'
+        : 'Stable';
+  const confidenceTone = confidenceLabel === 'Improving'
+    ? 'text-emerald-100'
+    : confidenceLabel === 'At risk'
+      ? 'text-red-100'
+      : confidenceLabel === 'Watch'
+        ? 'text-amber-100'
+        : 'text-cyan-100';
   const scenarioRows = [
     { label: 'Best case', value: optimistic ? formatProjectDate(optimistic.handoverDate) : '-', cost: optimistic ? formatProjectCurrency(optimistic.forecastCost) : '-', tone: 'text-emerald-100' },
     { label: 'Base case', value: formatProjectDate(baseScenario.handoverDate), cost: formatProjectCurrency(baseScenario.forecastCost), tone: 'text-cyan-100' },
     { label: 'Risk case', value: pessimistic ? formatProjectDate(pessimistic.handoverDate) : '-', cost: pessimistic ? formatProjectCurrency(pessimistic.forecastCost) : '-', tone: 'text-orange-100' },
   ];
+  const distinctForecasts = new Set(scenarioRows.map(row => `${row.value}-${row.cost}`)).size;
+  const showForecastRange = Boolean(latest && distinctForecasts > 1);
+  const handleNextAction = () => {
+    if (!latest) {
+      document.getElementById('project-control-action-centre')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+    onOpenForecast();
+  };
+  const nextActionLabel = latest
+    ? latest.type === 'recovery-approved'
+      ? 'Open forecast'
+      : 'Review recovery options'
+    : 'Log forecast driver';
 
   return (
     <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
       <div className="mb-3 flex items-center justify-between gap-3">
         <div>
-          <h3 className="text-base font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Forecast Snapshot</h3>
-          <p className="mt-0.5 text-[11px] text-[#7A94B4]">Handover and EAC recalculated from the event ledger.</p>
+          <h3 className="text-base font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Forecast Decision</h3>
+          <p className="mt-0.5 text-[11px] text-[#7A94B4]">
+            {latest
+              ? 'Forecast movement, driver, and next manager action.'
+              : 'No forecast movement yet. Log a delay, variation, approval issue, evidence rejection, contractor issue, or recovery action to calculate forecast impact.'}
+          </p>
         </div>
-        <button onClick={onOpenForecast} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#2E7FFF]/24 bg-[#07111F] px-3 text-[10px] font-black text-[#BFD8FF] hover:bg-[#2E7FFF]/12">
-          Open forecast
+        <button onClick={handleNextAction} className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-[#2E7FFF]/24 bg-[#07111F] px-3 text-[10px] font-black text-[#BFD8FF] hover:bg-[#2E7FFF]/12">
+          {nextActionLabel}
           <ArrowRight size={12} />
         </button>
       </div>
 
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.72fr)]">
         <div className="rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#07111F]/78 p-3">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+          <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">Base handover</p>
-              <p className="mt-1 text-[18px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{formatProjectDate(baseScenario.handoverDate)}</p>
+              <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">Current forecast</p>
+              <p className="mt-1 text-[18px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{formatProjectDate(context.metrics.forecastHandover)}</p>
+              <p className="mt-0.5 text-[10px] font-bold text-[#8EA7C7]">{formatProjectCurrency(context.metrics.eac)} EAC</p>
             </div>
             <div>
-              <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">Expected cost</p>
-              <p className="mt-1 text-[18px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{formatProjectCurrency(baseScenario.forecastCost)}</p>
+              <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">Movement</p>
+              <p className={`mt-1 text-[18px] font-black ${handoverDeltaDays > 0 ? 'text-orange-100' : latest?.severity === 'positive' ? 'text-emerald-100' : 'text-[#EEF3FA]'}`} style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{formatDayMovement(handoverDeltaDays)}</p>
+              <p className={`mt-0.5 text-[10px] font-bold ${costDelta > 0 ? 'text-orange-100' : costDelta < 0 ? 'text-emerald-100' : 'text-[#8EA7C7]'}`}>{formatCostMovement(costDelta)}</p>
             </div>
           </div>
-          <div className="mt-3 rounded-lg border border-cyan-300/14 bg-cyan-300/8 px-2.5 py-2">
-            <p className="text-[8px] font-black uppercase tracking-[0.14em] text-cyan-100">Driver</p>
+          <div className={`mt-3 rounded-lg border px-2.5 py-2 ${latest ? 'border-cyan-300/14 bg-cyan-300/8' : 'border-[rgba(46,127,255,0.14)] bg-[#0A1628]'}`}>
+            <p className={`text-[8px] font-black uppercase tracking-[0.14em] ${latest ? 'text-cyan-100' : 'text-[#7A94B4]'}`}>Primary driver</p>
             <p className="mt-0.5 line-clamp-2 text-[10px] font-bold leading-4 text-[#DDF7FF]">
-              {baseScenario.assumptions[0] ?? 'Forecast is based on the current programme, cost, risk, evidence, and latest project updates.'}
+              {latest ? latest.title : 'No forecast movement logged yet.'}
             </p>
           </div>
         </div>
 
         <div className="grid gap-2">
-          {scenarioRows.map(row => (
-            <div key={row.label} className="grid grid-cols-[1fr_auto] gap-3 rounded-xl border border-[rgba(46,127,255,0.12)] bg-[#07111F]/78 px-3 py-2.5">
+          <div className="rounded-xl border border-[rgba(46,127,255,0.12)] bg-[#07111F]/78 px-3 py-2.5">
+            <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#5A6E88]">{row.label}</p>
-                <p className={`mt-0.5 text-[12px] font-black ${row.tone}`}>{row.value}</p>
+                <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#5A6E88]">Confidence</p>
+                <p className={`mt-0.5 text-[15px] font-black ${confidenceTone}`}>{context.metrics.handoverConfidence}% / {confidenceLabel}</p>
               </div>
               <div className="text-right">
-                <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#5A6E88]">Cost</p>
-                <p className="mt-0.5 text-[12px] font-black text-[#DCE8F8]">{row.cost}</p>
+                <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#5A6E88]">Float</p>
+                <p className="mt-0.5 text-[12px] font-black text-[#DCE8F8]">{context.metrics.floatRemaining}d</p>
               </div>
             </div>
-          ))}
+            <p className="mt-2 text-[10px] leading-4 text-[#8EA7C7]">
+              {latest
+                ? `Risk exposure is ${formatProjectCurrency(context.metrics.riskExposure)} after the latest signal.`
+                : `Baseline risk exposure is ${formatProjectCurrency(context.metrics.riskExposure)}. Forecast impact will appear after the first logged signal.`}
+            </p>
+          </div>
+
+          {showForecastRange && (
+            <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-1 2xl:grid-cols-3">
+              {scenarioRows.map(row => (
+                <div key={row.label} className="rounded-xl border border-[rgba(46,127,255,0.12)] bg-[#07111F]/78 px-3 py-2">
+                  <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#5A6E88]">{row.label}</p>
+                  <p className={`mt-0.5 text-[11px] font-black ${row.tone}`}>{row.value}</p>
+                  <p className="mt-0.5 text-[10px] font-bold text-[#8EA7C7]">{row.cost}</p>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </section>
@@ -964,8 +1037,16 @@ function LiveUpdatePanel({
 }) {
   const latest = latestLiveEvent(context);
   const liveOptions = projectEventOptions.filter(option => option.type !== 'baseline-created');
+  const [selectedType, setSelectedType] = useState<ProjectEventType>('facade-delay');
+  const selectedCopy = controlSignalCopy(selectedType);
+
+  const activateControlSignal = (type: ProjectEventType) => {
+    setSelectedType(type);
+    onSimulate(type);
+  };
+
   return (
-    <section className="rounded-xl border border-[#7C3AED]/24 bg-[linear-gradient(135deg,rgba(124,58,237,0.16),rgba(46,127,255,0.08),rgba(7,17,31,0.88))] p-4">
+    <section id="project-control-action-centre" className="scroll-mt-4 rounded-xl border border-[#7C3AED]/24 bg-[linear-gradient(135deg,rgba(124,58,237,0.16),rgba(46,127,255,0.08),rgba(7,17,31,0.88))] p-4">
       <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
         <div className="max-w-3xl">
           <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#C4B5FD]">
@@ -976,11 +1057,11 @@ function LiveUpdatePanel({
             Log a project condition and generate the next control actions.
           </h3>
           <p className="mt-1 text-[11px] leading-5 text-[#9CB1CC]">
-            Use this when a package, approval, evidence item, contractor, or recovery decision changes forecast, cost, risk, or ownership.
+            Click any condition below to activate it immediately. ProjectCommand logs the signal, recalculates forecast/cost/risk, and refreshes the manager action queue.
           </p>
         </div>
         <div className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#07111F]/78 px-3 py-2 xl:min-w-[240px]">
-          <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">Latest signal</p>
+          <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">Latest activated signal</p>
           <p className="mt-1 line-clamp-2 text-[11px] font-bold leading-4 text-[#DCE8F8]">{latest?.title ?? 'No active control signal'}</p>
           <p className="mt-2 text-[9px] font-bold uppercase tracking-[0.12em] text-[#A78BFA]">Control ledger: {ledgerStatus} / {ledgerSource}</p>
         </div>
@@ -989,18 +1070,33 @@ function LiveUpdatePanel({
       <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
         {liveOptions.map(option => {
           const optionCopy = controlSignalCopy(option.type);
+          const active = latest?.type === option.type;
+          const selected = selectedType === option.type;
           return (
             <button
               key={option.type}
               type="button"
-              onClick={() => onSimulate(option.type)}
-              className={`min-h-[58px] rounded-xl border px-3 py-2 text-left transition-all hover:-translate-y-0.5 ${
-                latest?.type === option.type
+              onClick={() => activateControlSignal(option.type)}
+              aria-pressed={active}
+              aria-label={`Activate ${optionCopy.label}`}
+              className={`min-h-[74px] rounded-xl border px-3 py-2 text-left transition-all hover:-translate-y-0.5 ${
+                active
                   ? 'border-[#7C3AED]/60 bg-[#7C3AED]/24 text-white shadow-[0_0_22px_rgba(124,58,237,0.22)]'
-                  : 'border-[#7C3AED]/20 bg-[#07111F]/78 text-[#DCE8F8] hover:border-[#7C3AED]/42 hover:bg-[#7C3AED]/12'
+                  : selected
+                    ? 'border-[#2E7FFF]/45 bg-[#2E7FFF]/12 text-[#EAF3FF] shadow-[0_0_18px_rgba(46,127,255,0.14)]'
+                    : 'border-[#7C3AED]/20 bg-[#07111F]/78 text-[#DCE8F8] hover:border-[#7C3AED]/42 hover:bg-[#7C3AED]/12'
               }`}
             >
-              <span className="block text-[11px] font-black">{optionCopy.label}</span>
+              <span className="flex items-start justify-between gap-2">
+                <span className="min-w-0 text-[11px] font-black">{optionCopy.label}</span>
+                <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[8px] font-black uppercase ${
+                  active
+                    ? 'border-emerald-300/25 bg-emerald-300/12 text-emerald-100'
+                    : 'border-[#7C3AED]/22 bg-[#7C3AED]/12 text-[#C4B5FD]'
+                }`}>
+                  {active ? 'Active' : 'Activate'}
+                </span>
+              </span>
               <span className="mt-0.5 block text-[9px] font-semibold leading-4 text-[#8EA7C7]">{optionCopy.detail}</span>
             </button>
           );
@@ -1010,7 +1106,10 @@ function LiveUpdatePanel({
       <div className="mt-3 flex flex-wrap justify-between gap-2 border-t border-[#7C3AED]/18 pt-3">
         <button
           type="button"
-          onClick={onReset}
+          onClick={() => {
+            setSelectedType('facade-delay');
+            onReset();
+          }}
           className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[rgba(46,127,255,0.18)] bg-[#07111F] px-3 text-[10px] font-black text-[#DCE8F8] transition-colors hover:bg-white/5"
         >
           <RefreshCw size={12} />
@@ -1018,11 +1117,11 @@ function LiveUpdatePanel({
         </button>
         <button
           type="button"
-          onClick={() => onSimulate()}
+          onClick={() => activateControlSignal(selectedType)}
           className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#7C3AED] px-3 text-[10px] font-black text-white shadow-[0_0_22px_rgba(124,58,237,0.26)] transition-colors hover:bg-[#6D28D9]"
         >
           <Play size={12} />
-          Log next control signal
+          Activate selected action: {selectedCopy.label}
         </button>
       </div>
     </section>
