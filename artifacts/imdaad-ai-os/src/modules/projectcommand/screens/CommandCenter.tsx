@@ -47,8 +47,6 @@ import { useSelectedProjectCommandData } from '../useProjectCommandData';
 
 type ToastFn = (message: string, type?: 'success' | 'warning' | 'error' | 'info') => void;
 
-const demoMode = import.meta.env.VITE_PROJECTCOMMAND_DEMO_MODE !== 'false';
-
 const severityClass = {
   critical: 'border-red-400/30 bg-red-400/12 text-red-100',
   high: 'border-orange-400/30 bg-orange-400/12 text-orange-100',
@@ -85,7 +83,7 @@ function latestLiveEvent(context: ProjectControlContext) {
   return context.latestEvent?.type === 'baseline-created' ? null : context.latestEvent;
 }
 
-function metricDemoCause(metric: ProjectControlContext['controlMetrics'][number], context: ProjectControlContext) {
+function metricControlCause(metric: ProjectControlContext['controlMetrics'][number], context: ProjectControlContext) {
   const latest = latestLiveEvent(context);
   if (metric.label === 'CPI') {
     return latest
@@ -100,7 +98,7 @@ function metricDemoCause(metric: ProjectControlContext['controlMetrics'][number]
   if (metric.label === 'Float Remaining') {
     return latest
       ? `${Math.max(0, context.metrics.floatRemaining)} days of float remain after the latest signal. Protect the critical path before handover risk widens.`
-      : 'Float is available, but the demo should show what happens when a live project issue consumes it.';
+      : 'Float is available. Log the next approved site, procurement, or commercial update to see whether the critical path needs protection.';
   }
   if (metric.label === 'EAC') {
     return latest
@@ -245,8 +243,8 @@ function ProjectTwinLayer({ context, executiveMode }: { context: ProjectControlC
             Predictive construction intelligence connected to programme, cost, risk, evidence, vendors, workforce, gates, and forecast.
           </h3>
           <p className="mt-1 max-w-4xl text-[12px] leading-5 text-[#8EA7C7]">
-            Latest cause: {latest ? latest.title : 'AI baseline from uploaded project context'}.
-            {' '}The twin recalculates exposure and decision priority every time a project event is injected.
+            Latest cause: {latest ? latest.title : 'Baseline created from uploaded project context'}.
+            {' '}The twin recalculates exposure and decision priority whenever a project event is logged.
           </p>
         </div>
         <div className="grid min-w-[260px] gap-2 sm:grid-cols-2">
@@ -313,7 +311,7 @@ function ProjectPulse({
 }) {
   const movement = context.healthMovement.from !== context.healthMovement.to
     ? `Health changed from ${context.healthMovement.from} -> ${context.healthMovement.to} after latest events.`
-    : 'No live update has been recorded yet. Use the live update panel to show forecast, risk, and action recalculation.';
+    : 'No open control signal has been logged since baseline. Add the latest site, procurement, or commercial update below.';
   const latest = latestLiveEvent(context);
 
   return (
@@ -341,9 +339,9 @@ function ProjectPulse({
               <Sparkles size={13} /> Explain
             </button>
           </div>
-          <h3 className="text-[18px] font-black leading-6 text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{latest ? context.topThreat : 'Ready to record the first live project update'}</h3>
+          <h3 className="text-[18px] font-black leading-6 text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{latest ? context.topThreat : 'Baseline active. Capture the next project control signal.'}</h3>
           <p className="mt-2 line-clamp-2 text-[12px] leading-5 text-[#B8C7DB]">
-            {latest ? context.latestImpact : 'Start with a delay, variation, approval blocker, contractor issue, or recovery action. ProjectCommand will recalculate handover, EAC, float, evidence, and manager actions.'}
+            {latest ? context.latestImpact : 'Log a delay, variation, approval blocker, evidence gap, contractor issue, or recovery action so ProjectCommand updates forecast, cost, risk, and owners.'}
           </p>
           <div className="mt-3 rounded-lg border border-[rgba(46,127,255,0.14)] bg-[#07111F]/70 px-3 py-2 text-[11px] font-bold text-[#DCE8F8]">{movement}</div>
           {latest && (
@@ -377,13 +375,13 @@ function WhatChangedToday({ context, goTo }: { context: ProjectControlContext; g
     : [{
         id: 'baseline-created',
         type: 'recovery-approved' as const,
-        title: 'Ready for the first live project update',
+        title: 'No control update logged since baseline',
         affectedModule: 'Project Control Cockpit',
-        impactLabel: 'Record a real delay, variation, approval blocker, contractor issue, or recovery action to show the forecast and decision queue moving live.',
+        impactLabel: 'Add the latest site, procurement, commercial, or approval update to calculate impact and assign owners.',
         timestamp: new Date().toISOString(),
         cta: 'Open programme',
         affectedAreas: [],
-        description: 'ProjectCommand is waiting for the next live update.',
+        description: 'ProjectCommand is waiting for the next control signal.',
         severity: 'positive' as const,
         impacts: { healthDelta: 0, cpiDelta: 0, spiDelta: 0, floatDelta: 0, eacDelta: 0, riskDelta: 0, evidenceChange: 0 },
         projectId: context.baseline.projectId,
@@ -511,14 +509,14 @@ function ControlExceptions({ context, goTo }: { context: ProjectControlContext; 
 function DecisionQueue({ context, onPrepare }: { context: ProjectControlContext; onPrepare: (action: ManagerAction) => void }) {
   const actions = context.managerActions.slice(0, 3);
   const latest = latestLiveEvent(context);
-  const latestLabel = latest?.title ?? 'Waiting for first live project update.';
+  const latestLabel = latest?.title ?? 'No active control signal logged.';
 
   return (
     <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
       <div className="mb-3 flex items-start justify-between gap-3">
         <div>
           <h3 className="text-base font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Decision Queue</h3>
-          <p className="mt-0.5 text-[11px] text-[#7A94B4]">Actions tied to the latest control signal.</p>
+          <p className="mt-0.5 text-[11px] text-[#7A94B4]">Operational actions tied to the latest control signal.</p>
         </div>
         <span className="rounded-full border border-[#7C3AED]/25 bg-[#7C3AED]/12 px-2.5 py-1 text-[10px] font-black text-[#DDD6FE]">{context.managerActions.length} ready</span>
       </div>
@@ -552,7 +550,7 @@ function DecisionQueue({ context, onPrepare }: { context: ProjectControlContext;
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-1.5">
                     <span className={`rounded-full border px-2 py-0.5 text-[8px] font-black uppercase ${severityClass[action.priority === 'critical' ? 'critical' : action.priority === 'high' ? 'high' : action.priority === 'medium' ? 'medium' : 'low']}`}>{action.priority}</span>
-                    <span className="rounded-full border border-cyan-300/14 bg-cyan-300/8 px-2 py-0.5 text-[8px] font-black text-cyan-100">AI decision</span>
+                    <span className="rounded-full border border-cyan-300/14 bg-cyan-300/8 px-2 py-0.5 text-[8px] font-black text-cyan-100">Action</span>
                   </div>
                   <h4 className="mt-1 line-clamp-1 text-[12px] font-black leading-4 text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{action.title}</h4>
                 </div>
@@ -587,7 +585,7 @@ function DecisionQueue({ context, onPrepare }: { context: ProjectControlContext;
 
 function ForecastCard({ scenario, context }: { scenario: ForecastScenario; context: ProjectControlContext }) {
   const tone = scenario.type === 'optimistic' ? '#38D98A' : scenario.type === 'base' ? '#00C6FF' : '#FF9B38';
-  const eventLabel = context.latestEvent?.title ?? 'AI baseline';
+  const eventLabel = context.latestEvent?.title ?? 'Baseline';
   return (
     <div className="rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#07111F]/78 p-3">
       <div className="flex items-start justify-between gap-3">
@@ -924,6 +922,22 @@ function SourceTracePanel({ context }: { context: ProjectControlContext }) {
   );
 }
 
+function controlSignalCopy(type: ProjectEventType) {
+  const copy: Record<ProjectEventType, { label: string; detail: string }> = {
+    'baseline-created': { label: 'Baseline captured', detail: 'Source controls active' },
+    'facade-delay': { label: 'Log package delay', detail: 'Update programme and procurement risk' },
+    'variation-submitted': { label: 'Add variation', detail: 'Assess cost and approval impact' },
+    'evidence-rejected': { label: 'Reject evidence', detail: 'Open correction and resubmission path' },
+    'missing-approval': { label: 'Escalate approval delay', detail: 'Assign authority owner and deadline' },
+    'contractor-underperformance': { label: 'Flag contractor issue', detail: 'Create recovery action and owner' },
+    'crane-loss': { label: 'Record access constraint', detail: 'Re-sequence affected activities' },
+    'inspection-failure': { label: 'Record inspection rejection', detail: 'Open gate correction and evidence tasks' },
+    'weather-disruption': { label: 'Log weather disruption', detail: 'Assess entitlement and float impact' },
+    'recovery-approved': { label: 'Approve recovery action', detail: 'Restore float and confidence' },
+  };
+  return copy[type];
+}
+
 function LiveUpdatePanel({
   context,
   ledgerSource,
@@ -945,40 +959,41 @@ function LiveUpdatePanel({
         <div className="max-w-3xl">
           <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#C4B5FD]">
             <Zap size={13} />
-            Record Live Update
+            Control Action Centre
           </div>
           <h3 className="mt-1 text-[18px] font-black leading-6 text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-            Show how one project signal changes handover, EAC, float, risk, and actions.
+            Log a project condition and generate the next control actions.
           </h3>
           <p className="mt-1 text-[11px] leading-5 text-[#9CB1CC]">
-            Choose the live case you want to demonstrate. The event ledger recalculates the cockpit and updates the decision queue immediately.
+            Use this when a package, approval, evidence item, contractor, or recovery decision changes forecast, cost, risk, or ownership.
           </p>
         </div>
         <div className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#07111F]/78 px-3 py-2 xl:min-w-[240px]">
           <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">Latest signal</p>
-          <p className="mt-1 line-clamp-2 text-[11px] font-bold leading-4 text-[#DCE8F8]">{latest?.title ?? 'No live update recorded yet'}</p>
-          <p className="mt-2 text-[9px] font-bold uppercase tracking-[0.12em] text-[#A78BFA]">Ledger: {ledgerStatus} / {ledgerSource}</p>
+          <p className="mt-1 line-clamp-2 text-[11px] font-bold leading-4 text-[#DCE8F8]">{latest?.title ?? 'No active control signal'}</p>
+          <p className="mt-2 text-[9px] font-bold uppercase tracking-[0.12em] text-[#A78BFA]">Control ledger: {ledgerStatus} / {ledgerSource}</p>
         </div>
       </div>
 
       <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-        {liveOptions.map(option => (
-          <button
-            key={option.type}
-            type="button"
-            onClick={() => onSimulate(option.type)}
-            className={`min-h-[48px] rounded-xl border px-3 py-2 text-left transition-all hover:-translate-y-0.5 ${
-              latest?.type === option.type
-                ? 'border-[#7C3AED]/60 bg-[#7C3AED]/24 text-white shadow-[0_0_22px_rgba(124,58,237,0.22)]'
-                : 'border-[#7C3AED]/20 bg-[#07111F]/78 text-[#DCE8F8] hover:border-[#7C3AED]/42 hover:bg-[#7C3AED]/12'
-            }`}
-          >
-            <span className="block text-[11px] font-black">{option.label.replace('Trigger ', '')}</span>
-            <span className="mt-0.5 block text-[9px] font-semibold text-[#8EA7C7]">
-              {option.type === 'recovery-approved' ? 'Recover float and confidence' : 'Recalculate forecast impact'}
-            </span>
-          </button>
-        ))}
+        {liveOptions.map(option => {
+          const optionCopy = controlSignalCopy(option.type);
+          return (
+            <button
+              key={option.type}
+              type="button"
+              onClick={() => onSimulate(option.type)}
+              className={`min-h-[58px] rounded-xl border px-3 py-2 text-left transition-all hover:-translate-y-0.5 ${
+                latest?.type === option.type
+                  ? 'border-[#7C3AED]/60 bg-[#7C3AED]/24 text-white shadow-[0_0_22px_rgba(124,58,237,0.22)]'
+                  : 'border-[#7C3AED]/20 bg-[#07111F]/78 text-[#DCE8F8] hover:border-[#7C3AED]/42 hover:bg-[#7C3AED]/12'
+              }`}
+            >
+              <span className="block text-[11px] font-black">{optionCopy.label}</span>
+              <span className="mt-0.5 block text-[9px] font-semibold leading-4 text-[#8EA7C7]">{optionCopy.detail}</span>
+            </button>
+          );
+        })}
       </div>
 
       <div className="mt-3 flex flex-wrap justify-between gap-2 border-t border-[#7C3AED]/18 pt-3">
@@ -996,7 +1011,7 @@ function LiveUpdatePanel({
           className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#7C3AED] px-3 text-[10px] font-black text-white shadow-[0_0_22px_rgba(124,58,237,0.26)] transition-colors hover:bg-[#6D28D9]"
         >
           <Play size={12} />
-          Run next update
+          Log next control signal
         </button>
       </div>
     </section>
@@ -1007,9 +1022,9 @@ function SourceConfidenceCard({ context }: { context: ProjectControlContext }) {
   const requiredEvidence = context.baseline.evidenceRequirements.length;
   const completeEvidence = context.baseline.evidenceRequirements.filter(item => item.status === 'Complete').length;
   const sourceRows = [
-    ['Source pack', `${context.sourceTraces.length} traceable signals`],
+    ['Source coverage', `${context.sourceTraces.length} traceable signals`],
     ['Evidence readiness', `${completeEvidence}/${requiredEvidence} items complete`],
-    ['AI confidence', `${Math.round(context.sourceTraces.reduce((sum, trace) => sum + trace.confidence, 0) / Math.max(1, context.sourceTraces.length))}% avg`],
+    ['Confidence', `${Math.round(context.sourceTraces.reduce((sum, trace) => sum + trace.confidence, 0) / Math.max(1, context.sourceTraces.length))}% avg`],
   ];
   return (
     <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
@@ -1017,9 +1032,9 @@ function SourceConfidenceCard({ context }: { context: ProjectControlContext }) {
         <div>
           <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100">
             <FileWarning size={13} />
-            Source-Backed Baseline
+            Evidence Confidence
           </div>
-          <h3 className="mt-1 text-[15px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>What the cockpit is using</h3>
+          <h3 className="mt-1 text-[15px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Baseline evidence and gaps</h3>
         </div>
         <span className="rounded-full border border-emerald-300/22 bg-emerald-300/10 px-2.5 py-1 text-[9px] font-black text-emerald-100">
           Traceable
@@ -1045,107 +1060,7 @@ function SourceConfidenceCard({ context }: { context: ProjectControlContext }) {
   );
 }
 
-function DemoControls({
-  events,
-  ledgerSource,
-  ledgerStatus,
-  expanded,
-  onToggleExpanded,
-  onReset,
-  onSimulate,
-}: {
-  events: ProjectControlContext['events'];
-  ledgerSource: string;
-  ledgerStatus: string;
-  expanded: boolean;
-  onToggleExpanded: () => void;
-  onReset: () => void;
-  onSimulate: (type?: ProjectEventType) => void;
-}) {
-  if (!demoMode) return null;
-  const latest = events[events.length - 1];
-  const simulatedCount = events.filter(event => event.type !== 'baseline-created').length;
-  const next = projectEventOptions[simulatedCount % projectEventOptions.length];
-  return (
-    <section className={`rounded-xl border transition-all ${
-      expanded
-        ? 'border-[#7C3AED]/28 bg-[linear-gradient(135deg,rgba(124,58,237,0.16),rgba(7,17,31,0.88))] p-4'
-        : 'border-[rgba(46,127,255,0.12)] bg-[#07111F]/36 p-3'
-    }`}>
-      {!expanded ? (
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#8DBDFF]">
-              <Zap size={13} />
-              Live Twin Ready
-            </div>
-            <p className="mt-1 text-[11px] text-[#7A94B4]">
-              Client-facing view is clean. Presenter controls are hidden.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onToggleExpanded}
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#7C3AED]/24 bg-[#7C3AED]/10 px-3 text-[10px] font-black text-[#DDD6FE] transition-colors hover:border-[#7C3AED]/42 hover:bg-[#7C3AED]/16"
-          >
-            <Play size={12} />
-            Presenter Controls
-          </button>
-        </div>
-      ) : (
-        <>
-      <div className="mb-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#C4B5FD]"><Zap size={13} /> Presenter Controls</div>
-          <p className="mt-1 text-[11px] text-[#8EA7C7]">
-            Use this panel to drive the live story. Collapse it before client discussion. {events.length} event(s) active{latest ? ` - latest: ${latest.title}` : ''}.
-          </p>
-          <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#A78BFA]">
-            Event ledger: {ledgerStatus} / {ledgerSource}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button onClick={onToggleExpanded} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[rgba(46,127,255,0.18)] bg-[#07111F] px-3 text-[10px] font-black text-[#DCE8F8] hover:bg-white/5">Hide Controls</button>
-          <button onClick={onReset} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[rgba(46,127,255,0.18)] bg-[#07111F] px-3 text-[10px] font-black text-[#DCE8F8] hover:bg-white/5"><RefreshCw size={12} /> Reset Baseline</button>
-          <button onClick={() => onSimulate()} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#7C3AED] px-3 text-[10px] font-black text-white shadow-[0_0_22px_rgba(124,58,237,0.26)] hover:bg-[#6D28D9]"><Play size={12} /> Inject Live Event <span className="text-white/70">({next.label.replace('Trigger ', '')})</span></button>
-        </div>
-      </div>
-      <div className="mb-3 grid gap-2 md:grid-cols-3">
-        {[
-          ['1', 'Create baseline', events.length === 0 ? 'Ready for first event' : 'Baseline active'],
-          ['2', 'Inject disruption', latest?.title ?? 'Choose a live event'],
-          ['3', 'Queue decision', latest ? 'Watch Pulse, KPIs, Copilot update' : 'Recommendations are waiting'],
-        ].map(([step, title, detail]) => (
-          <div key={step} className="rounded-lg border border-[#7C3AED]/18 bg-[#07111F]/62 px-3 py-2">
-            <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#A78BFA]">Demo step {step}</p>
-            <p className="mt-0.5 text-[11px] font-black text-[#EEF3FA]">{title}</p>
-            <p className="mt-0.5 truncate text-[10px] font-bold text-[#8EA7C7]">{detail}</p>
-          </div>
-        ))}
-      </div>
-      <div className="flex flex-wrap gap-2">
-        {projectEventOptions.map(option => (
-          <button
-            key={option.type}
-            type="button"
-            onClick={() => onSimulate(option.type)}
-            className={`rounded-lg border px-3 py-2 text-[10px] font-black transition-colors ${
-              latest?.type === option.type
-                ? 'border-[#7C3AED]/55 bg-[#7C3AED]/22 text-white shadow-[0_0_18px_rgba(124,58,237,0.22)]'
-                : 'border-[#7C3AED]/24 bg-[#07111F]/82 text-[#DDD6FE] hover:border-[#7C3AED]/45 hover:bg-[#7C3AED]/14'
-            }`}
-          >
-            {option.label.replace('Trigger ', '')}
-          </button>
-        ))}
-      </div>
-        </>
-      )}
-    </section>
-  );
-}
-
-function PilotSummaryCard({
+function ManagementSummaryCard({
   context,
   onOpenVendorIQ,
   onToast,
@@ -1163,14 +1078,14 @@ function PilotSummaryCard({
     `Top threat: ${context.topThreat}`,
     latest ? `Latest event: ${latest.title}.` : 'Latest event: baseline created from project context.',
     topAction ? `Recommended decision: ${topAction.title} - ${topAction.expectedImpact}.` : 'Recommended decision: confirm baseline and keep the watch list active.',
-    'Pilot ask: select one tower, run 6-8 weeks, measure float protected, evidence gaps closed, rework avoided, and handover confidence movement.',
+    'Management focus: protect float, close evidence gaps, reduce rework, and improve handover confidence.',
   ];
 
   function copySummary() {
     navigator.clipboard.writeText(summaryLines.join('\n')).then(() => {
-      onToast?.('Pilot summary copied for the meeting close-out', 'success');
+      onToast?.('Management summary copied', 'success');
     }).catch(() => {
-      onToast?.('Pilot summary is ready, but clipboard access was blocked', 'warning');
+      onToast?.('Management summary is ready, but clipboard access was blocked', 'warning');
     });
   }
 
@@ -1180,9 +1095,9 @@ function PilotSummaryCard({
         <div>
           <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-violet-100">
             <FileWarning size={13} />
-            Demo Close-Out
+            Management Summary
           </div>
-          <h3 className="mt-1 text-base font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Meeting-ready outcome story</h3>
+          <h3 className="mt-1 text-base font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Current control position</h3>
         </div>
         <span className="rounded-full border border-emerald-300/22 bg-emerald-300/10 px-2.5 py-1 text-[9px] font-black text-emerald-100">
           Ready
@@ -1193,7 +1108,7 @@ function PilotSummaryCard({
         {[
           ['Position', `Health ${context.metrics.healthScore}/100; float ${context.metrics.floatRemaining}d; EAC ${formatProjectCurrency(context.metrics.eac)}.`],
           ['Live signal', latest ? latest.title : 'Project baseline created from imported LOA / project summary.'],
-          ['Pilot proof', 'Measure float protected, evidence gaps closed, rework avoided, and handover confidence movement.'],
+          ['Control focus', 'Protect float, close evidence gaps, reduce rework, and improve handover confidence.'],
         ].map(([label, value]) => (
           <div key={label} className="rounded-lg border border-white/8 bg-[#07111F]/70 px-3 py-2">
             <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#A78BFA]">{label}</p>
@@ -1241,7 +1156,7 @@ export function CommandCenter({
   const [selectedInsight, setSelectedInsight] = useState<{ metricName: MetricName; value: string | number } | null>(null);
   const visibleControlMetrics = context.controlMetrics
     .filter(metric => ['CPI', 'SPI', 'Float Remaining', 'EAC'].includes(metric.label))
-    .map(metric => ({ ...metric, cause: metricDemoCause(metric, context) }));
+    .map(metric => ({ ...metric, cause: metricControlCause(metric, context) }));
   const ledgerStatus = eventLedgerStatusByProjectId[dataset.id] ?? 'local';
   const ledgerSource = eventLedgerSourceByProjectId[dataset.id] ?? 'memory';
 
@@ -1300,7 +1215,7 @@ export function CommandCenter({
           </div>
           <div className="space-y-4 xl:sticky xl:top-4">
             <DecisionQueue context={context} onPrepare={handleQueueAction} />
-            <PilotSummaryCard context={context} onOpenVendorIQ={onOpenVendorIQ} onToast={onToast} />
+            <ManagementSummaryCard context={context} onOpenVendorIQ={onOpenVendorIQ} onToast={onToast} />
           </div>
         </div>
       </div>

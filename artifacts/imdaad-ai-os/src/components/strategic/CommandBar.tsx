@@ -18,8 +18,6 @@ import {
 export type AutomationMode = 'manual' | 'hybrid' | 'ai';
 
 interface Props {
-  mode: AutomationMode;
-  onModeChange: (m: AutomationMode) => void;
   onToast: (msg: string, type?: 'success' | 'warning' | 'error' | 'info') => void;
   selectedFilters?: CommandFilters;
   onFiltersChange?: (filters: CommandFilters) => void;
@@ -48,6 +46,73 @@ const modeConfig: Record<AutomationMode, { label: string; icon: React.ReactNode;
     desc: 'AI dispatches and assigns autonomously within defined rules',
   },
 };
+
+export function AutomationModeSelector({
+  mode,
+  onModeChange,
+  onToast,
+  variant = 'button',
+}: {
+  mode: AutomationMode;
+  onModeChange: (m: AutomationMode) => void;
+  onToast: (msg: string, type?: 'success' | 'warning' | 'error' | 'info') => void;
+  variant?: 'button' | 'panel';
+}) {
+  const [showModeDropdown, setShowModeDropdown] = useState(false);
+  const cfg = modeConfig[mode];
+  const handleModeChange = (m: AutomationMode) => {
+    onModeChange(m);
+    setShowModeDropdown(false);
+    onToast(`Automation mode set to ${modeConfig[m].label}`, m === 'ai' ? 'success' : 'info');
+  };
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setShowModeDropdown(!showModeDropdown)}
+        className={`flex items-center gap-1.5 border text-[11px] font-semibold transition-all duration-150 ${cfg.bg} ${cfg.color} border-current/30 ${
+          variant === 'panel' ? 'h-9 rounded-lg px-3' : 'rounded-lg px-3 py-1.5'
+        }`}
+      >
+        {cfg.icon}
+        {cfg.label}
+        <ChevronDown size={10} className={`transition-transform ${showModeDropdown ? 'rotate-180' : ''}`} />
+      </button>
+      <AnimatePresence>
+        {showModeDropdown && (
+          <>
+            <div className="fixed inset-0" onClick={() => setShowModeDropdown(false)} />
+            <motion.div
+              initial={{ opacity: 0, y: -4, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -4, scale: 0.97 }}
+              transition={{ duration: 0.12 }}
+              className="absolute top-10 right-0 z-[200] bg-[#112040] border border-[rgba(46,127,255,0.3)] rounded-xl shadow-2xl w-56 overflow-hidden"
+            >
+              <div className="px-3 py-2 border-b border-[rgba(46,127,255,0.12)]">
+                <span className="text-[10px] text-[#7A94B4] uppercase tracking-wider">Automation Mode</span>
+              </div>
+              {(Object.entries(modeConfig) as [AutomationMode, typeof modeConfig.manual][]).map(([key, val]) => (
+                <button
+                  key={key}
+                  onClick={() => handleModeChange(key)}
+                  className={`w-full flex items-start gap-3 px-3 py-2.5 transition-colors hover:bg-white/5 ${mode === key ? 'bg-white/5' : ''}`}
+                >
+                  <div className={`mt-0.5 ${val.color}`}>{val.icon}</div>
+                  <div className="text-left">
+                    <div className={`text-[12px] font-semibold ${val.color}`}>{val.label}</div>
+                    <div className="text-[10px] text-[#7A94B4] leading-snug">{val.desc}</div>
+                  </div>
+                  {mode === key && <div className="ml-auto mt-1 w-1.5 h-1.5 rounded-full bg-emerald-400" />}
+                </button>
+              ))}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
 
 const INITIALS_COLORS = [
   '#2E7FFF', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6',
@@ -2200,7 +2265,7 @@ interface ClientFilterOption {
   initialsColor: string;
 }
 
-export function CommandBar({ mode, onModeChange, onToast, selectedFilters, onFiltersChange }: Props) {
+export function CommandBar({ onToast, selectedFilters, onFiltersChange }: Props) {
   const { addProfiles }                         = useMemberProfiles();
   const memberFilter                            = useMemberFilter();
   const isMemberMode                            = isFilterActive(memberFilter);
@@ -2220,7 +2285,6 @@ export function CommandBar({ mode, onModeChange, onToast, selectedFilters, onFil
   const [clientData, setClientData]             = useState<ClientData[]>(INITIAL_CLIENT_DATA);
   const [openFilter, setOpenFilter]             = useState<CommandFilterKey | null>(null);
   const [selected, setSelected]                 = useState<CommandFilters>(initialSelected);
-  const [showModeDropdown, setShowModeDropdown] = useState(false);
   const [showAddClient, setShowAddClient]       = useState(false);
 
   const activeSelected = selectedFilters ?? selected;
@@ -2258,12 +2322,6 @@ export function CommandBar({ mode, onModeChange, onToast, selectedFilters, onFil
     Service: COMMAND_SERVICE_OPTIONS,
   };
 
-  const handleModeChange = (m: AutomationMode) => {
-    onModeChange(m);
-    setShowModeDropdown(false);
-    onToast(`Automation mode set to ${modeConfig[m].label}`, m === 'ai' ? 'success' : 'info');
-  };
-
   const handleFilter = (key: CommandFilterKey, val: string) => {
     updateSelected({ ...activeSelected, [key]: val });
     setOpenFilter(null);
@@ -2294,8 +2352,6 @@ export function CommandBar({ mode, onModeChange, onToast, selectedFilters, onFil
       );
     }
   };
-
-  const cfg = modeConfig[mode];
 
   return (
     <>
@@ -2404,49 +2460,6 @@ export function CommandBar({ mode, onModeChange, onToast, selectedFilters, onFil
         </div>
 
         <div className="ml-auto flex items-center gap-2">
-          <div className="relative">
-            <button
-              onClick={() => setShowModeDropdown(!showModeDropdown)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[11px] font-semibold transition-all duration-150 ${cfg.bg} ${cfg.color} border-current/30`}
-            >
-              {cfg.icon}
-              {cfg.label}
-              <ChevronDown size={10} className={`transition-transform ${showModeDropdown ? 'rotate-180' : ''}`} />
-            </button>
-            <AnimatePresence>
-              {showModeDropdown && (
-                <>
-                  <div className="fixed inset-0" onClick={() => setShowModeDropdown(false)} />
-                  <motion.div
-                    initial={{ opacity: 0, y: -4, scale: 0.97 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -4, scale: 0.97 }}
-                    transition={{ duration: 0.12 }}
-                    className="absolute top-9 right-0 z-[200] bg-[#112040] border border-[rgba(46,127,255,0.3)] rounded-xl shadow-2xl w-56 overflow-hidden"
-                  >
-                    <div className="px-3 py-2 border-b border-[rgba(46,127,255,0.12)]">
-                      <span className="text-[10px] text-[#7A94B4] uppercase tracking-wider">Automation Mode</span>
-                    </div>
-                    {(Object.entries(modeConfig) as [AutomationMode, typeof modeConfig.manual][]).map(([key, val]) => (
-                      <button
-                        key={key}
-                        onClick={() => handleModeChange(key)}
-                        className={`w-full flex items-start gap-3 px-3 py-2.5 transition-colors hover:bg-white/5 ${mode === key ? 'bg-white/5' : ''}`}
-                      >
-                        <div className={`mt-0.5 ${val.color}`}>{val.icon}</div>
-                        <div className="text-left">
-                          <div className={`text-[12px] font-semibold ${val.color}`}>{val.label}</div>
-                          <div className="text-[10px] text-[#7A94B4] leading-snug">{val.desc}</div>
-                        </div>
-                        {mode === key && <div className="ml-auto mt-1 w-1.5 h-1.5 rounded-full bg-emerald-400" />}
-                      </button>
-                    ))}
-                  </motion.div>
-                </>
-              )}
-            </AnimatePresence>
-          </div>
-
           <button className="relative w-7 h-7 flex items-center justify-center text-[#7A94B4] hover:text-white transition-colors rounded-md hover:bg-white/5">
             <Bell size={14} />
             <span className="absolute top-0.5 right-0.5 w-3 h-3 bg-red-500 rounded-full text-[8px] text-white flex items-center justify-center font-bold">3</span>

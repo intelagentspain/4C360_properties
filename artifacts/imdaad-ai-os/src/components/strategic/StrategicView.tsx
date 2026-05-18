@@ -6,7 +6,7 @@ import { KPIPanel } from './KPIPanel';
 import { PPMRiskPanel } from './PPMRiskPanel';
 import type { PPMRiskPayload } from './PPMRiskPanel';
 import { DispatchQueue } from './DispatchQueue';
-import { CommandBar, AutomationMode } from './CommandBar';
+import { AutomationModeSelector, CommandBar, AutomationMode } from './CommandBar';
 import { LivePulseFeed } from './LivePulseFeed';
 import { AIInsightsPanel } from './AIInsightsPanel';
 import { SmartDispatchPanel } from './SmartDispatchPanel';
@@ -91,13 +91,18 @@ function Dashboard({ onToast, selectedClientId, onNavigateToIncident, onNavigate
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <CommandBar
-        mode={mode}
-        onModeChange={setMode}
         onToast={onToast}
         selectedFilters={commandFilters}
         onFiltersChange={setCommandFilters}
       />
       <IntegrationBanner filters={commandFilters} />
+      <div className="flex flex-shrink-0 items-center justify-between gap-3 border-b border-[rgba(46,127,255,0.16)] bg-[#07111F] px-3 py-2">
+        <div className="min-w-0">
+          <div className="text-[9px] font-black uppercase tracking-[0.16em] text-[#7A94B4]">Operating mode</div>
+          <div className="truncate text-[11px] font-semibold text-[#B8C7DB]">Controls how AI dispatch recommendations are approved on this command page.</div>
+        </div>
+        <AutomationModeSelector mode={mode} onModeChange={setMode} onToast={onToast} variant="panel" />
+      </div>
       <div className="flex flex-1 overflow-hidden">
         <div className="flex-[62] flex flex-col p-3 pr-1.5 overflow-hidden gap-2">
           <div className="flex-[65] overflow-hidden">
