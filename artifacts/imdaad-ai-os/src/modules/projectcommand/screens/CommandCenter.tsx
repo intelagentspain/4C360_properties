@@ -468,35 +468,79 @@ function ControlExceptions({ context, goTo }: { context: ProjectControlContext; 
   );
 }
 
-function DecisionCard({ action, onQueue }: { action: ManagerAction; onQueue: (action: ManagerAction) => void }) {
+function DecisionQueue({ context, onPrepare }: { context: ProjectControlContext; onPrepare: (action: ManagerAction) => void }) {
+  const actions = context.managerActions.slice(0, 3);
+  const latestLabel = context.latestEvent?.title ?? 'Project baseline created from uploaded LOA/project summary.';
+
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#07111F]/78 p-3"
-    >
-      <div className="flex items-start justify-between gap-3">
+    <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
+      <div className="mb-3 flex items-start justify-between gap-3">
         <div>
-          <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black uppercase ${severityClass[action.priority === 'critical' ? 'critical' : action.priority === 'high' ? 'high' : action.priority === 'medium' ? 'medium' : 'low']}`}>{action.priority}</span>
-          <h4 className="mt-2 text-[13px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{action.title}</h4>
+          <h3 className="text-base font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Decision Queue</h3>
+          <p className="mt-0.5 text-[11px] text-[#7A94B4]">AI actions tied to the latest control signal.</p>
         </div>
-        <Target size={17} className="shrink-0 text-[#C4B5FD]" />
+        <span className="rounded-full border border-[#7C3AED]/25 bg-[#7C3AED]/12 px-2.5 py-1 text-[10px] font-black text-[#DDD6FE]">{context.managerActions.length} ready</span>
       </div>
-      <div className="mt-3 space-y-2 text-[11px] leading-4 text-[#B8C7DB]">
-        <p className="rounded-lg border border-[#7C3AED]/18 bg-[#7C3AED]/10 px-2.5 py-2"><span className="font-black text-[#DDD6FE]">Triggered by: </span>{action.triggerLabel}</p>
-        <p><span className="font-black text-white">Why: </span>{action.whyItMatters}</p>
-        <p><span className="font-black text-white">Impact: </span>{action.expectedImpact}</p>
-        <p><span className="font-black text-white">Cost: </span>{action.costImplication}</p>
+
+      <div className="mb-3 rounded-xl border border-[#7C3AED]/18 bg-[#7C3AED]/10 px-3 py-2">
+        <div className="flex items-center justify-between gap-3">
+          <p className="shrink-0 text-[8px] font-black uppercase tracking-[0.14em] text-[#C4B5FD]">Current trigger</p>
+          <p className="min-w-0 truncate text-right text-[10px] font-bold text-[#EDE9FE]">{latestLabel}</p>
+        </div>
+        {context.latestEvent && (
+          <div className="mt-1.5">
+            <EventImpactChips event={context.latestEvent} compact />
+          </div>
+        )}
       </div>
-      <button
-        type="button"
-        onClick={() => onQueue(action)}
-        className="mt-3 inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-[#7C3AED] px-3 text-[11px] font-black text-white hover:bg-[#6D28D9]"
-      >
-        <CheckCircle2 size={13} />
-        {action.cta}
-      </button>
-    </motion.div>
+
+      <div className="space-y-2">
+        {actions.map((action, index) => (
+          <motion.div
+            key={action.id}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: index * 0.035 }}
+            className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#07111F]/78 p-2.5"
+          >
+            <div className="grid grid-cols-[1fr_auto] gap-3">
+              <div className="flex min-w-0 items-start gap-3">
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-[#2E7FFF]/20 bg-[#0A1628] text-[#80B7FF]">
+                  <Target size={13} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className={`rounded-full border px-2 py-0.5 text-[8px] font-black uppercase ${severityClass[action.priority === 'critical' ? 'critical' : action.priority === 'high' ? 'high' : action.priority === 'medium' ? 'medium' : 'low']}`}>{action.priority}</span>
+                    <span className="rounded-full border border-cyan-300/14 bg-cyan-300/8 px-2 py-0.5 text-[8px] font-black text-cyan-100">AI decision</span>
+                  </div>
+                  <h4 className="mt-1 line-clamp-1 text-[12px] font-black leading-4 text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{action.title}</h4>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => onPrepare(action)}
+                title={action.cta}
+                className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-lg border border-[#2E7FFF]/24 bg-[#0A1628] px-2.5 text-[9px] font-black text-[#BFD8FF] transition-colors hover:border-[#2E7FFF]/42 hover:bg-[#2E7FFF]/12"
+              >
+                <CheckCircle2 size={11} />
+                Prepare
+              </button>
+            </div>
+            <p className="mt-2 line-clamp-1 text-[10px] font-bold leading-4 text-[#8EA7C7]">{action.whyItMatters}</p>
+            <div className="mt-2 grid gap-1.5 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+              <div className="flex min-w-0 items-center justify-between gap-3 rounded-lg border border-emerald-300/12 bg-emerald-300/8 px-2.5 py-1.5">
+                <p className="shrink-0 text-[8px] font-black uppercase tracking-[0.14em] text-emerald-100">Impact</p>
+                <p className="min-w-0 truncate text-right text-[10px] font-bold text-[#DDFBEA]">{action.expectedImpact}</p>
+              </div>
+              <div className="flex min-w-0 items-center justify-between gap-3 rounded-lg border border-[rgba(46,127,255,0.10)] bg-[#0A1628] px-2.5 py-1.5">
+                <p className="shrink-0 text-[8px] font-black uppercase tracking-[0.14em] text-[#5A6E88]">Cost</p>
+                <p className="min-w-0 truncate text-right text-[10px] font-bold text-[#DCE8F8]">{action.costImplication}</p>
+              </div>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -533,42 +577,59 @@ function CompactForecastSummary({ context, onOpenForecast }: { context: ProjectC
   const baseScenario = context.forecastScenarios.find(scenario => scenario.type === 'base') ?? context.forecastScenarios[0];
   const optimistic = context.forecastScenarios.find(scenario => scenario.type === 'optimistic');
   const pessimistic = context.forecastScenarios.find(scenario => scenario.type === 'pessimistic');
+  const scenarioRows = [
+    { label: 'Best case', value: optimistic ? formatProjectDate(optimistic.handoverDate) : '-', cost: optimistic ? formatProjectCurrency(optimistic.forecastCost) : '-', tone: 'text-emerald-100' },
+    { label: 'Base case', value: formatProjectDate(baseScenario.handoverDate), cost: formatProjectCurrency(baseScenario.forecastCost), tone: 'text-cyan-100' },
+    { label: 'Risk case', value: pessimistic ? formatProjectDate(pessimistic.handoverDate) : '-', cost: pessimistic ? formatProjectCurrency(pessimistic.forecastCost) : '-', tone: 'text-orange-100' },
+  ];
 
   return (
     <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
       <div className="mb-3 flex items-center justify-between gap-3">
         <div>
-          <h3 className="text-base font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Forecast</h3>
-          <p className="mt-0.5 text-[11px] text-[#7A94B4]">Current handover and cost outlook.</p>
+          <h3 className="text-base font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Forecast Snapshot</h3>
+          <p className="mt-0.5 text-[11px] text-[#7A94B4]">Handover and EAC recalculated from the event ledger.</p>
         </div>
-        <button onClick={onOpenForecast} className="text-[11px] font-bold text-[#C4B5FD]">Open forecast</button>
+        <button onClick={onOpenForecast} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#2E7FFF]/24 bg-[#07111F] px-3 text-[10px] font-black text-[#BFD8FF] hover:bg-[#2E7FFF]/12">
+          Open forecast
+          <ArrowRight size={12} />
+        </button>
       </div>
-      <div className="rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#07111F]/78 p-3">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div>
-            <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">Expected handover</p>
-            <p className="mt-1 text-[18px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{formatProjectDate(baseScenario.handoverDate)}</p>
+
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
+        <div className="rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#07111F]/78 p-3">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+            <div>
+              <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">Base handover</p>
+              <p className="mt-1 text-[18px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{formatProjectDate(baseScenario.handoverDate)}</p>
+            </div>
+            <div>
+              <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">Expected cost</p>
+              <p className="mt-1 text-[18px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{formatProjectCurrency(baseScenario.forecastCost)}</p>
+            </div>
           </div>
-          <div>
-            <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">Expected cost</p>
-            <p className="mt-1 text-[18px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{formatProjectCurrency(baseScenario.forecastCost)}</p>
+          <div className="mt-3 rounded-lg border border-cyan-300/14 bg-cyan-300/8 px-2.5 py-2">
+            <p className="text-[8px] font-black uppercase tracking-[0.14em] text-cyan-100">Driver</p>
+            <p className="mt-0.5 line-clamp-2 text-[10px] font-bold leading-4 text-[#DDF7FF]">
+              {baseScenario.assumptions[0] ?? 'Forecast is based on the current programme, cost, risk, evidence, and latest project updates.'}
+            </p>
           </div>
         </div>
-        <div className="mt-3 grid gap-2 sm:grid-cols-3">
-          {[
-            ['Best case', optimistic ? formatProjectDate(optimistic.handoverDate) : '-'],
-            ['Base', formatProjectDate(baseScenario.handoverDate)],
-            ['Risk case', pessimistic ? formatProjectDate(pessimistic.handoverDate) : '-'],
-          ].map(([label, value]) => (
-            <div key={label} className="rounded-lg border border-[rgba(46,127,255,0.10)] bg-[#0A1628] px-2.5 py-2">
-              <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#5A6E88]">{label}</p>
-              <p className="mt-0.5 text-[10px] font-black text-[#DCE8F8]">{value}</p>
+
+        <div className="grid gap-2">
+          {scenarioRows.map(row => (
+            <div key={row.label} className="grid grid-cols-[1fr_auto] gap-3 rounded-xl border border-[rgba(46,127,255,0.12)] bg-[#07111F]/78 px-3 py-2.5">
+              <div>
+                <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#5A6E88]">{row.label}</p>
+                <p className={`mt-0.5 text-[12px] font-black ${row.tone}`}>{row.value}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#5A6E88]">Cost</p>
+                <p className="mt-0.5 text-[12px] font-black text-[#DCE8F8]">{row.cost}</p>
+              </div>
             </div>
           ))}
         </div>
-        <p className="mt-3 line-clamp-2 text-[11px] leading-4 text-[#8EA7C7]">
-          {baseScenario.assumptions[0] ?? 'Forecast is based on the current programme, cost, risk, evidence, and latest project updates.'}
-        </p>
       </div>
     </section>
   );
@@ -952,16 +1013,14 @@ function PilotSummaryCard({
   }
 
   return (
-    <section className="rounded-xl border border-violet-300/22 bg-[linear-gradient(135deg,rgba(124,58,237,0.16),rgba(46,127,255,0.10),rgba(7,17,31,0.86))] p-4">
+    <section className="rounded-xl border border-violet-300/18 bg-[linear-gradient(135deg,rgba(124,58,237,0.12),rgba(46,127,255,0.08),rgba(7,17,31,0.88))] p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-violet-100">
             <FileWarning size={13} />
-            Pilot Summary
+            Demo Close-Out
           </div>
-          <h3 className="mt-1 text-base font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-            Close the Sobha story with measurable outcomes.
-          </h3>
+          <h3 className="mt-1 text-base font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Meeting-ready outcome story</h3>
         </div>
         <span className="rounded-full border border-emerald-300/22 bg-emerald-300/10 px-2.5 py-1 text-[9px] font-black text-emerald-100">
           Ready
@@ -970,12 +1029,11 @@ function PilotSummaryCard({
 
       <div className="mt-3 grid gap-2">
         {[
-          ['Current position', `Health ${context.metrics.healthScore}/100, SPI ${context.metrics.spi.toFixed(2)}, float ${context.metrics.floatRemaining}d, EAC ${formatProjectCurrency(context.metrics.eac)}.`],
-          ['What changed', latest ? latest.title : 'Project baseline created from imported LOA / project summary.'],
-          ['Decision to show', topAction ? `${topAction.title}: ${topAction.expectedImpact}` : 'Confirm baseline and keep AI watch active.'],
-          ['Pilot measures', 'Float protected, evidence gaps closed, rework avoided, handover confidence, vendor decision cycle time.'],
+          ['Position', `Health ${context.metrics.healthScore}/100; float ${context.metrics.floatRemaining}d; EAC ${formatProjectCurrency(context.metrics.eac)}.`],
+          ['Live signal', latest ? latest.title : 'Project baseline created from imported LOA / project summary.'],
+          ['Pilot proof', 'Measure float protected, evidence gaps closed, rework avoided, and handover confidence movement.'],
         ].map(([label, value]) => (
-          <div key={label} className="rounded-lg border border-white/8 bg-[#07111F]/70 p-2.5">
+          <div key={label} className="rounded-lg border border-white/8 bg-[#07111F]/70 px-3 py-2">
             <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#A78BFA]">{label}</p>
             <p className="mt-1 text-[10px] leading-4 text-[#C8D8EE]">{value}</p>
           </div>
@@ -1022,7 +1080,7 @@ export function CommandCenter({
   const visibleControlMetrics = context.controlMetrics.filter(metric => ['CPI', 'SPI', 'Float Remaining', 'EAC'].includes(metric.label));
 
   const handleQueueAction = (action: ManagerAction) => {
-    onToast?.(`${action.title} queued in manager action queue`, 'success');
+    onToast?.(`${action.title} prepared in the manager action plan`, 'success');
   };
 
   return (
@@ -1041,25 +1099,15 @@ export function CommandCenter({
           ))}
         </section>
 
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_390px]">
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_430px] xl:items-start">
           <div className="space-y-4">
             <WhatChangedToday context={context} goTo={goTo} />
+            <CompactForecastSummary context={context} onOpenForecast={() => goTo('forecast')} />
             <ControlExceptions context={context} goTo={goTo} />
             <ImpactAnalysisPanel context={context} />
           </div>
-          <div className="space-y-4">
-            <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
-              <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-base font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Recommended Actions</h3>
-                <span className="rounded-full border border-[#7C3AED]/25 bg-[#7C3AED]/12 px-2.5 py-1 text-[10px] font-black text-[#DDD6FE]">{context.managerActions.length} ready</span>
-              </div>
-              <div className="space-y-3">
-                {context.managerActions.slice(0, 3).map(action => <DecisionCard key={action.id} action={action} onQueue={handleQueueAction} />)}
-              </div>
-            </section>
-
-            <CompactForecastSummary context={context} onOpenForecast={() => goTo('forecast')} />
-
+          <div className="space-y-4 xl:sticky xl:top-4">
+            <DecisionQueue context={context} onPrepare={handleQueueAction} />
             <PilotSummaryCard context={context} onOpenVendorIQ={onOpenVendorIQ} onToast={onToast} />
           </div>
         </div>
