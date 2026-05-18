@@ -438,68 +438,107 @@ function getCommandProfile(client: PortfolioClient) {
   return { atRisk, prevented, sentiment, utilization, coverage, firstDue, narrative, actions };
 }
 
-function buildAvoidedPenaltyCases(clients: PortfolioClient[]): AvoidedPenaltyCase[] {
+function buildStaffEfficiencyItems(clients: PortfolioClient[]): StaffEfficiencyItem[] {
   return clients
     .map(client => {
-      const profile = getCommandProfile(client);
-      const hasDataGap = client.dataSources.some(source => source.count === 0);
-      const trigger = client.riskLevel === 'critical'
-        ? `${client.overdueTasks} overdue actions intercepted before penalty escalation`
-        : client.riskLevel === 'high'
-          ? hasDataGap
-            ? 'Reporting gap caught before unsupported SLA claim'
-            : 'SLA pressure stabilized before contractual breach'
-          : client.dataSources.length === 0
-            ? 'Onboarding baseline captured before first governance review'
-            : 'AI prevention kept asset risk below breach threshold';
-      const evidence = client.riskLevel === 'critical'
-        ? 'Supervisor assignment, resident update, and close-out evidence linked'
-        : client.riskLevel === 'high'
-          ? hasDataGap
-            ? 'Sync alert, service logs, and manual report export attached'
-            : 'SLA timer, oldest breach list, and recovery update captured'
-          : client.dataSources.length === 0
-            ? 'Baseline inspection, PPM calendar, and first data source checklist ready'
-            : 'Predictive PPM signal, inspection note, and avoided-failure proof stored';
+      const technicianCount = client.people.technicians.length;
+      const supervisorCount = client.people.supervisors.length;
+      const jobsPerTech = technicianCount > 0 ? client.workOrders / technicianCount : client.workOrders;
+      const routeLoad = client.workOrders / Math.max(client.sites, 1);
+      const urgency: StaffEfficiencyItem['urgency'] =
+        client.overdueTasks > 6 || client.sla < 75
+          ? 'critical'
+          : client.overdueTasks > 2 || client.incidents > 5 || jobsPerTech > 20
+            ? 'high'
+            : client.workOrders > 20 || supervisorCount === 0
+              ? 'medium'
+              : 'low';
+      const baseMinutes = Math.round(
+        25
+        + client.overdueTasks * 18
+        + client.incidents * 12
+        + Math.max(0, jobsPerTech - 8) * 7
+        + Math.max(0, routeLoad - 4) * 5
+        + (supervisorCount === 0 ? 35 : 0),
+      );
+
+      const action =
+        client.overdueTasks > 5 || jobsPerTech > 24
+          ? {
+              actionLabel: 'Rebalance technicians',
+              outcomeLabel: 'Technicians rebalanced',
+              owner: 'Dispatch Lead',
+              channel: 'Dispatch',
+              bottleneck: `${client.overdueTasks} overdue tasks with ${technicianCount || 'no'} mapped technician${technicianCount === 1 ? '' : 's'}`,
+              staffImpact: 'Moves capacity to the oldest work first and reduces repeat supervisor chasing.',
+              deadline: 'Today',
+            }
+          : supervisorCount === 0 || client.incidents > 4
+            ? {
+                actionLabel: 'Assign supervisor',
+                outcomeLabel: 'Supervisor assigned',
+                owner: 'Operations Lead',
+                channel: 'Task',
+                bottleneck: `${client.incidents} incidents need named owner coverage`,
+                staffImpact: 'Gives technicians one escalation path and stops work from bouncing between teams.',
+                deadline: client.incidents > 4 ? 'Next 60 min' : 'Today',
+              }
+            : client.workOrders > 45
+              ? {
+                  actionLabel: 'Bundle overdue jobs',
+                  outcomeLabel: 'Jobs bundled',
+                  owner: 'Site Supervisor',
+                  channel: 'Roster',
+                  bottleneck: `${client.workOrders} active work orders are split across ${client.sites} sites`,
+                  staffImpact: 'Groups nearby work so field teams spend less time switching context and routes.',
+                  deadline: 'Next shift',
+                }
+              : client.dataSources.length === 0
+                ? {
+                    actionLabel: 'Prepare shift handover',
+                    outcomeLabel: 'Handover prepared',
+                    owner: 'Property Manager',
+                    channel: 'Meeting',
+                    bottleneck: 'New property still needs a clean operating handover',
+                    staffImpact: 'Packages the first PPM, site list, and owner notes before staff start chasing gaps.',
+                    deadline: 'This week',
+                  }
+                : {
+                    actionLabel: 'Draft client update',
+                    outcomeLabel: 'Client update drafted',
+                    owner: 'Account Manager',
+                    channel: 'Email',
+                    bottleneck: `${client.sla}% SLA with ${client.workOrders} active work orders to summarize`,
+                    staffImpact: 'Drafts the operational update so managers are not rebuilding the same status note.',
+                    deadline: 'This week',
+                  };
 
       return {
         id: client.id,
         client: client.name,
-        trigger,
-        avoidedValue: profile.prevented,
-        deadline: client.riskLevel === 'critical' ? 'Today' : client.riskLevel === 'high' ? 'Next 24h' : 'This week',
-        evidence,
-        owner: client.riskLevel === 'critical'
-          ? 'Operations Lead'
-          : client.riskLevel === 'high'
-            ? 'Account Manager'
-            : client.dataSources.length === 0
-              ? 'Onboarding Lead'
-              : 'Reliability Lead',
-        actionLabel: client.riskLevel === 'critical'
-          ? 'Confirm avoided penalty'
-          : client.riskLevel === 'high'
-            ? 'Send evidence pack'
-            : client.dataSources.length === 0
-              ? 'Create baseline proof'
-              : 'Add to value report',
-        outcomeLabel: client.riskLevel === 'critical'
-          ? 'Penalty confirmed'
-          : client.riskLevel === 'high'
-            ? 'Evidence pack sent'
-            : client.dataSources.length === 0
-              ? 'Baseline proof created'
-              : 'Value report updated',
-        channel: client.riskLevel === 'critical' ? 'Approval' : client.riskLevel === 'high' ? 'Email' : 'Evidence',
+        bottleneck: action.bottleneck,
+        staffImpact: action.staffImpact,
+        timeSavedMinutes: Math.max(20, baseMinutes),
+        owner: action.owner,
+        deadline: action.deadline,
+        actionLabel: action.actionLabel,
+        outcomeLabel: action.outcomeLabel,
+        channel: action.channel,
+        urgency,
       };
     })
-    .sort((a, b) => b.avoidedValue - a.avoidedValue);
+    .sort((a, b) => b.timeSavedMinutes - a.timeSavedMinutes);
 }
 
 function formatAed(value: number) {
   if (value >= 1000000) return `AED ${(value / 1000000).toFixed(1)}M`;
   if (value >= 1000) return `AED ${Math.round(value / 1000)}K`;
   return `AED ${value}`;
+}
+
+function formatStaffTime(minutes: number) {
+  if (minutes >= 60) return `${Math.round(minutes / 60)} hrs freed`;
+  return `${minutes} min freed`;
 }
 
 async function shareCommandCard(title: string, body: string, onToast: ToastFn) {
@@ -526,7 +565,7 @@ async function shareCommandCard(title: string, body: string, onToast: ToastFn) {
 
 type PortfolioKpiKey = 'properties' | 'sites' | 'workOrders' | 'incidents' | 'sla' | 'dataSources';
 type PortfolioStatusKey = 'critical' | 'warning' | 'live';
-type ExecutiveImpactKey = 'aedRisk' | 'penaltiesAvoided' | 'residentSentiment' | 'aiPrevented' | 'technicianUtilization';
+type ExecutiveImpactKey = 'aedRisk' | 'workloadOptimizer' | 'residentSentiment' | 'adminLoadReducer' | 'technicianUtilization';
 
 interface PortfolioKpi {
   key: PortfolioKpiKey;
@@ -588,17 +627,54 @@ interface ActionPlanReceipt {
   createdAt: string;
 }
 
-interface AvoidedPenaltyCase {
+type ManagedActionStatus = 'Draft prepared' | 'Ready to assign' | 'Needs approval' | 'Scheduled draft' | 'Watching';
+
+interface ManagedActionArtifact {
+  type: string;
+  title: string;
+  body: string;
+}
+
+interface ManagedActionQuickCommand {
+  label: string;
+  status: ManagedActionStatus;
+  toast: string;
+  copyText?: string;
+  share?: boolean;
+}
+
+interface ManagedActionDetail {
+  audience: string;
+  sender: string;
+  dueBy: string;
+  artifact: ManagedActionArtifact;
+  checklist: string[];
+  quickCommands: ManagedActionQuickCommand[];
+}
+
+interface ManagedAction {
+  id: string;
+  title: string;
+  owner: string;
+  channel: string;
+  group: string;
+  impact: string;
+  status: ManagedActionStatus;
+  detail: ManagedActionDetail;
+}
+
+interface StaffEfficiencyItem {
   id: string;
   client: string;
-  trigger: string;
-  avoidedValue: number;
+  bottleneck: string;
+  staffImpact: string;
+  timeSavedMinutes: number;
   deadline: string;
-  evidence: string;
   owner: string;
   actionLabel: string;
   outcomeLabel: string;
   channel: string;
+  urgency: 'critical' | 'high' | 'medium' | 'low';
 }
 
 interface ExecutiveImpactCard {
@@ -1424,12 +1500,12 @@ function PortfolioSummaryStrip({ clients, onToast }: { clients: PortfolioClient[
 
 function ExecutiveImpactActionModal({
   card,
-  avoidedPenaltyCases = [],
+  staffEfficiencyItems = [],
   onClose,
   onToast,
 }: {
   card: ExecutiveImpactCard;
-  avoidedPenaltyCases?: AvoidedPenaltyCase[];
+  staffEfficiencyItems?: StaffEfficiencyItem[];
   onClose: () => void;
   onToast: ToastFn;
 }) {
@@ -1439,7 +1515,7 @@ function ExecutiveImpactActionModal({
   const [customOwner, setCustomOwner] = useState('Manager');
   const [customChannel, setCustomChannel] = useState('Custom');
   const [isListening, setIsListening] = useState(false);
-  const [actedPenaltyIds, setActedPenaltyIds] = useState<string[]>([]);
+  const [completedEfficiencyIds, setCompletedEfficiencyIds] = useState<string[]>([]);
   const [actionPlanReceipt, setActionPlanReceipt] = useState<ActionPlanReceipt | null>(null);
   const speechRecognitionRef = useRef<SpeechRecognitionLike | null>(null);
 
@@ -1558,11 +1634,11 @@ function ExecutiveImpactActionModal({
   ]).size;
   const hasCustomSelection = customActions.length > 0 || Boolean(pendingCustomAction);
   const primaryActionLabel = actionPlanButtonLabel(actionCount);
-  const isPenaltyCard = card.key === 'penaltiesAvoided';
-  const totalAvoidedValue = avoidedPenaltyCases.reduce((sum, item) => sum + item.avoidedValue, 0);
+  const isStaffEfficiencyCard = card.key === 'workloadOptimizer';
+  const totalStaffMinutes = staffEfficiencyItems.reduce((sum, item) => sum + item.timeSavedMinutes, 0);
 
-  const handlePenaltyAction = (item: AvoidedPenaltyCase) => {
-    setActedPenaltyIds(prev => prev.includes(item.id) ? prev : [...prev, item.id]);
+  const handleEfficiencyAction = (item: StaffEfficiencyItem) => {
+    setCompletedEfficiencyIds(prev => prev.includes(item.id) ? prev : [...prev, item.id]);
     onToast(`${item.client}: ${item.outcomeLabel}`, 'success');
   };
 
@@ -1594,13 +1670,13 @@ function ExecutiveImpactActionModal({
       </div>
 
       <div className="custom-scrollbar min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
-        {isPenaltyCard ? (
+        {isStaffEfficiencyCard ? (
           <>
             <div className="grid gap-2 md:grid-cols-3">
               {[
-                { label: 'Generated Cases', value: String(avoidedPenaltyCases.length) },
-                { label: 'Avoided Value', value: totalAvoidedValue > 0 ? formatAed(totalAvoidedValue) : card.value },
-                { label: 'Action Status', value: `${actedPenaltyIds.length}/${avoidedPenaltyCases.length} done` },
+                { label: 'Efficiency Items', value: String(staffEfficiencyItems.length) },
+                { label: 'Time To Free', value: formatStaffTime(totalStaffMinutes) },
+                { label: 'Action Status', value: `${completedEfficiencyIds.length}/${staffEfficiencyItems.length} done` },
               ].map(item => (
                 <div key={item.label} className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#0A1628] p-3">
                   <div className="text-[9px] uppercase tracking-wide text-[#7A94B4]">{item.label}</div>
@@ -1611,27 +1687,34 @@ function ExecutiveImpactActionModal({
 
             <div className="rounded-xl border border-emerald-400/20 bg-emerald-500/10 p-3">
               <div className="mb-1 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wide text-emerald-200">
-                <Shield size={12} /> Avoided penalty ledger
+                <Shield size={12} /> Staff efficiency queue
               </div>
               <p className="text-[11px] leading-relaxed text-[#D8E7FA]">
-                These are the individual prevention cases behind the headline value. Review the avoided penalty, evidence, owner, and deadline before taking action on each item.
+                These are the workload bottlenecks where managers can save staff time now. Review the pressure point, owner, deadline, and expected time saving before taking action.
               </p>
             </div>
 
             <div className="space-y-2">
-              {avoidedPenaltyCases.map(item => {
-                const acted = actedPenaltyIds.includes(item.id);
+              {staffEfficiencyItems.map(item => {
+                const completed = completedEfficiencyIds.includes(item.id);
                 return (
                   <div key={item.id} className="rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#07111F] p-3">
                     <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <div className="text-[12px] font-black text-[#EEF3FA]">{item.client}</div>
-                          <span className="rounded-md border border-emerald-400/20 bg-emerald-400/10 px-2 py-0.5 text-[10px] font-bold text-emerald-200">{formatAed(item.avoidedValue)}</span>
+                          <span className="rounded-md border border-emerald-400/20 bg-emerald-400/10 px-2 py-0.5 text-[10px] font-bold text-emerald-200">{formatStaffTime(item.timeSavedMinutes)}</span>
+                          <span className={`rounded-md border px-2 py-0.5 text-[8px] font-bold uppercase tracking-wide ${
+                            item.urgency === 'critical'
+                              ? 'border-red-400/25 bg-red-400/10 text-red-200'
+                              : item.urgency === 'high'
+                                ? 'border-amber-400/25 bg-amber-400/10 text-amber-200'
+                                : 'border-white/10 bg-white/5 text-[#9DB9E8]'
+                          }`}>{item.urgency}</span>
                           <span className="rounded-md border border-white/10 bg-white/5 px-2 py-0.5 text-[8px] font-bold uppercase tracking-wide text-[#9DB9E8]">{item.channel}</span>
                         </div>
-                        <p className="mt-1 text-[11px] font-semibold leading-relaxed text-[#D8E7FA]">{item.trigger}</p>
-                        <p className="mt-1 text-[10px] leading-relaxed text-[#8EA7C7]">{item.evidence}</p>
+                        <p className="mt-1 text-[11px] font-semibold leading-relaxed text-[#D8E7FA]">{item.bottleneck}</p>
+                        <p className="mt-1 text-[10px] leading-relaxed text-[#8EA7C7]">{item.staffImpact}</p>
                         <div className="mt-2 flex flex-wrap gap-2 text-[9px] font-semibold uppercase tracking-wide text-[#6F89AA]">
                           <span>Owner: {item.owner}</span>
                           <span>Deadline: {item.deadline}</span>
@@ -1639,15 +1722,15 @@ function ExecutiveImpactActionModal({
                       </div>
                       <button
                         type="button"
-                        onClick={() => handlePenaltyAction(item)}
+                        onClick={() => handleEfficiencyAction(item)}
                         className={`inline-flex shrink-0 items-center justify-center gap-1 rounded-lg border px-3 py-2 text-[10px] font-bold transition-all ${
-                          acted
+                          completed
                             ? 'border-emerald-400/35 bg-emerald-400/14 text-emerald-200'
                             : 'border-[#2E7FFF]/30 bg-[#2E7FFF]/12 text-[#BFD8FF] hover:border-[#2E7FFF]/55 hover:bg-[#2E7FFF]/18 hover:text-white'
                         }`}
                       >
-                        {acted ? <Check size={11} /> : <ArrowRight size={11} />}
-                        {acted ? item.outcomeLabel : item.actionLabel}
+                        {completed ? <Check size={11} /> : <ArrowRight size={11} />}
+                        {completed ? item.outcomeLabel : item.actionLabel}
                       </button>
                     </div>
                   </div>
@@ -1805,15 +1888,15 @@ function ExecutiveImpactActionModal({
 
         <div className="flex flex-shrink-0 items-center justify-between gap-3 border-t border-[rgba(46,127,255,0.12)] bg-[#0B172A]/96 px-4 py-3">
           <div className="text-[10px] text-[#7A94B4]">
-            {isPenaltyCard
-              ? `${actedPenaltyIds.length} of ${avoidedPenaltyCases.length} avoided-penalty actions taken`
+            {isStaffEfficiencyCard
+              ? `${completedEfficiencyIds.length} of ${staffEfficiencyItems.length} efficiency actions completed`
               : hasCustomSelection
               ? `${actionCount} action${actionCount === 1 ? '' : 's'} will be added to the action plan, including custom action${customActions.length + (pendingCustomAction ? 1 : 0) === 1 ? '' : 's'}`
               : `${actionCount} action${actionCount === 1 ? '' : 's'} will be added to the action plan`}
           </div>
           <div className="flex gap-2">
             <button onClick={onClose} className="rounded-lg border border-[rgba(46,127,255,0.18)] px-3 py-2 text-[11px] font-semibold text-[#9DB9E8] transition-colors hover:bg-white/5">Close</button>
-            {!isPenaltyCard && (
+            {!isStaffEfficiencyCard && (
               <button onClick={createActionPlan} className="rounded-lg bg-[#2E7FFF] px-3 py-2 text-[11px] font-bold text-white shadow-[0_0_14px_rgba(46,127,255,0.32)] transition-colors hover:bg-blue-500">{primaryActionLabel}</button>
             )}
           </div>
@@ -1825,8 +1908,15 @@ function ExecutiveImpactActionModal({
 function ExecutiveImpactStrip({ clients, onToast }: { clients: PortfolioClient[]; onToast: ToastFn }) {
   const profiles = clients.map(getCommandProfile);
   const aedAtRisk = profiles.reduce((sum, p) => sum + p.atRisk, 0);
-  const avoidedPenaltyCases = buildAvoidedPenaltyCases(clients);
-  const penaltiesAvoided = avoidedPenaltyCases.reduce((sum, item) => sum + item.avoidedValue, 0);
+  const staffEfficiencyItems = buildStaffEfficiencyItems(clients);
+  const staffTimeFreed = staffEfficiencyItems.reduce((sum, item) => sum + item.timeSavedMinutes, 0);
+  const adminLoadTasks = clients.reduce((sum, client) => {
+    return sum
+      + (client.overdueTasks > 0 ? 1 : 0)
+      + (client.incidents > 0 ? 1 : 0)
+      + (client.people.supervisors.length === 0 ? 1 : 0)
+      + (client.dataSources.some(source => source.count === 0) ? 1 : 0);
+  }, 0);
   const avgSentiment = Math.round(profiles.reduce((sum, p) => sum + p.sentiment, 0) / Math.max(profiles.length, 1));
   const avgUtilization = Math.round(profiles.reduce((sum, p) => sum + p.utilization, 0) / Math.max(profiles.length, 1));
   const [selectedCard, setSelectedCard] = useState<ExecutiveImpactCard | null>(null);
@@ -1840,7 +1930,7 @@ function ExecutiveImpactStrip({ clients, onToast }: { clients: PortfolioClient[]
     ? 'Technician utilization is stretched and may slow response times.'
     : avgUtilization >= 72
       ? 'Field load is elevated; rebalance before SLA backlog builds.'
-      : 'Field load is stable; use spare capacity for prevention work.';
+      : 'Field load is stable; use spare capacity for planned work and resident follow-ups.';
 
   const items: ExecutiveImpactCard[] = [
     {
@@ -1861,20 +1951,20 @@ function ExecutiveImpactStrip({ clients, onToast }: { clients: PortfolioClient[]
       ],
     },
     {
-      key: 'penaltiesAvoided',
-      label: 'Penalties Avoided',
-      value: formatAed(penaltiesAvoided),
-      sub: 'AI prevention',
+      key: 'workloadOptimizer',
+      label: 'Workload Optimizer',
+      value: formatStaffTime(staffTimeFreed),
+      sub: 'field efficiency',
       icon: <Shield size={13} />,
       tone: 'text-emerald-300 bg-emerald-500/10 border-emerald-500/20',
-      summary: 'AI prevention signals are reducing avoidable penalties by catching asset, SLA, and service risks before breach.',
-      trigger: 'Prevention value is material enough to include in the next executive/client update.',
-      recommended: 'Turn avoided failures into a client-facing value story and repeatable prevention loop.',
+      summary: 'Field teams can recover time by rebalancing overloaded sites, bundling nearby work, and giving each pressure point a named owner.',
+      trigger: 'Workload pressure is visible across overdue tasks, incidents, SLA risk, and technician coverage.',
+      recommended: 'Open the staff efficiency queue and clear the largest time-saving actions one by one.',
       actions: [
-        { label: 'Send avoided-penalty report', owner: 'Account Manager', impact: 'Packages the prevention value into a client-ready performance update.', channel: 'Email' },
-        { label: 'Convert signals into PPMs', owner: 'Reliability Lead', impact: 'Turns one-off avoided failures into scheduled preventive work.', channel: 'PPM' },
-        { label: 'Log prevention evidence', owner: 'QA Lead', impact: 'Stores proof that the issue was detected and acted on before breach.', channel: 'Evidence' },
-        { label: 'Brief client sponsor', owner: 'Portfolio Director', impact: 'Reinforces 4C360 value in the next governance conversation.', channel: 'Meeting' },
+        { label: 'Rebalance technicians', owner: 'Dispatch Lead', impact: 'Moves field capacity toward the highest-pressure work queue.', channel: 'Dispatch' },
+        { label: 'Assign supervisor', owner: 'Operations Lead', impact: 'Gives overloaded work one owner and stops repeated escalation chasing.', channel: 'Task' },
+        { label: 'Bundle overdue jobs', owner: 'Site Supervisor', impact: 'Groups nearby work so technicians make fewer route and context switches.', channel: 'Roster' },
+        { label: 'Prepare shift handover', owner: 'Property Manager', impact: 'Packages owner, task, and update notes before the next shift starts.', channel: 'Meeting' },
       ],
     },
     {
@@ -1896,20 +1986,20 @@ function ExecutiveImpactStrip({ clients, onToast }: { clients: PortfolioClient[]
       ],
     },
     {
-      key: 'aiPrevented',
-      label: 'AI Prevented Failures',
-      value: '14',
-      sub: 'this quarter',
-      icon: <Bot size={13} />,
+      key: 'adminLoadReducer',
+      label: 'Admin Load Reducer',
+      value: `${adminLoadTasks} tasks`,
+      sub: 'less desk work',
+      icon: <FileText size={13} />,
       tone: 'text-blue-300 bg-blue-500/10 border-blue-500/20',
-      summary: 'Prevented failures represent issues caught by AI before they created resident disruption or SLA breach.',
-      trigger: 'AI prevention is active and should be converted into repeatable operating controls.',
-      recommended: 'Convert the best prevention examples into PPM rules, evidence, and client-facing proof.',
+      summary: 'Managers can compress routine desk work by drafting updates, bundling evidence, preparing handovers, and assigning follow-up owners.',
+      trigger: 'Open incidents, overdue tasks, missing owners, and reporting gaps are creating avoidable admin work.',
+      recommended: 'Create a focused admin action plan so supervisors spend less time rebuilding the same updates.',
       actions: [
-        { label: 'Create preventive work orders', owner: 'Maintenance Planner', impact: 'Turns AI detections into actionable field work before failure.', channel: 'WO' },
-        { label: 'Schedule sensor validation', owner: 'IoT Lead', impact: 'Confirms predictive signals are reliable before scaling them.', channel: 'Inspection' },
-        { label: 'Notify engineering team', owner: 'Reliability Lead', impact: 'Shares failure patterns so technicians know what to look for.', channel: 'Message' },
-        { label: 'Add to value dashboard', owner: 'Analytics Lead', impact: 'Shows avoided disruption and avoided penalty value in the executive view.', channel: 'Report' },
+        { label: 'Draft client update', owner: 'Account Manager', impact: 'Prepares the current status, owner, ETA, and next update time.', channel: 'Email' },
+        { label: 'Bundle overdue jobs', owner: 'Site Supervisor', impact: 'Creates one supervisor-ready list instead of separate chases.', channel: 'Roster' },
+        { label: 'Prepare shift handover', owner: 'Property Manager', impact: 'Packages open work, owners, and risks for the next shift.', channel: 'Meeting' },
+        { label: 'Assign supervisor follow-up', owner: 'Operations Lead', impact: 'Turns loose follow-ups into named accountability.', channel: 'Task' },
       ],
     },
     {
@@ -1977,7 +2067,7 @@ function ExecutiveImpactStrip({ clients, onToast }: { clients: PortfolioClient[]
             <div className="fixed inset-0 z-[300] bg-black/35 backdrop-blur-[1px]" onClick={() => setSelectedCard(null)} />
             <ExecutiveImpactActionModal
               card={selectedCard}
-              avoidedPenaltyCases={avoidedPenaltyCases}
+              staffEfficiencyItems={staffEfficiencyItems}
               onClose={() => setSelectedCard(null)}
               onToast={onToast}
             />
