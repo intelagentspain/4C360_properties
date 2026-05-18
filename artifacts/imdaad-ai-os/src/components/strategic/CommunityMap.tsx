@@ -800,6 +800,8 @@ export function CommunityMap({ onToast, selectedClientId, commandFilters, onFilt
     slaZones: false,
     predictedFailures: false,
   });
+  const [layerPanelOpen, setLayerPanelOpen] = useState(false);
+  const [legendOpen, setLegendOpen] = useState(false);
   const [drawer, setDrawer] = useState<DrawerItem | null>(null);
   const [historyAsset, setHistoryAsset] = useState<typeof mockAssets[0] | null>(null);
 
@@ -840,6 +842,7 @@ export function CommunityMap({ onToast, selectedClientId, commandFilters, onFilt
       { label: 'SLA Compliance', value: '94%' },
       { label: 'Avg Response', value: '11 min' },
     ];
+  const activeLayerCount = layers.filter(layer => activeLayers[layer.key]).length;
 
   return (
     <div className="relative w-full h-full rounded-xl overflow-hidden border border-[rgba(46,127,255,0.22)]">
@@ -986,47 +989,85 @@ export function CommunityMap({ onToast, selectedClientId, commandFilters, onFilt
         </AnimatePresence>
       </div>
 
-      <div className="absolute top-3 right-3 z-[400] flex flex-col gap-1.5">
-        {layers.map(layer => (
+      <div className="absolute top-3 right-3 z-[400] flex flex-col items-end gap-2">
+        <button
+          onClick={() => setLayerPanelOpen(prev => !prev)}
+          className="flex items-center gap-2 rounded-full border border-[rgba(46,127,255,0.35)] bg-[rgba(10,22,40,0.88)] px-3 py-1.5 text-[11px] font-semibold text-[#EEF3FA] shadow-[0_10px_30px_rgba(0,0,0,0.25)] backdrop-blur-md transition-colors hover:border-[#2E7FFF]"
+        >
+          <Layers size={13} className="text-[#8AB8FF]" />
+          Layers
+          <span className="rounded-full bg-[#2E7FFF]/20 px-1.5 py-0.5 text-[9px] text-[#8AB8FF]">{activeLayerCount}</span>
+        </button>
+
+        <AnimatePresence>
+          {layerPanelOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: -6, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -6, scale: 0.98 }}
+              transition={{ duration: 0.16 }}
+              className="grid w-[230px] grid-cols-2 gap-2 rounded-xl border border-[rgba(46,127,255,0.26)] bg-[rgba(6,16,30,0.94)] p-2 shadow-[0_18px_40px_rgba(0,0,0,0.34)] backdrop-blur-xl"
+            >
+              {layers.map(layer => (
           <button
             key={layer.key}
             onClick={() => toggleLayer(layer.key)}
-            className={`flex items-center gap-1.5 pl-2 pr-3 py-1 rounded-full text-[10px] font-semibold border transition-all duration-150 backdrop-blur-md ${
+                    className={`flex min-h-[34px] items-center gap-2 rounded-lg border px-2 py-1.5 text-left text-[10px] font-semibold leading-tight transition-all duration-150 ${
               activeLayers[layer.key]
-                ? 'bg-[rgba(10,22,40,0.92)] border-current text-white'
-                : 'bg-[rgba(10,22,40,0.6)] border-[rgba(255,255,255,0.08)] text-[#7A94B4] hover:text-white hover:border-[rgba(255,255,255,0.2)]'
+                ? 'bg-[rgba(46,127,255,0.16)] border-current text-white'
+                : 'bg-[rgba(10,22,40,0.72)] border-[rgba(255,255,255,0.08)] text-[#7A94B4] hover:text-white hover:border-[rgba(255,255,255,0.2)]'
             }`}
             style={activeLayers[layer.key] ? { color: layer.color, borderColor: layer.color + '80' } : {}}
           >
-            <span style={activeLayers[layer.key] ? { color: layer.color } : {}}>{layer.icon}</span>
-            {layer.label}
+                    <span className="grid h-6 w-6 flex-shrink-0 place-items-center rounded-md bg-white/5" style={activeLayers[layer.key] ? { color: layer.color } : {}}>
+                      {layer.icon}
+                    </span>
+                    <span>{layer.label}</span>
           </button>
-        ))}
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
-      <div className="absolute bottom-14 left-3 z-[400] flex gap-2" style={{ right: '100px' }}>
+      <div className="absolute bottom-3 left-3 z-[400] flex max-w-[calc(100%-180px)] gap-2">
         {mapStats.map(s => (
-          <div key={s.label} className="flex-1 bg-[rgba(10,22,40,0.9)] border border-[rgba(46,127,255,0.2)] rounded-lg px-2 py-2 backdrop-blur-md text-center">
+          <div key={s.label} className="min-w-[104px] bg-[rgba(10,22,40,0.88)] border border-[rgba(46,127,255,0.2)] rounded-lg px-2 py-2 backdrop-blur-md text-center">
             <div className="text-[14px] font-bold text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{s.value}</div>
             <div className="text-[9px] text-[#7A94B4] leading-tight mt-0.5">{s.label}</div>
           </div>
         ))}
       </div>
 
-      <div className="absolute bottom-3 right-3 z-[400] bg-[rgba(10,22,40,0.9)] border border-[rgba(46,127,255,0.2)] rounded-lg px-3 py-2 backdrop-blur-md">
-        <div className="text-[10px] text-[#7A94B4] space-y-1">
-          <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded bg-blue-400 inline-block" /> Property Market</div>
-          <div className="mt-1 pt-1 border-t border-[rgba(46,127,255,0.15)]">
-            <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" /> Available</div>
-            <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-400 inline-block" /> On Job</div>
-            <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-blue-400 inline-block" /> En Route</div>
-            <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-400 inline-block" /> Overdue</div>
-          </div>
-          <div className="mt-1 pt-1 border-t border-[rgba(46,127,255,0.15)]">
-            <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" /> Critical</div>
-            <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-500 inline-block" /> Medium</div>
-          </div>
-        </div>
+      <div className="absolute bottom-3 right-3 z-[400] flex flex-col items-end gap-2">
+        <AnimatePresence>
+          {legendOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: 8, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 8, scale: 0.98 }}
+              transition={{ duration: 0.16 }}
+              className="w-[170px] rounded-xl border border-[rgba(46,127,255,0.22)] bg-[rgba(6,16,30,0.94)] px-3 py-2 shadow-[0_18px_40px_rgba(0,0,0,0.32)] backdrop-blur-xl"
+            >
+              <div className="mb-2 text-[9px] font-bold uppercase tracking-[0.18em] text-[#8AB8FF]">Map legend</div>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] text-[#9BB3D0]">
+                <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded bg-blue-400 inline-block" /> Property</div>
+                <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" /> Available</div>
+                <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-400 inline-block" /> On Job</div>
+                <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-blue-400 inline-block" /> En Route</div>
+                <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-400 inline-block" /> Overdue</div>
+                <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" /> Critical</div>
+                <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-500 inline-block" /> Medium</div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+        <button
+          onClick={() => setLegendOpen(prev => !prev)}
+          className="rounded-full border border-[rgba(46,127,255,0.26)] bg-[rgba(10,22,40,0.88)] px-3 py-1.5 text-[10px] font-semibold text-[#9BB3D0] shadow-[0_10px_30px_rgba(0,0,0,0.25)] backdrop-blur-md transition-colors hover:border-[#2E7FFF] hover:text-white"
+        >
+          Legend
+        </button>
       </div>
 
       <MapDrawer
