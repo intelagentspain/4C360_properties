@@ -2,6 +2,10 @@ import { motion } from 'framer-motion';
 import type { Phase, SubTask } from '../data/phases';
 
 type RowItem = Phase | SubTask;
+type RenderRowItem = RowItem & {
+  baselineStartPct?: number;
+  baselineWidthPct?: number;
+};
 
 export function GanttRow({
   item,
@@ -11,7 +15,7 @@ export function GanttRow({
   dense = false,
   onClick,
 }: {
-  item: RowItem;
+  item: RenderRowItem;
   nameWidth?: number;
   showBaseline?: boolean;
   showCriticalPath?: boolean;
@@ -37,7 +41,10 @@ export function GanttRow({
         {showBaseline && (
           <div
             className="absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-white/12"
-            style={{ left: `${Math.max(item.startPct - 2, 0)}%`, width: `${Math.min(item.widthPct + 5, 100)}%` }}
+            style={{
+              left: `${Math.max(item.baselineStartPct ?? item.startPct - 2, 0)}%`,
+              width: `${Math.min(item.baselineWidthPct ?? item.widthPct + 5, 100)}%`,
+            }}
           />
         )}
         <motion.div

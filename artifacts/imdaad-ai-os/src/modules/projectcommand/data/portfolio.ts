@@ -1,7 +1,7 @@
 import { aiContent as lawnzAiContent } from './ai-responses';
 import { costSeries as lawnzCostSeries, evmSummary as lawnzEvmSummary } from './costs';
 import { milestones as lawnzMilestones } from './milestones';
-import { phases as lawnzPhases, type Phase } from './phases';
+import { buildProjectSchedule, phases as lawnzPhases, type Phase } from './phases';
 import { project as lawnzProject } from './project';
 import { risks as lawnzRisks, type Risk } from './risks';
 
@@ -165,18 +165,6 @@ function scaleCostSeries(factor: number): ProjectCostSeries {
     earnedValue: lawnzCostSeries.earnedValue.map(value => scaleNumber(value, factor)),
     forecast: lawnzCostSeries.forecast.map(value => scaleNumber(value, factor)),
   };
-}
-
-function updatePhases(completions: Record<string, number>, annotations: Record<string, string>): Phase[] {
-  return lawnzPhases.map(phase => ({
-    ...phase,
-    completePct: completions[phase.id] ?? phase.completePct,
-    aiAnnotation: annotations[phase.id] ?? phase.aiAnnotation,
-    subTasks: phase.subTasks?.map(task => ({
-      ...task,
-      completePct: Math.min(100, Math.max(0, Math.round((completions[phase.id] ?? phase.completePct) * (task.completePct === 100 ? 1 : 0.65)))),
-    })),
-  }));
 }
 
 function updateMilestones(prefix: string, dayShift: number): ProjectMilestones {
@@ -480,12 +468,13 @@ function projectVariant(
       healthStatus: overrides.healthScore >= 75 ? 'good' : overrides.healthScore >= 55 ? 'monitor' : 'critical',
       forecastCost: overrides.forecastCost,
     },
-    phases: updatePhases(
-      overrides.projectType === 'Main Construction'
-        ? { design: 100, enabling: 100, substructure: overrides.completion, superstructure: Math.max(0, overrides.completion - 12), mep: Math.max(0, overrides.completion - 24), fitout: 0, handover: 0 }
-        : { design: Math.min(100, overrides.completion + 10), enabling: overrides.completion, substructure: overrides.completion, superstructure: Math.max(0, overrides.completion - 10), mep: Math.max(0, overrides.completion - 15), fitout: Math.max(0, overrides.completion - 20), handover: Math.max(0, overrides.completion - 25) },
-      { substructure: `${overrides.completion}% - ${overrides.projectType}`, mep: 'Project-specific controls' },
-    ),
+    phases: buildProjectSchedule({
+      projectType: overrides.projectType,
+      startDate: source.project.startDate,
+      targetHandover: overrides.targetHandover,
+      completion: overrides.completion,
+      mainContractor: overrides.mainContractor ?? source.project.mainContractor,
+    }),
     costSeries: scaleCostSeries(scale),
     evmSummary: {
       pv: Math.round(plannedValue / 1_000_000),
@@ -519,7 +508,13 @@ const bayzHandoverDataset = projectVariant(
     selectorLabel: 'Sobha Pilot Tower - Main Construction',
     ...hierarchyFor('sobha-pilot-tower-property'),
     project: bayzProject,
-    phases: updatePhases({ design: 100, enabling: 100, substructure: 52, superstructure: 18, mep: 6, fitout: 0, handover: 0 }, { substructure: '52% - piling recovery', superstructure: 'Crane bottleneck', mep: 'Riser model pending' }),
+    phases: buildProjectSchedule({
+      projectType: bayzProject.projectType,
+      startDate: bayzProject.startDate,
+      targetHandover: bayzProject.targetHandover,
+      completion: bayzProject.completion,
+      mainContractor: bayzProject.mainContractor,
+    }),
     costSeries: scaleCostSeries(1.56),
     evmSummary: { pv: 166, ac: 164, ev: 159, cpi: 0.97, spi: 0.96, cv: -5, sv: -7, eac: 420, etc: 256, vac: 0, tcpi: 1 },
     risks: updateRisks('sobha', ['Tower crane availability constraint'], 'Construction Director'),
@@ -634,7 +629,13 @@ export const projectCommandDatasets = {
     selectorLabel: 'Sobha Pilot Tower - Main Construction',
     ...hierarchyFor('sobha-pilot-tower-property'),
     project: bayzProject,
-    phases: updatePhases({ design: 100, enabling: 100, substructure: 52, superstructure: 18, mep: 6, fitout: 0, handover: 0 }, { substructure: '52% - piling recovery', superstructure: 'Crane bottleneck', mep: 'Riser model pending' }),
+    phases: buildProjectSchedule({
+      projectType: bayzProject.projectType,
+      startDate: bayzProject.startDate,
+      targetHandover: bayzProject.targetHandover,
+      completion: bayzProject.completion,
+      mainContractor: bayzProject.mainContractor,
+    }),
     costSeries: scaleCostSeries(1.56),
     evmSummary: { pv: 166, ac: 164, ev: 159, cpi: 0.97, spi: 0.96, cv: -5, sv: -7, eac: 420, etc: 256, vac: 0, tcpi: 1 },
     risks: updateRisks('sobha', ['Tower crane availability constraint', 'Facade procurement lead time - high zone', 'Steel reinforcement escalation', 'MEP riser coordination freeze delayed', 'Night-pour permit sequence not approved', 'Podium plantroom coordination issue', 'Core wall cycle time above target', 'Neighbouring tower logistics conflict', 'Concrete cooling plan during peak heat', 'Temporary works approval backlog', 'High-zone safety lift plan review', 'Subcontractor productivity variance'], 'Construction Director'),
@@ -646,7 +647,13 @@ export const projectCommandDatasets = {
     selectorLabel: 'Sobha Handover Tower - Main Construction',
     ...hierarchyFor('sobha-handover-tower-property'),
     project: verdanaProject,
-    phases: updatePhases({ design: 100, enabling: 100, substructure: 100, superstructure: 100, mep: 72, fitout: 58, handover: 12 }, { mep: 'T&C on track', fitout: 'Snag velocity ahead', handover: 'Inspection slots needed' }),
+    phases: buildProjectSchedule({
+      projectType: verdanaProject.projectType,
+      startDate: verdanaProject.startDate,
+      targetHandover: verdanaProject.targetHandover,
+      completion: verdanaProject.completion,
+      mainContractor: verdanaProject.mainContractor,
+    }),
     costSeries: scaleCostSeries(0.67),
     evmSummary: { pv: 118, ac: 116, ev: 121, cpi: 1.04, spi: 1.03, cv: 5, sv: 3, eac: 188, etc: 72, vac: 2, tcpi: 0.96 },
     risks: updateRisks('sobha-handover', ['Civil defence inspection slot availability', 'Lift commissioning document comments', 'Facade cleaning access conflict', 'Fire alarm integration re-test', 'Snagging closeout velocity slowdown', 'Authority document compilation delay', 'Balcony finishing access overlap', 'Common area handover checklist gap', 'Final DEWA inspection readiness', 'Unit owner walkthrough backlog', 'Testing certificate delay', 'Practical completion documentation risk'], 'Handover Manager'),

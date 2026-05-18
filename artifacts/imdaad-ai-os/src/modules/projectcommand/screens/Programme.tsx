@@ -2,9 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { Check, ChevronDown } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
-import { GanttChart } from '../components/GanttChart';
+import { GanttChart, type ProgrammeZoom } from '../components/GanttChart';
 import { AIPanel } from '../components/AIPanel';
 import { useSelectedProjectCommandData } from '../useProjectCommandData';
+import type { Phase } from '../data/phases';
 
 function formatMonthRange(startDate: string, endDate: string) {
   const formatter = new Intl.DateTimeFormat('en-GB', { month: 'short', year: 'numeric' });
@@ -15,20 +16,60 @@ function formatShortDate(value: string) {
   return new Date(value).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
 }
 
+function contractorsForPhase(phase: Phase) {
+  return [phase.contractor, ...(phase.subTasks?.map(task => task.contractor) ?? [])].filter(Boolean);
+}
+
+function uniqueContractors(phases: Phase[], fallback: string) {
+  const names = phases.flatMap(contractorsForPhase);
+  return Array.from(new Set([fallback, ...names])).filter(Boolean);
+}
+
+function filterPhasesByContractor(phases: Phase[], activeContractors: string[]) {
+  if (!activeContractors.length) return phases;
+
+  return phases.flatMap(phase => {
+    const phaseMatches = activeContractors.includes(phase.contractor);
+    const matchingSubTasks = phase.subTasks?.filter(task => activeContractors.includes(task.contractor)) ?? [];
+
+    if (phaseMatches) return [phase];
+    if (matchingSubTasks.length) return [{ ...phase, subTasks: matchingSubTasks }];
+    return [];
+  });
+}
+
+function buildNarrative(projectName: string, phases: Phase[], fallback: string) {
+  const criticalNames = phases.filter(phase => phase.isCritical).map(phase => phase.name).slice(0, 4);
+  if (!criticalNames.length) return fallback;
+  return `${projectName} critical path is currently driven by ${criticalNames.join(', ')}. The visible programme, delay probability, and variance cards are using the selected project and contractor filter.`;
+}
+
+function buildRecoverySuggestion(phases: Phase[], fallback: string) {
+  const riskiest = [...phases].sort((a, b) => b.riskProbability - a.riskProbability)[0];
+  if (!riskiest) return fallback;
+  return `Focus the next recovery meeting on ${riskiest.name}. ${riskiest.contractor} owns the highest visible delay exposure at ${riskiest.riskProbability}%, with ${riskiest.varianceDays < 0 ? `${Math.abs(riskiest.varianceDays)} days of slip risk` : `${riskiest.varianceDays} days of float`} against baseline.`;
+}
+
 export function Programme() {
   const { aiContent, phases, project } = useSelectedProjectCommandData();
-  const [zoom, setZoom] = useState<'Week' | 'Month' | 'Quarter'>('Month');
+  const [zoom, setZoom] = useState<ProgrammeZoom>('Month');
   const [baseline, setBaseline] = useState(true);
   const [critical, setCritical] = useState(true);
   const [contractorOpen, setContractorOpen] = useState(false);
   const [selectedContractors, setSelectedContractors] = useState<string[]>(['All contractors']);
   const [whatIfOpen, setWhatIfOpen] = useState(false);
   const [delayDays, setDelayDays] = useState(14);
-  const contractorOptions = useMemo(() => ['All contractors', project.mainContractor, 'MEP Contractor', 'Facade Vendor', 'Specialist Subcontractor'], [project.mainContractor]);
+  const contractorOptions = useMemo(() => ['All contractors', ...uniqueContractors(phases, project.mainContractor)], [phases, project.mainContractor]);
   const allContractorsSelected = selectedContractors.includes('All contractors') || selectedContractors.length === 0;
   const activeContractors = allContractorsSelected ? [] : selectedContractors.filter(contractor => contractor !== 'All contractors');
   const contractorLabel = allContractorsSelected ? 'All contractors' : activeContractors.length === 1 ? activeContractors[0] : `${activeContractors.length} contractors selected`;
-  const delayData = Object.entries(aiContent.programmeInsights.delayProbabilities).map(([phase, probability]) => ({ phase, probability }));
+  const filteredPhases = useMemo(() => filterPhasesByContractor(phases, activeContractors), [activeContractors, phases]);
+  const delayData = filteredPhases.map(phase => ({ phase: phase.name, probability: phase.riskProbability }));
+  const varianceEntries = filteredPhases
+    .filter(phase => phase.varianceDays !== undefined)
+    .map(phase => [phase.name, phase.varianceDays] as const);
+  const criticalPathNarrative = buildNarrative(project.name, filteredPhases, aiContent.programmeInsights.criticalPathNarrative);
+  const recoverySuggestion = buildRecoverySuggestion(filteredPhases, aiContent.programmeInsights.rescheduleSuggestion);
   const resourceData = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug'].map((month, index) => ({ month, workers: Math.round((project.floors * 2.2) + [72, 96, 128, 164, 210, 246, 292, 318][index] * (project.completion / 62)) }));
 
   useEffect(() => {
@@ -118,21 +159,36 @@ export function Programme() {
               <h2 className="text-lg font-black" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Construction Programme</h2>
               <span className="rounded-full border border-[rgba(46,127,255,0.35)] bg-[#0A1628] px-3 py-1 text-[11px] font-bold text-[#B8C7DB]">Zoom: {zoom}</span>
             </div>
-            <GanttChart phases={phases} mode="full" showBaseline={baseline} showCriticalPath={critical} showWeather />
+            <GanttChart
+              phases={filteredPhases}
+              mode="full"
+              showBaseline={baseline}
+              showCriticalPath={critical}
+              showWeather
+              zoom={zoom}
+              projectStart={project.startDate}
+              projectEnd={project.targetHandover}
+              emptyMessage="No programme activities match the selected contractor filter."
+            />
           </section>
           <div className="grid gap-4 2xl:grid-cols-2">
             <AIPanel title="Recovery Suggestion">
-              <p className="text-[12px] leading-5 text-[#DDE6F8]">{aiContent.programmeInsights.rescheduleSuggestion}</p>
+              <p className="text-[12px] leading-5 text-[#DDE6F8]">{recoverySuggestion}</p>
             </AIPanel>
             <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
               <h3 className="mb-3 text-sm font-black" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Critical Path Focus</h3>
               <div className="grid gap-2 sm:grid-cols-2">
-                {Object.entries(aiContent.programmeInsights.baselineVariance).map(([phase, days]) => (
+                {varianceEntries.map(([phase, days]) => (
                   <div key={phase} className="rounded-lg border border-[rgba(46,127,255,0.12)] bg-[#0A1628] px-3 py-2">
                     <div className="text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">{phase}</div>
                     <div className={`mt-1 font-mono text-[15px] font-black ${days < 0 ? 'text-red-300' : 'text-emerald-300'}`}>{days}d</div>
                   </div>
                 ))}
+                {varianceEntries.length === 0 && (
+                  <div className="rounded-lg border border-dashed border-[rgba(46,127,255,0.18)] bg-[#0A1628] px-3 py-4 text-[11px] font-bold text-[#7A94B4]">
+                    No variance items match the selected filter.
+                  </div>
+                )}
               </div>
             </section>
           </div>
@@ -152,7 +208,7 @@ export function Programme() {
               </ResponsiveContainer>
             </div>
           </section>
-          <AIPanel title="Critical Path Narrative"><p className="text-[12px] leading-5 text-[#DDE6F8]">{aiContent.programmeInsights.criticalPathNarrative}</p></AIPanel>
+          <AIPanel title="Critical Path Narrative"><p className="text-[12px] leading-5 text-[#DDE6F8]">{criticalPathNarrative}</p></AIPanel>
           <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
             <h3 className="mb-3 text-sm font-black" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Resource Histogram</h3>
             <div className="h-[150px]">
@@ -176,7 +232,7 @@ export function Programme() {
               <div className="mt-2 text-2xl font-black text-[#D92B1C]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{formatShortDate(project.forecastCompletion)} + {delayDays}d</div>
               <div className="mt-3 text-[12px] text-[#B8C7DB]">Estimated cost impact: AED {(delayDays * 0.11).toFixed(1)}M</div>
             </div>
-            <AIPanel title="AI Recovery Suggestion"><p className="text-[12px] leading-5 text-[#DDE6F8]">{aiContent.programmeInsights.rescheduleSuggestion}</p></AIPanel>
+            <AIPanel title="AI Recovery Suggestion"><p className="text-[12px] leading-5 text-[#DDE6F8]">{recoverySuggestion}</p></AIPanel>
           </motion.div>
         )}
       </AnimatePresence>
