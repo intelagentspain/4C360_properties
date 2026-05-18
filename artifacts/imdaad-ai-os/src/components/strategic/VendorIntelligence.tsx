@@ -5,7 +5,7 @@ import {
   AlertTriangle, Brain, Target, DollarSign, BarChart3,
   CheckCircle, XCircle, FileWarning, Zap, ChevronRight,
   Users, Building2, Star, Sparkles, Lightbulb, ListChecks, Activity, X,
-  Plus, Mic, Send, MessageSquare,
+  Plus, Mic, Send, MessageSquare, UploadCloud, FileText, Wand2, Trash2,
 } from 'lucide-react';
 import {
   computeVendorScore,
@@ -20,6 +20,7 @@ import type { ToastFn } from '@/lib/ui';
 type FilterTab = 'all' | 'top' | 'atrisk' | 'cost';
 
 type VendorWizardStep = 1 | 2 | 3 | 4;
+type VendorSetupMode = 'manual' | 'ai';
 
 type VendorWizardForm = {
   name: string;
@@ -46,6 +47,40 @@ type VendorWizardForm = {
   dependencyNote: string;
   predictedRisk30d: string;
   contractFlags: string;
+};
+
+type VendorSetupDocument = {
+  id: string;
+  name: string;
+  type: string;
+  sizeLabel: string;
+  content: string;
+};
+
+type VendorAiExtraction = {
+  label: string;
+  value: string;
+  source: string;
+};
+
+type QuoteAnalysisItem = {
+  id: string;
+  vendorName: string;
+  amount: number;
+  sla: number;
+  warranty: string;
+  exclusions: string;
+  score: number;
+  risk: 'Low' | 'Medium' | 'High';
+  finding: string;
+};
+
+type QuoteAnalysis = {
+  winner: QuoteAnalysisItem;
+  items: QuoteAnalysisItem[];
+  summary: string;
+  savings: number;
+  findings: string[];
 };
 
 const vendorCategories = [
@@ -87,6 +122,173 @@ const initialVendorWizardForm: VendorWizardForm = {
   predictedRisk30d: '16',
   contractFlags: 'Onboarding evidence pack due within 14 days',
 };
+
+function formatDocumentSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function cleanDocumentName(name: string): string {
+  return name
+    .replace(/\.[^.]+$/, '')
+    .replace(/\b(contract|vendor|profile|proposal|quote|rfq|sla|insurance|license|trade|certificate|signed|final|copy)\b/gi, ' ')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function extractLabeledValue(text: string, labels: string[]): string | null {
+  for (const label of labels) {
+    const pattern = new RegExp(`${label}\\s*[:\\-]\\s*([^\\n\\r;|]+)`, 'i');
+    const match = text.match(pattern);
+    if (match?.[1]) return match[1].trim().replace(/\s+/g, ' ');
+  }
+  return null;
+}
+
+function extractNumberValue(text: string, labels: string[]): string | null {
+  const raw = extractLabeledValue(text, labels);
+  const match = raw?.match(/(\d{1,4}(?:,\d{3})?)/);
+  return match?.[1]?.replace(/,/g, '') ?? null;
+}
+
+function extractMoneyValue(text: string, labels: string[]): number | null {
+  const raw = extractLabeledValue(text, labels) ?? text.match(/(?:AED|د\.إ)\s*([0-9][0-9,]*)/i)?.[1] ?? null;
+  const match = raw?.match(/(\d{2,9}(?:,\d{3})?)/);
+  const value = Number(match?.[1]?.replace(/,/g, ''));
+  return Number.isFinite(value) && value > 0 ? value : null;
+}
+
+function inferVendorCategory(text: string): string | null {
+  const lower = text.toLowerCase();
+  if (/(hvac|chiller|cooling|air conditioning)/.test(lower)) return 'FM & HVAC';
+  if (/(electrical|power|lv|switchgear)/.test(lower)) return 'FM & Electrical';
+  if (/(mep|mechanical|plumbing|systems)/.test(lower)) return 'MEP & Systems';
+  if (/(cleaning|soft fm|housekeeping|janitorial)/.test(lower)) return 'Cleaning & Soft FM';
+  if (/(security|guard|cctv|access control)/.test(lower)) return 'Security';
+  if (/(landscaping|irrigation|horticulture)/.test(lower)) return 'Landscaping';
+  if (/(fire|alarm|safety|civil defense)/.test(lower)) return 'Fire & Safety';
+  if (/(lift|elevator|escalator)/.test(lower)) return 'Elevators & Lifts';
+  if (/(civil|fit out|engineering|structure)/.test(lower)) return 'Engineering & Civil';
+  return null;
+}
+
+function buildVendorAiDraft(
+  current: VendorWizardForm,
+  documents: VendorSetupDocument[],
+  notes: string,
+): { form: VendorWizardForm; extractions: VendorAiExtraction[] } {
+  const combined = [notes, ...documents.map(doc => `${doc.name}\n${doc.content}`)].filter(Boolean).join('\n');
+  const firstDocumentName = documents[0]?.name ? cleanDocumentName(documents[0].name) : '';
+  const next: VendorWizardForm = { ...current };
+  const extractions: VendorAiExtraction[] = [];
+  const setField = (field: keyof VendorWizardForm, value: string | null, label: string, source: string) => {
+    if (!value) return;
+    next[field] = value as never;
+    extractions.push({ label, value, source });
+  };
+
+  setField('name', extractLabeledValue(combined, ['vendor name', 'supplier name', 'company name', 'contractor']) || firstDocumentName || null, 'Vendor name', 'Profile');
+  setField('category', inferVendorCategory(combined), 'Category', 'Scope');
+  setField('sites', extractLabeledValue(combined, ['sites covered', 'properties', 'locations', 'site scope', 'service locations']), 'Sites covered', 'Scope');
+  setField('contractExpiry', extractLabeledValue(combined, ['contract expiry', 'expiry date', 'renewal date', 'valid until']), 'Contract expiry', 'Contract');
+  setField('pocName', extractLabeledValue(combined, ['primary contact', 'contact person', 'account manager', 'contact name']), 'Primary contact', 'Contacts');
+  setField('pocTitle', extractLabeledValue(combined, ['contact title', 'designation', 'job title']), 'Contact title', 'Contacts');
+
+  const email = combined.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)?.[0] ?? null;
+  const phone = combined.match(/(?:\+?\d[\d\s().-]{7,}\d)/)?.[0]?.replace(/\s+/g, ' ') ?? null;
+  setField('pocEmail', email, 'Email', 'Contacts');
+  setField('pocPhone', phone, 'Phone', 'Contacts');
+
+  setField('slaCompliance', extractNumberValue(combined, ['sla compliance', 'sla', 'service level']), 'SLA compliance', 'Performance');
+  setField('firstTimeFixRate', extractNumberValue(combined, ['first time fix', 'first-time fix', 'ftf']), 'First-time fix', 'Performance');
+  setField('avgResolutionMin', extractNumberValue(combined, ['average resolution minutes', 'avg resolution minutes', 'resolution time']), 'Resolution minutes', 'Performance');
+  setField('evidenceCompliance', extractNumberValue(combined, ['evidence compliance', 'photo evidence', 'closure evidence']), 'Evidence compliance', 'Compliance');
+  setField('repeatFailureRate', extractNumberValue(combined, ['repeat failure', 'repeat failures', 'repeat rate']), 'Repeat failure', 'Performance');
+  setField('jobsLast30d', extractNumberValue(combined, ['jobs last 30 days', 'monthly jobs', 'work orders']), 'Jobs last 30 days', 'Volume');
+  setField('avgCostPerJob', extractNumberValue(combined, ['avg cost per job', 'average cost per job', 'rate per job', 'cost per job']), 'Avg cost / job', 'Commercial');
+  setField('activeContracts', extractNumberValue(combined, ['active contracts', 'contracts']), 'Active contracts', 'Contract');
+
+  const lower = combined.toLowerCase();
+  if (/critical dependency|single vendor|sole provider/.test(lower)) {
+    next.dependencyRisk = 'Critical';
+    extractions.push({ label: 'Dependency risk', value: 'Critical', source: 'Risk' });
+  } else if (/high dependency|limited backup|specialist/.test(lower)) {
+    next.dependencyRisk = 'High';
+    extractions.push({ label: 'Dependency risk', value: 'High', source: 'Risk' });
+  } else if (/low dependency|backup available|multi vendor/.test(lower)) {
+    next.dependencyRisk = 'Low';
+    extractions.push({ label: 'Dependency risk', value: 'Low', source: 'Risk' });
+  }
+
+  if (/declining|late|breach|non.?compliant/.test(lower)) next.trend = 'down';
+  if (/improving|preferred|excellent|strong/.test(lower)) next.trend = 'up';
+
+  const flags = [
+    /insurance/i.test(combined) ? null : 'Insurance certificate not detected',
+    /trade license|licence/i.test(combined) ? null : 'Trade license not detected',
+    /sla|service level/i.test(combined) ? null : 'SLA evidence should be confirmed',
+  ].filter(Boolean);
+  if (flags.length) {
+    next.contractFlags = flags.join('; ');
+    extractions.push({ label: 'Contract flags', value: `${flags.length} checks`, source: 'Compliance' });
+  }
+
+  if (!next.dependencyNote || next.dependencyNote === initialVendorWizardForm.dependencyNote) {
+    next.dependencyNote = `${next.dependencyRisk} dependency risk across ${parseVendorSites(next.sites).length || 1} site scope based on uploaded onboarding documents.`;
+  }
+
+  return { form: next, extractions };
+}
+
+function buildQuoteAnalysis(documents: VendorSetupDocument[], notes: string, focusVendor: VendorIntelData): QuoteAnalysis {
+  const noteBlocks = notes
+    .split(/\n\s*(?:---+|quote\s+\d+|vendor\s+quote)\s*\n/i)
+    .map(block => block.trim())
+    .filter(Boolean);
+  const sources = [
+    ...documents.map(doc => ({ id: doc.id, name: doc.name, content: doc.content || doc.name })),
+    ...noteBlocks.map((block, index) => ({ id: `note-${index}`, name: `Pasted quote ${index + 1}`, content: block })),
+  ];
+  const fallbackSources = sources.length > 0 ? sources : [{ id: 'current', name: focusVendor.name, content: focusVendor.name }];
+  const items = fallbackSources.map((source, index) => {
+    const text = `${source.name}\n${source.content}`;
+    const vendorName = extractLabeledValue(text, ['vendor name', 'supplier name', 'company name', 'contractor', 'vendor'])
+      || cleanDocumentName(source.name)
+      || `${focusVendor.category} bidder ${index + 1}`;
+    const amount = extractMoneyValue(text, ['total', 'quote total', 'quoted price', 'price', 'amount', 'commercial offer', 'annual value'])
+      ?? Math.max(250, focusVendor.avgCostPerJob + (index - 1) * 45);
+    const sla = Number(extractNumberValue(text, ['sla', 'sla commitment', 'response sla', 'service level'])) || Math.max(78, focusVendor.slaCompliance + (index % 3) * 3 - 2);
+    const warranty = extractLabeledValue(text, ['warranty', 'defect liability', 'guarantee']) || (text.toLowerCase().includes('warranty') ? 'Included' : 'Not clearly stated');
+    const exclusions = extractLabeledValue(text, ['exclusions', 'excluded', 'not included']) || (text.toLowerCase().includes('parts') ? 'Parts to be confirmed' : 'No major exclusions detected');
+    const evidence = /photo|evidence|report|completion|close.?out/i.test(text) ? 8 : 0;
+    const warrantyBonus = warranty === 'Not clearly stated' ? 0 : 4;
+    const exclusionPenalty = /not included|excluded|tbd|to be confirmed/i.test(exclusions) ? 7 : 0;
+    const score = Math.max(40, Math.min(98, Math.round(52 + Math.min(28, sla / 4) + evidence + warrantyBonus - exclusionPenalty - Math.max(0, (amount - focusVendor.avgCostPerJob) / 35))));
+    const risk: QuoteAnalysisItem['risk'] = score >= 78 ? 'Low' : score >= 62 ? 'Medium' : 'High';
+    const finding = risk === 'Low'
+      ? 'Strong commercial and service fit for shortlisting.'
+      : risk === 'Medium'
+        ? 'Usable quote, but clarify scope or commercial assumptions.'
+        : 'High-risk quote unless exclusions and SLA commitments improve.';
+    return { id: source.id, vendorName, amount, sla, warranty, exclusions, score, risk, finding };
+  }).sort((a, b) => b.score - a.score);
+  const winner = items[0];
+  const highestAmount = Math.max(...items.map(item => item.amount));
+  const savings = Math.max(0, highestAmount - winner.amount);
+  return {
+    winner,
+    items,
+    savings,
+    summary: `${winner.vendorName} is the recommended quote with a ${winner.score}/100 comparison score and AED ${winner.amount.toLocaleString()} commercial offer.`,
+    findings: [
+      savings > 0 ? `Selecting the recommended quote is AED ${savings.toLocaleString()} below the highest offer.` : 'Commercial spread is narrow, so quality and exclusions should drive the decision.',
+      `${winner.vendorName} offers ${winner.sla}% SLA commitment with ${winner.warranty.toLowerCase()} warranty position.`,
+      items.some(item => item.risk === 'High') ? 'At least one quote carries high clarification risk before award.' : 'No high-risk quote blockers were detected in the submitted set.',
+    ],
+  };
+}
 
 function numeric(value: string, fallback: number): number {
   const parsed = Number(value);
@@ -896,6 +1098,9 @@ function PageProcurementCopilotModal({
   const [prompt, setPrompt] = useState('');
   const [isListening, setIsListening] = useState(false);
   const [assistantNote, setAssistantNote] = useState(`Ready for ${focusVendor.name}. Choose an outcome or describe the procurement task.`);
+  const [quoteDocuments, setQuoteDocuments] = useState<VendorSetupDocument[]>([]);
+  const [quoteNotes, setQuoteNotes] = useState('');
+  const [quoteAnalysis, setQuoteAnalysis] = useState<QuoteAnalysis | null>(null);
   const chips: { label: string; detail: string; action: VendorCopilotAction; icon: React.ReactNode }[] = [
     { label: 'Draft RFQ', detail: 'Scope, criteria, evidence, deadlines', action: 'rfq', icon: <FileWarning size={15} /> },
     { label: 'Compare Quotes', detail: 'Rank vendors and recommend winner', action: 'compare', icon: <BarChart3 size={15} /> },
@@ -906,13 +1111,49 @@ function PageProcurementCopilotModal({
 
   function run(action: VendorCopilotAction) {
     onRun(action);
-    setAssistantNote(`${formatVendorAction(action)}. The live work product is updated on the right and on the page workbench behind this modal.`);
+    setAssistantNote(action === 'compare'
+      ? 'Upload or paste vendor quotes, then run the comparison to get ranked findings and a recommended winner.'
+      : `${formatVendorAction(action)}. The live work product is updated on the right and on the page workbench behind this modal.`);
     setPrompt('');
   }
 
   function submitPrompt() {
     const action = inferVendorCopilotAction(prompt);
     run(action);
+  }
+
+  async function addQuoteDocuments(event: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? []);
+    if (!files.length) return;
+    const docs = await Promise.all(files.map(async file => {
+      const isReadable = file.type.startsWith('text/') || /\.(txt|csv|md|json|log)$/i.test(file.name);
+      const content = isReadable ? await file.text().catch(() => '') : '';
+      return {
+        id: `${file.name}-${file.size}-${Date.now()}`,
+        name: file.name,
+        type: file.type || 'Quote document',
+        sizeLabel: formatDocumentSize(file.size),
+        content,
+      };
+    }));
+    setQuoteDocuments(prev => [...docs, ...prev].slice(0, 8));
+    setQuoteAnalysis(null);
+    event.target.value = '';
+  }
+
+  function analyseQuotes() {
+    if (quoteDocuments.length === 0 && !quoteNotes.trim()) return;
+    const analysis = buildQuoteAnalysis(quoteDocuments, quoteNotes, focusVendor);
+    setQuoteAnalysis(analysis);
+    onRun('compare');
+    setAssistantNote(`${analysis.winner.vendorName} is currently recommended. Review the findings, exclusions, and next action before award.`);
+  }
+
+  function clearQuoteIntake() {
+    setQuoteDocuments([]);
+    setQuoteNotes('');
+    setQuoteAnalysis(null);
+    setAssistantNote('Quote comparison reset. Upload or paste new quotes to analyse again.');
   }
 
   return (
@@ -1016,6 +1257,122 @@ function PageProcurementCopilotModal({
           </div>
 
           <div className="custom-scrollbar min-h-0 overflow-y-auto p-5">
+            {result.action === 'compare' && (
+              <div className="mb-4 rounded-2xl border border-emerald-400/22 bg-emerald-500/8 p-4">
+                <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <div className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-200">
+                      <BarChart3 size={13} />
+                      Quote comparison
+                    </div>
+                    <h4 className="mt-1 text-sm font-bold text-[#EEF3FA]">Upload quotes for AI analysis</h4>
+                    <p className="mt-1 text-[11px] leading-5 text-[#9CB1CC]">
+                      Add quote files or paste supplier offers. The assistant scores price, SLA, warranty, exclusions, and award risk.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-[#2E7FFF]/30 bg-[#2E7FFF]/12 px-3 py-2 text-[11px] font-bold text-[#BFD8FF] transition-all hover:bg-[#2E7FFF]/18">
+                      <UploadCloud size={13} />
+                      Upload quotes
+                      <input
+                        type="file"
+                        multiple
+                        accept=".pdf,.doc,.docx,.txt,.csv,.md,.json,.png,.jpg,.jpeg"
+                        onChange={addQuoteDocuments}
+                        className="hidden"
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={analyseQuotes}
+                      disabled={quoteDocuments.length === 0 && !quoteNotes.trim()}
+                      className="inline-flex items-center gap-2 rounded-xl bg-[#2E7FFF] px-3 py-2 text-[11px] font-bold text-white shadow-lg shadow-[#2E7FFF]/20 transition-all hover:bg-[#4B91FF] disabled:cursor-not-allowed disabled:bg-[#1A3356] disabled:text-[#7891B0] disabled:shadow-none"
+                    >
+                      <Sparkles size={13} />
+                      Analyse quotes
+                    </button>
+                  </div>
+                </div>
+
+                <textarea
+                  value={quoteNotes}
+                  onChange={event => {
+                    setQuoteNotes(event.target.value);
+                    setQuoteAnalysis(null);
+                  }}
+                  placeholder="Paste quotes here. Example: Vendor name: Gulf FM Quote total: AED 440 SLA: 92 Warranty: 12 months Exclusions: emergency parts."
+                  className="min-h-[88px] w-full resize-none rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#050C17] px-3 py-2.5 text-[12px] leading-relaxed text-[#EEF3FA] outline-none transition-all placeholder:text-[#4A6480] focus:border-[#2E7FFF]"
+                />
+
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {quoteDocuments.length === 0 ? (
+                    <div className="rounded-lg border border-dashed border-[#2E7FFF]/25 px-3 py-2 text-[11px] text-[#7A94B4]">
+                      No quote files added yet
+                    </div>
+                  ) : (
+                    quoteDocuments.map(doc => (
+                      <div key={doc.id} className="inline-flex items-center gap-2 rounded-lg border border-[#2E7FFF]/18 bg-[#102544] px-2.5 py-1.5 text-[10px] text-[#C8D8EE]">
+                        <FileText size={12} className="text-[#8DBDFF]" />
+                        <span className="max-w-[180px] truncate font-semibold">{doc.name}</span>
+                        <span className="text-[#6F89AA]">{doc.sizeLabel}</span>
+                        <button type="button" onClick={() => { setQuoteDocuments(prev => prev.filter(item => item.id !== doc.id)); setQuoteAnalysis(null); }} className="text-[#7A94B4] hover:text-red-300" aria-label={`Remove ${doc.name}`}>
+                          <Trash2 size={11} />
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {quoteAnalysis && (
+                  <div className="mt-4 space-y-3">
+                    <div className="rounded-xl border border-emerald-400/25 bg-emerald-500/10 p-3">
+                      <div className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-200">Recommended winner</div>
+                      <div className="mt-1 text-[14px] font-black text-[#EEF3FA]">{quoteAnalysis.winner.vendorName}</div>
+                      <p className="mt-1 text-[11px] leading-5 text-[#C8D8EE]">{quoteAnalysis.summary}</p>
+                    </div>
+                    <div className="grid gap-2">
+                      {quoteAnalysis.items.map(item => (
+                        <div key={item.id} className="grid gap-2 rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#07111F] p-3 sm:grid-cols-[1fr_auto] sm:items-center">
+                          <div>
+                            <div className="text-[12px] font-bold text-[#EEF3FA]">{item.vendorName}</div>
+                            <div className="mt-1 text-[10px] leading-4 text-[#8AA6C8]">
+                              AED {item.amount.toLocaleString()} · SLA {item.sla}% · {item.warranty} · {item.exclusions}
+                            </div>
+                            <div className="mt-1 text-[10px] text-[#C8D8EE]">{item.finding}</div>
+                          </div>
+                          <div className="flex items-center gap-2 sm:justify-end">
+                            <span className={`rounded-full border px-2 py-1 text-[9px] font-black ${item.risk === 'Low' ? 'border-emerald-400/25 bg-emerald-400/10 text-emerald-200' : item.risk === 'Medium' ? 'border-amber-400/25 bg-amber-400/10 text-amber-200' : 'border-red-400/25 bg-red-400/10 text-red-200'}`}>
+                              {item.risk} risk
+                            </span>
+                            <span className="rounded-full border border-[#2E7FFF]/25 bg-[#2E7FFF]/10 px-2 py-1 text-[9px] font-black text-[#8DBDFF]">
+                              {item.score}/100
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#07111F] p-3">
+                      <div className="mb-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#8DBDFF]">AI findings</div>
+                      <ul className="space-y-2">
+                        {quoteAnalysis.findings.map(finding => (
+                          <li key={finding} className="flex gap-2 text-[11px] leading-5 text-[#C8D8EE]">
+                            <CheckCircle size={11} className="mt-1 shrink-0 text-emerald-400" />
+                            {finding}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                )}
+
+                {(quoteDocuments.length > 0 || quoteNotes || quoteAnalysis) && (
+                  <button type="button" onClick={clearQuoteIntake} className="mt-3 text-[10px] font-bold text-[#8AA6C8] transition-colors hover:text-white">
+                    Clear quote intake
+                  </button>
+                )}
+              </div>
+            )}
+
             <div className="rounded-2xl border border-[rgba(46,127,255,0.20)] bg-[#0D1E3A] p-4">
               <div className="mb-3 flex items-start justify-between gap-3">
                 <div>
@@ -1653,6 +2010,10 @@ function AddVendorWizard({
 }) {
   const [step, setStep] = useState<VendorWizardStep>(1);
   const [form, setForm] = useState<VendorWizardForm>(initialVendorWizardForm);
+  const [setupMode, setSetupMode] = useState<VendorSetupMode>('manual');
+  const [aiDocuments, setAiDocuments] = useState<VendorSetupDocument[]>([]);
+  const [aiNotes, setAiNotes] = useState('');
+  const [aiExtractions, setAiExtractions] = useState<VendorAiExtraction[]>([]);
   const score = vendorWizardScore(form);
   const risk = classifyVendorRisk(score);
   const flags = parseVendorFlags(form.contractFlags);
@@ -1681,6 +2042,38 @@ function AddVendorWizard({
     onCreate(buildVendorFromWizard(form));
   }
 
+  async function addAiDocuments(event: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? []);
+    if (!files.length) return;
+    const docs = await Promise.all(files.map(async file => {
+      const isReadable = file.type.startsWith('text/') || /\.(txt|csv|md|json|log)$/i.test(file.name);
+      const content = isReadable ? await file.text().catch(() => '') : '';
+      return {
+        id: `${file.name}-${file.size}-${Date.now()}`,
+        name: file.name,
+        type: file.type || 'Document',
+        sizeLabel: formatDocumentSize(file.size),
+        content,
+      };
+    }));
+    setAiDocuments(prev => [...docs, ...prev].slice(0, 8));
+    event.target.value = '';
+  }
+
+  function populateFromAiDocuments() {
+    if (aiDocuments.length === 0 && !aiNotes.trim()) return;
+    const draft = buildVendorAiDraft(form, aiDocuments, aiNotes);
+    setForm(draft.form);
+    setAiExtractions(draft.extractions);
+    setStep(1);
+  }
+
+  function clearAiDocuments() {
+    setAiDocuments([]);
+    setAiNotes('');
+    setAiExtractions([]);
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -1704,9 +2097,30 @@ function AddVendorWizard({
               <h3 className="text-xl font-bold text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Add Vendor</h3>
               <p className="mt-1 text-[12px] text-[#8AA6C8]">Create the vendor exactly as Vendor Intelligence monitors it: score, contracts, cost, risk, dependency, and AI recommendations.</p>
             </div>
-            <button onClick={onClose} className="rounded-xl border border-white/10 bg-white/5 p-2 text-[#8AA6C8] transition-colors hover:bg-white/10 hover:text-white">
-              <X size={18} />
-            </button>
+            <div className="flex items-start gap-3">
+              <div className="flex shrink-0 rounded-xl border border-[#2E7FFF]/20 bg-[#07111F] p-1">
+                {[
+                  { id: 'manual' as const, label: 'Manual' },
+                  { id: 'ai' as const, label: 'AI from docs' },
+                ].map(mode => (
+                  <button
+                    key={mode.id}
+                    type="button"
+                    onClick={() => setSetupMode(mode.id)}
+                    className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-[11px] font-bold transition-all ${
+                      setupMode === mode.id
+                        ? 'bg-[#2E7FFF] text-white shadow-lg shadow-[#2E7FFF]/20'
+                        : 'text-[#8AA6C8] hover:bg-white/5 hover:text-white'
+                    }`}
+                  >
+                    {mode.label}
+                  </button>
+                ))}
+              </div>
+              <button onClick={onClose} className="rounded-xl border border-white/10 bg-white/5 p-2 text-[#8AA6C8] transition-colors hover:bg-white/10 hover:text-white">
+                <X size={18} />
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-4 gap-2 border-b border-[rgba(46,127,255,0.12)] px-6 py-4">
@@ -1733,6 +2147,95 @@ function AddVendorWizard({
           </div>
 
           <div className="flex-1 overflow-y-auto custom-scrollbar px-6 py-5">
+            {setupMode === 'ai' && (
+              <div className="mb-5 rounded-2xl border border-cyan-400/22 bg-cyan-500/8 p-4">
+                <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <div className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-200">
+                      <Wand2 size={13} />
+                      AI document mode
+                    </div>
+                    <h4 className="mt-1 text-sm font-bold text-[#EEF3FA]">Populate setup from vendor documents</h4>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-[#2E7FFF]/30 bg-[#2E7FFF]/12 px-3 py-2 text-[11px] font-bold text-[#BFD8FF] transition-all hover:bg-[#2E7FFF]/18">
+                      <UploadCloud size={13} />
+                      Add docs
+                      <input
+                        type="file"
+                        multiple
+                        accept=".pdf,.doc,.docx,.txt,.csv,.md,.json,.png,.jpg,.jpeg"
+                        onChange={addAiDocuments}
+                        className="hidden"
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={populateFromAiDocuments}
+                      disabled={aiDocuments.length === 0 && !aiNotes.trim()}
+                      className="inline-flex items-center gap-2 rounded-xl bg-[#2E7FFF] px-3 py-2 text-[11px] font-bold text-white shadow-lg shadow-[#2E7FFF]/20 transition-all hover:bg-[#4B91FF] disabled:cursor-not-allowed disabled:bg-[#1A3356] disabled:text-[#7891B0] disabled:shadow-none"
+                    >
+                      <Sparkles size={13} />
+                      Populate fields
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid gap-3 lg:grid-cols-[1fr_0.9fr]">
+                  <div className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#07111F] p-3">
+                    <textarea
+                      value={aiNotes}
+                      onChange={event => setAiNotes(event.target.value)}
+                      placeholder="Paste contract scope, trade license text, quote details, SLA notes, insurance summary, or onboarding email."
+                      className="min-h-[94px] w-full resize-none rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#050C17] px-3 py-2.5 text-[12px] leading-relaxed text-[#EEF3FA] outline-none transition-all placeholder:text-[#4A6480] focus:border-[#2E7FFF]"
+                    />
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {aiDocuments.length === 0 ? (
+                        <div className="rounded-lg border border-dashed border-[#2E7FFF]/25 px-3 py-2 text-[11px] text-[#7A94B4]">
+                          No documents added yet
+                        </div>
+                      ) : (
+                        aiDocuments.map(doc => (
+                          <div key={doc.id} className="inline-flex items-center gap-2 rounded-lg border border-[#2E7FFF]/18 bg-[#102544] px-2.5 py-1.5 text-[10px] text-[#C8D8EE]">
+                            <FileText size={12} className="text-[#8DBDFF]" />
+                            <span className="max-w-[180px] truncate font-semibold">{doc.name}</span>
+                            <span className="text-[#6F89AA]">{doc.sizeLabel}</span>
+                            <button type="button" onClick={() => setAiDocuments(prev => prev.filter(item => item.id !== doc.id))} className="text-[#7A94B4] hover:text-red-300" aria-label={`Remove ${doc.name}`}>
+                              <Trash2 size={11} />
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#0D1E3A] p-3">
+                    <div className="mb-2 text-[9px] font-bold uppercase tracking-[0.18em] text-[#8DBDFF]">Detected fields</div>
+                    {aiExtractions.length === 0 ? (
+                      <div className="rounded-xl border border-[rgba(46,127,255,0.12)] bg-[#07111F] p-3 text-[11px] leading-relaxed text-[#7A94B4]">
+                        Add documents or paste notes, then populate fields.
+                      </div>
+                    ) : (
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {aiExtractions.slice(0, 8).map(item => (
+                          <div key={`${item.label}-${item.value}`} className="rounded-lg border border-cyan-400/18 bg-cyan-500/8 p-2">
+                            <div className="text-[8px] font-bold uppercase tracking-wide text-cyan-200">{item.label}</div>
+                            <div className="mt-1 truncate text-[11px] font-bold text-[#EEF3FA]">{item.value}</div>
+                            <div className="mt-0.5 text-[8px] uppercase tracking-wide text-[#6F89AA]">{item.source}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {(aiDocuments.length > 0 || aiNotes || aiExtractions.length > 0) && (
+                      <button type="button" onClick={clearAiDocuments} className="mt-3 text-[10px] font-bold text-[#8AA6C8] transition-colors hover:text-white">
+                        Clear AI intake
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {step === 1 && (
               <div className="grid gap-5 lg:grid-cols-[1.35fr_0.9fr]">
                 <div className="rounded-2xl border border-[rgba(46,127,255,0.16)] bg-[#07111F] p-5">
@@ -1930,7 +2433,9 @@ function AddVendorWizard({
 
           <div className="flex items-center justify-between border-t border-[rgba(46,127,255,0.14)] px-6 py-4">
             <div className="text-[11px] text-[#7A94B4]">
-              {step < 4 ? 'VendorIQ will generate score, risk tier, AI insights, recommendations, and dependency context.' : 'Ready to add this vendor to Vendor Intelligence.'}
+              {setupMode === 'ai'
+                ? `${aiDocuments.length} document${aiDocuments.length === 1 ? '' : 's'} added${aiExtractions.length ? `, ${aiExtractions.length} fields detected` : ''}. Review fields before adding the vendor.`
+                : step < 4 ? 'VendorIQ will generate score, risk tier, AI insights, recommendations, and dependency context.' : 'Ready to add this vendor to Vendor Intelligence.'}
             </div>
             <div className="flex gap-2">
               <button type="button" onClick={step === 1 ? onClose : () => setStep(prev => (Math.max(1, prev - 1) as VendorWizardStep))} className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#07111F] px-4 py-2 text-[12px] font-semibold text-[#8AA6C8] transition-all hover:bg-white/5 hover:text-white">
