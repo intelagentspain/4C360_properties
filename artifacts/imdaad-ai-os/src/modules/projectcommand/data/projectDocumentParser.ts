@@ -338,6 +338,44 @@ function findByteSequence(bytes: Uint8Array, needle: Uint8Array, from = 0) {
   return -1;
 }
 
+function decodeAscii85(bytes: Uint8Array) {
+  const output: number[] = [];
+  let tuple: number[] = [];
+
+  const flushTuple = (padded = false) => {
+    const originalLength = tuple.length;
+    if (originalLength === 1) throw new Error('Invalid ASCII85 tuple.');
+    while (tuple.length < 5) tuple.push(84);
+
+    let value = 0;
+    for (const digit of tuple) value = value * 85 + digit;
+
+    const decoded = [
+      (value >>> 24) & 0xff,
+      (value >>> 16) & 0xff,
+      (value >>> 8) & 0xff,
+      value & 0xff,
+    ];
+    output.push(...decoded.slice(0, padded ? originalLength - 1 : 4));
+    tuple = [];
+  };
+
+  for (const byte of bytes) {
+    if (byte === 0x7e) break;
+    if (byte === 0x00 || byte === 0x09 || byte === 0x0a || byte === 0x0c || byte === 0x0d || byte === 0x20) continue;
+    if (byte === 0x7a && tuple.length === 0) {
+      output.push(0, 0, 0, 0);
+      continue;
+    }
+    if (byte < 0x21 || byte > 0x75) throw new Error('Invalid ASCII85 byte.');
+    tuple.push(byte - 0x21);
+    if (tuple.length === 5) flushTuple();
+  }
+
+  if (tuple.length > 0) flushTuple(true);
+  return new Uint8Array(output);
+}
+
 async function inflatePdfStreams(bytes: Uint8Array) {
   const streamMarker = asciiBytes('stream');
   const endMarker = asciiBytes('endstream');
@@ -364,7 +402,13 @@ async function inflatePdfStreams(bytes: Uint8Array) {
       const inflated = await inflateRaw(bytes.slice(start, payloadEnd));
       streams.push(latinDecoder.decode(inflated));
     } catch {
-      // Non-Flate or binary-only streams are ignored by the text intake.
+      try {
+        const decoded = decodeAscii85(bytes.slice(start, payloadEnd));
+        const inflated = await inflateRaw(decoded);
+        streams.push(latinDecoder.decode(inflated));
+      } catch {
+        // Non-text or binary-only streams are ignored by the text intake.
+      }
     }
 
     position = end + endMarker.length;
