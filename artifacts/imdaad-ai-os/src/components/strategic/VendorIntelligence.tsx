@@ -1668,7 +1668,7 @@ function VendorCopilotWorkbench({
             }}
             className="rounded-lg bg-[#2E7FFF] px-3 py-2 text-[11px] font-black text-white transition-all hover:bg-[#4B91FF]"
           >
-            {result.action === 'rfq' ? 'Open builder' : 'Refresh artifact'}
+            {result.action === 'rfq' ? 'Open RFQ Wizard' : 'Refresh artifact'}
           </button>
         </div>
 
@@ -2061,7 +2061,7 @@ function PageProcurementCopilotModal({
       >
         <div className="flex items-start justify-between gap-4 border-b border-[rgba(46,127,255,0.16)] bg-[linear-gradient(135deg,rgba(46,127,255,0.18),rgba(124,58,237,0.12))] px-5 py-4">
           <div>
-            <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-violet-300/25 bg-violet-400/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-violet-100">
+            <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-violet-300/25 bg-violet-400/10 px-3 py-1 text-[10px] font-black tracking-[0.18em] text-violet-100">
               <MessageSquare size={12} />
               {isCompareMode ? 'Quote Comparison Workbench' : isRfqMode ? 'RFQ Builder' : 'Procurement assistant'}
             </div>
@@ -2531,6 +2531,34 @@ function PageProcurementCopilotModal({
                       <VendorWizardField label="Shortlist context">
                         <VendorWizardInput value={rfqState.anchor.shortlistContext} onChange={event => patchRfqAnchor({ shortlistContext: event.target.value })} placeholder="Incumbent plus 3 approved alternates" />
                       </VendorWizardField>
+                    </div>
+                    <div className="rounded-2xl border border-[#2E7FFF]/18 bg-[#0D1E3A] p-4">
+                      <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#8DBDFF]">Choose the RFQ build path</div>
+                      <p className="mt-1 text-[11px] leading-5 text-[#9CB1CC]">After the anchor is confirmed, the wizard can build from a prompt, a template, or uploaded scope documents.</p>
+                      <div className="mt-3 grid gap-3 md:grid-cols-3">
+                        {[
+                          { id: 'tell' as const, label: 'Tell AI', icon: <MessageSquare size={16} />, detail: 'Describe the outcome and scope in plain language.' },
+                          { id: 'template' as const, label: 'Use Template', icon: <ListChecks size={16} />, detail: 'Start from a service category structure, then edit it.' },
+                          { id: 'docs' as const, label: 'Upload Scope Docs', icon: <UploadCloud size={16} />, detail: 'Use scope, BOQ, SLA, service notes, or site requirements.' },
+                        ].map(mode => (
+                          <button
+                            key={mode.id}
+                            type="button"
+                            onClick={() => patchRfq({ mode: mode.id, step: mode.id === 'template' && !rfqState.templateId ? 'mode' : 'scope' })}
+                            className={`rounded-xl border p-3 text-left transition-all hover:-translate-y-0.5 ${
+                              rfqState.mode === mode.id
+                                ? 'border-[#2E7FFF]/50 bg-[#2E7FFF]/18 shadow-[0_0_24px_rgba(46,127,255,0.14)]'
+                                : 'border-[rgba(46,127,255,0.16)] bg-[#07111F] hover:border-[#2E7FFF]/34'
+                            }`}
+                          >
+                            <span className="inline-flex items-center gap-2 text-[12px] font-black text-[#EEF3FA]">
+                              <span className="grid h-8 w-8 place-items-center rounded-lg bg-[#2E7FFF]/14 text-[#8DBDFF]">{mode.icon}</span>
+                              {mode.label}
+                            </span>
+                            <p className="mt-2 text-[10px] leading-4 text-[#9CB1CC]">{mode.detail}</p>
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -3125,6 +3153,7 @@ function VendorDetailPage({ vendor, onBack, onToast }: { vendor: VendorIntelData
   const [selectedMetricInsight, setSelectedMetricInsight] = useState<VendorMetricInsight | null>(null);
   const [showCopilotModal, setShowCopilotModal] = useState(false);
   const [copilotAction, setCopilotAction] = useState<VendorCopilotAction>('rfq');
+  const [copilotModalAction, setCopilotModalAction] = useState<VendorCopilotAction>('rfq');
   const [copilotOverride, setCopilotOverride] = useState<VendorCopilotResult | null>(null);
   const [copilotLog, setCopilotLog] = useState<string[]>([
     'Ready to draft RFQs, compare quotes, run checks, and prepare price actions.',
@@ -3152,8 +3181,18 @@ function VendorDetailPage({ vendor, onBack, onToast }: { vendor: VendorIntelData
     onToast(`${formatVendorAction(action)} for ${vendor.name}`, action === 'background' ? 'warning' : 'success');
   };
   const openRfqWizard = () => {
-    setCopilotAction('rfq');
+    setCopilotModalAction('rfq');
     setShowCopilotModal(true);
+  };
+  const openQuoteIntake = () => {
+    setCopilotAction('compare');
+    setCopilotOverride(null);
+    setCopilotModalAction('compare');
+    setShowCopilotModal(true);
+  };
+  const runCopilotModalAction = (action: VendorCopilotAction) => {
+    setCopilotModalAction(action);
+    runCopilotAction(action);
   };
   const updateRfqWorkbench = (rfqResult: VendorCopilotResult) => {
     setCopilotAction('rfq');
@@ -3274,6 +3313,7 @@ function VendorDetailPage({ vendor, onBack, onToast }: { vendor: VendorIntelData
               result={copilotResult}
               log={copilotLog}
               onRun={runCopilotAction}
+              onOpenQuoteIntake={openQuoteIntake}
               onOpenRfqWizard={openRfqWizard}
             />
           </DetailSection>
@@ -3547,9 +3587,9 @@ function VendorDetailPage({ vendor, onBack, onToast }: { vendor: VendorIntelData
           <PageProcurementCopilotModal
             focusVendor={vendor}
             vendors={allVendors}
-            result={buildVendorCopilotResult(vendor, allVendors, copilotAction)}
+            result={buildVendorCopilotResult(vendor, allVendors, copilotModalAction)}
             onClose={() => setShowCopilotModal(false)}
-            onRun={runCopilotAction}
+            onRun={runCopilotModalAction}
             onOpenProfile={() => setShowCopilotModal(false)}
             onRfqGenerated={updateRfqWorkbench}
           />
@@ -4147,6 +4187,7 @@ export function VendorIntelligence({ onToast }: Props) {
   const [showAddVendorWizard, setShowAddVendorWizard] = useState(false);
   const [showPageCopilotModal, setShowPageCopilotModal] = useState(false);
   const [pageCopilotAction, setPageCopilotAction] = useState<VendorCopilotAction>('compare');
+  const [pageCopilotModalAction, setPageCopilotModalAction] = useState<VendorCopilotAction>('compare');
   const [pageCopilotOverride, setPageCopilotOverride] = useState<VendorCopilotResult | null>(null);
   const [pageCopilotLog, setPageCopilotLog] = useState<string[]>([
     'Portfolio procurement copilot ready on the Vendor Intelligence page.',
@@ -4200,8 +4241,25 @@ export function VendorIntelligence({ onToast }: Props) {
   }
 
   function openPageRfqWizard() {
-    setPageCopilotAction('rfq');
+    setPageCopilotModalAction('rfq');
     setShowPageCopilotModal(true);
+  }
+
+  function openPageQuoteIntake() {
+    setPageCopilotAction('compare');
+    setPageCopilotModalAction('compare');
+    setPageCopilotOverride(null);
+    setShowPageCopilotModal(true);
+  }
+
+  function openPageCopilotModal() {
+    setPageCopilotModalAction(pageCopilotAction);
+    setShowPageCopilotModal(true);
+  }
+
+  function runPageCopilotModalAction(action: VendorCopilotAction) {
+    setPageCopilotModalAction(action);
+    runPageCopilotAction(action);
   }
 
   function updatePageRfqWorkbench(rfqResult: VendorCopilotResult) {
@@ -4301,7 +4359,7 @@ export function VendorIntelligence({ onToast }: Props) {
             </div>
             <button
               type="button"
-              onClick={() => setShowPageCopilotModal(true)}
+              onClick={openPageCopilotModal}
               className="inline-flex items-center gap-2 rounded-xl border border-[#2E7FFF]/30 bg-[#2E7FFF]/14 px-4 py-2 text-[11px] font-black text-[#8DBDFF] transition-all hover:bg-[#2E7FFF]/22 hover:text-white"
             >
               <MessageSquare size={13} />
@@ -4313,7 +4371,7 @@ export function VendorIntelligence({ onToast }: Props) {
               result={pageCopilotResult}
               log={pageCopilotLog}
               onRun={runPageCopilotAction}
-              onOpenQuoteIntake={() => setShowPageCopilotModal(true)}
+              onOpenQuoteIntake={openPageQuoteIntake}
               onOpenRfqWizard={openPageRfqWizard}
             />
           </div>
@@ -4392,9 +4450,9 @@ export function VendorIntelligence({ onToast }: Props) {
           <PageProcurementCopilotModal
             focusVendor={procurementFocus}
             vendors={allVendors}
-            result={buildVendorCopilotResult(procurementFocus, allVendors, pageCopilotAction)}
+            result={buildVendorCopilotResult(procurementFocus, allVendors, pageCopilotModalAction)}
             onClose={() => setShowPageCopilotModal(false)}
-            onRun={runPageCopilotAction}
+            onRun={runPageCopilotModalAction}
             onOpenProfile={() => {
               setShowPageCopilotModal(false);
               setSelectedVendor(procurementFocus);
