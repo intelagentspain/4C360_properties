@@ -219,7 +219,7 @@ function buildPulseCommandPlan(event: PulseEvent): PulseCommandPlan {
         { label: 'End of shift', value: 'Send recovery summary, remaining backlog, and tomorrow coverage plan.' },
       ],
       actions: [
-        { label: 'Reassign 2 certified technicians', owner: 'Dispatch Lead', impact: 'Creates immediate field capacity for the overdue queue.', channel: 'Dispatch' },
+        { label: 'Reassign 2 certified technicians', owner: 'Dispatch Lead', impact: 'Creates immediate field capacity for the overdue worklist.', channel: 'Dispatch' },
         { label: 'Clear 3 oldest breaches first', owner: 'Site Supervisor', impact: 'Targets the work most likely to become contractual exposure.', channel: 'Task' },
         { label: 'Call standby vendor for overflow', owner: 'Vendor Manager', impact: 'Adds backup capacity if internal recovery slips after 30 minutes.', channel: 'Calls' },
         { label: 'Notify client ops with recovery clock', owner: 'Account Manager', impact: 'Sets expectation before the client chases the update.', channel: 'Email' },
@@ -259,7 +259,7 @@ function buildPulseCommandPlan(event: PulseEvent): PulseCommandPlan {
       owner: 'Site Supervisor',
       deadline: '10 min triage / 45 min first closures',
       exposure: 'Four simultaneous jobs can tip the property into client-facing SLA breach.',
-      ifIgnored: 'The queue compounds, residents receive inconsistent updates, and penalties become harder to defend.',
+      ifIgnored: 'The workload compounds, residents receive inconsistent updates, and penalties become harder to defend.',
       ifResolved: 'The highest-impact jobs close first and the remaining work has owner, ETA, and evidence.',
       sourceTrace: 'Based on simultaneous active jobs, supervisor notification, SLA state, and resident impact',
       evidence: ['Job priority list', 'Supervisor assignment', 'Resident impact notes', 'Closure evidence'],
@@ -419,7 +419,7 @@ function getCommandProfile(client: PortfolioClient) {
 
   const narrative =
     client.riskLevel === 'critical'
-      ? `${client.name} is deteriorating because overdue tasks, resident-impacting incidents, and SLA pressure are converging. Recommend moving two engineers into the cluster today and keeping supervisor escalation open until the lift safety queue is cleared.`
+      ? `${client.name} is deteriorating because overdue tasks, resident-impacting incidents, and SLA pressure are converging. Recommend moving two engineers into the cluster today and keeping supervisor escalation open until the lift safety work is cleared.`
       : client.riskLevel === 'high'
         ? `${client.name} needs intervention because reporting gaps and simultaneous job pressure are masking real SLA exposure. Recommend restoring data sync, assigning one senior supervisor, and closing the oldest open breaches first.`
         : client.dataSources.length === 0
@@ -436,6 +436,57 @@ function getCommandProfile(client: PortfolioClient) {
           : ['Keep predictive PPM active', 'Review next asset-risk batch', 'Offer spare capacity to JLT escalation'];
 
   return { atRisk, prevented, sentiment, utilization, coverage, firstDue, narrative, actions };
+}
+
+function buildAvoidedPenaltyCases(clients: PortfolioClient[]): AvoidedPenaltyCase[] {
+  return clients
+    .map(client => {
+      const profile = getCommandProfile(client);
+      const hasDataGap = client.dataSources.some(source => source.count === 0);
+      const trigger = client.riskLevel === 'critical'
+        ? `${client.overdueTasks} overdue actions intercepted before penalty escalation`
+        : client.riskLevel === 'high'
+          ? hasDataGap
+            ? 'Reporting gap caught before unsupported SLA claim'
+            : 'SLA pressure stabilized before contractual breach'
+          : client.dataSources.length === 0
+            ? 'Onboarding baseline captured before first governance review'
+            : 'AI prevention kept asset risk below breach threshold';
+      const evidence = client.riskLevel === 'critical'
+        ? 'Supervisor assignment, resident update, and close-out evidence linked'
+        : client.riskLevel === 'high'
+          ? hasDataGap
+            ? 'Sync alert, service logs, and manual report export attached'
+            : 'SLA timer, oldest breach list, and recovery update captured'
+          : client.dataSources.length === 0
+            ? 'Baseline inspection, PPM calendar, and first data source checklist ready'
+            : 'Predictive PPM signal, inspection note, and avoided-failure proof stored';
+
+      return {
+        id: client.id,
+        client: client.name,
+        trigger,
+        avoidedValue: profile.prevented,
+        deadline: client.riskLevel === 'critical' ? 'Today' : client.riskLevel === 'high' ? 'Next 24h' : 'This week',
+        evidence,
+        owner: client.riskLevel === 'critical'
+          ? 'Operations Lead'
+          : client.riskLevel === 'high'
+            ? 'Account Manager'
+            : client.dataSources.length === 0
+              ? 'Onboarding Lead'
+              : 'Reliability Lead',
+        actionLabel: client.riskLevel === 'critical'
+          ? 'Confirm avoided penalty'
+          : client.riskLevel === 'high'
+            ? 'Send evidence pack'
+            : client.dataSources.length === 0
+              ? 'Create baseline proof'
+              : 'Add to value report',
+        channel: client.riskLevel === 'critical' ? 'Approval' : client.riskLevel === 'high' ? 'Email' : 'Evidence',
+      };
+    })
+    .sort((a, b) => b.avoidedValue - a.avoidedValue);
 }
 
 function formatAed(value: number) {
@@ -507,6 +558,41 @@ interface ExecutiveAction {
   channel: string;
 }
 
+interface CustomPlanAction extends ExecutiveAction {
+  custom: true;
+}
+
+type ActionPlanStatus = 'Ready' | 'Needs approval' | 'Draft prepared' | 'Assigned';
+
+interface ActionPlanItem {
+  id: string;
+  title: string;
+  owner: string;
+  channel: string;
+  group: string;
+  impact: string;
+  status: ActionPlanStatus;
+}
+
+interface ActionPlanReceipt {
+  title: string;
+  items: ActionPlanItem[];
+  nextUpdate: string;
+  createdAt: string;
+}
+
+interface AvoidedPenaltyCase {
+  id: string;
+  client: string;
+  trigger: string;
+  avoidedValue: number;
+  deadline: string;
+  evidence: string;
+  owner: string;
+  actionLabel: string;
+  channel: string;
+}
+
 interface ExecutiveImpactCard {
   key: ExecutiveImpactKey;
   label: string;
@@ -534,6 +620,136 @@ type SpeechRecognitionLike = {
 
 type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
 
+function actionPlanGroup(channel: string): string {
+  const normalized = channel.toLowerCase();
+  if (['dispatch', 'wo', 'ppm', 'task', 'command', 'roster', 'inspection', 'evidence', 'report'].some(item => normalized.includes(item))) return 'Dispatch';
+  if (normalized.includes('approval')) return 'Approval';
+  if (normalized.includes('call')) return 'Calls';
+  if (normalized.includes('meeting')) return 'Meeting';
+  if (['email', 'notice', 'message'].some(item => normalized.includes(item))) return 'Email / Notice';
+  if (normalized.includes('ai')) return 'AI Watch';
+  if (normalized.includes('custom')) return 'Custom';
+  return channel;
+}
+
+function actionPlanStatus(channel: string, custom = false): ActionPlanStatus {
+  const group = custom ? 'Custom' : actionPlanGroup(channel);
+  if (group === 'Approval') return 'Needs approval';
+  if (group === 'Calls' || group === 'Meeting' || group === 'Email / Notice') return 'Draft prepared';
+  if (group === 'Custom') return 'Ready';
+  return 'Ready';
+}
+
+function createActionPlanItem(action: ExecutiveAction, index: number, custom = false): ActionPlanItem {
+  return {
+    id: `${custom ? 'custom' : 'action'}-${index}-${action.label}`,
+    title: action.label,
+    owner: action.owner,
+    channel: action.channel,
+    group: actionPlanGroup(action.channel),
+    impact: action.impact,
+    status: actionPlanStatus(action.channel, custom),
+  };
+}
+
+function buildActionPlanText(receipt: ActionPlanReceipt): string {
+  const lines = receipt.items.map(item => `- ${item.title} | ${item.owner} | ${item.channel} | ${item.status}`);
+  return `${receipt.title}\n${receipt.items.length} action${receipt.items.length === 1 ? '' : 's'}\nNext update: ${receipt.nextUpdate}\n${lines.join('\n')}`;
+}
+
+function actionPlanButtonLabel(count: number): string {
+  return count === 1 ? 'Create Action' : 'Create Action Plan';
+}
+
+function ActionPlanReceiptCard({
+  receipt,
+  onClose,
+  onToast,
+}: {
+  receipt: ActionPlanReceipt;
+  onClose: () => void;
+  onToast: ToastFn;
+}) {
+  const owners = new Set(receipt.items.map(item => item.owner));
+  const channels = new Set(receipt.items.map(item => item.channel));
+  const groupedItems = receipt.items.reduce<Record<string, ActionPlanItem[]>>((acc, item) => {
+    acc[item.group] = [...(acc[item.group] ?? []), item];
+    return acc;
+  }, {});
+
+  const copyPlan = async () => {
+    try {
+      await navigator.clipboard.writeText(buildActionPlanText(receipt));
+      onToast(`${receipt.title}: action plan copied`, 'success');
+    } catch {
+      onToast('Action plan is visible for manual copy', 'warning');
+    }
+  };
+
+  const sharePlan = () => {
+    void shareCommandCard(receipt.title, buildActionPlanText(receipt), onToast);
+  };
+
+  const openPlan = () => {
+    onToast(`${receipt.title}: action plan ready for manager review`, 'info');
+  };
+
+  return (
+    <div className="rounded-xl border border-emerald-400/25 bg-emerald-500/10 p-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="mb-1 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-emerald-200">
+            <CheckCircle size={12} />
+            Action Plan Created
+          </div>
+          <div className="text-[12px] font-bold text-[#EEF3FA]">{receipt.title}</div>
+          <div className="mt-1 text-[10px] leading-relaxed text-[#9CB1CC]">
+            {receipt.items.length} action{receipt.items.length === 1 ? '' : 's'} across {owners.size} owner{owners.size === 1 ? '' : 's'} and {channels.size} channel{channels.size === 1 ? '' : 's'}. Next update: {receipt.nextUpdate}.
+          </div>
+        </div>
+        <div className="rounded-lg border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1.5 text-[10px] font-bold text-emerald-100">
+          Demo-safe draft
+        </div>
+      </div>
+
+      <div className="mt-3 space-y-2">
+        {Object.entries(groupedItems).map(([group, items]) => (
+          <div key={group} className="rounded-xl border border-[rgba(46,127,255,0.12)] bg-[#07111F] p-3">
+            <div className="mb-2 text-[9px] font-bold uppercase tracking-wide text-[#8DBDFF]">{group}</div>
+            <div className="space-y-1.5">
+              {items.map(item => (
+                <div key={item.id} className="grid gap-2 rounded-lg border border-[rgba(46,127,255,0.08)] bg-[#0A1628] px-2.5 py-2 md:grid-cols-[1fr_auto] md:items-center">
+                  <div className="min-w-0">
+                    <div className="text-[11px] font-bold text-[#EEF3FA]">{item.title}</div>
+                    <div className="mt-0.5 text-[10px] leading-relaxed text-[#8EA7C7]">{item.impact}</div>
+                    <div className="mt-1 text-[9px] font-semibold uppercase tracking-wide text-[#6F89AA]">Owner: {item.owner} · Channel: {item.channel}</div>
+                  </div>
+                  <span className={`rounded-md border px-2 py-1 text-[9px] font-bold ${
+                    item.status === 'Needs approval'
+                      ? 'border-amber-400/25 bg-amber-400/10 text-amber-200'
+                      : item.status === 'Draft prepared'
+                        ? 'border-cyan-400/25 bg-cyan-400/10 text-cyan-200'
+                        : 'border-blue-400/25 bg-blue-400/10 text-blue-200'
+                  }`}>
+                    {item.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-3 flex flex-wrap justify-end gap-2">
+        <button type="button" onClick={copyPlan} className="rounded-lg border border-[rgba(46,127,255,0.22)] px-3 py-2 text-[11px] font-bold text-[#BFD8FF] transition-colors hover:bg-[#2E7FFF]/12">Copy Plan</button>
+        <button type="button" onClick={sharePlan} className="rounded-lg border border-[rgba(46,127,255,0.22)] px-3 py-2 text-[11px] font-bold text-[#BFD8FF] transition-colors hover:bg-[#2E7FFF]/12">Share Plan</button>
+        <button type="button" onClick={openPlan} className="rounded-lg border border-[rgba(46,127,255,0.22)] px-3 py-2 text-[11px] font-bold text-[#BFD8FF] transition-colors hover:bg-[#2E7FFF]/12">Open Action Plan</button>
+        <button type="button" onClick={onClose} className="rounded-lg bg-[#2E7FFF] px-3 py-2 text-[11px] font-bold text-white shadow-[0_0_14px_rgba(46,127,255,0.32)] transition-colors hover:bg-blue-500">Done</button>
+      </div>
+    </div>
+  );
+}
+
 const STATUS_SUMMARY_CONFIG: Record<PortfolioStatusKey, Omit<PortfolioStatusSummary, 'key' | 'count' | 'clients'>> = {
   critical: {
     label: 'Critical',
@@ -549,7 +765,7 @@ const STATUS_SUMMARY_CONFIG: Record<PortfolioStatusKey, Omit<PortfolioStatusSumm
     bg: 'bg-amber-500/10 border-amber-500/30',
     icon: <Clock size={13} />,
     summary: 'Warning properties are trending toward SLA or operational risk and should be stabilized before they become critical.',
-    chips: ['Review warning queue', 'Rebalance field load', 'Schedule recovery check', 'Watch oldest breaches'],
+    chips: ['Review warning list', 'Rebalance field load', 'Schedule recovery check', 'Watch oldest breaches'],
   },
   live: {
     label: 'Live',
@@ -599,8 +815,8 @@ function StatusSummaryModal({
     setSelectedChips(prev => prev.includes(chip) ? prev.filter(c => c !== chip) : [...prev, chip]);
   };
 
-  const queueActions = () => {
-    onToast(`${summary.label}: ${selectedChips.length} status action${selectedChips.length === 1 ? '' : 's'} assigned`, 'success');
+  const createStatusActionPlan = () => {
+    onToast(`${summary.label}: ${selectedChips.length} status action${selectedChips.length === 1 ? '' : 's'} added to action plan`, 'success');
     onClose();
   };
 
@@ -697,7 +913,7 @@ function StatusSummaryModal({
           <div className="text-[10px] text-[#7A94B4]">{selectedChips.length} selected for the manager action plan</div>
           <div className="flex gap-2">
             <button onClick={onClose} className="rounded-lg border border-[rgba(46,127,255,0.18)] px-3 py-2 text-[11px] font-semibold text-[#9DB9E8] transition-colors hover:bg-white/5">Close</button>
-            <button onClick={queueActions} className="rounded-lg bg-[#2E7FFF] px-3 py-2 text-[11px] font-bold text-white shadow-[0_0_14px_rgba(46,127,255,0.32)] transition-colors hover:bg-blue-500">Assign Selected</button>
+            <button onClick={createStatusActionPlan} className="rounded-lg bg-[#2E7FFF] px-3 py-2 text-[11px] font-bold text-white shadow-[0_0_14px_rgba(46,127,255,0.32)] transition-colors hover:bg-blue-500">{actionPlanButtonLabel(selectedChips.length)}</button>
           </div>
         </div>
     </motion.div>
@@ -708,11 +924,11 @@ function PortfolioKpiModal({ kpi, onClose, onToast }: { kpi: PortfolioKpi; onClo
   const [selectedActions, setSelectedActions] = useState<string[]>(kpi.actions.slice(0, 2).map(action => action.label));
   const [selectedFocusActions, setSelectedFocusActions] = useState<string[]>([]);
   const [reviewScheduled, setReviewScheduled] = useState(false);
-  const [queueReceipt, setQueueReceipt] = useState<{ total: number; owners: number; channels: number } | null>(null);
+  const [actionPlanRoute, setActionPlanRoute] = useState<{ total: number; owners: number; channels: number } | null>(null);
 
   const toggleAction = (action: string) => {
     setSelectedActions(prev => prev.includes(action) ? prev.filter(item => item !== action) : [...prev, action]);
-    setQueueReceipt(null);
+    setActionPlanRoute(null);
   };
 
   const toggleFocusAction = (row: PortfolioKpi['focusRows'][number]) => {
@@ -720,7 +936,7 @@ function PortfolioKpiModal({ kpi, onClose, onToast }: { kpi: PortfolioKpi; onClo
     setSelectedFocusActions(prev => {
       const active = prev.includes(key);
       if (!active) onToast(`${row.action} selected for ${row.label}`, 'success');
-      setQueueReceipt(null);
+      setActionPlanRoute(null);
       return active ? prev.filter(item => item !== key) : [...prev, key];
     });
   };
@@ -734,7 +950,7 @@ function PortfolioKpiModal({ kpi, onClose, onToast }: { kpi: PortfolioKpi; onClo
     onToast(`${kpi.label}: review scheduled for the next command check-in`, 'info');
   };
 
-  const queueActions = () => {
+  const createKpiActionPlan = () => {
     const owners = new Set([
       ...selectedCommandActions.map(action => action.owner),
       ...selectedFocusRows.map(row => row.label),
@@ -743,7 +959,7 @@ function PortfolioKpiModal({ kpi, onClose, onToast }: { kpi: PortfolioKpi; onClo
       ...selectedCommandActions.map(action => action.channel),
       ...selectedFocusRows.map(row => row.action),
     ]);
-    setQueueReceipt({ total: actionCount, owners: owners.size, channels: channels.size });
+    setActionPlanRoute({ total: actionCount, owners: owners.size, channels: channels.size });
     onToast(`${kpi.label}: ${actionCount} action${actionCount === 1 ? '' : 's'} assigned to ${owners.size} owner${owners.size === 1 ? '' : 's'}`, 'success');
   };
 
@@ -826,7 +1042,7 @@ function PortfolioKpiModal({ kpi, onClose, onToast }: { kpi: PortfolioKpi; onClo
                       aria-pressed={active}
                     >
                       {active ? <Check size={11} /> : null}
-                      {active ? 'Queued' : row.action}
+                      {active ? 'Selected' : row.action}
                       {!active && <ArrowRight size={11} />}
                     </button>
                   );
@@ -871,7 +1087,7 @@ function PortfolioKpiModal({ kpi, onClose, onToast }: { kpi: PortfolioKpi; onClo
       </div>
 
       <div className="flex flex-shrink-0 flex-col gap-2 border-t border-[rgba(46,127,255,0.12)] bg-[#0B172A]/96 px-4 py-3">
-        {(reviewScheduled || queueReceipt) && (
+        {(reviewScheduled || actionPlanRoute) && (
           <div className="grid gap-2 sm:grid-cols-2">
             {reviewScheduled && (
               <div className="flex items-center gap-2 rounded-lg border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-[10px] font-semibold text-amber-200">
@@ -879,10 +1095,10 @@ function PortfolioKpiModal({ kpi, onClose, onToast }: { kpi: PortfolioKpi; onClo
                 Review reminder set for the next command check-in.
               </div>
             )}
-            {queueReceipt && (
+            {actionPlanRoute && (
               <div className="flex items-center gap-2 rounded-lg border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-[10px] font-semibold text-emerald-200">
                 <Send size={12} />
-                {queueReceipt.total} routed to {queueReceipt.owners} owner{queueReceipt.owners === 1 ? '' : 's'} across {queueReceipt.channels} channel{queueReceipt.channels === 1 ? '' : 's'}.
+                {actionPlanRoute.total} routed to {actionPlanRoute.owners} owner{actionPlanRoute.owners === 1 ? '' : 's'} across {actionPlanRoute.channels} channel{actionPlanRoute.channels === 1 ? '' : 's'}.
               </div>
             )}
           </div>
@@ -900,8 +1116,8 @@ function PortfolioKpiModal({ kpi, onClose, onToast }: { kpi: PortfolioKpi; onClo
             >
               {reviewScheduled ? 'Review Scheduled' : 'Schedule Review'}
             </button>
-            <button onClick={queueActions} className="rounded-lg bg-[#2E7FFF] px-3 py-2 text-[11px] font-bold text-white shadow-[0_0_14px_rgba(46,127,255,0.32)] transition-colors hover:bg-blue-500">
-              {queueReceipt ? 'Update Assignments' : 'Assign & Notify'}
+            <button onClick={createKpiActionPlan} className="rounded-lg bg-[#2E7FFF] px-3 py-2 text-[11px] font-bold text-white shadow-[0_0_14px_rgba(46,127,255,0.32)] transition-colors hover:bg-blue-500">
+              {actionPlanRoute ? 'Update Action Plan' : actionPlanButtonLabel(actionCount)}
             </button>
             <button onClick={onClose} className="rounded-lg border border-[rgba(46,127,255,0.18)] px-3 py-2 text-[11px] font-semibold text-[#9DB9E8] transition-colors hover:bg-white/5">Close</button>
           </div>
@@ -1061,7 +1277,7 @@ function PortfolioSummaryStrip({ clients, onToast }: { clients: PortfolioClient[
       detailRows: topClientRows(clients, c => c.workOrders),
       chips: ['Open WO command', 'Rebalance technicians', 'Escalate overdue jobs', 'Notify supervisors'],
       commandAnswer: `${totalWO} work orders matter because they show where today’s field capacity is being consumed. The decision is whether to rebalance technicians now, escalate overdue work, or protect specialist capacity.`,
-      nextBestAction: 'Sort by overdue and resident-impacting work, then move technicians before the queue becomes an SLA breach.',
+      nextBestAction: 'Sort by overdue and resident-impacting work, then move technicians before the backlog becomes an SLA breach.',
       ifIgnored: 'Work volume turns into hidden backlog, repeat visits, and resident-facing delays.',
       sourceTrace: 'Based on active WOs, overdue tasks, incidents, and technician coverage',
       focusRows: workOrderFocusRows,
@@ -1069,7 +1285,7 @@ function PortfolioSummaryStrip({ clients, onToast }: { clients: PortfolioClient[
         { label: 'Rebalance technician load', owner: 'Dispatch Lead', impact: 'Moves field capacity to the properties with the highest backlog pressure.', channel: 'Dispatch' },
         { label: 'Escalate overdue jobs', owner: 'Site Supervisor', impact: 'Pushes aged work into named recovery before SLA breach.', channel: 'Task' },
         { label: 'Protect specialist capacity', owner: 'Field Supervisor', impact: 'Keeps HVAC, lift, MEP, and fire resources available for critical work.', channel: 'Roster' },
-        { label: 'Notify supervisors of pressure points', owner: 'Command Center', impact: 'Gives each site lead the exact queue that needs attention now.', channel: 'Message' },
+        { label: 'Notify supervisors of pressure points', owner: 'Command Center', impact: 'Gives each site lead the exact pressure list that needs attention now.', channel: 'Message' },
       ],
     },
     {
@@ -1198,11 +1414,25 @@ function PortfolioSummaryStrip({ clients, onToast }: { clients: PortfolioClient[
   );
 }
 
-function ExecutiveImpactActionModal({ card, onClose, onToast }: { card: ExecutiveImpactCard; onClose: () => void; onToast: ToastFn }) {
+function ExecutiveImpactActionModal({
+  card,
+  avoidedPenaltyCases = [],
+  onClose,
+  onToast,
+}: {
+  card: ExecutiveImpactCard;
+  avoidedPenaltyCases?: AvoidedPenaltyCase[];
+  onClose: () => void;
+  onToast: ToastFn;
+}) {
   const [selectedActions, setSelectedActions] = useState<string[]>(card.actions.slice(0, 3).map(action => action.label));
   const [customAction, setCustomAction] = useState('');
-  const [customActions, setCustomActions] = useState<string[]>([]);
+  const [customActions, setCustomActions] = useState<CustomPlanAction[]>([]);
+  const [customOwner, setCustomOwner] = useState('Manager');
+  const [customChannel, setCustomChannel] = useState('Custom');
   const [isListening, setIsListening] = useState(false);
+  const [actedPenaltyIds, setActedPenaltyIds] = useState<string[]>([]);
+  const [actionPlanReceipt, setActionPlanReceipt] = useState<ActionPlanReceipt | null>(null);
   const speechRecognitionRef = useRef<SpeechRecognitionLike | null>(null);
 
   useEffect(() => () => {
@@ -1211,6 +1441,7 @@ function ExecutiveImpactActionModal({ card, onClose, onToast }: { card: Executiv
 
   const toggleAction = (action: string) => {
     setSelectedActions(prev => prev.includes(action) ? prev.filter(item => item !== action) : [...prev, action]);
+    setActionPlanReceipt(null);
   };
 
   const normalizeCustomAction = (action: string) => action.trim().replace(/\s+/g, ' ');
@@ -1218,16 +1449,24 @@ function ExecutiveImpactActionModal({ card, onClose, onToast }: { card: Executiv
   const addCustomAction = () => {
     const normalized = normalizeCustomAction(customAction);
     if (!normalized) return;
-    if ([...selectedActions, ...customActions].includes(normalized)) {
+    if ([...selectedActions, ...customActions.map(action => action.label)].includes(normalized)) {
       setCustomAction('');
       return;
     }
-    setCustomActions(prev => [...prev, normalized]);
+    setCustomActions(prev => [...prev, {
+      label: normalized,
+      owner: customOwner,
+      channel: customChannel,
+      impact: 'Manager-defined action added during the live review.',
+      custom: true,
+    }]);
     setCustomAction('');
+    setActionPlanReceipt(null);
   };
 
   const removeCustomAction = (action: string) => {
-    setCustomActions(prev => prev.filter(item => item !== action));
+    setCustomActions(prev => prev.filter(item => item.label !== action));
+    setActionPlanReceipt(null);
   };
 
   const startDictation = () => {
@@ -1268,22 +1507,56 @@ function ExecutiveImpactActionModal({ card, onClose, onToast }: { card: Executiv
     setIsListening(false);
   };
 
-  const queueActions = () => {
+  const buildSelectedActionPlanItems = () => {
     const typedAction = normalizeCustomAction(customAction);
-    const assignedActions = typedAction && ![...selectedActions, ...customActions].includes(typedAction)
-      ? [...selectedActions, ...customActions, typedAction]
-      : [...selectedActions, ...customActions];
-    onToast(`${card.label}: ${assignedActions.length} action${assignedActions.length === 1 ? '' : 's'} assigned`, 'success');
-    onClose();
+    const selectedPresetActions = card.actions.filter(action => selectedActions.includes(action.label));
+    const typedCustomAction: CustomPlanAction | null = typedAction && ![...selectedActions, ...customActions.map(action => action.label)].includes(typedAction)
+      ? {
+          label: typedAction,
+          owner: customOwner,
+          channel: customChannel,
+          impact: 'Manager-defined action added during the live review.',
+          custom: true,
+        }
+      : null;
+    const allActions = [
+      ...selectedPresetActions,
+      ...customActions,
+      ...(typedCustomAction ? [typedCustomAction] : []),
+    ];
+    return allActions.map((action, index) => createActionPlanItem(action, index, 'custom' in action));
+  };
+
+  const createActionPlan = () => {
+    const items = buildSelectedActionPlanItems();
+    if (items.length === 0) {
+      onToast('Select at least one action before creating the plan', 'warning');
+      return;
+    }
+    setActionPlanReceipt({
+      title: `${card.label} Action Plan`,
+      items,
+      nextUpdate: card.key === 'residentSentiment' ? 'Today, 5:00 PM' : 'Next command check-in',
+      createdAt: 'Just now',
+    });
+    onToast(`${card.label}: action plan created`, 'success');
   };
 
   const pendingCustomAction = normalizeCustomAction(customAction);
   const actionCount = new Set([
     ...selectedActions,
-    ...customActions,
+    ...customActions.map(action => action.label),
     ...(pendingCustomAction ? [pendingCustomAction] : []),
   ]).size;
   const hasCustomSelection = customActions.length > 0 || Boolean(pendingCustomAction);
+  const primaryActionLabel = actionPlanButtonLabel(actionCount);
+  const isPenaltyCard = card.key === 'penaltiesAvoided';
+  const totalAvoidedValue = avoidedPenaltyCases.reduce((sum, item) => sum + item.avoidedValue, 0);
+
+  const handlePenaltyAction = (item: AvoidedPenaltyCase) => {
+    setActedPenaltyIds(prev => prev.includes(item.id) ? prev : [...prev, item.id]);
+    onToast(`${item.client}: ${item.actionLabel} assigned`, 'success');
+  };
 
   return (
     <motion.div
@@ -1313,6 +1586,69 @@ function ExecutiveImpactActionModal({ card, onClose, onToast }: { card: Executiv
       </div>
 
       <div className="custom-scrollbar min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
+        {isPenaltyCard ? (
+          <>
+            <div className="grid gap-2 md:grid-cols-3">
+              {[
+                { label: 'Generated Cases', value: String(avoidedPenaltyCases.length) },
+                { label: 'Avoided Value', value: totalAvoidedValue > 0 ? formatAed(totalAvoidedValue) : card.value },
+                { label: 'Action Status', value: `${actedPenaltyIds.length}/${avoidedPenaltyCases.length} done` },
+              ].map(item => (
+                <div key={item.label} className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#0A1628] p-3">
+                  <div className="text-[9px] uppercase tracking-wide text-[#7A94B4]">{item.label}</div>
+                  <div className="mt-1 text-[12px] font-bold leading-snug text-[#EEF3FA]">{item.value}</div>
+                </div>
+              ))}
+            </div>
+
+            <div className="rounded-xl border border-emerald-400/20 bg-emerald-500/10 p-3">
+              <div className="mb-1 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wide text-emerald-200">
+                <Shield size={12} /> Avoided penalty ledger
+              </div>
+              <p className="text-[11px] leading-relaxed text-[#D8E7FA]">
+                These are the individual prevention cases behind the headline value. Review the avoided penalty, evidence, owner, and deadline before taking action on each item.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              {avoidedPenaltyCases.map(item => {
+                const acted = actedPenaltyIds.includes(item.id);
+                return (
+                  <div key={item.id} className="rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#07111F] p-3">
+                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <div className="text-[12px] font-black text-[#EEF3FA]">{item.client}</div>
+                          <span className="rounded-md border border-emerald-400/20 bg-emerald-400/10 px-2 py-0.5 text-[10px] font-bold text-emerald-200">{formatAed(item.avoidedValue)}</span>
+                          <span className="rounded-md border border-white/10 bg-white/5 px-2 py-0.5 text-[8px] font-bold uppercase tracking-wide text-[#9DB9E8]">{item.channel}</span>
+                        </div>
+                        <p className="mt-1 text-[11px] font-semibold leading-relaxed text-[#D8E7FA]">{item.trigger}</p>
+                        <p className="mt-1 text-[10px] leading-relaxed text-[#8EA7C7]">{item.evidence}</p>
+                        <div className="mt-2 flex flex-wrap gap-2 text-[9px] font-semibold uppercase tracking-wide text-[#6F89AA]">
+                          <span>Owner: {item.owner}</span>
+                          <span>Deadline: {item.deadline}</span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handlePenaltyAction(item)}
+                        className={`inline-flex shrink-0 items-center justify-center gap-1 rounded-lg border px-3 py-2 text-[10px] font-bold transition-all ${
+                          acted
+                            ? 'border-emerald-400/35 bg-emerald-400/14 text-emerald-200'
+                            : 'border-[#2E7FFF]/30 bg-[#2E7FFF]/12 text-[#BFD8FF] hover:border-[#2E7FFF]/55 hover:bg-[#2E7FFF]/18 hover:text-white'
+                        }`}
+                      >
+                        {acted ? <Check size={11} /> : <ArrowRight size={11} />}
+                        {acted ? 'Action Taken' : item.actionLabel}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        ) : (
+          <>
         <div className="grid gap-2 md:grid-cols-3">
           {[
             { label: 'Trigger', value: card.trigger },
@@ -1407,35 +1743,71 @@ function ExecutiveImpactActionModal({ card, onClose, onToast }: { card: Executiv
               Add Custom
             </button>
           </div>
+          <div className="mt-2 grid gap-2 sm:grid-cols-2">
+            <label className="text-[9px] font-bold uppercase tracking-wide text-[#7A94B4]">
+              Owner
+              <select
+                value={customOwner}
+                onChange={event => setCustomOwner(event.target.value)}
+                className="mt-1 w-full rounded-lg border border-[rgba(46,127,255,0.18)] bg-[#0B172A] px-2.5 py-2 text-[11px] font-semibold normal-case tracking-normal text-[#D8E7FA] outline-none focus:border-[#2E7FFF]/70"
+              >
+                {['Manager', 'Operations Lead', 'Dispatch Lead', 'Property Manager', 'Community Manager', 'Vendor Manager', 'DevelopmentX Copilot'].map(owner => (
+                  <option key={owner} value={owner}>{owner}</option>
+                ))}
+              </select>
+            </label>
+            <label className="text-[9px] font-bold uppercase tracking-wide text-[#7A94B4]">
+              Channel
+              <select
+                value={customChannel}
+                onChange={event => setCustomChannel(event.target.value)}
+                className="mt-1 w-full rounded-lg border border-[rgba(46,127,255,0.18)] bg-[#0B172A] px-2.5 py-2 text-[11px] font-semibold normal-case tracking-normal text-[#D8E7FA] outline-none focus:border-[#2E7FFF]/70"
+              >
+                {['Custom', 'Dispatch', 'Approval', 'Calls', 'Meeting', 'Email', 'Notice', 'AI Watch'].map(channel => (
+                  <option key={channel} value={channel}>{channel}</option>
+                ))}
+              </select>
+            </label>
+          </div>
           {customActions.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-2">
               {customActions.map(action => (
                 <button
-                  key={action}
+                  key={action.label}
                   type="button"
-                  onClick={() => removeCustomAction(action)}
+                  onClick={() => removeCustomAction(action.label)}
                   className="inline-flex items-center gap-1 rounded-full border border-cyan-400/25 bg-cyan-500/10 px-2.5 py-1 text-[10px] font-semibold text-cyan-100 transition-colors hover:border-red-400/35 hover:bg-red-500/10 hover:text-red-100"
-                  aria-label={`Remove custom action ${action}`}
+                  aria-label={`Remove custom action ${action.label}`}
                 >
                   <Check size={10} />
-                  {action}
+                  {action.label}
+                  <span className="text-[#7A94B4]">· {action.owner} · {action.channel}</span>
                   <X size={10} />
                 </button>
               ))}
             </div>
           )}
         </div>
+        {actionPlanReceipt && (
+          <ActionPlanReceiptCard receipt={actionPlanReceipt} onClose={onClose} onToast={onToast} />
+        )}
+          </>
+        )}
       </div>
 
         <div className="flex flex-shrink-0 items-center justify-between gap-3 border-t border-[rgba(46,127,255,0.12)] bg-[#0B172A]/96 px-4 py-3">
           <div className="text-[10px] text-[#7A94B4]">
-            {hasCustomSelection
-              ? `${actionCount} action${actionCount === 1 ? '' : 's'} selected, including custom action${customActions.length + (pendingCustomAction ? 1 : 0) === 1 ? '' : 's'}`
-              : `${actionCount} pre-configured action${actionCount === 1 ? '' : 's'} selected`}
+            {isPenaltyCard
+              ? `${actedPenaltyIds.length} of ${avoidedPenaltyCases.length} avoided-penalty actions taken`
+              : hasCustomSelection
+              ? `${actionCount} action${actionCount === 1 ? '' : 's'} will be added to the action plan, including custom action${customActions.length + (pendingCustomAction ? 1 : 0) === 1 ? '' : 's'}`
+              : `${actionCount} action${actionCount === 1 ? '' : 's'} will be added to the action plan`}
           </div>
           <div className="flex gap-2">
             <button onClick={onClose} className="rounded-lg border border-[rgba(46,127,255,0.18)] px-3 py-2 text-[11px] font-semibold text-[#9DB9E8] transition-colors hover:bg-white/5">Close</button>
-            <button onClick={queueActions} className="rounded-lg bg-[#2E7FFF] px-3 py-2 text-[11px] font-bold text-white shadow-[0_0_14px_rgba(46,127,255,0.32)] transition-colors hover:bg-blue-500">Assign Selected</button>
+            {!isPenaltyCard && (
+              <button onClick={createActionPlan} className="rounded-lg bg-[#2E7FFF] px-3 py-2 text-[11px] font-bold text-white shadow-[0_0_14px_rgba(46,127,255,0.32)] transition-colors hover:bg-blue-500">{primaryActionLabel}</button>
+            )}
           </div>
         </div>
     </motion.div>
@@ -1445,7 +1817,8 @@ function ExecutiveImpactActionModal({ card, onClose, onToast }: { card: Executiv
 function ExecutiveImpactStrip({ clients, onToast }: { clients: PortfolioClient[]; onToast: ToastFn }) {
   const profiles = clients.map(getCommandProfile);
   const aedAtRisk = profiles.reduce((sum, p) => sum + p.atRisk, 0);
-  const penaltiesAvoided = profiles.reduce((sum, p) => sum + p.prevented, 0);
+  const avoidedPenaltyCases = buildAvoidedPenaltyCases(clients);
+  const penaltiesAvoided = avoidedPenaltyCases.reduce((sum, item) => sum + item.avoidedValue, 0);
   const avgSentiment = Math.round(profiles.reduce((sum, p) => sum + p.sentiment, 0) / Math.max(profiles.length, 1));
   const avgUtilization = Math.round(profiles.reduce((sum, p) => sum + p.utilization, 0) / Math.max(profiles.length, 1));
   const [selectedCard, setSelectedCard] = useState<ExecutiveImpactCard | null>(null);
@@ -1458,7 +1831,7 @@ function ExecutiveImpactStrip({ clients, onToast }: { clients: PortfolioClient[]
   const utilizationTrigger = avgUtilization >= 85
     ? 'Technician utilization is stretched and may slow response times.'
     : avgUtilization >= 72
-      ? 'Field load is elevated; rebalance before SLA queues build.'
+      ? 'Field load is elevated; rebalance before SLA backlog builds.'
       : 'Field load is stable; use spare capacity for prevention work.';
 
   const items: ExecutiveImpactCard[] = [
@@ -1594,7 +1967,12 @@ function ExecutiveImpactStrip({ clients, onToast }: { clients: PortfolioClient[]
         {selectedCard && (
           <>
             <div className="fixed inset-0 z-[300] bg-black/35 backdrop-blur-[1px]" onClick={() => setSelectedCard(null)} />
-            <ExecutiveImpactActionModal card={selectedCard} onClose={() => setSelectedCard(null)} onToast={onToast} />
+            <ExecutiveImpactActionModal
+              card={selectedCard}
+              avoidedPenaltyCases={avoidedPenaltyCases}
+              onClose={() => setSelectedCard(null)}
+              onToast={onToast}
+            />
           </>
         )}
       </AnimatePresence>
@@ -1606,14 +1984,28 @@ function PulseEventModal({ event, onClose, onToast }: { event: PulseEvent; onClo
   const cfg = PULSE_SEV_ICON[event.severity];
   const plan = buildPulseCommandPlan(event);
   const [selectedActions, setSelectedActions] = useState<string[]>(plan.actions.slice(0, 3).map(action => action.label));
+  const [responsePlanReceipt, setResponsePlanReceipt] = useState<ActionPlanReceipt | null>(null);
 
   const toggleAction = (action: string) => {
     setSelectedActions(prev => prev.includes(action) ? prev.filter(item => item !== action) : [...prev, action]);
+    setResponsePlanReceipt(null);
   };
 
-  const applyResolution = () => {
-    onToast(`${event.client}: ${selectedActions.length} response action${selectedActions.length === 1 ? '' : 's'} assigned`, 'success');
-    onClose();
+  const launchResponsePlan = () => {
+    const items = plan.actions
+      .filter(action => selectedActions.includes(action.label))
+      .map((action, index) => createActionPlanItem(action, index));
+    if (items.length === 0) {
+      onToast('Select at least one response action before launching the plan', 'warning');
+      return;
+    }
+    setResponsePlanReceipt({
+      title: `${event.client} Response Plan`,
+      items,
+      nextUpdate: plan.deadline,
+      createdAt: 'Just now',
+    });
+    onToast(`${event.client}: response plan launched`, 'success');
   };
 
   const copyDraft = async () => {
@@ -1771,13 +2163,16 @@ function PulseEventModal({ event, onClose, onToast }: { event: PulseEvent; onClo
             </div>
           </div>
         </div>
+        {responsePlanReceipt && (
+          <ActionPlanReceiptCard receipt={responsePlanReceipt} onClose={onClose} onToast={onToast} />
+        )}
       </div>
 
-        <div className="flex flex-shrink-0 items-center justify-between gap-3 border-t border-[rgba(46,127,255,0.12)] bg-[#0B172A]/96 px-4 py-3">
-          <div className="text-[10px] text-[#7A94B4]">{selectedActions.length} response action{selectedActions.length === 1 ? '' : 's'} selected for the response plan</div>
+      <div className="flex flex-shrink-0 items-center justify-between gap-3 border-t border-[rgba(46,127,255,0.12)] bg-[#0B172A]/96 px-4 py-3">
+          <div className="text-[10px] text-[#7A94B4]">{selectedActions.length} response action{selectedActions.length === 1 ? '' : 's'} will be added to the response plan</div>
           <div className="flex gap-2">
             <button onClick={onClose} className="rounded-lg border border-[rgba(46,127,255,0.18)] px-3 py-2 text-[11px] font-semibold text-[#9DB9E8] transition-colors hover:bg-white/5">Close</button>
-            <button onClick={applyResolution} className="rounded-lg bg-[#2E7FFF] px-3 py-2 text-[11px] font-bold text-white shadow-[0_0_14px_rgba(46,127,255,0.32)] transition-colors hover:bg-blue-500">Assign Response</button>
+            <button onClick={launchResponsePlan} className="rounded-lg bg-[#2E7FFF] px-3 py-2 text-[11px] font-bold text-white shadow-[0_0_14px_rgba(46,127,255,0.32)] transition-colors hover:bg-blue-500">Launch Response Plan</button>
           </div>
         </div>
     </motion.div>
