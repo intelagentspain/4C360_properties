@@ -2947,65 +2947,6 @@ function MetricPill({ label, value, color }: { label: string; value: string | nu
   );
 }
 
-function PortfolioRiskMap({ clients, onSelect }: { clients: PortfolioClient[]; onSelect: (client: PortfolioClient) => void }) {
-  const placedClients = clients.filter(c => c.lat && c.lng);
-  const hasCoordinates = placedClients.length > 0;
-  const minLat = hasCoordinates ? Math.min(...placedClients.map(c => c.lat ?? 0)) : 0;
-  const maxLat = hasCoordinates ? Math.max(...placedClients.map(c => c.lat ?? 0)) : 1;
-  const minLng = hasCoordinates ? Math.min(...placedClients.map(c => c.lng ?? 0)) : 0;
-  const maxLng = hasCoordinates ? Math.max(...placedClients.map(c => c.lng ?? 0)) : 1;
-
-  const position = (client: PortfolioClient) => {
-    const latRange = Math.max(maxLat - minLat, 0.01);
-    const lngRange = Math.max(maxLng - minLng, 0.01);
-    const x = 10 + (((client.lng ?? minLng) - minLng) / lngRange) * 80;
-    const y = 82 - (((client.lat ?? minLat) - minLat) / latRange) * 64;
-    return { x, y };
-  };
-
-  return (
-    <div className="mb-3 rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#0B1A30] p-3">
-      <div className="mb-2 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <MapPin size={13} className="text-cyan-300" />
-          <div>
-            <div className="text-[11px] font-bold uppercase tracking-wide text-[#EEF3FA]">Dubai Risk Map</div>
-            <div className="text-[9px] text-[#7A94B4]">Click a marker to open property command context</div>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 text-[9px] text-[#7A94B4]">
-          <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-full bg-red-400" /> Critical</span>
-          <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-full bg-orange-400" /> High</span>
-          <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-full bg-emerald-400" /> Low</span>
-        </div>
-      </div>
-      <div className="relative h-36 overflow-hidden rounded-lg border border-[rgba(46,127,255,0.12)] bg-[radial-gradient(circle_at_24%_18%,rgba(46,127,255,0.18),transparent_20%),linear-gradient(135deg,#081528,#0E2741)]">
-        <div className="absolute inset-0 opacity-35" style={{ backgroundImage: 'linear-gradient(rgba(126,184,247,.12) 1px, transparent 1px), linear-gradient(90deg, rgba(126,184,247,.12) 1px, transparent 1px)', backgroundSize: '42px 42px' }} />
-        <div className="absolute left-[18%] top-[18%] h-[58%] w-[62%] rounded-[55%] border border-cyan-400/20 rotate-[-14deg]" />
-        <div className="absolute left-[28%] top-[42%] h-[1px] w-[52%] bg-cyan-300/20 rotate-[8deg]" />
-        {placedClients.map(client => {
-          const { x, y } = position(client);
-          const color = client.riskLevel === 'critical' ? 'bg-red-400 shadow-red-500/60' : client.riskLevel === 'high' ? 'bg-orange-400 shadow-orange-500/60' : client.riskLevel === 'medium' ? 'bg-amber-400 shadow-amber-500/60' : 'bg-emerald-400 shadow-emerald-500/60';
-          return (
-            <button
-              key={client.id}
-              onClick={() => onSelect(client)}
-              className="absolute -translate-x-1/2 -translate-y-1/2 group"
-              style={{ left: `${x}%`, top: `${y}%` }}
-              title={client.name}
-            >
-              <span className={`block h-3 w-3 rounded-full ${color} shadow-[0_0_18px_currentColor] ring-4 ring-white/5`} />
-              <span className="pointer-events-none absolute left-1/2 top-4 hidden min-w-28 -translate-x-1/2 rounded-md border border-white/10 bg-[#061225] px-2 py-1 text-[9px] font-semibold text-[#EEF3FA] shadow-xl group-hover:block">
-                {client.name}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 function CardActions({
   client,
   onToast,
@@ -4219,8 +4160,6 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
       </div>
 
       <div className="flex-1 overflow-y-auto custom-scrollbar px-5 pb-4">
-        <PortfolioRiskMap clients={allClients} onSelect={setSelected} />
-
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3">
             <Users size={32} className="text-[#7A94B4] opacity-30" />
