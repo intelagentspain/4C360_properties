@@ -2733,34 +2733,6 @@ function PageProcurementCopilotModal({
                         <VendorWizardInput value={rfqState.anchor.shortlistContext} onChange={event => patchRfqAnchor({ shortlistContext: event.target.value })} placeholder="Incumbent plus 3 approved alternates" />
                       </VendorWizardField>
                     </div>
-                    <div className="rounded-2xl border border-[#2E7FFF]/18 bg-[#0D1E3A] p-4">
-                      <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#8DBDFF]">Choose the RFQ build path</div>
-                      <p className="mt-1 text-[11px] leading-5 text-[#9CB1CC]">After the anchor is confirmed, the wizard can build from a prompt, a template, or uploaded scope documents.</p>
-                      <div className="mt-3 grid gap-3 md:grid-cols-3">
-                        {[
-                          { id: 'tell' as const, label: 'Tell AI', icon: <MessageSquare size={16} />, detail: 'Describe the outcome and scope in plain language.' },
-                          { id: 'template' as const, label: 'Use Template', icon: <ListChecks size={16} />, detail: 'Start from a service category structure, then edit it.' },
-                          { id: 'docs' as const, label: 'Upload Scope Docs', icon: <UploadCloud size={16} />, detail: 'Use scope, BOQ, SLA, service notes, or site requirements.' },
-                        ].map(mode => (
-                          <button
-                            key={mode.id}
-                            type="button"
-                            onClick={() => chooseRfqMode(mode.id)}
-                            className={`rounded-xl border p-3 text-left transition-all hover:-translate-y-0.5 ${
-                              rfqState.mode === mode.id
-                                ? 'border-[#2E7FFF]/50 bg-[#2E7FFF]/18 shadow-[0_0_24px_rgba(46,127,255,0.14)]'
-                                : 'border-[rgba(46,127,255,0.16)] bg-[#07111F] hover:border-[#2E7FFF]/34'
-                            }`}
-                          >
-                            <span className="inline-flex items-center gap-2 text-[12px] font-black text-[#EEF3FA]">
-                              <span className="grid h-8 w-8 place-items-center rounded-lg bg-[#2E7FFF]/14 text-[#8DBDFF]">{mode.icon}</span>
-                              {mode.label}
-                            </span>
-                            <p className="mt-2 text-[10px] leading-4 text-[#9CB1CC]">{mode.detail}</p>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
                   </div>
                 )}
 
