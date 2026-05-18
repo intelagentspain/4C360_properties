@@ -169,7 +169,7 @@ const PULSE_RESOLUTION_COPY: Record<PulseEvent['severity'], { impact: string; re
   info: {
     impact: 'AI has found an early signal before it becomes a resident-facing issue.',
     resolution: 'Convert the signal into preventive action, keep the asset under watch, and log the avoided failure value.',
-    eta: 'Preventive response queued',
+    eta: 'Preventive response planned',
   },
   ok: {
     impact: 'The event has been stabilized and is ready for closure evidence.',
@@ -388,7 +388,7 @@ function buildPulseCommandPlan(event: PulseEvent): PulseCommandPlan {
     sourceTrace: 'Based on event severity, affected property, SLA context, and live pulse signal',
     evidence: ['Owner assignment', 'Action timestamp', 'Client update', 'Close-out evidence'],
     timeline: [
-      { label: 'Now', value: 'Confirm owner and queue the first response action.' },
+      { label: 'Now', value: 'Confirm owner and assign the first response action.' },
       { label: 'Next update', value: 'Send status with ETA, blocker, and recovery path.' },
       { label: 'Close-out', value: 'Archive proof and update KPI impact.' },
     ],
@@ -600,7 +600,7 @@ function StatusSummaryModal({
   };
 
   const queueActions = () => {
-    onToast(`${summary.label}: ${selectedChips.length} status actions queued`, 'success');
+    onToast(`${summary.label}: ${selectedChips.length} status action${selectedChips.length === 1 ? '' : 's'} assigned`, 'success');
     onClose();
   };
 
@@ -610,7 +610,7 @@ function StatusSummaryModal({
       animate={{ opacity: 1, scale: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.96, y: 12 }}
       transition={{ duration: 0.18 }}
-      className="fixed left-1/2 top-1/2 z-[320] w-[min(560px,calc(100%-32px))] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl border border-[rgba(46,127,255,0.28)] bg-[#0B172A] shadow-2xl"
+      className="fixed left-1/2 top-1/2 z-[320] flex max-h-[calc(100dvh-32px)] w-[min(560px,calc(100%-32px))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-[rgba(46,127,255,0.28)] bg-[#0B172A] shadow-2xl"
       role="dialog"
       aria-modal="true"
       aria-label={`${summary.label} status details`}
@@ -631,7 +631,7 @@ function StatusSummaryModal({
         </button>
       </div>
 
-      <div className="space-y-3 p-4">
+      <div className="custom-scrollbar min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
         <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
           {[
             { label: 'Properties', value: String(summary.count), tone: summary.color },
@@ -691,15 +691,15 @@ function StatusSummaryModal({
             })}
           </div>
         </div>
+      </div>
 
-        <div className="flex items-center justify-between gap-3 border-t border-[rgba(46,127,255,0.12)] pt-3">
-          <div className="text-[10px] text-[#7A94B4]">{selectedChips.length} status actions selected</div>
+        <div className="flex flex-shrink-0 items-center justify-between gap-3 border-t border-[rgba(46,127,255,0.12)] bg-[#0B172A]/96 px-4 py-3">
+          <div className="text-[10px] text-[#7A94B4]">{selectedChips.length} selected for the manager action plan</div>
           <div className="flex gap-2">
-            <button onClick={onClose} className="rounded-lg border border-[rgba(46,127,255,0.18)] px-3 py-2 text-[11px] font-semibold text-[#9DB9E8] transition-colors hover:bg-white/5">Review Later</button>
-            <button onClick={queueActions} className="rounded-lg bg-[#2E7FFF] px-3 py-2 text-[11px] font-bold text-white shadow-[0_0_14px_rgba(46,127,255,0.32)] transition-colors hover:bg-blue-500">Queue Actions</button>
+            <button onClick={onClose} className="rounded-lg border border-[rgba(46,127,255,0.18)] px-3 py-2 text-[11px] font-semibold text-[#9DB9E8] transition-colors hover:bg-white/5">Close</button>
+            <button onClick={queueActions} className="rounded-lg bg-[#2E7FFF] px-3 py-2 text-[11px] font-bold text-white shadow-[0_0_14px_rgba(46,127,255,0.32)] transition-colors hover:bg-blue-500">Assign Selected</button>
           </div>
         </div>
-      </div>
     </motion.div>
   );
 }
@@ -719,7 +719,7 @@ function PortfolioKpiModal({ kpi, onClose, onToast }: { kpi: PortfolioKpi; onClo
     const key = `${row.label}:${row.action}`;
     setSelectedFocusActions(prev => {
       const active = prev.includes(key);
-      if (!active) onToast(`${row.action} queued for ${row.label}`, 'success');
+      if (!active) onToast(`${row.action} selected for ${row.label}`, 'success');
       setQueueReceipt(null);
       return active ? prev.filter(item => item !== key) : [...prev, key];
     });
@@ -744,7 +744,7 @@ function PortfolioKpiModal({ kpi, onClose, onToast }: { kpi: PortfolioKpi; onClo
       ...selectedFocusRows.map(row => row.action),
     ]);
     setQueueReceipt({ total: actionCount, owners: owners.size, channels: channels.size });
-    onToast(`${kpi.label}: ${actionCount} actions queued and routed to ${owners.size} owner${owners.size === 1 ? '' : 's'}`, 'success');
+    onToast(`${kpi.label}: ${actionCount} action${actionCount === 1 ? '' : 's'} assigned to ${owners.size} owner${owners.size === 1 ? '' : 's'}`, 'success');
   };
 
   return (
@@ -753,7 +753,7 @@ function PortfolioKpiModal({ kpi, onClose, onToast }: { kpi: PortfolioKpi; onClo
       animate={{ opacity: 1, scale: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.96, y: 12 }}
       transition={{ duration: 0.18 }}
-      className="fixed left-1/2 top-1/2 z-[320] flex max-h-[calc(100vh-48px)] w-[min(760px,calc(100%-32px))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-[rgba(46,127,255,0.28)] bg-[#0B172A] shadow-2xl"
+      className="fixed left-1/2 top-1/2 z-[320] flex max-h-[calc(100dvh-32px)] w-[min(760px,calc(100%-32px))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-[rgba(46,127,255,0.28)] bg-[#0B172A] shadow-2xl"
       role="dialog"
       aria-modal="true"
       aria-label={`${kpi.label} details`}
@@ -888,7 +888,7 @@ function PortfolioKpiModal({ kpi, onClose, onToast }: { kpi: PortfolioKpi; onClo
           </div>
         )}
         <div className="flex items-center justify-between gap-3">
-          <div className="text-[10px] text-[#7A94B4]">{actionCount} useful action{actionCount === 1 ? '' : 's'} selected for the command queue</div>
+          <div className="text-[10px] text-[#7A94B4]">{actionCount} useful action{actionCount === 1 ? '' : 's'} selected for the manager action plan</div>
           <div className="flex gap-2">
             <button
               onClick={reviewLater}
@@ -901,7 +901,7 @@ function PortfolioKpiModal({ kpi, onClose, onToast }: { kpi: PortfolioKpi; onClo
               {reviewScheduled ? 'Review Scheduled' : 'Schedule Review'}
             </button>
             <button onClick={queueActions} className="rounded-lg bg-[#2E7FFF] px-3 py-2 text-[11px] font-bold text-white shadow-[0_0_14px_rgba(46,127,255,0.32)] transition-colors hover:bg-blue-500">
-              {queueReceipt ? 'Re-Queue Actions' : 'Queue & Notify'}
+              {queueReceipt ? 'Update Assignments' : 'Assign & Notify'}
             </button>
             <button onClick={onClose} className="rounded-lg border border-[rgba(46,127,255,0.18)] px-3 py-2 text-[11px] font-semibold text-[#9DB9E8] transition-colors hover:bg-white/5">Close</button>
           </div>
@@ -1270,10 +1270,10 @@ function ExecutiveImpactActionModal({ card, onClose, onToast }: { card: Executiv
 
   const queueActions = () => {
     const typedAction = normalizeCustomAction(customAction);
-    const queuedActions = typedAction && ![...selectedActions, ...customActions].includes(typedAction)
+    const assignedActions = typedAction && ![...selectedActions, ...customActions].includes(typedAction)
       ? [...selectedActions, ...customActions, typedAction]
       : [...selectedActions, ...customActions];
-    onToast(`${card.label}: ${queuedActions.length} action${queuedActions.length === 1 ? '' : 's'} queued`, 'success');
+    onToast(`${card.label}: ${assignedActions.length} action${assignedActions.length === 1 ? '' : 's'} assigned`, 'success');
     onClose();
   };
 
@@ -1291,12 +1291,12 @@ function ExecutiveImpactActionModal({ card, onClose, onToast }: { card: Executiv
       animate={{ opacity: 1, scale: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.96, y: 12 }}
       transition={{ duration: 0.18 }}
-      className="fixed left-1/2 top-1/2 z-[320] w-[min(680px,calc(100%-32px))] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl border border-[rgba(46,127,255,0.28)] bg-[#0B172A] shadow-2xl"
+      className="fixed left-1/2 top-1/2 z-[320] flex max-h-[calc(100dvh-32px)] w-[min(680px,calc(100%-32px))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-[rgba(46,127,255,0.28)] bg-[#0B172A] shadow-2xl"
       role="dialog"
       aria-modal="true"
       aria-label={`${card.label} action options`}
     >
-      <div className="flex items-start justify-between gap-3 border-b border-[rgba(46,127,255,0.16)] bg-[#112040] px-4 py-3">
+      <div className="flex flex-shrink-0 items-start justify-between gap-3 border-b border-[rgba(46,127,255,0.16)] bg-[#112040] px-4 py-3">
         <div className="flex min-w-0 items-start gap-3">
           <div className={`mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg ${card.tone}`}>
             {card.icon}
@@ -1312,7 +1312,7 @@ function ExecutiveImpactActionModal({ card, onClose, onToast }: { card: Executiv
         </button>
       </div>
 
-      <div className="space-y-3 p-4">
+      <div className="custom-scrollbar min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
         <div className="grid gap-2 md:grid-cols-3">
           {[
             { label: 'Trigger', value: card.trigger },
@@ -1331,7 +1331,7 @@ function ExecutiveImpactActionModal({ card, onClose, onToast }: { card: Executiv
             <Bot size={12} /> Context-aware playbook
           </div>
           <p className="text-[11px] leading-relaxed text-[#D8E7FA]">
-            Select the actions to queue now. The demo treats these as pre-configured command actions tied to the card condition, so a low sentiment signal opens resident communications instead of generic dashboard options.
+            Select the actions to assign now. The demo treats these as pre-configured manager actions tied to the card condition, so a low sentiment signal opens resident communications instead of generic dashboard options.
           </p>
         </div>
 
@@ -1371,7 +1371,7 @@ function ExecutiveImpactActionModal({ card, onClose, onToast }: { card: Executiv
             <div>
               <div className="text-[10px] font-bold uppercase tracking-wide text-[#8DBDFF]">Custom action</div>
               <p className="mt-0.5 text-[10px] leading-relaxed text-[#7A94B4]">
-                Type or dictate a one-off action for this situation. It will be queued with the selected playbook actions.
+                Type or dictate a one-off action for this situation. It will be assigned with the selected playbook actions.
               </p>
             </div>
             <button
@@ -1425,19 +1425,19 @@ function ExecutiveImpactActionModal({ card, onClose, onToast }: { card: Executiv
             </div>
           )}
         </div>
+      </div>
 
-        <div className="flex items-center justify-between gap-3 border-t border-[rgba(46,127,255,0.12)] pt-3">
+        <div className="flex flex-shrink-0 items-center justify-between gap-3 border-t border-[rgba(46,127,255,0.12)] bg-[#0B172A]/96 px-4 py-3">
           <div className="text-[10px] text-[#7A94B4]">
             {hasCustomSelection
               ? `${actionCount} action${actionCount === 1 ? '' : 's'} selected, including custom action${customActions.length + (pendingCustomAction ? 1 : 0) === 1 ? '' : 's'}`
               : `${actionCount} pre-configured action${actionCount === 1 ? '' : 's'} selected`}
           </div>
           <div className="flex gap-2">
-            <button onClick={onClose} className="rounded-lg border border-[rgba(46,127,255,0.18)] px-3 py-2 text-[11px] font-semibold text-[#9DB9E8] transition-colors hover:bg-white/5">Review Later</button>
-            <button onClick={queueActions} className="rounded-lg bg-[#2E7FFF] px-3 py-2 text-[11px] font-bold text-white shadow-[0_0_14px_rgba(46,127,255,0.32)] transition-colors hover:bg-blue-500">Queue Actions</button>
+            <button onClick={onClose} className="rounded-lg border border-[rgba(46,127,255,0.18)] px-3 py-2 text-[11px] font-semibold text-[#9DB9E8] transition-colors hover:bg-white/5">Close</button>
+            <button onClick={queueActions} className="rounded-lg bg-[#2E7FFF] px-3 py-2 text-[11px] font-bold text-white shadow-[0_0_14px_rgba(46,127,255,0.32)] transition-colors hover:bg-blue-500">Assign Selected</button>
           </div>
         </div>
-      </div>
     </motion.div>
   );
 }
@@ -1612,7 +1612,7 @@ function PulseEventModal({ event, onClose, onToast }: { event: PulseEvent; onClo
   };
 
   const applyResolution = () => {
-    onToast(`${event.client}: ${selectedActions.length} response action${selectedActions.length === 1 ? '' : 's'} queued`, 'success');
+    onToast(`${event.client}: ${selectedActions.length} response action${selectedActions.length === 1 ? '' : 's'} assigned`, 'success');
     onClose();
   };
 
@@ -1631,12 +1631,12 @@ function PulseEventModal({ event, onClose, onToast }: { event: PulseEvent; onClo
       animate={{ opacity: 1, scale: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.96, y: 12 }}
       transition={{ duration: 0.18 }}
-      className="fixed left-1/2 top-1/2 z-[320] max-h-[92vh] w-[min(760px,calc(100%-32px))] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl border border-[rgba(46,127,255,0.28)] bg-[#0B172A] shadow-2xl"
+      className="fixed left-1/2 top-1/2 z-[320] flex max-h-[calc(100dvh-32px)] w-[min(760px,calc(100%-32px))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-[rgba(46,127,255,0.28)] bg-[#0B172A] shadow-2xl"
       role="dialog"
       aria-modal="true"
       aria-label="Portfolio pulse event"
     >
-      <div className="flex items-start justify-between gap-3 border-b border-[rgba(46,127,255,0.16)] bg-[linear-gradient(90deg,rgba(46,127,255,0.18),rgba(17,32,64,0.98))] px-4 py-3">
+      <div className="flex flex-shrink-0 items-start justify-between gap-3 border-b border-[rgba(46,127,255,0.16)] bg-[linear-gradient(90deg,rgba(46,127,255,0.18),rgba(17,32,64,0.98))] px-4 py-3">
         <div className="flex min-w-0 items-start gap-3">
           <div className={`mt-0.5 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl ${cfg.cls}`}>
             {cfg.icon}
@@ -1655,7 +1655,7 @@ function PulseEventModal({ event, onClose, onToast }: { event: PulseEvent; onClo
         </button>
       </div>
 
-      <div className="max-h-[calc(92vh-74px)] space-y-3 overflow-y-auto p-4 custom-scrollbar">
+      <div className="custom-scrollbar min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
         <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/10 p-3">
           <div className="mb-1 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wide text-cyan-200">
             <Bot size={12} /> Command decision
@@ -1707,7 +1707,7 @@ function PulseEventModal({ event, onClose, onToast }: { event: PulseEvent; onClo
 
         <div>
           <div className="mb-2 flex items-center justify-between">
-            <div className="text-[10px] font-bold uppercase tracking-wide text-[#8DBDFF]">Queue response actions</div>
+            <div className="text-[10px] font-bold uppercase tracking-wide text-[#8DBDFF]">Assign response actions</div>
             <div className="text-[9px] text-[#7A94B4]">{selectedActions.length} selected</div>
           </div>
           <div className="grid gap-2 md:grid-cols-2">
@@ -1771,15 +1771,15 @@ function PulseEventModal({ event, onClose, onToast }: { event: PulseEvent; onClo
             </div>
           </div>
         </div>
+      </div>
 
-        <div className="flex items-center justify-between gap-3 border-t border-[rgba(46,127,255,0.12)] pt-3">
-          <div className="text-[10px] text-[#7A94B4]">{selectedActions.length} response action{selectedActions.length === 1 ? '' : 's'} selected for command queue</div>
+        <div className="flex flex-shrink-0 items-center justify-between gap-3 border-t border-[rgba(46,127,255,0.12)] bg-[#0B172A]/96 px-4 py-3">
+          <div className="text-[10px] text-[#7A94B4]">{selectedActions.length} response action{selectedActions.length === 1 ? '' : 's'} selected for the response plan</div>
           <div className="flex gap-2">
-            <button onClick={onClose} className="rounded-lg border border-[rgba(46,127,255,0.18)] px-3 py-2 text-[11px] font-semibold text-[#9DB9E8] transition-colors hover:bg-white/5">Review Later</button>
-            <button onClick={applyResolution} className="rounded-lg bg-[#2E7FFF] px-3 py-2 text-[11px] font-bold text-white shadow-[0_0_14px_rgba(46,127,255,0.32)] transition-colors hover:bg-blue-500">Queue Resolution</button>
+            <button onClick={onClose} className="rounded-lg border border-[rgba(46,127,255,0.18)] px-3 py-2 text-[11px] font-semibold text-[#9DB9E8] transition-colors hover:bg-white/5">Close</button>
+            <button onClick={applyResolution} className="rounded-lg bg-[#2E7FFF] px-3 py-2 text-[11px] font-bold text-white shadow-[0_0_14px_rgba(46,127,255,0.32)] transition-colors hover:bg-blue-500">Assign Response</button>
           </div>
         </div>
-      </div>
     </motion.div>
   );
 }
