@@ -71,6 +71,7 @@ type VendorAiExtraction = {
 };
 
 type QuoteExtractionStatus = 'Read' | 'Missing price' | 'Missing SLA' | 'Missing delivery' | 'Needs clarification' | 'Unsupported / no text';
+type QuoteWorkbenchStep = 'context' | 'upload' | 'comparison';
 
 type ProcurementAssignmentContext = {
   propertyId: string;
@@ -1735,6 +1736,7 @@ function PageProcurementCopilotModal({
   const [quoteNotes, setQuoteNotes] = useState('');
   const [quoteAnalysis, setQuoteAnalysis] = useState<QuoteAnalysis | null>(null);
   const [quoteActionArtifact, setQuoteActionArtifact] = useState<QuoteActionArtifact | null>(null);
+  const [quoteStep, setQuoteStep] = useState<QuoteWorkbenchStep>('context');
   const [rfqState, setRfqState] = useState<RfqWizardState>(() => buildInitialRfqState(focusVendor, selectedProjectData));
   const [rfqPackage, setRfqPackage] = useState<RfqGeneratedPackage | null>(null);
   const [rfqFeedback, setRfqFeedback] = useState('');
@@ -1785,6 +1787,7 @@ function PageProcurementCopilotModal({
     setQuoteAssignment(prev => ({ ...prev, ...patch }));
     setQuoteAnalysis(null);
     setQuoteActionArtifact(null);
+    setQuoteStep('context');
   }
 
   function changeQuoteProperty(propertyId: string) {
@@ -1842,6 +1845,7 @@ function PageProcurementCopilotModal({
     setQuoteDocuments(nextDocuments);
     setQuoteAnalysis(buildQuoteAnalysis(nextDocuments, quoteNotes, quoteAssignment));
     setQuoteActionArtifact(null);
+    setQuoteStep('upload');
     onRun('compare');
     event.target.value = '';
   }
@@ -1851,6 +1855,7 @@ function PageProcurementCopilotModal({
     const analysis = buildQuoteAnalysis(quoteDocuments, quoteNotes, quoteAssignment);
     setQuoteAnalysis(analysis);
     setQuoteActionArtifact(null);
+    setQuoteStep('comparison');
     onRun('compare');
     setAssistantNote(`${analysis.winner.vendorName} is currently recommended. Review the findings, exclusions, and next action before award.`);
   }
@@ -1860,6 +1865,7 @@ function PageProcurementCopilotModal({
     setQuoteNotes('');
     setQuoteAnalysis(null);
     setQuoteActionArtifact(null);
+    setQuoteStep(quoteAssignmentComplete ? 'upload' : 'context');
     setAssistantNote('Quote comparison reset. Upload or paste new quotes to analyse again.');
   }
 
@@ -2025,10 +2031,12 @@ function PageProcurementCopilotModal({
     { label: 'Required delivery', value: quoteAssignment.requiredDeliveryDate || 'Select date' },
     { label: 'Quote data source', value: 'Uploaded files / pasted quote text only' },
   ];
-  const quoteSteps = [
-    { label: '1 Assign Context', value: quoteAssignmentComplete ? `${quoteAssignment.propertyName} / ${quoteAssignment.packageName}` : 'required before upload', active: quoteAssignmentComplete },
-    { label: '2 Upload Quotes', value: `${quoteDocuments.length} file${quoteDocuments.length === 1 ? '' : 's'} / ${quoteNotes.trim() ? 'text pasted' : 'text optional'}`, active: quoteAssignmentComplete && (quoteDocuments.length > 0 || Boolean(quoteNotes.trim())) },
-    { label: '3 AI Comparison', value: quoteAnalysis ? `${readableQuoteCount}/${quoteAnalysis.items.length} quotes readable` : 'ready to run', active: Boolean(quoteAnalysis) },
+  const quoteHasInput = quoteDocuments.length > 0 || Boolean(quoteNotes.trim());
+  const visibleQuoteStep: QuoteWorkbenchStep = quoteAssignmentComplete ? quoteStep : 'context';
+  const quoteSteps: { id: QuoteWorkbenchStep; label: string; value: string; enabled: boolean; complete: boolean }[] = [
+    { id: 'context', label: '1 Assign Context', value: quoteAssignmentComplete ? `${quoteAssignment.propertyName} / ${quoteAssignment.packageName}` : 'required before upload', enabled: true, complete: quoteAssignmentComplete },
+    { id: 'upload', label: '2 Upload Quotes', value: quoteHasInput ? `${quoteDocuments.length} file${quoteDocuments.length === 1 ? '' : 's'} / ${quoteNotes.trim() ? 'text pasted' : 'text optional'}` : quoteAssignmentComplete ? 'ready for files / text' : 'locked until context is confirmed', enabled: quoteAssignmentComplete, complete: quoteHasInput },
+    { id: 'comparison', label: '3 AI Comparison', value: quoteAnalysis ? `${readableQuoteCount}/${quoteAnalysis.items.length} quotes readable` : 'run after upload', enabled: Boolean(quoteAnalysis), complete: Boolean(quoteAnalysis) },
   ];
   const quoteItemForDocument = (doc: VendorSetupDocument) => quoteAnalysis?.items.find(item => item.id === doc.id);
   const quoteStatusTone = (status?: QuoteExtractionStatus) => {
@@ -2072,7 +2080,7 @@ function PageProcurementCopilotModal({
               {isCompareMode
                 ? 'Assign the property, project, and package first, then compare uploaded supplier quotes against that context.'
                 : isRfqMode
-                  ? <>Anchor the property and project first, then choose whether to tell AI, use a template, or upload scope documents for <span className="font-bold text-[#EEF3FA]">{focusVendor.name}</span>.</>
+                  ? <>Anchor the property and project first, then choose whether to tell AI, use a template, or upload scope documents.</>
                 : <>Tell me the procurement outcome. I will generate the artifact and keep the vendor context anchored to <span className="font-bold text-[#EEF3FA]">{focusVendor.name}</span>.</>}
             </p>
           </div>
@@ -2085,22 +2093,33 @@ function PageProcurementCopilotModal({
           <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto p-5">
             <div className="grid gap-3 sm:grid-cols-3">
               {quoteSteps.map(step => (
-                <div
-                  key={step.label}
-                  className={`rounded-xl border p-3 transition-all ${
-                    step.active
-                      ? 'border-[#2E7FFF]/38 bg-[#2E7FFF]/14 shadow-[0_0_22px_rgba(46,127,255,0.10)]'
-                      : 'border-[rgba(46,127,255,0.14)] bg-[#07111F]'
-                  }`}
+                <button
+                  key={step.id}
+                  type="button"
+                  disabled={!step.enabled}
+                  onClick={() => setQuoteStep(step.id)}
+                  className={`rounded-xl border p-3 text-left transition-all ${
+                    visibleQuoteStep === step.id
+                      ? 'border-[#2E7FFF]/48 bg-[#2E7FFF]/16 shadow-[0_0_22px_rgba(46,127,255,0.10)]'
+                      : step.complete
+                        ? 'border-emerald-400/24 bg-emerald-400/10'
+                        : 'border-[rgba(46,127,255,0.14)] bg-[#07111F]'
+                  } ${step.enabled ? 'hover:-translate-y-0.5 hover:border-[#2E7FFF]/38' : 'cursor-not-allowed opacity-60'}`}
                 >
-                  <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#8DBDFF]">{step.label}</div>
+                  <div className={`text-[10px] font-black uppercase tracking-[0.16em] ${
+                    visibleQuoteStep === step.id ? 'text-[#8DBDFF]' : step.complete ? 'text-emerald-200' : 'text-[#7A94B4]'
+                  }`}
+                  >
+                    {step.label}
+                  </div>
                   <div className="mt-1 text-[11px] leading-4 text-[#C8D8EE]">{step.value}</div>
-                </div>
+                </button>
               ))}
             </div>
 
             <div className="mt-4 grid gap-4 lg:grid-cols-[0.92fr_1.08fr]">
               <div className="space-y-4">
+                {visibleQuoteStep === 'context' && (
                 <section className="rounded-2xl border border-[rgba(46,127,255,0.18)] bg-[#07111F] p-4">
                   <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
                     <div>
@@ -2168,9 +2187,33 @@ function PageProcurementCopilotModal({
                       Assigned to: <span className="font-black">{quoteAssignment.propertyName} / {quoteAssignment.projectName} / {quoteAssignment.packageName}</span>. Source: user-selected procurement context. Quote data: actual uploaded files, with manual paste only as backup.
                     </div>
                   </div>
+                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[#2E7FFF]/14 pt-4">
+                    <div className="text-[11px] leading-5 text-[#8AA6C8]">
+                      Quote upload unlocks only after the assignment is confirmed.
+                    </div>
+                    <button
+                      type="button"
+                      disabled={!quoteAssignmentComplete}
+                      onClick={() => setQuoteStep('upload')}
+                      className="inline-flex items-center gap-2 rounded-xl bg-[#2E7FFF] px-4 py-2 text-[11px] font-bold text-white shadow-lg shadow-[#2E7FFF]/20 transition-all hover:bg-[#4B91FF] disabled:cursor-not-allowed disabled:bg-[#1A3356] disabled:text-[#7891B0] disabled:shadow-none"
+                    >
+                      Continue to Upload Quotes
+                      <ChevronRight size={13} />
+                    </button>
+                  </div>
                 </section>
+                )}
 
+                {visibleQuoteStep === 'upload' && (
                 <section className="rounded-2xl border border-emerald-400/22 bg-emerald-500/8 p-4">
+                  <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-cyan-300/18 bg-cyan-300/8 px-3 py-2.5">
+                    <div className="text-[11px] leading-5 text-[#DDF7FF]">
+                      Assigned to: <span className="font-black">{quoteAssignment.propertyName} / {quoteAssignment.projectName} / {quoteAssignment.packageName}</span>
+                    </div>
+                    <button type="button" onClick={() => setQuoteStep('context')} className="rounded-lg border border-[#2E7FFF]/22 bg-[#07111F] px-2.5 py-1.5 text-[10px] font-bold text-[#BFD8FF] transition-colors hover:bg-[#2E7FFF]/12 hover:text-white">
+                      Edit context
+                    </button>
+                  </div>
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <div className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-200">
@@ -2276,6 +2319,32 @@ function PageProcurementCopilotModal({
                     )}
                   </div>
                 </section>
+                )}
+
+                {visibleQuoteStep === 'comparison' && (
+                <section className="rounded-2xl border border-[#2E7FFF]/20 bg-[#07111F] p-4">
+                  <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-[#8DBDFF]">
+                    <ListChecks size={13} />
+                    Selected quote pack
+                  </div>
+                  <div className="mt-3 grid gap-2">
+                    {quoteContextItems.map(item => (
+                      <div key={item.label} className="rounded-xl border border-[#2E7FFF]/12 bg-[#0D1E3A] p-3">
+                        <div className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">{item.label}</div>
+                        <div className="mt-1 text-[12px] font-black text-[#EEF3FA]">{item.value}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <button type="button" onClick={() => setQuoteStep('context')} className="rounded-xl border border-[#2E7FFF]/18 px-3 py-2 text-[10px] font-bold text-[#8AA6C8] transition-colors hover:text-white">
+                      Edit context
+                    </button>
+                    <button type="button" onClick={() => setQuoteStep('upload')} className="rounded-xl border border-[#2E7FFF]/18 px-3 py-2 text-[10px] font-bold text-[#BFD8FF] transition-colors hover:bg-[#2E7FFF]/12 hover:text-white">
+                      Review uploaded quotes
+                    </button>
+                  </div>
+                </section>
+                )}
               </div>
 
               <div className="space-y-4">
