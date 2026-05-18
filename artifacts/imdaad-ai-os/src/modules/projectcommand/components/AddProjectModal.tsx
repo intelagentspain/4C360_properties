@@ -391,19 +391,17 @@ function SecondaryButton({ children, onClick }: { children: ReactNode; onClick: 
 function ProjectContextImportStep({
   material,
   onFile,
-  onText,
   onUseSample,
   onManual,
   onContinue,
 }: {
   material: ProjectMaterialState;
   onFile: (file: File) => void;
-  onText: (value: string) => void;
   onUseSample: () => void;
   onManual: () => void;
   onContinue: () => void;
 }) {
-  const canContinue = Boolean(material.fileName || material.pastedText.trim() || material.useSample) && material.fileParseStatus !== 'reading';
+  const canContinue = Boolean(material.fileName || material.useSample) && material.fileParseStatus !== 'reading';
   const parserStatusLabel = material.fileParseStatus === 'reading'
     ? 'Reading file...'
     : material.fileParseStatus === 'ready'
@@ -411,7 +409,7 @@ function ProjectContextImportStep({
       : material.fileParseStatus === 'limited'
         ? 'Limited text extracted - review will require confirmation'
         : material.fileParseStatus === 'error'
-          ? 'Could not read enough text - paste a brief or use DOCX/XLSX'
+          ? 'Could not read enough text - try a DOCX/XLSX file or use the fallback sample'
           : '';
   return (
     <StepFrame
@@ -449,13 +447,13 @@ function ProjectContextImportStep({
           </div>
         </div>
       </section>
-      <div className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
-        <section className="rounded-lg border border-[#24486F] bg-[#07192D] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
+      <div className="mx-auto max-w-5xl">
+        <section className="rounded-lg border border-[#24486F] bg-[#07192D] p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
           <div className="flex items-start gap-4">
             <IconBox icon={UploadCloud} tone="blue" />
             <div>
-              <h3 className="text-[20px] font-black text-white">Upload LOA, BOQ, contract award, or project summary</h3>
-              <p className="mt-2 text-[13px] leading-relaxed text-[#9DBBE0]">
+              <h3 className="text-[22px] font-black text-white">Upload LOA, BOQ, contract award, or project summary</h3>
+              <p className="mt-2 max-w-3xl text-[13px] leading-relaxed text-[#9DBBE0]">
                 ProjectCommand reads document context first, then creates construction controls from the source material.
               </p>
             </div>
@@ -463,7 +461,7 @@ function ProjectContextImportStep({
 
           <label
             htmlFor="project-context-file"
-            className="group mt-5 flex cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-blue-300/45 bg-[linear-gradient(180deg,rgba(46,127,255,0.12),rgba(6,21,41,0.74))] px-5 py-8 text-center transition hover:border-blue-200/80 hover:bg-blue-500/15"
+            className="group mt-5 flex cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-blue-300/45 bg-[linear-gradient(180deg,rgba(46,127,255,0.12),rgba(6,21,41,0.74))] px-5 py-12 text-center transition hover:border-blue-200/80 hover:bg-blue-500/15"
           >
             <span className="inline-flex h-14 w-14 items-center justify-center rounded-lg border border-blue-300/30 bg-blue-500/15 text-blue-100 transition group-hover:scale-[1.03]">
               <FileUp className="h-7 w-7" />
@@ -518,39 +516,6 @@ function ProjectContextImportStep({
           </div>
         </section>
 
-        <section className="rounded-lg border border-[#24486F] bg-[#07192D] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
-          <div className="flex items-start gap-4">
-            <IconBox icon={FileText} tone="green" />
-            <div>
-              <h3 className="text-[18px] font-black text-white">Paste a project brief</h3>
-              <p className="mt-2 text-[13px] leading-relaxed text-[#9DBBE0]">
-                Use this when the live case is easier to share as text, or when you want to add context alongside uploaded files.
-              </p>
-            </div>
-          </div>
-          <div className="mt-5 rounded-lg border border-[#24486F] bg-[#061529] p-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#6F89AA]">Optional sample</p>
-                <p className="mt-1 text-[13px] font-black text-white">Load a sample project only if you need a fallback.</p>
-              </div>
-              <SampleDocumentButton onClick={onUseSample} />
-            </div>
-          </div>
-          <textarea
-            value={material.pastedText}
-            onChange={event => onText(event.target.value)}
-            placeholder={sampleSobhaPilotBrief.slice(0, 180)}
-            className="mt-4 min-h-[180px] w-full resize-none rounded-lg border border-[#24486F] bg-[#061529] px-4 py-3 text-[13px] leading-relaxed text-white outline-none transition placeholder:text-[#5F7898] focus:border-blue-300/60"
-          />
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap gap-2">
-              <SourcePill>OCR-ready later</SourcePill>
-              <SourcePill>Local PDF/DOC extraction now</SourcePill>
-            </div>
-            <span className="text-[12px] font-bold text-[#7E98B8]">{material.pastedText.length} characters</span>
-          </div>
-        </section>
       </div>
     </StepFrame>
   );
@@ -1352,7 +1317,6 @@ function CreateProjectModal({
                 key="import"
                 material={material}
                 onFile={file => void handleFileSelection(file)}
-                onText={pastedText => setMaterial(current => ({ ...current, fileName: '', documentText: '', parserMethod: 'pasted-brief', parserWarning: '', fileParseStatus: 'idle', pastedText, useSample: false, manual: false }))}
                 onUseSample={() => startUnderstanding({ fileName: 'Sample Sobha Pilot Tower LOA / Project Summary.pdf', documentText: sampleSobhaPilotBrief, parserMethod: 'sample-document', parserWarning: '', fileParseStatus: 'ready', pastedText: sampleSobhaPilotBrief, useSample: true, manual: false })}
                 onManual={() => startUnderstanding({ fileName: '', documentText: '', parserMethod: 'manual', parserWarning: '', fileParseStatus: 'idle', pastedText: '', manual: true, useSample: false })}
                 onContinue={() => startUnderstanding()}

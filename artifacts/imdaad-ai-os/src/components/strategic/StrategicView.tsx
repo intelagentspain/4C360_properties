@@ -39,6 +39,7 @@ import type { ToastFn } from '@/lib/ui';
 interface Props {
   onToast: ToastFn;
   page: StrategicPage;
+  onNavigateToPage: (page: StrategicPage) => void;
   onClientSelect: (clientId: string) => void;
   selectedClientId: string | null;
   onNavigateToIncidents: (clientId: string) => void;
@@ -193,7 +194,7 @@ function SettingsPage({ onToast, dispatchSettings, setDispatchSettings }: { onTo
   );
 }
 
-export function StrategicView({ onToast, page, onClientSelect, selectedClientId, onNavigateToIncidents, onNavigateToCommand, incidentsClientId, onNavigateToIncident, initialIncidentId, onInitialIncidentHandled, onNavigateToTasks, onMarkPPMCreated, ppmCreatedTasks, prefilledTask, onPrefilledTaskConsumed }: Props) {
+export function StrategicView({ onToast, page, onNavigateToPage, onClientSelect, selectedClientId, onNavigateToIncidents, onNavigateToCommand, incidentsClientId, onNavigateToIncident, initialIncidentId, onInitialIncidentHandled, onNavigateToTasks, onMarkPPMCreated, ppmCreatedTasks, prefilledTask, onPrefilledTaskConsumed }: Props) {
   const [dispatchSettings, setDispatchSettings] = useState<DispatchSettings>(initialDispatchSettings);
 
   const motionKey = page === 'incidents' && incidentsClientId ? `incidents-${incidentsClientId}` : page;
@@ -224,9 +225,9 @@ export function StrategicView({ onToast, page, onClientSelect, selectedClientId,
             setDispatchSettings={setDispatchSettings}
           />
         )}
-        {page === 'allclients'  && <AllClients    onToast={onToast} onClientSelect={onClientSelect} onNavigateToIncidents={onNavigateToIncidents} onNavigateToCommand={onNavigateToCommand} />}
+        {page === 'allclients'  && <AllClients    onToast={onToast} onClientSelect={onClientSelect} onNavigateToIncidents={onNavigateToIncidents} onNavigateToCommand={onNavigateToCommand} onOpenProjectCommand={() => onNavigateToPage('projectcommand')} onOpenVendorIQ={() => onNavigateToPage('vendorintelligence')} />}
         {page === 'team'        && <Team          onToast={onToast} />}
-        {page === 'projectcommand' && <ProjectCommand onToast={onToast} />}
+        {page === 'projectcommand' && <ProjectCommand onToast={onToast} onOpenVendorIQ={() => onNavigateToPage('vendorintelligence')} />}
         {page === 'residentportal' && <ResidentPortalDashboard onToast={onToast} />}
       </motion.div>
     </AnimatePresence>

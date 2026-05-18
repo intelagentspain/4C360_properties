@@ -38,7 +38,13 @@ function screenFromPath(): ProjectCommandScreen {
   return resolved ?? 'overview';
 }
 
-export function ProjectCommand({ onToast }: { onToast?: (message: string, type?: 'success' | 'warning' | 'error' | 'info') => void }) {
+export function ProjectCommand({
+  onToast,
+  onOpenVendorIQ,
+}: {
+  onToast?: (message: string, type?: 'success' | 'warning' | 'error' | 'info') => void;
+  onOpenVendorIQ?: () => void;
+}) {
   const [screen, setScreen] = useState<ProjectCommandScreen>(screenFromPath);
   const [addProjectOpen, setAddProjectOpen] = useState(false);
   const selectedDataset = useSelectedProjectCommandData();
@@ -148,7 +154,7 @@ export function ProjectCommand({ onToast }: { onToast?: (message: string, type?:
       </div>
 
       <div className="min-h-0 flex-1 overflow-hidden">
-        {screen === 'overview' && <CommandCenter goTo={goTo} onToast={onToast} />}
+        {screen === 'overview' && <CommandCenter goTo={goTo} onToast={onToast} onOpenVendorIQ={onOpenVendorIQ} />}
         {screen === 'programme' && <Programme />}
         {screen === 'stagegates' && <StageGates onToast={onToast} />}
         {screen === 'cost' && <CostIntelligence />}

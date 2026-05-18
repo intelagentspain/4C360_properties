@@ -165,6 +165,26 @@ function App() {
     setCommandClientName(null);
   };
 
+  const handleStrategicPageChange = (page: StrategicPage) => {
+    if (page === 'incidents') {
+      setIncidentsClientId(undefined);
+      setInitialIncidentId(undefined);
+    }
+    if (page === 'projectcommand' && !window.location.pathname.startsWith('/projectcommand')) {
+      window.history.pushState({}, '', '/projectcommand/overview');
+      setPathVersion(current => current + 1);
+    }
+    if (page === 'residentportal' && !window.location.pathname.startsWith('/residentportal')) {
+      window.history.pushState({}, '', '/residentportal');
+      setPathVersion(current => current + 1);
+    }
+    if (page !== 'projectcommand' && page !== 'residentportal' && (window.location.pathname.startsWith('/projectcommand') || window.location.pathname.startsWith('/residentportal'))) {
+      window.history.pushState({}, '', '/');
+      setPathVersion(current => current + 1);
+    }
+    setStrategicPage(page);
+  };
+
   if (trackId) {
     return <IncidentTrackingView incidentId={trackId} />;
   }
@@ -250,25 +270,7 @@ function App() {
             <Sidebar
               perspective={perspective}
               strategicPage={effectiveStrategicPage}
-              onStrategicPageChange={page => {
-                if (page === 'incidents') {
-                  setIncidentsClientId(undefined);
-                  setInitialIncidentId(undefined);
-                }
-                if (page === 'projectcommand' && !window.location.pathname.startsWith('/projectcommand')) {
-                  window.history.pushState({}, '', '/projectcommand/overview');
-                  setPathVersion(current => current + 1);
-                }
-                if (page === 'residentportal' && !window.location.pathname.startsWith('/residentportal')) {
-                  window.history.pushState({}, '', '/residentportal');
-                  setPathVersion(current => current + 1);
-                }
-                if (page !== 'projectcommand' && page !== 'residentportal' && (window.location.pathname.startsWith('/projectcommand') || window.location.pathname.startsWith('/residentportal'))) {
-                  window.history.pushState({}, '', '/');
-                  setPathVersion(current => current + 1);
-                }
-                setStrategicPage(page);
-              }}
+              onStrategicPageChange={handleStrategicPageChange}
               onToast={msg => addToast(msg, 'info')}
             />
             <main className="flex-1 overflow-hidden relative">
@@ -279,7 +281,7 @@ function App() {
                 transition={{ duration: 0.18, ease: 'easeInOut' }}
                 className="absolute inset-0 flex flex-col"
               >
-                {perspective === 'strategic'  && <StrategicView key={pathVersion} onToast={addToast} page={effectiveStrategicPage} onClientSelect={handleClientSelect} selectedClientId={selectedClientId} onNavigateToIncidents={handleNavigateToIncidents} onNavigateToCommand={handleNavigateToCommand} incidentsClientId={incidentsClientId} onNavigateToIncident={handleNavigateToIncident} initialIncidentId={initialIncidentId} onInitialIncidentHandled={() => setInitialIncidentId(undefined)} onNavigateToTasks={handleNavigateToTasks} onMarkPPMCreated={handleMarkPPMCreated} ppmCreatedTasks={ppmCreatedTasks} prefilledTask={prefilledTask} onPrefilledTaskConsumed={() => setPrefilledTask(null)} />}
+                {perspective === 'strategic'  && <StrategicView key={pathVersion} onToast={addToast} page={effectiveStrategicPage} onNavigateToPage={handleStrategicPageChange} onClientSelect={handleClientSelect} selectedClientId={selectedClientId} onNavigateToIncidents={handleNavigateToIncidents} onNavigateToCommand={handleNavigateToCommand} incidentsClientId={incidentsClientId} onNavigateToIncident={handleNavigateToIncident} initialIncidentId={initialIncidentId} onInitialIncidentHandled={() => setInitialIncidentId(undefined)} onNavigateToTasks={handleNavigateToTasks} onMarkPPMCreated={handleMarkPPMCreated} ppmCreatedTasks={ppmCreatedTasks} prefilledTask={prefilledTask} onPrefilledTaskConsumed={() => setPrefilledTask(null)} />}
                 {perspective === 'operational' && <OperationalView onToast={addToast} />}
                 {perspective === 'client'      && <ClientView onToast={addToast} />}
               </motion.div>
