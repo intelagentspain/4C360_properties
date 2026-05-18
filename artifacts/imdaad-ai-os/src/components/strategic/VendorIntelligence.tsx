@@ -598,6 +598,33 @@ const initialVendorWizardForm: VendorWizardForm = {
   contractFlags: 'Onboarding evidence pack due within 14 days',
 };
 
+const aiVendorWizardForm: VendorWizardForm = {
+  name: '',
+  category: 'General FM',
+  sites: '',
+  address: '',
+  city: 'Dubai',
+  country: 'UAE',
+  pocName: '',
+  pocTitle: '',
+  pocPhone: '',
+  pocEmail: '',
+  activeContracts: '1',
+  contractExpiry: '',
+  slaCompliance: '',
+  firstTimeFixRate: '',
+  avgResolutionMin: '',
+  evidenceCompliance: '',
+  repeatFailureRate: '',
+  jobsLast30d: '',
+  avgCostPerJob: '',
+  trend: 'flat',
+  dependencyRisk: 'Medium',
+  dependencyNote: '',
+  predictedRisk30d: '',
+  contractFlags: '',
+};
+
 function formatDocumentSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
@@ -630,7 +657,7 @@ function extractNumberValue(text: string, labels: string[]): string | null {
 
 function extractMoneyValue(text: string, labels: string[]): number | null {
   const raw = extractLabeledValue(text, labels) ?? text.match(/(?:AED|د\.إ)\s*([0-9][0-9,]*)/i)?.[1] ?? null;
-  const match = raw?.match(/(\d{2,9}(?:,\d{3})?)/);
+  const match = raw?.match(/(\d{1,3}(?:,\d{3})+|\d{2,12})/);
   const value = Number(match?.[1]?.replace(/,/g, ''));
   return Number.isFinite(value) && value > 0 ? value : null;
 }
@@ -655,6 +682,23 @@ function parseComparableDate(value: string | null) {
 function formatProcurementMoney(value: number) {
   if (Math.abs(value) >= 1_000_000) return `AED ${(value / 1_000_000).toFixed(value % 1_000_000 === 0 ? 0 : 1)}M`;
   return `AED ${value.toLocaleString()}`;
+}
+
+function cleanQuoteVendorName(value: string | null, fallback: string) {
+  const raw = (value || fallback).replace(/\s+/g, ' ').trim();
+  const cleaned = raw
+    .replace(/^(supplier|vendor|company|contractor)\s*name\s*[:\-]?\s*/i, '')
+    .split(/\b(?:quote status|quote total|commercial offer|sla commitment|service level|delivery date|mobilization date|mobilisation date|warranty|exclusions|scope of|commercial conditions|recommendation context|clarification)\b/i)[0]
+    .replace(/[.;,:-]+$/g, '')
+    .trim();
+  const words = cleaned.split(/\s+/).filter(Boolean);
+  if (!cleaned) return fallback;
+  return words.length > 6 ? words.slice(0, 6).join(' ') : cleaned;
+}
+
+function compactQuoteText(value: string, maxLength = 96) {
+  const normalized = value.replace(/\s+/g, ' ').trim();
+  return normalized.length > maxLength ? `${normalized.slice(0, maxLength - 1).trim()}...` : normalized;
 }
 
 function inferVendorCategory(text: string): string | null {
@@ -752,9 +796,10 @@ function buildQuoteAnalysis(documents: VendorSetupDocument[], notes: string, ass
   const items = sources.map((source, index) => {
     const hasExtractableText = source.content.trim().length > 20;
     const text = `${source.name}\n${source.content}`;
-    const vendorName = extractLabeledValue(text, ['vendor name', 'supplier name', 'company name', 'contractor', 'vendor'])
-      || cleanDocumentName(source.name)
-      || `${assignment.packageName} bidder ${index + 1}`;
+    const vendorName = cleanQuoteVendorName(
+      extractLabeledValue(text, ['vendor name', 'supplier name', 'company name', 'contractor', 'vendor']),
+      cleanDocumentName(source.name) || `${assignment.packageName} bidder ${index + 1}`,
+    );
     const amount = hasExtractableText
       ? (extractMoneyValue(text, ['total', 'quote total', 'quoted price', 'price', 'amount', 'commercial offer', 'annual value', 'contract value', 'package value']) ?? null)
       : null;
@@ -2507,82 +2552,123 @@ function PageProcurementCopilotModal({
                   </section>
                 ) : (
                   <>
-                    <section className="rounded-2xl border border-emerald-400/25 bg-emerald-500/10 p-4">
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                          <div className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-200">Recommended bidder</div>
-                          <div className="mt-1 text-[18px] font-black text-[#EEF3FA]">{quoteAnalysis.winner.vendorName}</div>
-                          <p className="mt-1 text-[12px] leading-5 text-[#C8D8EE]">{quoteAnalysis.summary}</p>
-                        </div>
-                        <div className="flex gap-2">
-                          <span className={`rounded-full border px-2 py-1 text-[9px] font-black ${quoteRiskTone(quoteAnalysis.winner.risk)}`}>
-                            {quoteAnalysis.winner.risk} risk
-                          </span>
-                          <span className="rounded-full border border-[#2E7FFF]/25 bg-[#2E7FFF]/10 px-2 py-1 text-[9px] font-black text-[#8DBDFF]">
-                            {quoteAnalysis.winner.score}/100
-                          </span>
+                    <section className="overflow-hidden rounded-2xl border border-emerald-400/24 bg-[linear-gradient(135deg,rgba(6,78,59,0.32),rgba(7,17,31,0.96))]">
+                      <div className="border-b border-emerald-400/16 px-4 py-3">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <div className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-200">Award recommendation</div>
+                              <span className={`rounded-full border px-2 py-1 text-[9px] font-black ${quoteRiskTone(quoteAnalysis.winner.risk)}`}>
+                                {quoteAnalysis.winner.risk} risk
+                              </span>
+                              <span className="rounded-full border border-[#2E7FFF]/25 bg-[#2E7FFF]/10 px-2 py-1 text-[9px] font-black text-[#8DBDFF]">
+                                {quoteAnalysis.winner.score}/100
+                              </span>
+                            </div>
+                            <h4 className="mt-2 text-[22px] font-black leading-tight text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+                              {quoteAnalysis.winner.vendorName}
+                            </h4>
+                            <p className="mt-2 max-w-3xl text-[12px] leading-5 text-[#C8D8EE]">{quoteAnalysis.summary}</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => prepareQuoteAction('Prepare Award Brief')}
+                            className="rounded-xl bg-emerald-400 px-3 py-2 text-[10px] font-black text-[#032014] shadow-[0_0_18px_rgba(52,211,153,0.22)] transition-all hover:-translate-y-0.5 hover:bg-emerald-300"
+                          >
+                            Prepare award brief
+                          </button>
                         </div>
                       </div>
-                      <div className="mt-3 grid gap-2 sm:grid-cols-3">
-                        <div className="rounded-xl border border-emerald-400/18 bg-[#07111F] p-3">
-                          <div className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">Commercial spread</div>
-                          <div className="mt-1 text-[13px] font-black text-[#EEF3FA]">
-                            {quoteAnalysis.commercialSpread === null ? 'Incomplete' : formatProcurementMoney(quoteAnalysis.commercialSpread)}
-                          </div>
+
+                      <div className="grid gap-3 p-4 xl:grid-cols-[1fr_0.72fr]">
+                        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                          {[
+                            ['Commercial offer', quoteAnalysis.winner.amount === null ? 'Needs price' : formatProcurementMoney(quoteAnalysis.winner.amount), 'text-[#EEF3FA]'],
+                            ['Budget variance', quoteAnalysis.winner.commercialDelta === null ? 'Not available' : `${quoteAnalysis.winner.commercialDelta >= 0 ? '+' : '-'}${formatProcurementMoney(Math.abs(quoteAnalysis.winner.commercialDelta))}`, quoteAnalysis.winner.commercialDelta !== null && quoteAnalysis.winner.commercialDelta > 0 ? 'text-amber-200' : 'text-emerald-200'],
+                            ['SLA commitment', quoteAnalysis.winner.sla === null ? 'Needs SLA' : `${quoteAnalysis.winner.sla}%`, 'text-[#EEF3FA]'],
+                            ['Delivery', quoteAnalysis.winner.deliveryDate ?? 'Needs date', 'text-[#EEF3FA]'],
+                            ['Warranty', compactQuoteText(quoteAnalysis.winner.warranty, 42), 'text-[#EEF3FA]'],
+                            ['Clarifications', `${quoteAnalysis.clarificationQuestions.length}`, quoteAnalysis.clarificationQuestions.length ? 'text-amber-200' : 'text-emerald-200'],
+                          ].map(([label, value, tone]) => (
+                            <div key={label} className="rounded-xl border border-emerald-400/16 bg-[#07111F]/84 p-3">
+                              <div className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">{label}</div>
+                              <div className={`mt-1 text-[13px] font-black leading-5 ${tone}`}>{value}</div>
+                            </div>
+                          ))}
                         </div>
-                        <div className="rounded-xl border border-emerald-400/18 bg-[#07111F] p-3">
-                          <div className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">Vs package budget</div>
-                          <div className="mt-1 text-[13px] font-black text-emerald-200">
-                            {quoteAnalysis.winner.commercialDelta === null
-                              ? 'Needs price'
-                              : `${quoteAnalysis.winner.commercialDelta >= 0 ? '+' : '-'}${formatProcurementMoney(Math.abs(quoteAnalysis.winner.commercialDelta))}`}
+
+                        <div className="rounded-xl border border-emerald-400/16 bg-[#07111F]/84 p-3">
+                          <div className="text-[9px] font-black uppercase tracking-[0.14em] text-emerald-200">Decision rationale</div>
+                          <div className="mt-2 space-y-2">
+                            {quoteAnalysis.findings.slice(0, 3).map(finding => (
+                              <div key={finding} className="flex gap-2 text-[10px] leading-4 text-[#C8D8EE]">
+                                <CheckCircle size={11} className="mt-0.5 shrink-0 text-emerald-300" />
+                                <span>{finding}</span>
+                              </div>
+                            ))}
                           </div>
-                        </div>
-                        <div className="rounded-xl border border-emerald-400/18 bg-[#07111F] p-3">
-                          <div className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">Clarifications</div>
-                          <div className="mt-1 text-[13px] font-black text-amber-200">{quoteAnalysis.clarificationQuestions.length}</div>
                         </div>
                       </div>
                     </section>
 
                     <section className="rounded-2xl border border-[rgba(46,127,255,0.18)] bg-[#07111F] p-4">
-                      <div className="mb-3 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-[#8DBDFF]">
-                        <ListChecks size={13} />
-                        AI Comparison
+                      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                        <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-[#8DBDFF]">
+                          <ListChecks size={13} />
+                          Supplier ranking
+                        </div>
+                        <div className="rounded-full border border-[#2E7FFF]/18 bg-[#0A1628] px-2.5 py-1 text-[9px] font-black text-[#8DBDFF]">
+                          {quoteAnalysis.items.length} quote{quoteAnalysis.items.length === 1 ? '' : 's'} analysed
+                        </div>
                       </div>
                       <div className="space-y-2">
-                        {quoteAnalysis.items.map(item => (
-                          <div key={item.id} className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#0D1E3A] p-3">
-                            <div className="grid gap-3 lg:grid-cols-[1.1fr_0.7fr_auto] lg:items-start">
+                        {quoteAnalysis.items.map((item, index) => (
+                          <div key={item.id} className={`rounded-xl border p-3 ${index === 0 ? 'border-emerald-400/28 bg-emerald-400/8' : 'border-[rgba(46,127,255,0.14)] bg-[#0D1E3A]'}`}>
+                            <div className="grid gap-3 xl:grid-cols-[46px_1fr_130px_120px_120px_120px] xl:items-center">
+                              <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#2E7FFF]/18 bg-[#07111F] text-[13px] font-black text-[#8DBDFF]">
+                                #{index + 1}
+                              </div>
+                              <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <div className="truncate text-[13px] font-black text-[#EEF3FA]">{item.vendorName}</div>
+                                  {index === 0 && <span className="rounded-full border border-emerald-400/24 bg-emerald-400/10 px-2 py-0.5 text-[8px] font-black uppercase text-emerald-200">Recommended</span>}
+                                </div>
+                                <div className="mt-1 line-clamp-1 text-[10px] leading-4 text-[#8AA6C8]">{item.recommendationReason}</div>
+                              </div>
                               <div>
-                                <div className="text-[12px] font-black text-[#EEF3FA]">{item.vendorName}</div>
-                                <div className="mt-1 text-[10px] leading-4 text-[#8AA6C8]">{item.recommendationReason}</div>
+                                <div className="text-[8px] font-black uppercase tracking-[0.12em] text-[#6F89AA]">Score</div>
+                                <div className="mt-1 flex items-center gap-2">
+                                  <div className="h-1.5 flex-1 rounded-full bg-[#07111F]">
+                                    <div className="h-full rounded-full bg-[#2E7FFF]" style={{ width: `${item.score}%` }} />
+                                  </div>
+                                  <span className="text-[11px] font-black text-[#8DBDFF]">{item.score}</span>
+                                </div>
                               </div>
-                              <div className="text-[10px] leading-5 text-[#C8D8EE]">
-                                <div>{item.amount === null ? 'Price not found' : `Price: ${formatProcurementMoney(item.amount)}`}</div>
-                                <div>{item.sla === null ? 'SLA not found' : `SLA: ${item.sla}%`}</div>
-                                <div>{item.deliveryDate === null ? 'Delivery not found' : `Delivery: ${item.deliveryDate}`}</div>
-                                <div>Warranty: {item.warranty}</div>
-                                <div>Delta: {item.commercialDelta === null ? 'not available' : `${item.commercialDelta >= 0 ? '+' : '-'}${formatProcurementMoney(Math.abs(item.commercialDelta))} vs package budget`}</div>
+                              <div>
+                                <div className="text-[8px] font-black uppercase tracking-[0.12em] text-[#6F89AA]">Commercial</div>
+                                <div className="mt-1 text-[11px] font-black text-[#EEF3FA]">{item.amount === null ? 'Not found' : formatProcurementMoney(item.amount)}</div>
                               </div>
-                              <div className="flex flex-wrap gap-2 lg:justify-end">
-                                <span className={`rounded-full border px-2 py-1 text-[9px] font-black ${quoteStatusTone(item.extractionStatus)}`}>
+                              <div>
+                                <div className="text-[8px] font-black uppercase tracking-[0.12em] text-[#6F89AA]">SLA / Delivery</div>
+                                <div className="mt-1 text-[11px] font-black text-[#EEF3FA]">{item.sla === null ? 'SLA ?' : `${item.sla}%`} / {item.deliveryDate ?? 'Date ?'}</div>
+                              </div>
+                              <div className="flex flex-wrap gap-1.5 xl:justify-end">
+                                <span className={`rounded-full border px-2 py-1 text-[8px] font-black ${quoteStatusTone(item.extractionStatus)}`}>
                                   {item.extractionStatus}
                                 </span>
-                                <span className={`rounded-full border px-2 py-1 text-[9px] font-black ${quoteRiskTone(item.risk)}`}>
-                                  {item.risk} risk
-                                </span>
-                                <span className="rounded-full border border-[#2E7FFF]/25 bg-[#2E7FFF]/10 px-2 py-1 text-[9px] font-black text-[#8DBDFF]">
-                                  {item.score}/100
+                                <span className={`rounded-full border px-2 py-1 text-[8px] font-black ${quoteRiskTone(item.risk)}`}>
+                                  {item.risk}
                                 </span>
                               </div>
                             </div>
-                            <div className="mt-2 text-[10px] leading-5 text-[#8AA6C8]">Exclusions: {item.exclusions}</div>
-                            {item.clarificationQuestions.length > 0 && (
-                              <div className="mt-2 rounded-lg border border-amber-400/18 bg-amber-400/8 p-2 text-[10px] leading-5 text-amber-100">
-                                {item.clarificationQuestions[0]}
+                            <div className="mt-3 grid gap-2 lg:grid-cols-[1fr_1fr]">
+                              <div className="rounded-lg border border-[rgba(46,127,255,0.10)] bg-[#07111F]/72 px-3 py-2 text-[10px] leading-4 text-[#8AA6C8]">
+                                <span className="font-black text-[#BFD8FF]">Exclusions: </span>{compactQuoteText(item.exclusions, 150)}
                               </div>
-                            )}
+                              <div className={`rounded-lg border px-3 py-2 text-[10px] leading-4 ${item.clarificationQuestions.length ? 'border-amber-400/18 bg-amber-400/8 text-amber-100' : 'border-emerald-400/18 bg-emerald-400/8 text-emerald-100'}`}>
+                                {item.clarificationQuestions[0] ?? 'No immediate clarification blocker detected.'}
+                              </div>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -3974,7 +4060,7 @@ function AddVendorWizard({
   onCreate: (vendor: VendorIntelData, source?: VendorCreateSource) => void;
 }) {
   const [step, setStep] = useState<VendorWizardStep>(1);
-  const [form, setForm] = useState<VendorWizardForm>(initialVendorWizardForm);
+  const [form, setForm] = useState<VendorWizardForm>(aiVendorWizardForm);
   const [setupMode, setSetupMode] = useState<VendorSetupMode>('ai');
   const [aiDocuments, setAiDocuments] = useState<VendorSetupDocument[]>([]);
   const [aiNotes, setAiNotes] = useState('');
@@ -4019,8 +4105,8 @@ function AddVendorWizard({
   const needsConfirmation = [
     form.name.trim() ? null : 'Vendor name',
     extracted('category') ? null : 'Service category',
-    extracted('SLA') || form.slaCompliance ? null : 'SLA commitment',
-    extracted('evidence') || form.evidenceCompliance ? null : 'Evidence requirement',
+    extracted('SLA') ? null : 'SLA commitment',
+    extracted('evidence') ? null : 'Evidence requirement',
     extracted('Contract expiry') ? null : 'Contract expiry',
     extracted('Dependency risk') ? null : 'Dependency risk',
   ].filter((item): item is string => Boolean(item));
@@ -4056,6 +4142,8 @@ function AddVendorWizard({
   function switchSetupMode(mode: VendorSetupMode) {
     setSetupMode(mode);
     setStep(1);
+    if (mode === 'manual' && setupMode === 'ai' && !form.name.trim() && aiExtractions.length === 0) setForm(initialVendorWizardForm);
+    if (mode === 'ai' && setupMode === 'manual') setForm(aiVendorWizardForm);
   }
 
   function submit() {
@@ -4094,6 +4182,8 @@ function AddVendorWizard({
     setAiDocuments([]);
     setAiNotes('');
     setAiExtractions([]);
+    setForm(aiVendorWizardForm);
+    setStep(1);
   }
 
   return (
