@@ -4000,99 +4000,9 @@ interface Props {
   onClientSelect: (clientId: string) => void;
   onNavigateToIncidents: (clientId: string) => void;
   onNavigateToCommand: (clientId: string, clientName?: string) => void;
-  onOpenProjectCommand: () => void;
-  onOpenVendorIQ: () => void;
 }
 
-function SobhaPilotPathCard({
-  onOpenProjectCommand,
-  onOpenVendorIQ,
-  onToast,
-}: {
-  onOpenProjectCommand: () => void;
-  onOpenVendorIQ: () => void;
-  onToast: ToastFn;
-}) {
-  const steps = [
-    { label: '1 Source', value: 'AI reads LOA / project summary', icon: <FileText size={13} /> },
-    { label: '2 Twin', value: 'Baseline creates programme, cost, risk, gates', icon: <Bot size={13} /> },
-    { label: '3 Event', value: 'Inject delay and show forecast impact', icon: <Zap size={13} /> },
-    { label: '4 Decision', value: 'Manager recovery actions and evidence path', icon: <CheckCircle size={13} /> },
-    { label: '5 VendorIQ', value: 'Quote comparison and procurement action', icon: <Shield size={13} /> },
-  ];
-  const talkTrack = [
-    'Sobha pilot path',
-    '1. Open ProjectCommand and show the control twin baseline for Sobha Pilot Tower.',
-    '2. Inject a live event and show how health, float, EAC, gates, and forecast move together.',
-    '3. Use Recommended Actions to show the manager decision and recovery path.',
-    '4. Open VendorIQ and run the sample quote pack to show procurement action.',
-    '5. Close with the Pilot Summary: one tower, 6-8 weeks, measure float protected, evidence gaps closed, rework avoided, handover confidence improved.',
-  ].join('\n');
-
-  function copyTalkTrack() {
-    navigator.clipboard.writeText(talkTrack).then(() => {
-      onToast('Sobha pilot talk track copied', 'success');
-    }).catch(() => {
-      onToast('Talk track is ready, but clipboard access was blocked', 'warning');
-    });
-  }
-
-  return (
-    <section className="mx-5 mb-3 rounded-xl border border-violet-300/22 bg-[linear-gradient(135deg,rgba(124,58,237,0.16),rgba(46,127,255,0.10),rgba(7,17,31,0.72))] p-3 shadow-[0_16px_44px_rgba(2,8,20,0.24)]">
-      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-violet-100">
-            <Activity size={13} />
-            Sobha 7-minute pilot path
-          </div>
-          <h3 className="mt-1 text-[15px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-            One live story: document to control twin to event impact to manager recovery to procurement action.
-          </h3>
-          <p className="mt-1 max-w-5xl text-[11px] leading-5 text-[#9CB1CC]">
-            Use this as the meeting spine: prove the system understands one tower, then show how it protects delivery, evidence, handover confidence, and vendor decisions.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={onOpenProjectCommand}
-            className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#7C3AED] px-3 text-[11px] font-black text-white shadow-[0_0_18px_rgba(124,58,237,0.26)] transition-colors hover:bg-[#6D28D9]"
-          >
-            Open ProjectCommand
-            <ArrowRight size={13} />
-          </button>
-          <button
-            type="button"
-            onClick={onOpenVendorIQ}
-            className="inline-flex h-9 items-center gap-2 rounded-lg border border-emerald-300/28 bg-emerald-400/10 px-3 text-[11px] font-black text-emerald-100 transition-colors hover:bg-emerald-400/16"
-          >
-            Open VendorIQ
-          </button>
-          <button
-            type="button"
-            onClick={copyTalkTrack}
-            className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#2E7FFF]/24 bg-[#07111F]/78 px-3 text-[11px] font-black text-[#BFD8FF] transition-colors hover:bg-[#2E7FFF]/12"
-          >
-            Copy talk track
-          </button>
-        </div>
-      </div>
-      <div className="mt-3 grid gap-2 md:grid-cols-5">
-        {steps.map(step => (
-          <div key={step.label} className="rounded-lg border border-white/8 bg-[#07111F]/66 p-2.5">
-            <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.14em] text-[#A78BFA]">
-              <span className="grid h-6 w-6 place-items-center rounded-lg bg-violet-400/12 text-violet-100">{step.icon}</span>
-              {step.label}
-            </div>
-            <p className="mt-1.5 text-[10px] leading-4 text-[#C8D8EE]">{step.value}</p>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onNavigateToCommand, onOpenProjectCommand, onOpenVendorIQ }: Props) {
+export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onNavigateToCommand }: Props) {
   const memberFilter  = useMemberFilter();
   const { addProfiles } = useMemberProfiles();
   const { clients: allClients, addClient } = useClients();
@@ -4225,14 +4135,6 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
           </button>
         </div>
       </div>
-
-      {!isMemberMode && (
-        <SobhaPilotPathCard
-          onOpenProjectCommand={onOpenProjectCommand}
-          onOpenVendorIQ={onOpenVendorIQ}
-          onToast={onToast}
-        />
-      )}
 
       <PortfolioSummaryStrip clients={allClients} onToast={onToast} />
 
