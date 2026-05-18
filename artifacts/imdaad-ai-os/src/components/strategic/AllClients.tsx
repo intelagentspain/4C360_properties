@@ -2877,13 +2877,13 @@ function PortfolioPulseFeed({ onToast }: { onToast: ToastFn }) {
       </div>
       <div className="flex overflow-x-auto custom-scrollbar">
         <AnimatePresence initial={false}>
-          {visibleEvents.map(ev => {
+          {visibleEvents.map((ev, eventIndex) => {
             const border = PULSE_SEV_BORDER[ev.severity];
             const cfg    = PULSE_SEV_ICON[ev.severity];
             const plan = buildPulseCommandPlan(ev);
             return (
               <motion.div
-                key={ev.id}
+                key={`${ev.id}-${eventIndex}`}
                 initial={{ opacity: 0, x: -16 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, height: 0 }}
