@@ -745,6 +745,478 @@ function actionPlanButtonLabel(count: number): string {
   return count === 1 ? 'Create Action' : 'Create Action Plan';
 }
 
+function managedActionInitialStatus(channel: string, custom = false): ManagedActionStatus {
+  if (custom) return 'Ready to assign';
+  const group = actionPlanGroup(channel);
+  if (group === 'Approval') return 'Needs approval';
+  if (group === 'Calls' || group === 'Meeting') return 'Scheduled draft';
+  if (group === 'Email / Notice') return 'Draft prepared';
+  if (group === 'AI Watch') return 'Watching';
+  return 'Ready to assign';
+}
+
+function managedStatusClass(status: ManagedActionStatus): string {
+  if (status === 'Needs approval') return 'border-amber-400/25 bg-amber-400/10 text-amber-200';
+  if (status === 'Draft prepared') return 'border-cyan-400/25 bg-cyan-400/10 text-cyan-200';
+  if (status === 'Scheduled draft') return 'border-violet-400/25 bg-violet-400/10 text-violet-200';
+  if (status === 'Watching') return 'border-emerald-400/25 bg-emerald-400/10 text-emerald-200';
+  return 'border-blue-400/25 bg-blue-400/10 text-blue-200';
+}
+
+function managedActionText(title: string, detail: ManagedActionDetail): string {
+  return [
+    title,
+    `Owner/Sender: ${detail.sender}`,
+    `Audience: ${detail.audience}`,
+    `Due: ${detail.dueBy}`,
+    '',
+    `${detail.artifact.type}: ${detail.artifact.title}`,
+    detail.artifact.body,
+    '',
+    'Checklist:',
+    ...detail.checklist.map(item => `- ${item}`),
+  ].join('\n');
+}
+
+const RESIDENT_SENTIMENT_ACTION_DETAILS: Record<string, Omit<ManagedActionDetail, 'quickCommands'>> = {
+  'Send email to affected residents': {
+    audience: 'Residents with open or late service requests, repeat complaint households, and affected floors in the selected property cluster.',
+    sender: 'Community Manager',
+    dueBy: 'Draft ready in 15 min, resident update before 5:00 PM',
+    artifact: {
+      type: 'Email draft',
+      title: 'Service update and recovery timeline',
+      body: [
+        'Subject: Service update and recovery timeline',
+        '',
+        'Dear Resident,',
+        '',
+        'We are writing to acknowledge the current service delays affecting your building and to share the recovery path now in progress.',
+        '',
+        'Our operations team is prioritizing the oldest open requests, confirming technician availability, and publishing the next service update today. Your request remains visible to the community management team until it is closed with evidence.',
+        '',
+        'Next update: Today at 5:00 PM.',
+        'Contact: Community Management Desk.',
+        '',
+        'Thank you for your patience while the recovery actions are completed.',
+      ].join('\n'),
+    },
+    checklist: [
+      'Confirm affected resident segment from open service requests.',
+      'Check legal/client wording before release.',
+      'Attach recovery timeline or service window if available.',
+      'Log the sent draft as resident communication evidence.',
+    ],
+  },
+  'Hold resident meeting': {
+    audience: 'Resident committee, high-impact households, Property Manager, Community Manager, and Operations Lead.',
+    sender: 'Property Manager',
+    dueBy: 'Invite draft ready today, meeting window within 48 hours',
+    artifact: {
+      type: 'Meeting agenda',
+      title: 'Resident recovery briefing',
+      body: [
+        'Agenda',
+        '1. Current service recovery status.',
+        '2. Root causes behind delays or repeated complaints.',
+        '3. Recovery timeline and named owners.',
+        '4. Resident questions and priority cases.',
+        '5. Next written update and follow-up channel.',
+      ].join('\n'),
+    },
+    checklist: [
+      'Confirm room or video link.',
+      'Add resident committee and priority residents.',
+      'Bring latest SLA, incident, and recovery data.',
+      'Capture minutes and agreed actions.',
+    ],
+  },
+  'Make priority follow-up calls': {
+    audience: 'Residents with repeated complaints, escalated service requests, or unresolved resident-facing incidents.',
+    sender: 'Resident Care Team',
+    dueBy: 'Call list ready in 10 min, first calls before end of shift',
+    artifact: {
+      type: 'Call script',
+      title: 'Priority resident follow-up',
+      body: [
+        'Opening: We are calling because your service request is marked as priority in our recovery plan.',
+        'Confirm: Can we confirm the issue is still affecting you and the best access window?',
+        'Explain: The operations team is working through a recovery sequence and your case is assigned for follow-up.',
+        'Commit: We will update you by the agreed time even if the fix is still in progress.',
+        'Close: Is there anything else linked to this issue we should capture now?',
+      ].join('\n'),
+    },
+    checklist: [
+      'Pull priority residents from overdue and repeat-request list.',
+      'Confirm preferred language and contact number.',
+      'Record call outcome against each resident case.',
+      'Escalate unresolved access or safety issues.',
+    ],
+  },
+  'Publish service recovery timeline': {
+    audience: 'Affected residents, front desk, community management, and property operations.',
+    sender: 'Operations Lead',
+    dueBy: 'Timeline draft ready in 20 min, publish after manager review',
+    artifact: {
+      type: 'Notice timeline',
+      title: 'Resident-facing service recovery timeline',
+      body: [
+        'Recovery timeline',
+        'Now: Oldest resident-impacting cases are being triaged.',
+        'Today: Technician capacity is rebalanced to affected properties.',
+        'By 5:00 PM: Residents receive the next written update.',
+        'Tomorrow: Remaining open items are reviewed with evidence and owner accountability.',
+      ].join('\n'),
+    },
+    checklist: [
+      'Confirm dates and times with operations.',
+      'Remove internal-only comments before publishing.',
+      'Align front desk script with the notice.',
+      'Attach timeline to resident communication evidence.',
+    ],
+  },
+  'Create sentiment watch list': {
+    audience: 'DevelopmentX Copilot, Community Manager, Resident Care Team, and Operations Lead.',
+    sender: 'DevelopmentX Copilot',
+    dueBy: 'Watch active for the next 7 days',
+    artifact: {
+      type: 'Watch rule',
+      title: 'Resident sentiment watch list',
+      body: [
+        'Watch duration: 7 days.',
+        'Trigger if any resident has 2+ negative contacts in 72 hours.',
+        'Trigger if an escalated request remains open after the promised update time.',
+        'Trigger if sentiment drops below 82% for the property cluster.',
+        'Escalate to Community Manager and Operations Lead with linked cases.',
+      ].join('\n'),
+    },
+    checklist: [
+      'Track repeat complaints and unresolved high-priority requests.',
+      'Include open SLA breaches that affect residents.',
+      'Send daily watch summary to the owner group.',
+      'Close watch only after sentiment stabilizes for 48 hours.',
+    ],
+  },
+};
+
+function fallbackManagedActionDetail(action: ExecutiveAction, card: ExecutiveImpactCard, custom: boolean): Omit<ManagedActionDetail, 'quickCommands'> {
+  const group = custom ? 'Custom' : actionPlanGroup(action.channel);
+  if (group === 'Calls') {
+    return {
+      audience: 'Priority contacts linked to this portfolio signal.',
+      sender: action.owner,
+      dueBy: 'Call plan ready this shift',
+      artifact: {
+        type: 'Call script',
+        title: action.label,
+        body: `Use the ${card.label} signal to explain the current issue, confirm impact, capture commitments, and log the outcome for manager review.`,
+      },
+      checklist: ['Confirm contact list.', 'Use approved call notes.', 'Capture outcome and owner.', 'Escalate unresolved blockers.'],
+    };
+  }
+  if (group === 'Meeting') {
+    return {
+      audience: 'Named owners, client stakeholders, and operational leads linked to this signal.',
+      sender: action.owner,
+      dueBy: 'Meeting invite draft ready today',
+      artifact: {
+        type: 'Meeting agenda',
+        title: action.label,
+        body: `Agenda: review the ${card.label} trigger, agree owners, confirm timeline, and capture the next update commitment.`,
+      },
+      checklist: ['Confirm attendees.', 'Attach latest signal data.', 'Capture decisions.', 'Record follow-up owner.'],
+    };
+  }
+  if (group === 'Approval') {
+    return {
+      audience: 'Approver, portfolio lead, and accountable owner.',
+      sender: action.owner,
+      dueBy: 'Approval brief ready for manager review',
+      artifact: {
+        type: 'Approval brief',
+        title: action.label,
+        body: `Decision required: approve the recommended response to the ${card.label} signal. Expected impact: ${action.impact}`,
+      },
+      checklist: ['State decision required.', 'Attach impact and risk.', 'Name owner and deadline.', 'Track approval status.'],
+    };
+  }
+  if (group === 'AI Watch') {
+    return {
+      audience: 'DevelopmentX Copilot and the assigned owner group.',
+      sender: action.owner,
+      dueBy: 'Watch rule ready now',
+      artifact: {
+        type: 'Watch rule',
+        title: action.label,
+        body: `Monitor ${card.label} until the signal stabilizes. Trigger a manager alert if the metric deteriorates or the next update is missed.`,
+      },
+      checklist: ['Confirm trigger threshold.', 'Confirm owner group.', 'Define next review time.', 'Attach source signal.'],
+    };
+  }
+  return {
+    audience: group === 'Custom' ? 'Manager-selected owner group.' : 'Operational owner group tied to this signal.',
+    sender: action.owner,
+    dueBy: group === 'Custom' ? 'Ready for manager timing' : 'Ready for next command check-in',
+    artifact: {
+      type: group === 'Email / Notice' ? 'Message draft' : 'Action brief',
+      title: action.label,
+      body: `${action.label}\n\nReason: ${card.trigger}\n\nExpected impact: ${action.impact}\n\nNext step: ${action.owner} reviews and marks this action ready before external execution.`,
+    },
+    checklist: ['Confirm owner.', 'Confirm affected audience.', 'Attach source signal.', 'Mark ready after manager review.'],
+  };
+}
+
+function managedActionQuickCommands(action: ExecutiveAction, detail: ManagedActionDetail, custom = false): ManagedActionQuickCommand[] {
+  const text = managedActionText(action.label, detail);
+  if (custom) {
+    return [
+      { label: 'Copy Brief', status: 'Ready to assign', toast: `${action.label}: custom action brief copied`, copyText: text },
+      { label: 'Mark Ready', status: 'Ready to assign', toast: `${action.label}: custom action marked ready` },
+      { label: 'Share Action', status: 'Ready to assign', toast: `${action.label}: custom action share sheet opened`, copyText: text, share: true },
+    ];
+  }
+
+  const group = actionPlanGroup(action.channel);
+  if (group === 'Calls') {
+    return [
+      { label: 'Copy Script', status: 'Scheduled draft', toast: `${action.label}: call script copied`, copyText: text },
+      { label: 'Mark Calls Scheduled', status: 'Scheduled draft', toast: `${action.label}: calls marked as scheduled draft` },
+      { label: 'Share Script', status: 'Scheduled draft', toast: `${action.label}: call script share sheet opened`, copyText: text, share: true },
+    ];
+  }
+  if (group === 'Meeting') {
+    return [
+      { label: 'Copy Agenda', status: 'Scheduled draft', toast: `${action.label}: meeting agenda copied`, copyText: text },
+      { label: 'Prepare Invite', status: 'Scheduled draft', toast: `${action.label}: meeting invite draft prepared` },
+      { label: 'Mark Ready', status: 'Ready to assign', toast: `${action.label}: meeting action marked ready` },
+    ];
+  }
+  if (group === 'Email / Notice') {
+    const notice = action.channel.toLowerCase().includes('notice');
+    return [
+      { label: notice ? 'Copy Timeline' : 'Copy Draft', status: 'Draft prepared', toast: `${action.label}: draft copied`, copyText: text },
+      { label: notice ? 'Mark Notice Ready' : 'Mark Ready', status: 'Ready to assign', toast: `${action.label}: marked ready for manager review` },
+      { label: notice ? 'Share Timeline' : 'Share Draft', status: 'Draft prepared', toast: `${action.label}: draft share sheet opened`, copyText: text, share: true },
+    ];
+  }
+  if (group === 'AI Watch') {
+    return [
+      { label: 'Copy Watch Rules', status: 'Watching', toast: `${action.label}: watch rules copied`, copyText: text },
+      { label: 'Activate Demo Watch', status: 'Watching', toast: `${action.label}: demo watch is active` },
+      { label: 'Share Rules', status: 'Watching', toast: `${action.label}: watch rules share sheet opened`, copyText: text, share: true },
+    ];
+  }
+  if (group === 'Approval') {
+    return [
+      { label: 'Copy Brief', status: 'Needs approval', toast: `${action.label}: approval brief copied`, copyText: text },
+      { label: 'Mark Needs Approval', status: 'Needs approval', toast: `${action.label}: approval dependency recorded` },
+      { label: 'Share Brief', status: 'Needs approval', toast: `${action.label}: approval brief share sheet opened`, copyText: text, share: true },
+    ];
+  }
+  return [
+    { label: 'Copy Brief', status: 'Ready to assign', toast: `${action.label}: action brief copied`, copyText: text },
+    { label: 'Mark Ready', status: 'Ready to assign', toast: `${action.label}: marked ready for manager review` },
+    { label: 'Share Action', status: 'Ready to assign', toast: `${action.label}: action share sheet opened`, copyText: text, share: true },
+  ];
+}
+
+function buildManagedAction(action: ExecutiveAction, index: number, card: ExecutiveImpactCard, custom = false): ManagedAction {
+  const baseDetail = card.key === 'residentSentiment' && RESIDENT_SENTIMENT_ACTION_DETAILS[action.label]
+    ? RESIDENT_SENTIMENT_ACTION_DETAILS[action.label]
+    : fallbackManagedActionDetail(action, card, custom);
+  const detail: ManagedActionDetail = {
+    ...baseDetail,
+    quickCommands: [],
+  };
+  detail.quickCommands = managedActionQuickCommands(action, detail, custom);
+  return {
+    id: `${custom ? 'custom' : card.key}-${index}-${action.label}`,
+    title: action.label,
+    owner: action.owner,
+    channel: action.channel,
+    group: custom ? 'Custom' : actionPlanGroup(action.channel),
+    impact: action.impact,
+    status: managedActionInitialStatus(action.channel, custom),
+    detail,
+  };
+}
+
+function buildManagedPlanText(title: string, actions: ManagedAction[], nextUpdate: string): string {
+  const actionLines = actions.map(action => [
+    `- ${action.title}`,
+    `  Owner: ${action.owner}`,
+    `  Channel: ${action.channel}`,
+    `  Status: ${action.status}`,
+    `  Audience: ${action.detail.audience}`,
+    `  Due: ${action.detail.dueBy}`,
+  ].join('\n'));
+  return `${title}\n${actions.length} action${actions.length === 1 ? '' : 's'}\nNext update: ${nextUpdate}\n\n${actionLines.join('\n\n')}`;
+}
+
+function ActionPlanWorkbench({
+  title,
+  actions,
+  activeActionId,
+  nextUpdate,
+  onSelectAction,
+  onUpdateActionStatus,
+  onToast,
+}: {
+  title: string;
+  actions: ManagedAction[];
+  activeActionId: string | null;
+  nextUpdate: string;
+  onSelectAction: (id: string) => void;
+  onUpdateActionStatus: (id: string, status: ManagedActionStatus) => void;
+  onToast: ToastFn;
+}) {
+  const activeAction = actions.find(action => action.id === activeActionId) ?? actions[0];
+  const owners = new Set(actions.map(action => action.owner));
+  const channels = new Set(actions.map(action => action.channel));
+  const groupedActions = actions.reduce<Record<string, ManagedAction[]>>((acc, action) => {
+    acc[action.group] = [...(acc[action.group] ?? []), action];
+    return acc;
+  }, {});
+
+  const runQuickCommand = async (action: ManagedAction, command: ManagedActionQuickCommand) => {
+    if (command.copyText && command.share) {
+      void shareCommandCard(action.title, command.copyText, onToast);
+    } else if (command.copyText) {
+      try {
+        await navigator.clipboard.writeText(command.copyText);
+      } catch {
+        onToast('Prepared content is visible for manual copy', 'warning');
+      }
+    }
+    onUpdateActionStatus(action.id, command.status);
+    onToast(command.toast, 'success');
+  };
+
+  if (!activeAction) return null;
+
+  return (
+    <div className="space-y-3">
+      <div className="rounded-xl border border-emerald-400/25 bg-emerald-500/10 p-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="mb-1 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-emerald-200">
+              <CheckCircle size={12} />
+              Action Plan Workbench
+            </div>
+            <div className="text-[12px] font-bold text-[#EEF3FA]">{title}</div>
+            <div className="mt-1 text-[10px] leading-relaxed text-[#9CB1CC]">
+              {actions.length} action{actions.length === 1 ? '' : 's'} across {owners.size} owner{owners.size === 1 ? '' : 's'} and {channels.size} channel{channels.size === 1 ? '' : 's'}. Next update: {nextUpdate}.
+            </div>
+          </div>
+          <div className="rounded-lg border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1.5 text-[10px] font-bold text-emerald-100">
+            Drafts only
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-3 lg:grid-cols-[0.85fr_1.15fr]">
+        <div className="space-y-2">
+          {Object.entries(groupedActions).map(([group, items]) => (
+            <div key={group} className="rounded-xl border border-[rgba(46,127,255,0.12)] bg-[#07111F] p-3">
+              <div className="mb-2 text-[9px] font-bold uppercase tracking-wide text-[#8DBDFF]">{group}</div>
+              <div className="space-y-1.5">
+                {items.map(action => {
+                  const active = action.id === activeAction.id;
+                  return (
+                    <button
+                      key={action.id}
+                      type="button"
+                      onClick={() => onSelectAction(action.id)}
+                      className={`w-full rounded-lg border px-2.5 py-2 text-left transition-all ${
+                        active
+                          ? 'border-[#2E7FFF]/65 bg-[#2E7FFF]/18 shadow-[0_0_14px_rgba(46,127,255,0.15)]'
+                          : 'border-[rgba(46,127,255,0.08)] bg-[#0A1628] hover:border-[#2E7FFF]/35 hover:bg-[#102544]'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="text-[11px] font-bold leading-snug text-[#EEF3FA]">{action.title}</div>
+                          <div className="mt-0.5 text-[9px] font-semibold uppercase tracking-wide text-[#6F89AA]">{action.owner} - {action.channel}</div>
+                        </div>
+                        <span className={`shrink-0 rounded-md border px-2 py-0.5 text-[8px] font-bold ${managedStatusClass(action.status)}`}>
+                          {action.status}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#07111F] p-3">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <div className="text-[9px] font-bold uppercase tracking-wide text-[#7A94B4]">{activeAction.detail.artifact.type}</div>
+              <h4 className="mt-1 text-[13px] font-black leading-tight text-[#EEF3FA]">{activeAction.title}</h4>
+              <p className="mt-1 text-[10px] leading-relaxed text-[#8EA7C7]">{activeAction.impact}</p>
+            </div>
+            <span className={`rounded-md border px-2 py-1 text-[9px] font-bold ${managedStatusClass(activeAction.status)}`}>
+              {activeAction.status}
+            </span>
+          </div>
+
+          <div className="mt-3 grid gap-2 sm:grid-cols-3">
+            {[
+              { label: 'Who', value: activeAction.detail.audience },
+              { label: 'Owner', value: activeAction.detail.sender },
+              { label: 'Due', value: activeAction.detail.dueBy },
+            ].map(item => (
+              <div key={item.label} className="rounded-lg border border-[rgba(46,127,255,0.10)] bg-[#0A1628] p-2.5">
+                <div className="text-[8px] font-bold uppercase tracking-wide text-[#7A94B4]">{item.label}</div>
+                <div className="mt-1 text-[10px] font-semibold leading-snug text-[#D8E7FA]">{item.value}</div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-3 rounded-xl border border-cyan-400/20 bg-cyan-500/10 p-3">
+            <div className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wide text-cyan-200">
+              <FileText size={12} />
+              {activeAction.detail.artifact.title}
+            </div>
+            <pre className="max-h-56 whitespace-pre-wrap rounded-lg border border-[rgba(46,127,255,0.10)] bg-[#050C17] p-3 text-[11px] leading-relaxed text-[#D8E7FA]">
+              {activeAction.detail.artifact.body}
+            </pre>
+          </div>
+
+          <div className="mt-3 grid gap-2 md:grid-cols-[1fr_auto] md:items-start">
+            <div className="rounded-xl border border-[rgba(46,127,255,0.12)] bg-[#0A1628] p-3">
+              <div className="mb-2 text-[9px] font-bold uppercase tracking-wide text-[#8DBDFF]">Manager checklist</div>
+              <div className="space-y-1.5">
+                {activeAction.detail.checklist.map(item => (
+                  <div key={item} className="flex items-start gap-2 text-[10px] leading-relaxed text-[#C8D8EE]">
+                    <Check size={10} className="mt-0.5 shrink-0 text-emerald-300" />
+                    {item}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-3 md:min-w-[160px] md:grid-cols-1">
+              {activeAction.detail.quickCommands.map(command => (
+                <button
+                  key={command.label}
+                  type="button"
+                  onClick={() => void runQuickCommand(activeAction, command)}
+                  className="inline-flex items-center justify-center gap-1 rounded-lg border border-[#2E7FFF]/30 bg-[#2E7FFF]/12 px-3 py-2 text-[10px] font-bold text-[#BFD8FF] transition-colors hover:bg-[#2E7FFF]/18"
+                >
+                  {command.share ? <Share2 size={11} /> : command.copyText ? <FileText size={11} /> : <Check size={11} />}
+                  {command.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ActionPlanReceiptCard({
   receipt,
   onClose,
@@ -1516,7 +1988,8 @@ function ExecutiveImpactActionModal({
   const [customChannel, setCustomChannel] = useState('Custom');
   const [isListening, setIsListening] = useState(false);
   const [completedEfficiencyIds, setCompletedEfficiencyIds] = useState<string[]>([]);
-  const [actionPlanReceipt, setActionPlanReceipt] = useState<ActionPlanReceipt | null>(null);
+  const [managedActions, setManagedActions] = useState<ManagedAction[] | null>(null);
+  const [activeManagedActionId, setActiveManagedActionId] = useState<string | null>(null);
   const speechRecognitionRef = useRef<SpeechRecognitionLike | null>(null);
 
   useEffect(() => () => {
@@ -1525,7 +1998,8 @@ function ExecutiveImpactActionModal({
 
   const toggleAction = (action: string) => {
     setSelectedActions(prev => prev.includes(action) ? prev.filter(item => item !== action) : [...prev, action]);
-    setActionPlanReceipt(null);
+    setManagedActions(null);
+    setActiveManagedActionId(null);
   };
 
   const normalizeCustomAction = (action: string) => action.trim().replace(/\s+/g, ' ');
@@ -1545,12 +2019,14 @@ function ExecutiveImpactActionModal({
       custom: true,
     }]);
     setCustomAction('');
-    setActionPlanReceipt(null);
+    setManagedActions(null);
+    setActiveManagedActionId(null);
   };
 
   const removeCustomAction = (action: string) => {
     setCustomActions(prev => prev.filter(item => item.label !== action));
-    setActionPlanReceipt(null);
+    setManagedActions(null);
+    setActiveManagedActionId(null);
   };
 
   const startDictation = () => {
@@ -1591,7 +2067,7 @@ function ExecutiveImpactActionModal({
     setIsListening(false);
   };
 
-  const buildSelectedActionPlanItems = () => {
+  const buildSelectedExecutiveActions = () => {
     const typedAction = normalizeCustomAction(customAction);
     const selectedPresetActions = card.actions.filter(action => selectedActions.includes(action.label));
     const typedCustomAction: CustomPlanAction | null = typedAction && ![...selectedActions, ...customActions.map(action => action.label)].includes(typedAction)
@@ -1608,22 +2084,20 @@ function ExecutiveImpactActionModal({
       ...customActions,
       ...(typedCustomAction ? [typedCustomAction] : []),
     ];
-    return allActions.map((action, index) => createActionPlanItem(action, index, 'custom' in action));
+    return allActions;
   };
 
   const createActionPlan = () => {
-    const items = buildSelectedActionPlanItems();
-    if (items.length === 0) {
+    const actions = buildSelectedExecutiveActions();
+    if (actions.length === 0) {
       onToast('Select at least one action before creating the plan', 'warning');
       return;
     }
-    setActionPlanReceipt({
-      title: `${card.label} Action Plan`,
-      items,
-      nextUpdate: card.key === 'residentSentiment' ? 'Today, 5:00 PM' : 'Next command check-in',
-      createdAt: 'Just now',
-    });
-    onToast(`${card.label}: action plan created`, 'success');
+    const nextManagedActions = actions.map((action, index) => buildManagedAction(action, index, card, 'custom' in action));
+    setManagedActions(nextManagedActions);
+    setActiveManagedActionId(nextManagedActions[0]?.id ?? null);
+    setCustomAction('');
+    onToast(`${card.label}: action plan workbench ready`, 'success');
   };
 
   const pendingCustomAction = normalizeCustomAction(customAction);
@@ -1636,10 +2110,26 @@ function ExecutiveImpactActionModal({
   const primaryActionLabel = actionPlanButtonLabel(actionCount);
   const isStaffEfficiencyCard = card.key === 'workloadOptimizer';
   const totalStaffMinutes = staffEfficiencyItems.reduce((sum, item) => sum + item.timeSavedMinutes, 0);
+  const actionPlanTitle = `${card.label} Action Plan`;
+  const actionPlanNextUpdate = card.key === 'residentSentiment' ? 'Today, 5:00 PM' : 'Next command check-in';
 
   const handleEfficiencyAction = (item: StaffEfficiencyItem) => {
     setCompletedEfficiencyIds(prev => prev.includes(item.id) ? prev : [...prev, item.id]);
     onToast(`${item.client}: ${item.outcomeLabel}`, 'success');
+  };
+
+  const updateManagedActionStatus = (id: string, status: ManagedActionStatus) => {
+    setManagedActions(prev => prev?.map(action => action.id === id ? { ...action, status } : action) ?? null);
+  };
+
+  const copyManagedPlan = async () => {
+    if (!managedActions) return;
+    try {
+      await navigator.clipboard.writeText(buildManagedPlanText(actionPlanTitle, managedActions, actionPlanNextUpdate));
+      onToast(`${card.label}: action plan copied`, 'success');
+    } catch {
+      onToast('Action plan is visible for manual copy', 'warning');
+    }
   };
 
   return (
@@ -1648,7 +2138,7 @@ function ExecutiveImpactActionModal({
       animate={{ opacity: 1, scale: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.96, y: 12 }}
       transition={{ duration: 0.18 }}
-      className="fixed left-1/2 top-1/2 z-[320] flex max-h-[calc(100dvh-32px)] w-[min(680px,calc(100%-32px))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-[rgba(46,127,255,0.28)] bg-[#0B172A] shadow-2xl"
+      className={`fixed left-1/2 top-1/2 z-[320] flex max-h-[calc(100dvh-32px)] ${managedActions ? 'w-[min(960px,calc(100%-32px))]' : 'w-[min(680px,calc(100%-32px))]'} -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-[rgba(46,127,255,0.28)] bg-[#0B172A] shadow-2xl`}
       role="dialog"
       aria-modal="true"
       aria-label={`${card.label} action options`}
@@ -1738,6 +2228,16 @@ function ExecutiveImpactActionModal({
               })}
             </div>
           </>
+        ) : managedActions ? (
+          <ActionPlanWorkbench
+            title={actionPlanTitle}
+            actions={managedActions}
+            activeActionId={activeManagedActionId}
+            nextUpdate={actionPlanNextUpdate}
+            onSelectAction={setActiveManagedActionId}
+            onUpdateActionStatus={updateManagedActionStatus}
+            onToast={onToast}
+          />
         ) : (
           <>
         <div className="grid gap-2 md:grid-cols-3">
@@ -1758,7 +2258,7 @@ function ExecutiveImpactActionModal({
             <Bot size={12} /> Context-aware playbook
           </div>
           <p className="text-[11px] leading-relaxed text-[#D8E7FA]">
-            Select the actions to assign now. The demo treats these as pre-configured manager actions tied to the card condition, so a low sentiment signal opens resident communications instead of generic dashboard options.
+            Select actions to turn into a managed response plan. Each selected item opens with recipients, drafts, owners, status, and safe next-click controls.
           </p>
         </div>
 
@@ -1798,7 +2298,7 @@ function ExecutiveImpactActionModal({
             <div>
               <div className="text-[10px] font-bold uppercase tracking-wide text-[#8DBDFF]">Custom action</div>
               <p className="mt-0.5 text-[10px] leading-relaxed text-[#7A94B4]">
-                Type or dictate a one-off action for this situation. It will be assigned with the selected playbook actions.
+                Type or dictate a one-off action for this situation. It will be added to the managed response plan with the selected playbook actions.
               </p>
             </div>
             <button
@@ -1879,9 +2379,6 @@ function ExecutiveImpactActionModal({
             </div>
           )}
         </div>
-        {actionPlanReceipt && (
-          <ActionPlanReceiptCard receipt={actionPlanReceipt} onClose={onClose} onToast={onToast} />
-        )}
           </>
         )}
       </div>
@@ -1890,14 +2387,41 @@ function ExecutiveImpactActionModal({
           <div className="text-[10px] text-[#7A94B4]">
             {isStaffEfficiencyCard
               ? `${completedEfficiencyIds.length} of ${staffEfficiencyItems.length} efficiency actions completed`
+              : managedActions
+              ? `${managedActions.length} action${managedActions.length === 1 ? '' : 's'} ready in the manager workbench`
               : hasCustomSelection
               ? `${actionCount} action${actionCount === 1 ? '' : 's'} will be added to the action plan, including custom action${customActions.length + (pendingCustomAction ? 1 : 0) === 1 ? '' : 's'}`
               : `${actionCount} action${actionCount === 1 ? '' : 's'} will be added to the action plan`}
           </div>
           <div className="flex gap-2">
-            <button onClick={onClose} className="rounded-lg border border-[rgba(46,127,255,0.18)] px-3 py-2 text-[11px] font-semibold text-[#9DB9E8] transition-colors hover:bg-white/5">Close</button>
-            {!isStaffEfficiencyCard && (
-              <button onClick={createActionPlan} className="rounded-lg bg-[#2E7FFF] px-3 py-2 text-[11px] font-bold text-white shadow-[0_0_14px_rgba(46,127,255,0.32)] transition-colors hover:bg-blue-500">{primaryActionLabel}</button>
+            {managedActions ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setManagedActions(null);
+                    setActiveManagedActionId(null);
+                  }}
+                  className="rounded-lg border border-[rgba(46,127,255,0.18)] px-3 py-2 text-[11px] font-semibold text-[#9DB9E8] transition-colors hover:bg-white/5"
+                >
+                  Back to Edit
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void copyManagedPlan()}
+                  className="rounded-lg border border-[#2E7FFF]/30 bg-[#2E7FFF]/12 px-3 py-2 text-[11px] font-bold text-[#BFD8FF] transition-colors hover:bg-[#2E7FFF]/18"
+                >
+                  Copy Plan
+                </button>
+                <button onClick={onClose} className="rounded-lg bg-[#2E7FFF] px-3 py-2 text-[11px] font-bold text-white shadow-[0_0_14px_rgba(46,127,255,0.32)] transition-colors hover:bg-blue-500">Done</button>
+              </>
+            ) : (
+              <>
+                <button onClick={onClose} className="rounded-lg border border-[rgba(46,127,255,0.18)] px-3 py-2 text-[11px] font-semibold text-[#9DB9E8] transition-colors hover:bg-white/5">Close</button>
+                {!isStaffEfficiencyCard && (
+                  <button onClick={createActionPlan} className="rounded-lg bg-[#2E7FFF] px-3 py-2 text-[11px] font-bold text-white shadow-[0_0_14px_rgba(46,127,255,0.32)] transition-colors hover:bg-blue-500">{primaryActionLabel}</button>
+                )}
+              </>
             )}
           </div>
         </div>
