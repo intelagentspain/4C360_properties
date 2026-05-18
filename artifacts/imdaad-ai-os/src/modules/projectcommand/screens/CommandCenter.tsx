@@ -922,7 +922,98 @@ function DemoControls({
   );
 }
 
-export function CommandCenter({ goTo, onToast }: { goTo: (screen: ProjectCommandScreen) => void; onToast?: ToastFn }) {
+function PilotSummaryCard({
+  context,
+  onOpenVendorIQ,
+  onToast,
+}: {
+  context: ProjectControlContext;
+  onOpenVendorIQ?: () => void;
+  onToast?: ToastFn;
+}) {
+  const topAction = context.managerActions[0];
+  const latest = context.latestEvent;
+  const summaryLines = [
+    `${context.baseline.property.name} - ${context.baseline.project.name}`,
+    `Health ${context.healthMovement.from} -> ${context.healthMovement.to}; handover confidence ${context.metrics.handoverConfidence}%.`,
+    `Forecast handover ${formatProjectDate(context.metrics.forecastHandover)}; EAC ${formatProjectCurrency(context.metrics.eac)}.`,
+    `Top threat: ${context.topThreat}`,
+    latest ? `Latest event: ${latest.title}.` : 'Latest event: baseline created from project context.',
+    topAction ? `Recommended decision: ${topAction.title} - ${topAction.expectedImpact}.` : 'Recommended decision: confirm baseline and keep the watch list active.',
+    'Pilot ask: select one tower, run 6-8 weeks, measure float protected, evidence gaps closed, rework avoided, and handover confidence movement.',
+  ];
+
+  function copySummary() {
+    navigator.clipboard.writeText(summaryLines.join('\n')).then(() => {
+      onToast?.('Pilot summary copied for the meeting close-out', 'success');
+    }).catch(() => {
+      onToast?.('Pilot summary is ready, but clipboard access was blocked', 'warning');
+    });
+  }
+
+  return (
+    <section className="rounded-xl border border-violet-300/22 bg-[linear-gradient(135deg,rgba(124,58,237,0.16),rgba(46,127,255,0.10),rgba(7,17,31,0.86))] p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-violet-100">
+            <FileWarning size={13} />
+            Pilot Summary
+          </div>
+          <h3 className="mt-1 text-base font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+            Close the Sobha story with measurable outcomes.
+          </h3>
+        </div>
+        <span className="rounded-full border border-emerald-300/22 bg-emerald-300/10 px-2.5 py-1 text-[9px] font-black text-emerald-100">
+          Ready
+        </span>
+      </div>
+
+      <div className="mt-3 grid gap-2">
+        {[
+          ['Current position', `Health ${context.metrics.healthScore}/100, SPI ${context.metrics.spi.toFixed(2)}, float ${context.metrics.floatRemaining}d, EAC ${formatProjectCurrency(context.metrics.eac)}.`],
+          ['What changed', latest ? latest.title : 'Project baseline created from imported LOA / project summary.'],
+          ['Decision to show', topAction ? `${topAction.title}: ${topAction.expectedImpact}` : 'Confirm baseline and keep AI watch active.'],
+          ['Pilot measures', 'Float protected, evidence gaps closed, rework avoided, handover confidence, vendor decision cycle time.'],
+        ].map(([label, value]) => (
+          <div key={label} className="rounded-lg border border-white/8 bg-[#07111F]/70 p-2.5">
+            <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#A78BFA]">{label}</p>
+            <p className="mt-1 text-[10px] leading-4 text-[#C8D8EE]">{value}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={copySummary}
+          className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#2E7FFF]/24 bg-[#07111F] px-3 text-[10px] font-black text-[#BFD8FF] transition-colors hover:bg-[#2E7FFF]/12"
+        >
+          Copy Summary
+        </button>
+        {onOpenVendorIQ && (
+          <button
+            type="button"
+            onClick={onOpenVendorIQ}
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#7C3AED] px-3 text-[10px] font-black text-white shadow-[0_0_18px_rgba(124,58,237,0.26)] transition-colors hover:bg-[#6D28D9]"
+          >
+            Open VendorIQ
+            <ArrowRight size={12} />
+          </button>
+        )}
+      </div>
+    </section>
+  );
+}
+
+export function CommandCenter({
+  goTo,
+  onToast,
+  onOpenVendorIQ,
+}: {
+  goTo: (screen: ProjectCommandScreen) => void;
+  onToast?: ToastFn;
+  onOpenVendorIQ?: () => void;
+}) {
   const dataset = useSelectedProjectCommandData();
   const { projectEventsByProjectId } = useProjectCommandStore();
   const events = projectEventsByProjectId[dataset.id] ?? [];
@@ -968,6 +1059,8 @@ export function CommandCenter({ goTo, onToast }: { goTo: (screen: ProjectCommand
             </section>
 
             <CompactForecastSummary context={context} onOpenForecast={() => goTo('forecast')} />
+
+            <PilotSummaryCard context={context} onOpenVendorIQ={onOpenVendorIQ} onToast={onToast} />
           </div>
         </div>
       </div>
