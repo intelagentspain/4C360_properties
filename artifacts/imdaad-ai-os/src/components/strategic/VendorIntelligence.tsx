@@ -191,6 +191,8 @@ type RfqGeneratedPackage = {
   actions: string[];
 };
 
+type RfqPackageLineField = 'contextLines' | 'scopeLines' | 'responseFields' | 'mandatoryDocuments' | 'slaEvidence' | 'commercialTable' | 'submissionRules';
+
 const vendorCategories = [
   'FM & HVAC',
   'FM & Electrical',
@@ -250,6 +252,18 @@ const procurementPackageTemplates = [
 ];
 
 const rfqStepOrder: RfqWizardStep[] = ['project', 'mode', 'scope', 'requirements', 'scoring', 'review'];
+const rfqScoringLabels: Record<RfqScoringKey, string> = {
+  price: 'Price',
+  sla: 'SLA',
+  quality: 'Quality',
+  compliance: 'Compliance',
+  capacity: 'Capacity',
+  risk: 'Risk',
+};
+
+const rfqScoringKeysByLabel = Object.fromEntries(
+  Object.entries(rfqScoringLabels).map(([key, label]) => [label, key]),
+) as Record<string, RfqScoringKey>;
 
 function buildRfqTemplates(): RfqTemplate[] {
   return [
@@ -365,6 +379,13 @@ function splitRfqLines(value: string): string[] {
     .slice(0, 8);
 }
 
+function splitEditableRfqLines(value: string): string[] {
+  return value
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean);
+}
+
 function extractRfqScopeFromDocuments(documents: VendorSetupDocument[], notes: string) {
   const combined = [notes, ...documents.map(doc => `${doc.name}\n${doc.content}`)].filter(Boolean).join('\n');
   if (!combined.trim()) return {};
@@ -449,7 +470,7 @@ function buildRfqDraft(template: RfqTemplate | undefined, focusVendor: VendorInt
     .slice(0, 8);
   const scoringMatrix = (Object.entries(state.scoring) as [RfqScoringKey, string][])
     .map(([key, value]) => ({
-      label: ({ price: 'Price', sla: 'SLA', quality: 'Quality', compliance: 'Compliance', capacity: 'Capacity', risk: 'Risk' } as Record<RfqScoringKey, string>)[key],
+      label: rfqScoringLabels[key],
       weight: Number(value) || 0,
     }));
   const peerNames = peers.filter(peer => peer.id !== focusVendor.id).slice(0, 3).map(peer => peer.name);
@@ -2066,6 +2087,28 @@ function PageProcurementCopilotModal({
     }, 0);
   }
 
+  function patchRfqPackage(patch: Partial<RfqGeneratedPackage>) {
+    setRfqPackage(prev => (prev ? { ...prev, ...patch } : prev));
+    setRfqFeedback('RFQ package updated.');
+  }
+
+  function patchRfqPackageLines(field: RfqPackageLineField, value: string) {
+    setRfqPackage(prev => (prev ? { ...prev, [field]: splitEditableRfqLines(value) } : prev));
+    setRfqFeedback('RFQ package updated.');
+  }
+
+  function patchGeneratedRfqScore(label: string, value: string) {
+    const weight = Number(value) || 0;
+    setRfqPackage(prev => (prev
+      ? { ...prev, scoringMatrix: prev.scoringMatrix.map(item => (item.label === label ? { ...item, weight } : item)) }
+      : prev));
+    const scoringKey = rfqScoringKeysByLabel[label];
+    if (scoringKey) {
+      setRfqState(prev => ({ ...prev, scoring: { ...prev.scoring, [scoringKey]: String(weight) } }));
+    }
+    setRfqFeedback('Scoring matrix updated.');
+  }
+
   function runRfqAction(action: string) {
     if (!rfqPackage) return;
     if (action === 'Copy RFQ') {
@@ -2087,6 +2130,7 @@ function PageProcurementCopilotModal({
   const visibleRfqTemplates = relevantRfqTemplates(rfqTemplates, rfqState.anchor.serviceCategory);
   const selectedRfqTemplate = rfqTemplates.find(item => item.id === rfqState.templateId);
   const rfqScoringTotal = (Object.values(rfqState.scoring) as string[]).reduce((sum, value) => sum + (Number(value) || 0), 0);
+  const rfqPackageScoringTotal = rfqPackage?.scoringMatrix.reduce((sum, item) => sum + item.weight, 0) ?? 0;
   const rfqExtracted = extractRfqScopeFromDocuments(rfqState.documents, rfqState.pastedScope);
   const canGenerateRfq = Boolean(
     rfqState.anchor.propertyName
@@ -2927,10 +2971,18 @@ function PageProcurementCopilotModal({
                       <div className="space-y-3">
                         <div className="rounded-2xl border border-emerald-300/24 bg-emerald-400/10 p-4 shadow-[0_0_28px_rgba(16,185,129,0.10)]">
                           <div className="flex flex-wrap items-start justify-between gap-3">
-                            <div>
+                            <div className="min-w-[260px] flex-1">
                               <div className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-200">Generated package ready</div>
-                              <h4 className="mt-1 text-xl font-black leading-7 text-[#EEF3FA]">{rfqPackage.title}</h4>
-                              <p className="mt-2 text-[12px] leading-5 text-[#C8D8EE]">{rfqPackage.summary}</p>
+                              <input
+                                value={rfqPackage.title}
+                                onChange={event => patchRfqPackage({ title: event.target.value })}
+                                className="mt-2 w-full rounded-xl border border-emerald-300/20 bg-[#07111F] px-3 py-2 text-xl font-black leading-7 text-[#EEF3FA] outline-none focus:border-emerald-200/55"
+                              />
+                              <textarea
+                                value={rfqPackage.summary}
+                                onChange={event => patchRfqPackage({ summary: event.target.value })}
+                                className="mt-2 min-h-[70px] w-full resize-y rounded-xl border border-emerald-300/20 bg-[#07111F] px-3 py-2 text-[12px] leading-5 text-[#C8D8EE] outline-none focus:border-emerald-200/55"
+                              />
                             </div>
                             <button type="button" onClick={generateRfqPackage} disabled={!canGenerateRfq} className="inline-flex items-center gap-2 rounded-xl border border-[#2E7FFF]/24 bg-[#07111F] px-3 py-2 text-[11px] font-bold text-[#BFD8FF] transition-colors hover:bg-[#2E7FFF]/12 hover:text-white disabled:cursor-not-allowed disabled:text-[#5A7393]">
                               <Sparkles size={13} />
@@ -2946,26 +2998,53 @@ function PageProcurementCopilotModal({
                           </div>
                         </div>
                         {[
-                          ['Project / Property Context', rfqPackage.contextLines],
-                          ['Scope of Services', rfqPackage.scopeLines],
-                          ['Vendor Response Fields', rfqPackage.responseFields],
-                          ['Mandatory Documents', rfqPackage.mandatoryDocuments],
-                          ['SLA and Evidence Requirements', rfqPackage.slaEvidence],
-                          ['Commercial Pricing Table', rfqPackage.commercialTable],
-                          ['Submission Rules', rfqPackage.submissionRules],
-                        ].map(([title, lines]) => (
+                          ['Project / Property Context', 'contextLines', rfqPackage.contextLines],
+                          ['Scope of Services', 'scopeLines', rfqPackage.scopeLines],
+                          ['Vendor Response Fields', 'responseFields', rfqPackage.responseFields],
+                          ['Mandatory Documents', 'mandatoryDocuments', rfqPackage.mandatoryDocuments],
+                          ['SLA and Evidence Requirements', 'slaEvidence', rfqPackage.slaEvidence],
+                          ['Commercial Pricing Table', 'commercialTable', rfqPackage.commercialTable],
+                          ['Submission Rules', 'submissionRules', rfqPackage.submissionRules],
+                        ].map(([title, field, lines]) => (
                           <div key={title as string} className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#0D1E3A] p-3">
-                            <div className="mb-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#8DBDFF]">{title as string}</div>
-                            <ul className="space-y-1.5">
-                              {(lines as string[]).map(line => <li key={line} className="flex gap-2 text-[11px] leading-5 text-[#C8D8EE]"><CheckCircle size={11} className="mt-1 shrink-0 text-emerald-400" />{line}</li>)}
-                            </ul>
+                            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                              <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#8DBDFF]">{title as string}</div>
+                              <div className="text-[9px] font-bold uppercase tracking-[0.12em] text-[#5F7EA2]">Editable</div>
+                            </div>
+                            <textarea
+                              value={(lines as string[]).join('\n')}
+                              onChange={event => patchRfqPackageLines(field as RfqPackageLineField, event.target.value)}
+                              className="min-h-[118px] w-full resize-y rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#07111F] px-3 py-2 text-[11px] leading-5 text-[#C8D8EE] outline-none focus:border-[#2E7FFF]/60"
+                            />
                           </div>
                         ))}
                         <div className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#0D1E3A] p-3">
-                          <div className="mb-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#8DBDFF]">Evaluation Scoring Matrix</div>
-                          <div className="grid gap-2 sm:grid-cols-3">
+                          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                            <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#8DBDFF]">Evaluation Scoring Matrix</div>
+                            <div className={`rounded-full border px-3 py-1 text-[10px] font-black ${
+                              rfqPackageScoringTotal === 100
+                                ? 'border-emerald-300/24 bg-emerald-400/10 text-emerald-200'
+                                : 'border-amber-300/24 bg-amber-400/10 text-amber-100'
+                            }`}>
+                              Total {rfqPackageScoringTotal}%
+                            </div>
+                          </div>
+                          <div className="grid gap-3 sm:grid-cols-2">
                             {rfqPackage.scoringMatrix.map(item => (
-                              <div key={item.label} className="rounded-lg border border-[#2E7FFF]/14 bg-[#07111F] px-3 py-2 text-[11px] font-bold text-[#DDE6F8]">{item.label}: {item.weight}%</div>
+                              <div key={item.label} className="rounded-xl border border-[#2E7FFF]/14 bg-[#07111F] p-3">
+                                <div className="mb-2 flex items-center justify-between gap-3">
+                                  <label className="text-[11px] font-black text-[#DDE6F8]">{item.label}</label>
+                                  <span className="text-[12px] font-black text-[#EEF3FA]">{item.weight}%</span>
+                                </div>
+                                <input
+                                  type="range"
+                                  min="0"
+                                  max="50"
+                                  value={item.weight}
+                                  onChange={event => patchGeneratedRfqScore(item.label, event.target.value)}
+                                  className="w-full accent-[#2E7FFF]"
+                                />
+                              </div>
                             ))}
                           </div>
                         </div>
