@@ -2149,7 +2149,7 @@ function PageProcurementCopilotModal({
               {isCompareMode
                 ? 'Assign the property, project, and package first, then compare uploaded supplier quotes against that context.'
                 : isRfqMode
-                  ? <>Anchor the property and project first, then choose whether to tell AI, use a template, or upload scope documents for <span className="font-bold text-[#EEF3FA]">{focusVendor.name}</span>.</>
+                  ? <>Anchor the property and project first, then choose whether to tell AI, use a template, or upload scope documents.</>
                 : <>Tell me the procurement outcome. I will generate the artifact and keep the vendor context anchored to <span className="font-bold text-[#EEF3FA]">{focusVendor.name}</span>.</>}
             </p>
           </div>
