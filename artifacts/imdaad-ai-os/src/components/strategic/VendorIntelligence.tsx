@@ -85,6 +85,54 @@ type QuoteAnalysis = {
   findings: string[];
 };
 
+type RfqWizardStep = 'template' | 'scope' | 'requirements' | 'scoring' | 'review';
+
+type RfqTemplate = {
+  id: string;
+  name: string;
+  category: string;
+  serviceLines: string[];
+  responseFields: string[];
+  mandatoryDocuments: string[];
+  defaultSla: string;
+  scoring: {
+    price: number;
+    sla: number;
+    quality: number;
+    compliance: number;
+    capacity: number;
+    risk: number;
+  };
+};
+
+type RfqWizardState = {
+  templateId: string;
+  targetCategory: string;
+  sites: string;
+  serviceCoverage: string;
+  deadline: string;
+  contractPeriod: string;
+  slaRequirement: string;
+  evidenceRequirement: string;
+  complianceRequirement: string;
+  exclusions: string;
+  pricingRequirement: string;
+  clarificationRules: string;
+  scoring: RfqTemplate['scoring'];
+};
+
+type RfqGeneratedPackage = {
+  title: string;
+  summary: string;
+  scope: string[];
+  responseFields: string[];
+  mandatoryDocuments: string[];
+  slaAndEvidence: string[];
+  commercialRequirements: string[];
+  scoringMatrix: { label: string; weight: number; detail: string }[];
+  timeline: string[];
+};
+
 const vendorCategories = [
   'FM & HVAC',
   'FM & Electrical',
@@ -298,6 +346,165 @@ function buildQuoteAnalysis(documents: VendorSetupDocument[], notes: string, foc
       amounts.length >= 2 && savings > 0 ? `Selecting the recommended quote is AED ${savings.toLocaleString()} below the highest readable offer.` : 'Commercial spread needs complete price extraction before final award.',
       `${winner.vendorName} ${winner.sla === null ? 'needs SLA confirmation' : `offers ${winner.sla}% SLA commitment`} with ${winner.warranty.toLowerCase()} warranty position.`,
       items.some(item => item.risk === 'High') ? 'At least one quote carries high clarification risk before award.' : 'No high-risk quote blockers were detected in the submitted set.',
+    ],
+  };
+}
+
+function buildRfqTemplates(): RfqTemplate[] {
+  return [
+    {
+      id: 'fm-hvac',
+      name: 'FM / HVAC Services',
+      category: 'FM & HVAC',
+      serviceLines: ['Preventive and reactive HVAC maintenance', 'Chiller and FCU inspection', 'Emergency cooling response', 'Asset condition reporting'],
+      responseFields: ['Company profile', 'Rate card by service type', 'Technician availability', 'Emergency response model', 'Parts markup and exclusions'],
+      mandatoryDocuments: ['Trade license', 'Insurance certificate', 'Technician certifications', 'HSE records', 'Three comparable references'],
+      defaultSla: 'Respond within 30 minutes for critical cooling issues and close standard jobs within agreed site SLA.',
+      scoring: { price: 25, sla: 20, quality: 20, compliance: 15, capacity: 10, risk: 10 },
+    },
+    {
+      id: 'cleaning-soft-fm',
+      name: 'Cleaning & Soft FM',
+      category: 'Cleaning & Soft FM',
+      serviceLines: ['Common area cleaning', 'Deep cleaning support', 'Waste room hygiene', 'Resident-facing service recovery'],
+      responseFields: ['Staffing plan', 'Shift coverage', 'Consumables and equipment list', 'Quality inspection method', 'Supervisor escalation path'],
+      mandatoryDocuments: ['Trade license', 'Insurance certificate', 'Staff training records', 'HSE method statement', 'Material safety data sheets'],
+      defaultSla: 'Provide daily service coverage with same-day corrective attendance for quality failures.',
+      scoring: { price: 25, sla: 15, quality: 25, compliance: 15, capacity: 15, risk: 5 },
+    },
+    {
+      id: 'mep-systems',
+      name: 'MEP & Systems',
+      category: 'MEP & Systems',
+      serviceLines: ['MEP reactive maintenance', 'Plantroom support', 'Electrical and plumbing troubleshooting', 'Systems handover evidence'],
+      responseFields: ['Trade capability matrix', 'Specialist technician roster', 'Emergency escalation model', 'Testing equipment list', 'Warranty exclusions'],
+      mandatoryDocuments: ['Trade license', 'Insurance certificate', 'Technician certifications', 'Testing certificates', 'HSE records'],
+      defaultSla: 'Attend emergency MEP failures within 45 minutes and provide root-cause evidence for every closure.',
+      scoring: { price: 20, sla: 20, quality: 20, compliance: 15, capacity: 15, risk: 10 },
+    },
+    {
+      id: 'fire-safety',
+      name: 'Fire & Safety',
+      category: 'Fire & Safety',
+      serviceLines: ['Fire alarm and fire fighting maintenance', 'Civil defense readiness support', 'Emergency call-out', 'Compliance reporting'],
+      responseFields: ['Authority approvals', 'Certified engineer list', 'PPM method statement', 'Emergency call-out terms', 'Compliance reporting sample'],
+      mandatoryDocuments: ['Trade license', 'Civil defense approvals', 'Insurance certificate', 'Engineer certifications', 'HSE records'],
+      defaultSla: 'Attend life-safety critical failures immediately and provide compliance-ready closure evidence.',
+      scoring: { price: 15, sla: 20, quality: 20, compliance: 25, capacity: 10, risk: 10 },
+    },
+    {
+      id: 'security-services',
+      name: 'Security Services',
+      category: 'Security',
+      serviceLines: ['Guarding services', 'Access control support', 'Incident response', 'Supervisor patrol reporting'],
+      responseFields: ['Guarding roster', 'Licensing and training profile', 'Incident escalation process', 'Relief staffing model', 'Reporting sample'],
+      mandatoryDocuments: ['Security license', 'Insurance certificate', 'Training records', 'Supervisor credentials', 'Incident reporting template'],
+      defaultSla: 'Maintain agreed post coverage and escalate security incidents within the site response protocol.',
+      scoring: { price: 20, sla: 15, quality: 20, compliance: 20, capacity: 15, risk: 10 },
+    },
+    {
+      id: 'general-vendor',
+      name: 'General Vendor Sourcing',
+      category: 'General FM',
+      serviceLines: ['Defined service scope', 'Reactive support', 'Compliance documentation', 'Performance reporting'],
+      responseFields: ['Company profile', 'Commercial proposal', 'Delivery method', 'Resource plan', 'Exclusions and assumptions'],
+      mandatoryDocuments: ['Trade license', 'Insurance certificate', 'Relevant certifications', 'HSE records', 'Client references'],
+      defaultSla: 'Confirm response, attendance, and completion SLAs for each service category.',
+      scoring: { price: 25, sla: 15, quality: 20, compliance: 15, capacity: 15, risk: 10 },
+    },
+  ];
+}
+
+function buildInitialRfqWizardState(vendor: VendorIntelData, template: RfqTemplate): RfqWizardState {
+  return {
+    templateId: template.id,
+    targetCategory: template.category,
+    sites: vendor.sites.join(', '),
+    serviceCoverage: template.serviceLines.join('; '),
+    deadline: '7 working days from issue',
+    contractPeriod: `Until ${vendor.contractExpiry}`,
+    slaRequirement: template.defaultSla,
+    evidenceRequirement: 'Before/after photos, asset tag, timestamp, root cause, technician notes, and resident confirmation where applicable.',
+    complianceRequirement: template.mandatoryDocuments.join('; '),
+    exclusions: 'Bidders must list all exclusions, emergency rates, parts markups, access assumptions, and mobilization constraints.',
+    pricingRequirement: 'Submit fixed rate card, call-out rates, emergency uplift, parts markup, and any minimum monthly commitment.',
+    clarificationRules: 'All clarifications must be submitted before the deadline. Commercial alternatives must be clearly marked as optional.',
+    scoring: { ...template.scoring },
+  };
+}
+
+function extractRfqScopeFromDocuments(documents: VendorSetupDocument[], notes: string): Partial<RfqWizardState> {
+  const combined = [notes, ...documents.map(doc => `${doc.name}\n${doc.content}`)].filter(Boolean).join('\n');
+  if (!combined.trim()) return {};
+  const category = inferVendorCategory(combined);
+  const sites = extractLabeledValue(combined, ['sites covered', 'properties', 'locations', 'site scope', 'service locations']);
+  const serviceCoverage = extractLabeledValue(combined, ['scope', 'service scope', 'services required', 'service coverage', 'work scope']);
+  const deadline = extractLabeledValue(combined, ['response deadline', 'submission deadline', 'deadline', 'due date']);
+  const contractPeriod = extractLabeledValue(combined, ['contract period', 'term', 'duration', 'contract duration']);
+  const slaRequirement = extractLabeledValue(combined, ['sla requirement', 'sla', 'service level', 'response time']);
+  const exclusions = extractLabeledValue(combined, ['exclusions', 'excluded', 'not included']);
+  return {
+    ...(category ? { targetCategory: category } : {}),
+    ...(sites ? { sites } : {}),
+    ...(serviceCoverage ? { serviceCoverage } : {}),
+    ...(deadline ? { deadline } : {}),
+    ...(contractPeriod ? { contractPeriod } : {}),
+    ...(slaRequirement ? { slaRequirement } : {}),
+    ...(exclusions ? { exclusions } : {}),
+  };
+}
+
+function buildRfqDraft(
+  template: RfqTemplate,
+  vendor: VendorIntelData,
+  peers: VendorIntelData[],
+  wizardState: RfqWizardState,
+  documents: VendorSetupDocument[],
+  notes: string,
+): RfqGeneratedPackage {
+  const peerAvgCost = Math.round(peers.reduce((sum, peer) => sum + peer.avgCostPerJob, 0) / Math.max(1, peers.length));
+  const parsedSites = wizardState.sites.split(',').map(site => site.trim()).filter(Boolean);
+  const extracted = extractRfqScopeFromDocuments(documents, notes);
+  const scopeText = extracted.serviceCoverage || wizardState.serviceCoverage;
+  const scopeLines = scopeText.split(';').map(item => item.trim()).filter(Boolean);
+  const scoreDetail = {
+    price: `Commercial competitiveness against expected peer average around AED ${peerAvgCost}/job.`,
+    sla: `Commitment to ${wizardState.slaRequirement}`,
+    quality: 'First-time fix, method statement quality, supervisor model, and references.',
+    compliance: `Completeness of ${wizardState.complianceRequirement}.`,
+    capacity: 'Available technicians, shift coverage, emergency response, and mobilization speed.',
+    risk: 'Clarity of exclusions, dependency risk, warranty position, and escalation model.',
+  };
+  return {
+    title: `${template.name} RFQ - ${parsedSites[0] ?? vendor.category}`,
+    summary: `Structured RFQ for ${wizardState.targetCategory}, prepared using ${vendor.name} context, ${parsedSites.length || vendor.sites.length} site(s), ${documents.length} uploaded document(s), and current peer commercial benchmarks.`,
+    scope: [
+      `Category: ${wizardState.targetCategory}.`,
+      `Sites: ${parsedSites.join(', ') || vendor.sites.join(', ')}.`,
+      `Contract period: ${wizardState.contractPeriod}.`,
+      ...scopeLines.map(line => `Service: ${line}.`),
+    ],
+    responseFields: template.responseFields,
+    mandatoryDocuments: wizardState.complianceRequirement.split(';').map(item => item.trim()).filter(Boolean),
+    slaAndEvidence: [
+      wizardState.slaRequirement,
+      wizardState.evidenceRequirement,
+      'All completed work must include auditable closure notes before payment approval.',
+    ],
+    commercialRequirements: [
+      wizardState.pricingRequirement,
+      `Target commercial guardrail: explain any average job cost above AED ${Math.max(250, peerAvgCost)}.`,
+      wizardState.exclusions,
+    ],
+    scoringMatrix: (Object.entries(wizardState.scoring) as [keyof RfqTemplate['scoring'], number][]).map(([key, weight]) => ({
+      label: key === 'sla' ? 'SLA' : key.charAt(0).toUpperCase() + key.slice(1),
+      weight,
+      detail: scoreDetail[key],
+    })),
+    timeline: [
+      `Submission deadline: ${wizardState.deadline}.`,
+      `Clarifications: ${wizardState.clarificationRules}`,
+      'Shortlisted vendors will be compared on the same service basket before award.',
     ],
   };
 }
@@ -982,11 +1189,13 @@ function VendorCopilotWorkbench({
   log,
   onRun,
   onOpenQuoteIntake,
+  onOpenRfqWizard,
 }: {
   result: VendorCopilotResult;
   log: string[];
   onRun: (action: VendorCopilotAction) => void;
   onOpenQuoteIntake?: () => void;
+  onOpenRfqWizard?: () => void;
 }) {
   const actions: { id: VendorCopilotAction; label: string; detail: string; tone: string; icon: React.ReactNode }[] = [
     { id: 'rfq', label: 'Write RFQ', detail: 'Scope, questions, scoring, and evidence rules', tone: 'border-blue-400/30 bg-blue-400/10 text-blue-200', icon: <FileWarning size={13} /> },
@@ -1015,6 +1224,7 @@ function VendorCopilotWorkbench({
               type="button"
               onClick={() => {
                 onRun(action.id);
+                if (action.id === 'rfq') onOpenRfqWizard?.();
                 if (action.id === 'compare') onOpenQuoteIntake?.();
               }}
               className={`group rounded-xl border p-3 text-left transition-all hover:-translate-y-0.5 hover:border-white/30 ${action.tone}`}
@@ -1085,6 +1295,17 @@ function VendorCopilotWorkbench({
           </button>
         )}
 
+        {result.action === 'rfq' && onOpenRfqWizard && (
+          <button
+            type="button"
+            onClick={onOpenRfqWizard}
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-blue-400/30 bg-blue-400/12 px-4 py-3 text-[12px] font-black text-blue-100 transition-all hover:border-blue-300/50 hover:bg-blue-400/18"
+          >
+            <FileWarning size={14} />
+            Open RFQ wizard
+          </button>
+        )}
+
         <div className="mt-3 rounded-xl border border-[rgba(46,127,255,0.12)] bg-[#07111F] p-3">
           <div className="mb-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#7A94B4]">Copilot activity</div>
           <div className="space-y-1.5">
@@ -1112,23 +1333,34 @@ function inferVendorCopilotAction(prompt: string): VendorCopilotAction {
 
 function PageProcurementCopilotModal({
   focusVendor,
+  peers,
   result,
   onClose,
   onRun,
   onOpenProfile,
 }: {
   focusVendor: VendorIntelData;
+  peers: VendorIntelData[];
   result: VendorCopilotResult;
   onClose: () => void;
   onRun: (action: VendorCopilotAction) => void;
   onOpenProfile: () => void;
 }) {
+  const rfqTemplates = buildRfqTemplates();
+  const defaultRfqTemplate = rfqTemplates.find(template => template.category === focusVendor.category) ?? rfqTemplates[0];
   const [prompt, setPrompt] = useState('');
   const [isListening, setIsListening] = useState(false);
   const [assistantNote, setAssistantNote] = useState(`Ready for ${focusVendor.name}. Choose an outcome or describe the procurement task.`);
   const [quoteDocuments, setQuoteDocuments] = useState<VendorSetupDocument[]>([]);
   const [quoteNotes, setQuoteNotes] = useState('');
   const [quoteAnalysis, setQuoteAnalysis] = useState<QuoteAnalysis | null>(null);
+  const [rfqStep, setRfqStep] = useState<RfqWizardStep>('template');
+  const [rfqState, setRfqState] = useState<RfqWizardState>(() => buildInitialRfqWizardState(focusVendor, defaultRfqTemplate));
+  const [rfqDocuments, setRfqDocuments] = useState<VendorSetupDocument[]>([]);
+  const [rfqNotes, setRfqNotes] = useState('');
+  const [rfqPackage, setRfqPackage] = useState<RfqGeneratedPackage | null>(null);
+  const [rfqActionStatus, setRfqActionStatus] = useState('');
+  const currentRfqTemplate = rfqTemplates.find(template => template.id === rfqState.templateId) ?? defaultRfqTemplate;
   const chips: { label: string; detail: string; action: VendorCopilotAction; icon: React.ReactNode }[] = [
     { label: 'Draft RFQ', detail: 'Scope, criteria, evidence, deadlines', action: 'rfq', icon: <FileWarning size={15} /> },
     { label: 'Compare Quotes', detail: 'Rank vendors and recommend winner', action: 'compare', icon: <BarChart3 size={15} /> },
@@ -1141,7 +1373,9 @@ function PageProcurementCopilotModal({
     onRun(action);
     setAssistantNote(action === 'compare'
       ? 'Upload or paste vendor quotes, then run the comparison to get ranked findings and a recommended winner.'
-      : `${formatVendorAction(action)}. The live work product is updated on the right and on the page workbench behind this modal.`);
+      : action === 'rfq'
+        ? 'Choose a template, add scope documents if available, then generate a review-ready RFQ package.'
+        : `${formatVendorAction(action)}. The live work product is updated on the right and on the page workbench behind this modal.`);
     setPrompt('');
   }
 
@@ -1186,7 +1420,91 @@ function PageProcurementCopilotModal({
     setAssistantNote('Quote comparison reset. Upload or paste new quotes to analyse again.');
   }
 
+  function updateRfq(field: keyof RfqWizardState, value: string | RfqTemplate['scoring']) {
+    setRfqState(prev => ({ ...prev, [field]: value }));
+    setRfqPackage(null);
+    setRfqActionStatus('');
+  }
+
+  function selectRfqTemplate(template: RfqTemplate) {
+    setRfqState(buildInitialRfqWizardState(focusVendor, template));
+    setRfqPackage(null);
+    setRfqActionStatus('');
+  }
+
+  async function addRfqDocuments(event: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? []);
+    if (!files.length) return;
+    const docs = await Promise.all(files.map(async file => {
+      const parsed = await parseProjectDocumentFile(file).catch(() => null);
+      return {
+        id: `rfq-${file.name}-${file.size}-${Date.now()}`,
+        name: file.name,
+        type: file.type || 'Scope document',
+        sizeLabel: formatDocumentSize(file.size),
+        content: parsed?.text ?? '',
+        warning: parsed?.warning,
+      };
+    }));
+    const nextDocuments = [...docs, ...rfqDocuments].slice(0, 8);
+    setRfqDocuments(nextDocuments);
+    setRfqState(prev => ({ ...prev, ...extractRfqScopeFromDocuments(nextDocuments, rfqNotes) }));
+    setRfqPackage(null);
+    event.target.value = '';
+  }
+
+  function updateRfqNotes(value: string) {
+    setRfqNotes(value);
+    setRfqState(prev => ({ ...prev, ...extractRfqScopeFromDocuments(rfqDocuments, value) }));
+    setRfqPackage(null);
+  }
+
+  function generateRfq() {
+    const draft = buildRfqDraft(currentRfqTemplate, focusVendor, peers, rfqState, rfqDocuments, rfqNotes);
+    setRfqPackage(draft);
+    setRfqStep('review');
+    setRfqActionStatus('RFQ review package generated and saved to the workbench.');
+    onRun('rfq');
+    setAssistantNote('RFQ generated. Review the package, then copy it, save it to the workbench, or prepare the vendor invite.');
+  }
+
+  function rfqAsText(pkg: RfqGeneratedPackage): string {
+    return [
+      pkg.title,
+      '',
+      pkg.summary,
+      '',
+      'Scope',
+      ...pkg.scope.map(line => `- ${line}`),
+      '',
+      'Required vendor response',
+      ...pkg.responseFields.map(line => `- ${line}`),
+      '',
+      'Mandatory documents',
+      ...pkg.mandatoryDocuments.map(line => `- ${line}`),
+      '',
+      'SLA and evidence',
+      ...pkg.slaAndEvidence.map(line => `- ${line}`),
+      '',
+      'Commercial requirements',
+      ...pkg.commercialRequirements.map(line => `- ${line}`),
+      '',
+      'Evaluation scoring',
+      ...pkg.scoringMatrix.map(item => `- ${item.label}: ${item.weight}% - ${item.detail}`),
+      '',
+      'Timeline',
+      ...pkg.timeline.map(line => `- ${line}`),
+    ].join('\n');
+  }
+
+  async function copyRfqPackage() {
+    if (!rfqPackage) return;
+    await navigator.clipboard?.writeText(rfqAsText(rfqPackage)).catch(() => undefined);
+    setRfqActionStatus('RFQ copied to clipboard.');
+  }
+
   const isCompareMode = result.action === 'compare';
+  const isRfqMode = result.action === 'rfq';
 
   return (
     <motion.div
@@ -1208,11 +1526,13 @@ function PageProcurementCopilotModal({
               Procurement assistant
             </div>
             <h3 className="text-xl font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-              {isCompareMode ? 'Compare Quotes' : 'How can I help?'}
+              {isCompareMode ? 'Compare Quotes' : isRfqMode ? 'Write RFQ' : 'How can I help?'}
             </h3>
             <p className="mt-1 max-w-2xl text-[12px] leading-5 text-[#9CB1CC]">
               {isCompareMode
                 ? 'Upload quote files, run analysis, and review the extracted comparison.'
+                : isRfqMode
+                  ? 'Choose a template, add scope material, and generate a review-ready RFQ package.'
                 : <>Tell me the procurement outcome. I will generate the artifact and keep the vendor context anchored to <span className="font-bold text-[#EEF3FA]">{focusVendor.name}</span>.</>}
             </p>
           </div>
@@ -1343,6 +1663,254 @@ function PageProcurementCopilotModal({
                   <UploadCloud size={18} />
                 </div>
                 <div className="mt-3 text-[13px] font-bold text-[#EEF3FA]">Upload quotes to see the comparison</div>
+              </div>
+            )}
+          </div>
+        ) : isRfqMode ? (
+          <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto p-5">
+            <div className="mb-4 flex flex-wrap gap-2">
+              {[
+                ['template', 'Template'],
+                ['scope', 'Scope'],
+                ['requirements', 'Requirements'],
+                ['scoring', 'Scoring'],
+                ['review', 'Review'],
+              ].map(([id, label], index) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setRfqStep(id as RfqWizardStep)}
+                  className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-[10px] font-black uppercase tracking-[0.12em] transition-all ${
+                    rfqStep === id
+                      ? 'border-blue-300/45 bg-blue-400/18 text-blue-100'
+                      : 'border-[rgba(46,127,255,0.14)] bg-[#07111F] text-[#7A94B4] hover:text-white'
+                  }`}
+                >
+                  <span className="grid h-5 w-5 place-items-center rounded-full bg-white/8 text-[9px]">{index + 1}</span>
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {rfqStep === 'template' && (
+              <div className="grid gap-4 lg:grid-cols-[1fr_310px]">
+                <div className="grid gap-3 md:grid-cols-2">
+                  {rfqTemplates.map(template => (
+                    <button
+                      key={template.id}
+                      type="button"
+                      onClick={() => selectRfqTemplate(template)}
+                      className={`rounded-2xl border p-4 text-left transition-all hover:-translate-y-0.5 ${
+                        rfqState.templateId === template.id
+                          ? 'border-blue-300/50 bg-blue-400/16 shadow-[0_0_24px_rgba(46,127,255,0.18)]'
+                          : 'border-[rgba(46,127,255,0.16)] bg-[#07111F] hover:border-blue-300/30'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="text-[13px] font-black text-[#EEF3FA]">{template.name}</div>
+                          <div className="mt-1 text-[10px] font-bold text-[#8AA6C8]">{template.category}</div>
+                        </div>
+                        {rfqState.templateId === template.id && <CheckCircle size={16} className="text-emerald-300" />}
+                      </div>
+                      <div className="mt-3 space-y-1.5">
+                        {template.serviceLines.slice(0, 3).map(line => (
+                          <div key={line} className="flex gap-2 text-[10px] leading-4 text-[#C8D8EE]">
+                            <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-300" />
+                            {line}
+                          </div>
+                        ))}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                <div className="rounded-2xl border border-blue-400/22 bg-blue-500/10 p-4">
+                  <div className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-100">Selected template</div>
+                  <div className="mt-2 text-lg font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{currentRfqTemplate.name}</div>
+                  <p className="mt-2 text-[12px] leading-5 text-[#C8D8EE]">{currentRfqTemplate.defaultSla}</p>
+                  <button type="button" onClick={() => setRfqStep('scope')} className="mt-4 w-full rounded-xl bg-[#2E7FFF] px-4 py-3 text-[12px] font-black text-white transition-all hover:bg-[#4B91FF]">
+                    Continue to scope
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {rfqStep === 'scope' && (
+              <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
+                <div className="rounded-2xl border border-[rgba(46,127,255,0.18)] bg-[#07111F] p-4">
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#8DBDFF]">Scope documents</div>
+                      <p className="mt-1 text-[11px] text-[#8AA6C8]">Upload or paste scope, contract, or service notes. Fields update from readable text.</p>
+                    </div>
+                    <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-[#2E7FFF]/30 bg-[#2E7FFF]/12 px-3 py-2 text-[11px] font-bold text-[#BFD8FF] transition-all hover:bg-[#2E7FFF]/18">
+                      <UploadCloud size={13} />
+                      Upload scope
+                      <input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.md,.json" onChange={addRfqDocuments} className="hidden" />
+                    </label>
+                  </div>
+                  <div className="mb-3 flex flex-wrap gap-2">
+                    {rfqDocuments.length === 0 ? (
+                      <div className="rounded-lg border border-dashed border-[#2E7FFF]/25 px-3 py-2 text-[11px] text-[#7A94B4]">No scope files uploaded</div>
+                    ) : rfqDocuments.map(doc => (
+                      <div key={doc.id} className="inline-flex items-center gap-2 rounded-lg border border-[#2E7FFF]/18 bg-[#102544] px-2.5 py-1.5 text-[10px] text-[#C8D8EE]">
+                        <FileText size={12} className="text-[#8DBDFF]" />
+                        <span className="max-w-[180px] truncate font-semibold">{doc.name}</span>
+                        <span className="text-[#6F89AA]">{doc.sizeLabel}</span>
+                        <button type="button" onClick={() => { setRfqDocuments(prev => prev.filter(item => item.id !== doc.id)); setRfqPackage(null); }} className="text-[#7A94B4] hover:text-red-300" aria-label={`Remove ${doc.name}`}>
+                          <Trash2 size={11} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <textarea
+                    value={rfqNotes}
+                    onChange={event => updateRfqNotes(event.target.value)}
+                    placeholder="Paste scope text, site list, deadline, SLA, exclusions, or contract period"
+                    className="min-h-[160px] w-full resize-none rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#050C17] px-3 py-2.5 text-[12px] leading-relaxed text-[#EEF3FA] outline-none transition-all placeholder:text-[#4A6480] focus:border-[#2E7FFF]"
+                  />
+                </div>
+                <div className="rounded-2xl border border-[rgba(46,127,255,0.18)] bg-[#0D1E3A] p-4">
+                  <div className="mb-3 text-[10px] font-black uppercase tracking-[0.16em] text-[#8DBDFF]">RFQ scope</div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {[
+                      ['targetCategory', 'Target category'],
+                      ['sites', 'Sites'],
+                      ['deadline', 'Submission deadline'],
+                      ['contractPeriod', 'Contract period'],
+                    ].map(([field, label]) => (
+                      <label key={field} className="block">
+                        <span className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">{label}</span>
+                        <input value={String(rfqState[field as keyof RfqWizardState])} onChange={event => updateRfq(field as keyof RfqWizardState, event.target.value)} className="mt-1 h-10 w-full rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#050C17] px-3 text-[12px] text-[#EEF3FA] outline-none focus:border-[#2E7FFF]" />
+                      </label>
+                    ))}
+                  </div>
+                  <label className="mt-3 block">
+                    <span className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">Service coverage</span>
+                    <textarea value={rfqState.serviceCoverage} onChange={event => updateRfq('serviceCoverage', event.target.value)} className="mt-1 min-h-[90px] w-full resize-none rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#050C17] px-3 py-2 text-[12px] text-[#EEF3FA] outline-none focus:border-[#2E7FFF]" />
+                  </label>
+                  <button type="button" onClick={() => setRfqStep('requirements')} className="mt-4 w-full rounded-xl bg-[#2E7FFF] px-4 py-3 text-[12px] font-black text-white transition-all hover:bg-[#4B91FF]">
+                    Continue to requirements
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {rfqStep === 'requirements' && (
+              <div className="rounded-2xl border border-[rgba(46,127,255,0.18)] bg-[#0D1E3A] p-4">
+                <div className="mb-4 text-[10px] font-black uppercase tracking-[0.16em] text-[#8DBDFF]">Requirements</div>
+                <div className="grid gap-3 lg:grid-cols-2">
+                  {[
+                    ['slaRequirement', 'SLA requirement'],
+                    ['evidenceRequirement', 'Evidence requirement'],
+                    ['complianceRequirement', 'Mandatory documents'],
+                    ['pricingRequirement', 'Pricing table requirement'],
+                    ['exclusions', 'Exclusions and assumptions'],
+                    ['clarificationRules', 'Clarification rules'],
+                  ].map(([field, label]) => (
+                    <label key={field} className="block">
+                      <span className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">{label}</span>
+                      <textarea value={String(rfqState[field as keyof RfqWizardState])} onChange={event => updateRfq(field as keyof RfqWizardState, event.target.value)} className="mt-1 min-h-[96px] w-full resize-none rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#050C17] px-3 py-2 text-[12px] leading-5 text-[#EEF3FA] outline-none focus:border-[#2E7FFF]" />
+                    </label>
+                  ))}
+                </div>
+                <button type="button" onClick={() => setRfqStep('scoring')} className="mt-4 rounded-xl bg-[#2E7FFF] px-5 py-3 text-[12px] font-black text-white transition-all hover:bg-[#4B91FF]">
+                  Continue to scoring
+                </button>
+              </div>
+            )}
+
+            {rfqStep === 'scoring' && (
+              <div className="rounded-2xl border border-[rgba(46,127,255,0.18)] bg-[#0D1E3A] p-4">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#8DBDFF]">Evaluation scoring</div>
+                    <p className="mt-1 text-[11px] text-[#8AA6C8]">Tune the weights. They should total 100 for a clean RFQ.</p>
+                  </div>
+                  <span className="rounded-full border border-[#2E7FFF]/25 bg-[#2E7FFF]/10 px-3 py-1 text-[10px] font-black text-[#8DBDFF]">
+                    Total {Object.values(rfqState.scoring).reduce((sum, value) => sum + value, 0)}%
+                  </span>
+                </div>
+                <div className="grid gap-3 md:grid-cols-2">
+                  {(Object.keys(rfqState.scoring) as (keyof RfqTemplate['scoring'])[]).map(key => (
+                    <label key={key} className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#07111F] p-3">
+                      <div className="mb-2 flex items-center justify-between">
+                        <span className="text-[12px] font-black capitalize text-[#EEF3FA]">{key === 'sla' ? 'SLA' : key}</span>
+                        <span className="text-[12px] font-black text-[#8DBDFF]">{rfqState.scoring[key]}%</span>
+                      </div>
+                      <input type="range" min="0" max="40" value={rfqState.scoring[key]} onChange={event => updateRfq('scoring', { ...rfqState.scoring, [key]: Number(event.target.value) })} className="w-full accent-[#2E7FFF]" />
+                    </label>
+                  ))}
+                </div>
+                <button type="button" onClick={generateRfq} className="mt-4 w-full rounded-xl bg-[#ED1D2E] px-5 py-3 text-[12px] font-black text-white shadow-lg shadow-[#ED1D2E]/20 transition-all hover:bg-[#ff3040]">
+                  Generate RFQ
+                </button>
+              </div>
+            )}
+
+            {rfqStep === 'review' && (
+              <div className="space-y-4">
+                {!rfqPackage ? (
+                  <div className="rounded-2xl border border-[rgba(46,127,255,0.18)] bg-[#07111F] p-6 text-center">
+                    <div className="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-blue-400/12 text-blue-100">
+                      <FileWarning size={20} />
+                    </div>
+                    <div className="mt-3 text-[14px] font-black text-[#EEF3FA]">Ready to generate the RFQ package</div>
+                    <button type="button" onClick={generateRfq} className="mt-4 rounded-xl bg-[#ED1D2E] px-5 py-3 text-[12px] font-black text-white transition-all hover:bg-[#ff3040]">
+                      Generate RFQ
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="rounded-2xl border border-emerald-400/25 bg-emerald-500/10 p-4">
+                      <div className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-200">Review package</div>
+                      <h4 className="mt-1 text-xl font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{rfqPackage.title}</h4>
+                      <p className="mt-2 text-[12px] leading-5 text-[#C8D8EE]">{rfqPackage.summary}</p>
+                      {rfqActionStatus && <div className="mt-3 rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-[11px] font-bold text-emerald-100">{rfqActionStatus}</div>}
+                    </div>
+                    <div className="grid gap-3 lg:grid-cols-2">
+                      {[
+                        ['Scope of services', rfqPackage.scope],
+                        ['Required vendor response', rfqPackage.responseFields],
+                        ['Mandatory documents', rfqPackage.mandatoryDocuments],
+                        ['SLA and evidence', rfqPackage.slaAndEvidence],
+                        ['Commercial pricing', rfqPackage.commercialRequirements],
+                        ['Timeline and clarification', rfqPackage.timeline],
+                      ].map(([title, lines]) => (
+                        <div key={title as string} className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#07111F] p-3">
+                          <div className="mb-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#8DBDFF]">{title as string}</div>
+                          <ul className="space-y-2">
+                            {(lines as string[]).map(line => (
+                              <li key={line} className="flex gap-2 text-[11px] leading-5 text-[#C8D8EE]">
+                                <CheckCircle size={11} className="mt-1 shrink-0 text-emerald-400" />
+                                {line}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#07111F] p-3">
+                      <div className="mb-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#8DBDFF]">Evaluation scoring matrix</div>
+                      <div className="grid gap-2 md:grid-cols-2">
+                        {rfqPackage.scoringMatrix.map(item => (
+                          <div key={item.label} className="rounded-lg bg-[#0D1E3A] px-3 py-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-[11px] font-black text-[#EEF3FA]">{item.label}</span>
+                              <span className="text-[11px] font-black text-[#8DBDFF]">{item.weight}%</span>
+                            </div>
+                            <p className="mt-1 text-[10px] leading-4 text-[#8AA6C8]">{item.detail}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" onClick={copyRfqPackage} className="rounded-xl bg-[#2E7FFF] px-4 py-3 text-[12px] font-black text-white transition-all hover:bg-[#4B91FF]">Copy RFQ</button>
+                      <button type="button" onClick={() => setRfqActionStatus('RFQ saved to the Procurement Copilot workbench.')} className="rounded-xl border border-[#2E7FFF]/30 bg-[#2E7FFF]/12 px-4 py-3 text-[12px] font-black text-[#BFD8FF] transition-all hover:bg-[#2E7FFF]/18">Save to workbench</button>
+                      <button type="button" onClick={() => setRfqActionStatus('Vendor invite prepared with RFQ package and document checklist.')} className="rounded-xl border border-emerald-400/30 bg-emerald-400/12 px-4 py-3 text-[12px] font-black text-emerald-100 transition-all hover:bg-emerald-400/18">Prepare vendor invite</button>
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -2776,7 +3344,14 @@ export function VendorIntelligence({ onToast }: Props) {
               result={pageCopilotResult}
               log={pageCopilotLog}
               onRun={runPageCopilotAction}
-              onOpenQuoteIntake={() => setShowPageCopilotModal(true)}
+              onOpenQuoteIntake={() => {
+                setPageCopilotAction('compare');
+                setShowPageCopilotModal(true);
+              }}
+              onOpenRfqWizard={() => {
+                setPageCopilotAction('rfq');
+                setShowPageCopilotModal(true);
+              }}
             />
           </div>
         </div>
@@ -2853,6 +3428,7 @@ export function VendorIntelligence({ onToast }: Props) {
         {showPageCopilotModal && (
           <PageProcurementCopilotModal
             focusVendor={procurementFocus}
+            peers={allVendors}
             result={pageCopilotResult}
             onClose={() => setShowPageCopilotModal(false)}
             onRun={runPageCopilotAction}
