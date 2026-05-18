@@ -1596,15 +1596,6 @@ function VendorCopilotWorkbench({
   return (
     <div className="grid gap-3 lg:grid-cols-[0.95fr_1.25fr]">
       <div className="space-y-3">
-        <div className="rounded-xl border border-violet-400/20 bg-[linear-gradient(135deg,rgba(46,127,255,0.14),rgba(124,58,237,0.12))] p-4">
-          <div className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-violet-100">
-            <Sparkles size={13} />
-            Procurement Copilot
-          </div>
-          <p className="text-[12px] leading-5 text-[#DDE6F8]">
-            Choose a job and the copilot prepares the working artifact, applies vendor data, and records the action for follow-up.
-          </p>
-        </div>
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
           {actions.map(action => (
             <button
