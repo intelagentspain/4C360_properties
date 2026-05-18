@@ -50,11 +50,31 @@ const taskStatusColor: Record<string, string> = {
 type LayerKey = 'technicians' | 'incidents' | 'assets' | 'tasks' | 'slaZones' | 'predictedFailures';
 
 type DrawerItem =
+  | { kind: 'client'; data: ClientWithCoordinates }
   | { kind: 'tech'; data: typeof mockTechnicians[0] }
   | { kind: 'incident'; data: Incident }
   | { kind: 'asset'; data: typeof mockAssets[0] }
   | { kind: 'task'; data: typeof mockTasks[0] }
   | { kind: 'failure'; data: typeof mockPredictedFailures[0] };
+
+const siteOffsets = [
+  { lat: 0.0011, lng: -0.0010 },
+  { lat: -0.0010, lng: 0.0011 },
+  { lat: 0.0006, lng: 0.0016 },
+  { lat: -0.0014, lng: -0.0005 },
+  { lat: 0.0016, lng: 0.0005 },
+  { lat: -0.0005, lng: -0.0016 },
+];
+
+function getSiteOffset(index: number) {
+  return siteOffsets[index % siteOffsets.length];
+}
+
+function conditionToStatus(condition: number): typeof mockAssets[0]['status'] {
+  if (condition >= 85) return 'ok';
+  if (condition >= 65) return 'warning';
+  return 'critical';
+}
 
 function createTechIcon(tech: typeof mockTechnicians[0]) {
   const color = statusColors[tech.status] || '#7A94B4';
@@ -125,9 +145,10 @@ interface MapDrawerProps {
   onClose: () => void;
   onToast: (msg: string, type?: 'success' | 'warning' | 'error' | 'info') => void;
   onViewHistory: (asset: typeof mockAssets[0]) => void;
+  onActivateLayers: (keys: LayerKey[]) => void;
 }
 
-function MapDrawer({ item, onClose, onToast, onViewHistory }: MapDrawerProps) {
+function MapDrawer({ item, onClose, onToast, onViewHistory, onActivateLayers }: MapDrawerProps) {
   return (
     <AnimatePresence>
       {item && (
@@ -136,11 +157,12 @@ function MapDrawer({ item, onClose, onToast, onViewHistory }: MapDrawerProps) {
           animate={{ x: 0 }}
           exit={{ x: '100%' }}
           transition={{ type: 'spring', stiffness: 340, damping: 32 }}
-          className="absolute top-0 right-0 bottom-0 w-64 z-[800] bg-[rgba(10,18,38,0.97)] border-l border-[rgba(46,127,255,0.3)] flex flex-col backdrop-blur-xl"
+          className={`absolute top-0 right-0 bottom-0 z-[800] bg-[rgba(10,18,38,0.97)] border-l border-[rgba(46,127,255,0.3)] flex flex-col backdrop-blur-xl ${item.kind === 'client' ? 'w-80' : 'w-64'}`}
         >
           <div className="flex items-center justify-between px-4 py-3 border-b border-[rgba(46,127,255,0.15)] flex-shrink-0">
             <span className="text-[11px] font-bold text-[#EEF3FA] uppercase tracking-wider">
-              {item.kind === 'tech' ? 'Technician' :
+              {item.kind === 'client' ? 'Property Command' :
+               item.kind === 'tech' ? 'Technician' :
                item.kind === 'incident' ? 'Incident' :
                item.kind === 'asset' ? 'Asset' :
                item.kind === 'task' ? 'Task' : 'Predicted Failure'}
@@ -149,6 +171,7 @@ function MapDrawer({ item, onClose, onToast, onViewHistory }: MapDrawerProps) {
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
+            {item.kind === 'client' && <ClientDetail data={item.data} onToast={onToast} onClose={onClose} onActivateLayers={onActivateLayers} />}
             {item.kind === 'tech' && <TechDetail data={item.data} onToast={onToast} onClose={onClose} />}
             {item.kind === 'incident' && <IncidentDetail data={item.data} onToast={onToast} onClose={onClose} />}
             {item.kind === 'asset' && <AssetDetail data={item.data} onToast={onToast} onClose={onClose} onViewHistory={onViewHistory} />}
@@ -182,6 +205,225 @@ function ActionBtn({ children, primary, onClick }: { children: React.ReactNode; 
     >
       {children}
     </button>
+  );
+}
+
+function LayerQuickBtn({ children, icon, onClick }: { children: React.ReactNode; icon: React.ReactNode; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex items-center gap-2 rounded-lg border border-[rgba(46,127,255,0.24)] bg-[#0A1628] px-3 py-2 text-left text-[11px] font-semibold text-[#CDE0F7] transition-colors hover:border-[#2E7FFF] hover:bg-[#102A4A]"
+    >
+      <span className="text-[#2E7FFF]">{icon}</span>
+      {children}
+    </button>
+  );
+}
+
+function StatusPill({ label, tone }: { label: string; tone: 'ok' | 'warning' | 'critical' | 'info' }) {
+  const classes = {
+    ok: 'bg-emerald-500/15 text-emerald-300 border-emerald-400/25',
+    warning: 'bg-amber-500/15 text-amber-300 border-amber-400/25',
+    critical: 'bg-red-500/15 text-red-300 border-red-400/25',
+    info: 'bg-blue-500/15 text-blue-300 border-blue-400/25',
+  };
+  return <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide ${classes[tone]}`}>{label}</span>;
+}
+
+function ClientDetail({
+  data,
+  onToast,
+  onClose,
+  onActivateLayers,
+}: {
+  data: ClientWithCoordinates;
+  onToast: (m: string, t?: any) => void;
+  onClose: () => void;
+  onActivateLayers: (keys: LayerKey[]) => void;
+}) {
+  const riskTone = data.riskLevel === 'critical' || data.riskLevel === 'high' ? 'critical' : data.riskLevel === 'medium' ? 'warning' : 'ok';
+  const budgetPct = Math.round((data.resources.budgetUsed / data.resources.budgetTotal) * 100);
+  const equipmentAtRisk = data.resources.equipment.filter(e => e.condition < 85);
+  const stockGaps = data.resources.partsStock.filter(item => item.status !== 'ok');
+  const liveSources = data.dataSources.slice(0, 4);
+  const activate = (keys: LayerKey[], message: string) => {
+    onActivateLayers(keys);
+    onToast(message, 'info');
+  };
+  const queueAction = (message: string) => onToast(message, 'success');
+
+  return (
+    <>
+      <div className="space-y-3">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#7A94B4]">{data.marketLabel ?? data.name}</div>
+            <div className="mt-1 text-base font-bold text-[#EEF3FA]">{data.topSites[0]?.name ?? data.name}</div>
+            <div className="mt-1 flex items-center gap-1.5 text-[11px] text-[#9FB7D7]">
+              <MapPin size={11} />
+              {data.region} · {data.sector}
+            </div>
+          </div>
+          <StatusPill label={`${data.riskLevel} risk`} tone={riskTone} />
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <div className="rounded-xl border border-[rgba(46,127,255,0.2)] bg-[#0A1628] p-3">
+            <div className="text-[9px] font-bold uppercase tracking-wide text-[#7A94B4]">SLA</div>
+            <div className="mt-1 text-lg font-bold text-emerald-300">{data.sla}%</div>
+          </div>
+          <div className="rounded-xl border border-[rgba(46,127,255,0.2)] bg-[#0A1628] p-3">
+            <div className="text-[9px] font-bold uppercase tracking-wide text-[#7A94B4]">Evidence</div>
+            <div className="mt-1 text-lg font-bold text-blue-300">{data.compliance}%</div>
+          </div>
+          <div className="rounded-xl border border-[rgba(46,127,255,0.2)] bg-[#0A1628] p-3">
+            <div className="text-[9px] font-bold uppercase tracking-wide text-[#7A94B4]">Incidents</div>
+            <div className="mt-1 text-lg font-bold text-amber-300">{data.incidents}</div>
+          </div>
+          <div className="rounded-xl border border-[rgba(46,127,255,0.2)] bg-[#0A1628] p-3">
+            <div className="text-[9px] font-bold uppercase tracking-wide text-[#7A94B4]">Overdue</div>
+            <div className="mt-1 text-lg font-bold text-red-300">{data.overdueTasks}</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-cyan-400/20 bg-cyan-500/10 p-3">
+        <div className="mb-1 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-cyan-200">
+          <Activity size={12} />
+          Live Control Twin
+        </div>
+        <div className="text-[11px] leading-relaxed text-[#CDE0F7]">{data.aiInsight}</div>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          {liveSources.map(source => (
+            <div key={source.label} className="rounded-lg bg-[#071424] px-2 py-1.5">
+              <div className="text-[9px] text-[#7A94B4]">{source.label}</div>
+              <div className="text-[12px] font-bold text-[#EEF3FA]">{source.count}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#0A1628] p-3">
+        <div className="mb-2 flex items-center justify-between">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-[#7A94B4]">Site Operations</div>
+          <span className="text-[10px] text-[#7A94B4]">Updated {data.lastUpdated}</span>
+        </div>
+        <div className="space-y-2">
+          {data.resources.fleet.map(fleet => (
+            <div key={fleet.label}>
+              <div className="mb-1 flex justify-between text-[11px]">
+                <span className="text-[#CDE0F7]">{fleet.label}</span>
+                <span className="font-semibold text-[#EEF3FA]">{fleet.available}/{fleet.total}</span>
+              </div>
+              <div className="h-1.5 overflow-hidden rounded-full bg-[#1A2E50]">
+                <div className="h-full rounded-full bg-emerald-400" style={{ width: `${Math.round((fleet.available / fleet.total) * 100)}%` }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#0A1628] p-3">
+        <div className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-[#7A94B4]">
+          <Cpu size={12} />
+          Sensors / Assets
+        </div>
+        <div className="space-y-2">
+          {data.resources.equipment.map(asset => (
+            <div key={asset.name} className="rounded-lg bg-[#071424] p-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[11px] font-semibold text-[#EEF3FA]">{asset.name}</span>
+                <span className="text-[10px] font-bold" style={{ color: conditionColor(asset.condition) }}>{asset.condition}%</span>
+              </div>
+              <div className="mt-1 flex items-center justify-between text-[10px] text-[#7A94B4]">
+                <span>Next check</span>
+                <span>{asset.nextService}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+        {(equipmentAtRisk.length > 0 || stockGaps.length > 0) && (
+          <div className="mt-2 rounded-lg border border-amber-400/20 bg-amber-500/10 p-2 text-[11px] text-amber-100">
+            {equipmentAtRisk.length} sensor-linked asset{equipmentAtRisk.length !== 1 ? 's' : ''} need attention · {stockGaps.length} evidence/package gap{stockGaps.length !== 1 ? 's' : ''}
+          </div>
+        )}
+      </div>
+
+      <div className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#0A1628] p-3">
+        <div className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-[#7A94B4]">
+          <Layers size={12} />
+          Show Around This Site
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <LayerQuickBtn icon={<Users size={12} />} onClick={() => activate(['technicians'], 'Technicians shown around this site')}>
+            Technicians
+          </LayerQuickBtn>
+          <LayerQuickBtn icon={<Package size={12} />} onClick={() => activate(['assets'], 'Sensors and assets shown around this site')}>
+            Sensors
+          </LayerQuickBtn>
+          <LayerQuickBtn icon={<AlertTriangle size={12} />} onClick={() => activate(['incidents', 'slaZones'], 'Incidents and SLA zones shown around this site')}>
+            Incidents
+          </LayerQuickBtn>
+          <LayerQuickBtn icon={<Cpu size={12} />} onClick={() => activate(['predictedFailures'], 'Predicted failures shown around this site')}>
+            Failures
+          </LayerQuickBtn>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#0A1628] p-3">
+        <div className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-[#7A94B4]">
+          <Clock size={12} />
+          Latest Signals
+        </div>
+        <div className="space-y-2">
+          {data.recentActivity.map(item => (
+            <div key={`${item.time}-${item.event}`} className="flex gap-2 rounded-lg bg-[#071424] p-2">
+              <div className={`mt-1 h-2 w-2 rounded-full ${item.type === 'warning' ? 'bg-amber-400' : item.type === 'ok' ? 'bg-emerald-400' : 'bg-blue-400'}`} />
+              <div>
+                <div className="text-[11px] leading-snug text-[#EEF3FA]">{item.event}</div>
+                <div className="mt-0.5 text-[9px] text-[#7A94B4]">{item.time}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#0A1628] p-3">
+        <div className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-[#7A94B4]">
+          <ClipboardList size={12} />
+          Manager Actions
+        </div>
+        <div className="grid gap-2">
+          <button onClick={() => queueAction('Site response team dispatch plan prepared')} className="flex items-center justify-between rounded-lg bg-[#12305A] px-3 py-2 text-left text-[11px] font-semibold text-[#EEF3FA] hover:bg-[#173B70]">
+            Dispatch site team <ChevronRight size={12} />
+          </button>
+          <button onClick={() => queueAction('Inspection task draft created for Sobha Pilot Tower')} className="flex items-center justify-between rounded-lg bg-[#12305A] px-3 py-2 text-left text-[11px] font-semibold text-[#EEF3FA] hover:bg-[#173B70]">
+            Create inspection task <ChevronRight size={12} />
+          </button>
+          <button onClick={() => queueAction('Evidence pack request prepared for Sobha Pilot Tower')} className="flex items-center justify-between rounded-lg bg-[#12305A] px-3 py-2 text-left text-[11px] font-semibold text-[#EEF3FA] hover:bg-[#173B70]">
+            Request evidence pack <ChevronRight size={12} />
+          </button>
+          <button
+            onClick={() => {
+              onToast('Opening ProjectCommand for Sobha Pilot Tower', 'info');
+              onClose();
+              window.location.assign('/projectcommand/overview');
+            }}
+            className="flex items-center justify-between rounded-lg bg-[#2E7FFF] px-3 py-2 text-left text-[11px] font-bold text-white hover:bg-blue-500"
+          >
+            Open ProjectCommand <ChevronRight size={12} />
+          </button>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#0A1628] p-3">
+        <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-[#7A94B4]">Pilot Scope</div>
+        <Row label="Budget baseline" value={`AED ${data.resources.budgetTotal}M`} />
+        <Row label="Used / committed" value={`${budgetPct}%`} accent={budgetPct > 40} />
+        <Row label="Pilot contract" value={data.contract.number} />
+        <Row label="Success metric" value="Evidence + handover confidence" accent />
+      </div>
+    </>
   );
 }
 
@@ -464,6 +706,92 @@ export function CommunityMap({ onToast, selectedClientId, commandFilters, onFilt
     return base;
   }, [clients, commandFilters, isMemberMode, memberFilter.zones]);
 
+  const siteLayerClient = focusedClient && hasCoordinates(focusedClient) ? focusedClient : null;
+
+  const mapTechnicians = useMemo(() => {
+    if (!siteLayerClient) return mockTechnicians;
+    const sobhaNames = ['Omar Al-Rashid', 'Nadia Hassan', 'Khalid Mansoor', 'Leila Farouk', 'Samir Qureshi'];
+    const sobhaSkills = ['Project Controls', 'QA Evidence', 'Facade Systems', 'MEP Coordination', 'Safety'];
+    return mockTechnicians.map((tech, index) => {
+      const offset = getSiteOffset(index);
+      return {
+        ...tech,
+        name: siteLayerClient.id === 'CLT-007' ? sobhaNames[index] ?? tech.name : tech.name,
+        skill: siteLayerClient.id === 'CLT-007' ? sobhaSkills[index] ?? tech.skill : tech.skill,
+        status: index === 1 ? 'available' : tech.status,
+        job: index === 1 ? undefined : tech.job ?? `${siteLayerClient.marketLabel ?? siteLayerClient.name} task`,
+        lat: siteLayerClient.lat + offset.lat,
+        lng: siteLayerClient.lng + offset.lng,
+      };
+    });
+  }, [siteLayerClient]);
+
+  const mapAssets = useMemo(() => {
+    if (!siteLayerClient) return mockAssets;
+    const assetTypes = ['Logistics', 'Operations', 'Evidence'];
+    return siteLayerClient.resources.equipment.map((asset, index) => {
+      const offset = getSiteOffset(index + 2);
+      return {
+        id: `SITE-AST-${index + 1}`,
+        name: asset.name,
+        type: assetTypes[index] ?? 'Sensor',
+        location: siteLayerClient.topSites[0]?.name ?? siteLayerClient.name,
+        status: conditionToStatus(asset.condition),
+        lastService: 'Live twin signal',
+        nextPPM: asset.nextService,
+        condition: asset.condition,
+        lat: siteLayerClient.lat + offset.lat,
+        lng: siteLayerClient.lng + offset.lng,
+      };
+    });
+  }, [siteLayerClient]);
+
+  const mapTasks = useMemo(() => {
+    if (!siteLayerClient) return visibleTasks;
+    const taskSeeds = siteLayerClient.id === 'CLT-007'
+      ? [
+        { title: 'Evidence readiness confirmation', tech: 'QA Inspectors', status: 'assigned', skill: 'Evidence', priority: 'high', eta: 'Today' },
+        { title: 'Facade release package review', tech: 'Project Controls', status: 'pending', skill: 'Facade', priority: 'high', eta: 'Awaiting approval' },
+        { title: 'Authority approval pathway check', tech: 'Site Response Team', status: 'in-progress', skill: 'Approvals', priority: 'critical', eta: '2 hrs' },
+      ]
+      : siteLayerClient.topSites.map(site => ({
+        title: `${site.name} follow-up`,
+        tech: siteLayerClient.people.fmManager.name,
+        status: site.status === 'ok' ? 'assigned' : 'pending',
+        skill: 'Operations',
+        priority: site.status === 'critical' ? 'critical' : site.status === 'warning' ? 'high' : 'medium',
+        eta: site.status === 'ok' ? 'Today' : 'Needs review',
+      }));
+
+    return taskSeeds.map((task, index) => {
+      const offset = getSiteOffset(index + 3);
+      return {
+        id: `SITE-TSK-${index + 1}`,
+        ...task,
+        lat: siteLayerClient.lat + offset.lat,
+        lng: siteLayerClient.lng + offset.lng,
+      };
+    });
+  }, [siteLayerClient, visibleTasks]);
+
+  const mapPredictedFailures = useMemo(() => {
+    if (!siteLayerClient) return mockPredictedFailures;
+    return siteLayerClient.resources.equipment.map((asset, index) => {
+      const offset = getSiteOffset(index + 1);
+      const probability = Math.min(92, Math.max(42, 145 - asset.condition));
+      return {
+        id: `SITE-PRD-${index + 1}`,
+        asset: asset.name,
+        probability,
+        horizon: asset.nextService,
+        category: asset.name.includes('Evidence') ? 'Evidence' : asset.name.includes('Crane') ? 'Logistics' : 'Operations',
+        reason: `${asset.name} is tied to ${siteLayerClient.topSites[0]?.name ?? siteLayerClient.name}; control twin recommends proactive review before it affects handover confidence.`,
+        lat: siteLayerClient.lat + offset.lat,
+        lng: siteLayerClient.lng + offset.lng,
+      };
+    });
+  }, [siteLayerClient]);
+
   const [activeLayers, setActiveLayers] = useState<Record<LayerKey, boolean>>({
     technicians: true,
     incidents: true,
@@ -476,8 +804,19 @@ export function CommunityMap({ onToast, selectedClientId, commandFilters, onFilt
   const [historyAsset, setHistoryAsset] = useState<typeof mockAssets[0] | null>(null);
 
   const toggleLayer = (key: LayerKey) => setActiveLayers(prev => ({ ...prev, [key]: !prev[key] }));
+  const activateLayers = (keys: LayerKey[]) => setActiveLayers(prev => keys.reduce((next, key) => ({ ...next, [key]: true }), prev));
 
   const open = (item: DrawerItem) => { setDrawer(item); };
+  const openClient = (client: ClientWithCoordinates) => {
+    setFilterClientId(client.id);
+    if (commandFilters && onFiltersChange) {
+      onFiltersChange({
+        ...commandFilters,
+        Client: client.name,
+      });
+    }
+    setDrawer({ kind: 'client', data: client });
+  };
   const mapStats = focusedClient
     ? [
       {
@@ -526,6 +865,7 @@ export function CommunityMap({ onToast, selectedClientId, commandFilters, onFilt
               key={`client-${c.id}`}
               position={[c.lat, c.lng]}
               icon={createClientMarkerIcon(c.name, c.riskLevel, c.marketLabel)}
+              eventHandlers={{ click: () => openClient(c) }}
             />
           ))}
 
@@ -544,7 +884,7 @@ export function CommunityMap({ onToast, selectedClientId, commandFilters, onFilt
           />
         ))}
 
-        {activeLayers.technicians && mockTechnicians.map(tech => (
+        {activeLayers.technicians && mapTechnicians.map(tech => (
           <Marker
             key={tech.id}
             position={[tech.lat, tech.lng]}
@@ -568,7 +908,7 @@ export function CommunityMap({ onToast, selectedClientId, commandFilters, onFilt
           />
         ))}
 
-        {activeLayers.assets && mockAssets.map(asset => (
+        {activeLayers.assets && mapAssets.map(asset => (
           <Marker
             key={asset.id}
             position={[asset.lat, asset.lng]}
@@ -577,7 +917,7 @@ export function CommunityMap({ onToast, selectedClientId, commandFilters, onFilt
           />
         ))}
 
-        {activeLayers.tasks && visibleTasks.map(task => (
+        {activeLayers.tasks && mapTasks.map(task => (
           <Marker
             key={task.id}
             position={[task.lat, task.lng]}
@@ -586,7 +926,7 @@ export function CommunityMap({ onToast, selectedClientId, commandFilters, onFilt
           />
         ))}
 
-        {activeLayers.predictedFailures && mockPredictedFailures.map(pf => (
+        {activeLayers.predictedFailures && mapPredictedFailures.map(pf => (
           <Marker
             key={pf.id}
             position={[pf.lat, pf.lng]}
@@ -694,6 +1034,7 @@ export function CommunityMap({ onToast, selectedClientId, commandFilters, onFilt
         onClose={() => setDrawer(null)}
         onToast={onToast ?? (() => {})}
         onViewHistory={asset => setHistoryAsset(asset)}
+        onActivateLayers={activateLayers}
       />
 
       <PPMHistoryDrawer
