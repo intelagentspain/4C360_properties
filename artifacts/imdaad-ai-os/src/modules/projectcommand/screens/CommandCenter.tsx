@@ -22,7 +22,6 @@ import {
   Zap,
 } from 'lucide-react';
 import { HealthScoreGauge } from '../components/HealthScoreGauge';
-import { AIInsightBadge } from '../components/AIInsightBadge';
 import { AIInsightPanel } from '../components/AIInsightPanel';
 import {
   buildProjectControlContext,
@@ -126,9 +125,8 @@ function MetricCard({
       onClick={onExplain}
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      className="group relative min-h-[176px] overflow-hidden rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-3 text-left transition-colors hover:border-[#7C3AED]/35 hover:bg-[rgba(17,32,64,0.92)]"
+      className="group relative min-h-[124px] overflow-hidden rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-3 text-left transition-colors hover:border-[#7C3AED]/35 hover:bg-[rgba(17,32,64,0.92)]"
     >
-      <AIInsightBadge onClick={onExplain} />
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#7A94B4]">{metric.label}</div>
@@ -149,31 +147,13 @@ function MetricCard({
           </span>
         </div>
       </div>
-      <p className="mt-3 line-clamp-2 text-[10px] leading-4 text-[#8EA7C7]">{metric.aiExplanation}</p>
-      <div className="mt-3 grid gap-2">
-        <div className="rounded-lg border border-[rgba(46,127,255,0.12)] bg-[#07111F]/70 px-2.5 py-2">
-          <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#5A6E88]">Cause</p>
-          <p className="mt-0.5 line-clamp-2 text-[10px] font-bold leading-4 text-[#DCE8F8]">{metric.cause}</p>
-        </div>
-        <div className="rounded-lg border border-[rgba(46,127,255,0.12)] bg-[#07111F]/70 px-2.5 py-2">
-          <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#5A6E88]">Source</p>
-          <p className="mt-0.5 truncate text-[10px] font-bold text-[#B8C7DB]">{metric.source}</p>
-        </div>
-      </div>
+      <p className="mt-3 line-clamp-2 text-[10px] leading-4 text-[#8EA7C7]">{metric.cause}</p>
       <div className="absolute bottom-0 left-0 h-1 bg-[#7C3AED] transition-all group-hover:bg-[#00C6FF]" style={{ width: `${Math.min(100, Math.max(8, metric.rawValue))}%` }} />
     </motion.button>
   );
 }
 
-function ProjectHeader({
-  context,
-  executiveMode,
-  onToggleExecutive,
-}: {
-  context: ProjectControlContext;
-  executiveMode: boolean;
-  onToggleExecutive: () => void;
-}) {
+function ProjectHeader({ context }: { context: ProjectControlContext }) {
   const { baseline } = context;
   return (
     <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[linear-gradient(135deg,rgba(17,32,64,0.92),rgba(7,17,31,0.86))] p-4">
@@ -189,39 +169,18 @@ function ProjectHeader({
           <p className="mt-1 text-[12px] leading-5 text-[#B8C7DB]">
             {baseline.property.type} in {baseline.property.location} - {baseline.property.floors} floors - {baseline.property.units} units - {baseline.project.type}
           </p>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            {['Baseline', 'Events', 'Impact', 'Decisions', 'Recovery'].map((step, index) => (
-              <span key={step} className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.08em] ${index <= (context.events.length > 1 ? 4 : 1) ? 'border-emerald-300/24 bg-emerald-300/10 text-emerald-100' : 'border-[rgba(46,127,255,0.16)] bg-[#07111F] text-[#7A94B4]'}`}>
-                {index + 1}
-                {step}
-              </span>
-            ))}
-          </div>
         </div>
         <div className="grid gap-2 sm:grid-cols-3 xl:w-[650px]">
           {[
             ['Approved Budget', formatProjectCurrency(baseline.project.approvedBudget)],
             ['Target Handover', formatProjectDate(baseline.project.targetHandover)],
-            ['Twin Confidence', `${context.metrics.handoverConfidence}%`],
+            ['Control Confidence', `${context.metrics.handoverConfidence}%`],
           ].map(([label, value]) => (
             <div key={label} className="rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#07111F]/80 p-3">
               <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">{label}</p>
               <p className="mt-1 text-[13px] font-black text-[#EEF3FA]">{value}</p>
             </div>
           ))}
-          <button
-            type="button"
-            onClick={onToggleExecutive}
-            className={`sm:col-span-3 inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-3 text-[11px] font-black uppercase tracking-[0.08em] transition-colors ${
-              executiveMode
-                ? 'border-[#7C3AED]/45 bg-[#7C3AED]/20 text-white shadow-[0_0_22px_rgba(124,58,237,0.22)]'
-                : 'border-[rgba(46,127,255,0.18)] bg-[#07111F] text-[#B8C7DB] hover:bg-white/5'
-            }`}
-          >
-            <Gauge size={14} />
-            Executive View
-            <span className={`h-2 w-2 rounded-full ${executiveMode ? 'bg-emerald-300 shadow-[0_0_10px_rgba(56,217,138,0.6)]' : 'bg-[#5A6E88]'}`} />
-          </button>
         </div>
       </div>
     </section>
@@ -317,19 +276,8 @@ function ProjectPulse({
 }) {
   const movement = context.healthMovement.from !== context.healthMovement.to
     ? `Health changed from ${context.healthMovement.from} -> ${context.healthMovement.to} after latest events.`
-    : 'Health is holding at baseline. Simulate a project event to show live recalculation.';
+    : 'Health is holding at baseline until a live project update is recorded.';
   const latest = context.latestEvent;
-  const chain = latest
-    ? [
-        { label: 'Event', value: latest.title },
-        { label: 'Control impact', value: latest.affectedModule },
-        { label: 'Manager action', value: context.managerActions[0]?.title ?? latest.cta },
-      ]
-    : [
-        { label: 'Input', value: 'Property + project created' },
-        { label: 'AI baseline', value: 'Controls generated' },
-        { label: 'Ready', value: 'Awaiting live event' },
-      ];
 
   return (
     <motion.section
@@ -339,13 +287,13 @@ function ProjectPulse({
       transition={{ duration: 0.35 }}
       className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4"
     >
-      <div className="grid gap-5 xl:grid-cols-[116px_1fr_330px] xl:items-center">
+      <div className="grid gap-4 xl:grid-cols-[92px_1fr_300px] xl:items-center">
         <HealthScoreGauge score={context.metrics.healthScore} status={context.projectControlStatus === 'critical' ? 'critical' : context.projectControlStatus === 'on-track' ? 'good' : 'monitor'} />
-        <div className="min-w-0 border-l-2 pl-5" style={{ borderColor: projectStatusColor(context.projectControlStatus) }}>
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="min-w-0 border-l-2 pl-4" style={{ borderColor: projectStatusColor(context.projectControlStatus) }}>
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-[#C4B5FD]">
               <Brain size={14} />
-              AI Project Pulse
+              Project Pulse
               <span className={`rounded-full border px-2 py-0.5 text-[9px] tracking-normal ${statusClass(context.projectControlStatus)}`}>{projectStatusLabel(context.projectControlStatus)}</span>
             </div>
             <button
@@ -357,25 +305,13 @@ function ProjectPulse({
             </button>
           </div>
           <h3 className="text-[18px] font-black leading-6 text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{context.topThreat}</h3>
-          <p className="mt-2 text-[12px] leading-5 text-[#B8C7DB]">{context.latestImpact}</p>
+          <p className="mt-2 line-clamp-2 text-[12px] leading-5 text-[#B8C7DB]">{context.latestImpact}</p>
           <div className="mt-3 rounded-lg border border-[rgba(46,127,255,0.14)] bg-[#07111F]/70 px-3 py-2 text-[11px] font-bold text-[#DCE8F8]">{movement}</div>
-          <div className="mt-2 rounded-lg border border-cyan-300/12 bg-cyan-300/7 px-3 py-2 text-[10px] font-bold leading-4 text-cyan-50">
-            Based on: {context.sourceTraces[0]?.basedOn.slice(0, 3).join(' / ') ?? 'programme / cost / risk'}.
-          </div>
           {latest && (
             <div className="mt-3">
               <EventImpactChips event={latest} />
             </div>
           )}
-          <div className="mt-3 grid gap-2 sm:grid-cols-3">
-            {chain.map((item, index) => (
-              <div key={item.label} className="relative rounded-lg border border-[rgba(46,127,255,0.12)] bg-[#07111F]/60 px-3 py-2">
-                <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#5A6E88]">{item.label}</p>
-                <p className="mt-1 line-clamp-2 text-[10px] font-black leading-4 text-[#DCE8F8]">{item.value}</p>
-                {index < chain.length - 1 && <ArrowRight className="absolute -right-3 top-1/2 hidden -translate-y-1/2 text-[#5A6E88] sm:block" size={14} />}
-              </div>
-            ))}
-          </div>
         </div>
         <div className="grid grid-cols-2 gap-2">
           {[
@@ -384,7 +320,7 @@ function ProjectPulse({
             ['Risk Exposure', formatProjectCurrency(context.metrics.riskExposure)],
             ['Handover Confidence', `${context.metrics.handoverConfidence}%`],
           ].map(([label, value]) => (
-            <div key={label} className="rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#07111F]/80 p-3">
+            <div key={label} className="rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#07111F]/80 px-3 py-2.5">
               <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">{label}</p>
               <p className="mt-1 text-[13px] font-black text-[#EEF3FA]">{value}</p>
             </div>
@@ -401,7 +337,7 @@ function WhatChangedToday({ context, goTo }: { context: ProjectControlContext; g
     : [{
         id: 'baseline-created',
         type: 'recovery-approved' as const,
-        title: 'AI baseline generated for Sobha Pilot Tower',
+        title: 'Project baseline generated for Sobha Pilot Tower',
         affectedModule: 'Project Control Layer',
         impactLabel: 'Work packages, phases, cost baseline, stage gates, vendors, risks, obligations, evidence, and milestones are ready.',
         timestamp: new Date().toISOString(),
@@ -486,7 +422,7 @@ function ControlExceptions({ context, goTo }: { context: ProjectControlContext; 
       </div>
       {exceptions.length === 0 ? (
         <div className="rounded-xl border border-emerald-300/20 bg-emerald-300/10 p-4 text-[12px] font-bold text-emerald-100">
-          No blocked gates, missing evidence, pending variation, or vendor escalation is active. Simulate an event to show exception routing.
+          No blocked gates, missing evidence, pending variation, or vendor escalation is active.
         </div>
       ) : (
         <div className="grid gap-2 lg:grid-cols-2">
@@ -590,6 +526,99 @@ function ForecastCard({ scenario, context }: { scenario: ForecastScenario; conte
         ))}
       </div>
     </div>
+  );
+}
+
+function CompactForecastSummary({ context, onOpenForecast }: { context: ProjectControlContext; onOpenForecast: () => void }) {
+  const baseScenario = context.forecastScenarios.find(scenario => scenario.type === 'base') ?? context.forecastScenarios[0];
+  const optimistic = context.forecastScenarios.find(scenario => scenario.type === 'optimistic');
+  const pessimistic = context.forecastScenarios.find(scenario => scenario.type === 'pessimistic');
+
+  return (
+    <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div>
+          <h3 className="text-base font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Forecast</h3>
+          <p className="mt-0.5 text-[11px] text-[#7A94B4]">Current handover and cost outlook.</p>
+        </div>
+        <button onClick={onOpenForecast} className="text-[11px] font-bold text-[#C4B5FD]">Open forecast</button>
+      </div>
+      <div className="rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#07111F]/78 p-3">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">Expected handover</p>
+            <p className="mt-1 text-[18px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{formatProjectDate(baseScenario.handoverDate)}</p>
+          </div>
+          <div>
+            <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">Expected cost</p>
+            <p className="mt-1 text-[18px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{formatProjectCurrency(baseScenario.forecastCost)}</p>
+          </div>
+        </div>
+        <div className="mt-3 grid gap-2 sm:grid-cols-3">
+          {[
+            ['Best case', optimistic ? formatProjectDate(optimistic.handoverDate) : '-'],
+            ['Base', formatProjectDate(baseScenario.handoverDate)],
+            ['Risk case', pessimistic ? formatProjectDate(pessimistic.handoverDate) : '-'],
+          ].map(([label, value]) => (
+            <div key={label} className="rounded-lg border border-[rgba(46,127,255,0.10)] bg-[#0A1628] px-2.5 py-2">
+              <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#5A6E88]">{label}</p>
+              <p className="mt-0.5 text-[10px] font-black text-[#DCE8F8]">{value}</p>
+            </div>
+          ))}
+        </div>
+        <p className="mt-3 line-clamp-2 text-[11px] leading-4 text-[#8EA7C7]">
+          {baseScenario.assumptions[0] ?? 'Forecast is based on the current programme, cost, risk, evidence, and latest project updates.'}
+        </p>
+      </div>
+    </section>
+  );
+}
+
+function ImpactAnalysisPanel({ context }: { context: ProjectControlContext }) {
+  const cascade = context.cascadeEffects[0];
+  const simulation = context.consequenceSimulation;
+  const impacts = context.crossModuleImpacts.slice(0, 4);
+
+  return (
+    <details className="group rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+        <div>
+          <h3 className="text-base font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Impact Analysis</h3>
+          <p className="mt-0.5 text-[11px] text-[#7A94B4]">Cause, forecast effect, and connected areas in one place.</p>
+        </div>
+        <span className="rounded-full border border-[rgba(46,127,255,0.18)] bg-[#07111F] px-2.5 py-1 text-[10px] font-black text-[#8EA7C7] group-open:hidden">Expand</span>
+        <span className="hidden rounded-full border border-[rgba(46,127,255,0.18)] bg-[#07111F] px-2.5 py-1 text-[10px] font-black text-[#8EA7C7] group-open:inline-flex">Collapse</span>
+      </summary>
+      <div className="mt-4 grid gap-3 lg:grid-cols-3">
+        <div className="rounded-xl border border-[rgba(46,127,255,0.13)] bg-[#07111F]/72 p-3">
+          <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">Cause</p>
+          <p className="mt-2 text-[12px] font-black leading-5 text-[#EEF3FA]">{cascade?.sourceEvent ?? context.latestEvent?.title ?? 'Project baseline'}</p>
+          <p className="mt-2 line-clamp-3 text-[10px] leading-4 text-[#8EA7C7]">{cascade?.chain[0] ?? context.latestImpact}</p>
+        </div>
+        <div className="rounded-xl border border-[rgba(46,127,255,0.13)] bg-[#07111F]/72 p-3">
+          <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">If unresolved</p>
+          <div className="mt-2 space-y-2">
+            {simulation.ifUnresolved.slice(0, 2).map(item => (
+              <div key={item.label} className="flex items-start justify-between gap-3 rounded-lg bg-[#0A1628] px-2.5 py-2">
+                <span className="text-[10px] font-bold text-[#B8C7DB]">{item.label}</span>
+                <span className="text-[11px] font-black text-red-100">{item.value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="rounded-xl border border-[rgba(46,127,255,0.13)] bg-[#07111F]/72 p-3">
+          <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">Connected areas</p>
+          <div className="mt-2 space-y-1.5">
+            {impacts.map(item => (
+              <div key={item.module} className="flex items-center justify-between gap-2 rounded-lg bg-[#0A1628] px-2.5 py-2">
+                <span className="truncate text-[10px] font-bold text-[#DCE8F8]">{item.module}</span>
+                <span className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[8px] font-black uppercase ${statusClass(item.status)}`}>{projectStatusLabel(item.status)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </details>
   );
 }
 
@@ -895,51 +924,23 @@ function DemoControls({
 
 export function CommandCenter({ goTo, onToast }: { goTo: (screen: ProjectCommandScreen) => void; onToast?: ToastFn }) {
   const dataset = useSelectedProjectCommandData();
-  const { activeScenario, eventLedgerSourceByProjectId, eventLedgerStatusByProjectId, projectEventsByProjectId } = useProjectCommandStore();
+  const { projectEventsByProjectId } = useProjectCommandStore();
   const events = projectEventsByProjectId[dataset.id] ?? [];
-  const ledgerStatus = eventLedgerStatusByProjectId[dataset.id] ?? 'idle';
-  const ledgerSource = eventLedgerSourceByProjectId[dataset.id] ?? 'unloaded';
   const context = useMemo(() => buildProjectControlContext(dataset, events), [dataset, events]);
   const [selectedInsight, setSelectedInsight] = useState<{ metricName: MetricName; value: string | number } | null>(null);
-  const [executiveMode, setExecutiveMode] = useState(false);
-  const [showPresenterControls, setShowPresenterControls] = useState(false);
-  const visibleControlMetrics = executiveMode
-    ? context.controlMetrics.filter(metric => ['CPI', 'SPI', 'Float Remaining', 'EAC'].includes(metric.label))
-    : context.controlMetrics;
-
-  const handleSimulate = (type?: ProjectEventType) => {
-    const event = simulateProjectCommandEvent(dataset.id, type);
-    onToast?.(`${event.title}: ${event.impactLabel}`, event.severity === 'positive' ? 'success' : event.severity === 'critical' ? 'error' : 'warning');
-  };
-
-  const handleReset = () => {
-    resetProjectCommandEvents(dataset.id);
-    onToast?.('ProjectCommand baseline reset', 'info');
-  };
+  const visibleControlMetrics = context.controlMetrics.filter(metric => ['CPI', 'SPI', 'Float Remaining', 'EAC'].includes(metric.label));
 
   const handleQueueAction = (action: ManagerAction) => {
     onToast?.(`${action.title} queued in manager action queue`, 'success');
   };
 
-  const baseScenario = context.forecastScenarios.find(scenario => scenario.type === activeScenario) ?? context.forecastScenarios[1];
-
   return (
     <div className="custom-scrollbar h-full overflow-x-hidden overflow-y-auto px-5 py-4 text-[#EEF3FA]">
       <div className="space-y-4">
-        <ProjectHeader context={context} executiveMode={executiveMode} onToggleExecutive={() => setExecutiveMode(value => !value)} />
-        <DemoControls
-          events={events}
-          ledgerSource={ledgerSource}
-          ledgerStatus={ledgerStatus}
-          expanded={showPresenterControls}
-          onToggleExpanded={() => setShowPresenterControls(value => !value)}
-          onReset={handleReset}
-          onSimulate={handleSimulate}
-        />
-        <ProjectTwinLayer context={context} executiveMode={executiveMode} />
+        <ProjectHeader context={context} />
         <ProjectPulse context={context} onExplain={() => setSelectedInsight({ metricName: 'Float Remaining', value: `${context.metrics.floatRemaining}d` })} />
 
-        <section className={`grid gap-3 md:grid-cols-2 ${executiveMode ? 'xl:grid-cols-4' : 'xl:grid-cols-6'}`}>
+        <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           {visibleControlMetrics.map(metric => (
             <MetricCard
               key={metric.label}
@@ -952,52 +953,22 @@ export function CommandCenter({ goTo, onToast }: { goTo: (screen: ProjectCommand
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_390px]">
           <div className="space-y-4">
             <WhatChangedToday context={context} goTo={goTo} />
-            <CascadeEffects context={context} />
-            <ConsequenceModel context={context} />
             <ControlExceptions context={context} goTo={goTo} />
-            {!executiveMode && <OperationalLayer context={context} />}
-            <CrossModuleImpactMap context={context} compact={executiveMode} />
+            <ImpactAnalysisPanel context={context} />
           </div>
           <div className="space-y-4">
             <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
               <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-base font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>AI Top Decisions</h3>
-                <span className="rounded-full border border-[#7C3AED]/25 bg-[#7C3AED]/12 px-2.5 py-1 text-[10px] font-black text-[#DDD6FE]">Decision Layer</span>
+                <h3 className="text-base font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Recommended Actions</h3>
+                <span className="rounded-full border border-[#7C3AED]/25 bg-[#7C3AED]/12 px-2.5 py-1 text-[10px] font-black text-[#DDD6FE]">{context.managerActions.length} ready</span>
               </div>
               <div className="space-y-3">
                 {context.managerActions.slice(0, 3).map(action => <DecisionCard key={action.id} action={action} onQueue={handleQueueAction} />)}
               </div>
             </section>
 
-            <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
-              <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-base font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Forecast Scenarios</h3>
-                <button onClick={() => goTo('forecast')} className="text-[11px] font-bold text-[#C4B5FD]">Explore</button>
-              </div>
-              <div className="space-y-3">
-                {context.forecastScenarios.map(scenario => (
-                  <button
-                    key={scenario.type}
-                    type="button"
-                    onClick={() => setProjectCommandState({ activeScenario: scenario.type })}
-                    className={`block w-full text-left transition-transform hover:scale-[1.01] ${baseScenario.type === scenario.type ? 'rounded-xl ring-1 ring-[#7C3AED]/40' : ''}`}
-                  >
-                    <ForecastCard scenario={scenario} context={context} />
-                  </button>
-                ))}
-              </div>
-            </section>
-            <SourceTracePanel context={context} />
+            <CompactForecastSummary context={context} onOpenForecast={() => goTo('forecast')} />
           </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3 text-[11px] text-[#7A94B4]">
-          <span className="inline-flex items-center gap-1"><CalendarClock size={13} /> Target {formatProjectDate(context.baseline.project.targetHandover)}</span>
-          <span className="inline-flex items-center gap-1"><Gauge size={13} /> CPI/SPI {context.metrics.cpi.toFixed(2)} / {context.metrics.spi.toFixed(2)}</span>
-          <span className="inline-flex items-center gap-1"><TrendingUp size={13} /> EAC {formatProjectCurrency(context.metrics.eac)}</span>
-          <span className="inline-flex items-center gap-1"><Clock3 size={13} /> Float {context.metrics.floatRemaining} days</span>
-          <span className="inline-flex items-center gap-1"><ShieldAlert size={13} /> Risk {formatProjectCurrency(context.metrics.riskExposure)}</span>
-          <span className="inline-flex items-center gap-1"><AlertTriangle size={13} /> {context.controlExceptions.length} exceptions</span>
         </div>
       </div>
 
