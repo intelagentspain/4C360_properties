@@ -17,17 +17,25 @@ import {
   Download,
   FileSpreadsheet,
   FileText,
+  Flame,
+  Mail,
   Map,
   MapPin,
   Minus,
+  PlugZap,
+  Plus,
   Search,
+  Send,
   ShieldCheck,
   Star,
   Target,
   TrendingDown,
   TrendingUp,
+  Trophy,
+  UploadCloud,
   User,
   UserCheck,
+  UserPlus,
   Users,
   Wrench,
   X,
@@ -63,6 +71,7 @@ type WorkforceTab =
 type WorkforceStatus = 'Available' | 'Assigned' | 'On Site' | 'Inspecting' | 'Reviewing' | 'Offline' | 'On Leave';
 type RiskLevel = 'Low' | 'Medium' | 'High' | 'Critical';
 type Trend = 'up' | 'down' | 'flat';
+type StaffIntakeMode = 'single' | 'bulk' | 'api';
 
 interface Certification {
   id: string;
@@ -89,6 +98,7 @@ interface Employee {
   id: string;
   name: string;
   role: string;
+  email: string;
   teamId: string;
   certifications: string[];
   productivityScore: number;
@@ -107,6 +117,9 @@ interface Employee {
   openTasks: number;
   completedToday: number;
   aiInsight: string;
+  incentivePoints: number;
+  streakDays: number;
+  badges: string[];
 }
 
 interface TeamRecord {
@@ -289,6 +302,7 @@ const employees: Employee[] = [
     id: 'emp-ahmed',
     name: 'Ahmed K.',
     role: 'Project Manager',
+    email: 'ahmed.k@4c360.demo',
     teamId: 'team-mep-alpha',
     certifications: ['PMP', 'OSHAD', 'QA/QC'],
     productivityScore: 88,
@@ -307,11 +321,15 @@ const employees: Employee[] = [
     openTasks: 17,
     completedToday: 6,
     aiInsight: 'Team utilization is healthy, but unresolved facade blockers are delaying downstream inspections.',
+    incentivePoints: 1240,
+    streakDays: 3,
+    badges: ['SLA Hero', 'Recovery Lead'],
   },
   {
     id: 'emp-fatima',
     name: 'Fatima A.',
     role: 'Senior Inspector',
+    email: 'fatima.a@4c360.demo',
     teamId: 'team-safety',
     certifications: ['OSHAD', 'Working at Height', 'Fire Safety'],
     productivityScore: 92,
@@ -330,11 +348,15 @@ const employees: Employee[] = [
     openTasks: 22,
     completedToday: 12,
     aiInsight: 'High output and excellent evidence quality, but sustained 97% utilization indicates burnout risk.',
+    incentivePoints: 1485,
+    streakDays: 5,
+    badges: ['Quality Streak', 'Accuracy Pro'],
   },
   {
     id: 'emp-omar',
     name: 'Omar H.',
     role: 'HVAC Technician',
+    email: 'omar.h@4c360.demo',
     teamId: 'team-fm',
     certifications: ['Electrical Safety', 'Confined Space'],
     productivityScore: 84,
@@ -353,11 +375,15 @@ const employees: Employee[] = [
     openTasks: 9,
     completedToday: 4,
     aiInsight: 'Best candidate for nearby HVAC spillover because SLA and first-time fix are both above target.',
+    incentivePoints: 1015,
+    streakDays: 4,
+    badges: ['SLA Hero', 'Rapid Response'],
   },
   {
     id: 'emp-lina',
     name: 'Lina R.',
     role: 'Resident Support Lead',
+    email: 'lina.r@4c360.demo',
     teamId: 'team-handover',
     certifications: ['Resident Care', 'Escalation Handling'],
     productivityScore: 81,
@@ -376,11 +402,15 @@ const employees: Employee[] = [
     openTasks: 11,
     completedToday: 7,
     aiInsight: 'Resident satisfaction is strong; delayed FM staffing is the main cause of repeated escalations.',
+    incentivePoints: 1125,
+    streakDays: 3,
+    badges: ['CX Champion', 'Handover Closer'],
   },
   {
     id: 'emp-khalid',
     name: 'Khalid M.',
     role: 'QA/QC Engineer',
+    email: 'khalid.m@4c360.demo',
     teamId: 'team-qaqc',
     certifications: ['QA/QC', 'Concrete Testing', 'Facade QA'],
     productivityScore: 73,
@@ -399,11 +429,15 @@ const employees: Employee[] = [
     openTasks: 24,
     completedToday: 5,
     aiInsight: 'QA workload is above safe capacity and rejection turnaround is now influencing milestone adherence.',
+    incentivePoints: 760,
+    streakDays: 1,
+    badges: ['Evidence Coach'],
   },
   {
     id: 'emp-mariam',
     name: 'Mariam S.',
     role: 'Fire Safety Inspector',
+    email: 'mariam.s@4c360.demo',
     teamId: 'team-safety',
     certifications: ['Fire Safety', 'Crane Operator', 'Working at Height'],
     productivityScore: 89,
@@ -422,11 +456,15 @@ const employees: Employee[] = [
     openTasks: 13,
     completedToday: 9,
     aiInsight: 'Strong inspection accuracy; certification renewal must be completed before next crane-access cycle.',
+    incentivePoints: 1295,
+    streakDays: 4,
+    badges: ['Accuracy Pro', 'Safety Mentor'],
   },
   {
     id: 'emp-sara',
     name: 'Sara N.',
     role: 'Vendor Coordinator',
+    email: 'sara.n@4c360.demo',
     teamId: 'team-contractor',
     certifications: ['Vendor Compliance', 'Contract Controls'],
     productivityScore: 78,
@@ -445,6 +483,9 @@ const employees: Employee[] = [
     openTasks: 18,
     completedToday: 3,
     aiInsight: 'Vendor response lag is now a project performance factor, not an admin follow-up.',
+    incentivePoints: 690,
+    streakDays: 1,
+    badges: ['Vendor Recovery'],
   },
 ];
 
@@ -702,6 +743,31 @@ function getEmployee(employeeId: string): Employee | undefined {
   return employees.find(employee => employee.id === employeeId);
 }
 
+function getTeamMembers(team: TeamRecord): Employee[] {
+  return team.members
+    .map(memberId => getEmployee(memberId))
+    .filter((employee): employee is Employee => Boolean(employee));
+}
+
+function getSuggestedAwardPoints(team: TeamRecord): number {
+  return Math.round((team.sla + team.quality + team.inspectionAccuracy + team.residentSatisfaction) / 2);
+}
+
+function getTeamBadges(team: TeamRecord, members: Employee[]): string[] {
+  const badges = new Set<string>();
+  if (team.sla >= 90) badges.add('SLA Hero');
+  if (team.quality >= 88) badges.add('Quality Streak');
+  if (team.residentSatisfaction >= 88) badges.add('CX Champion');
+  if (team.inspectionAccuracy >= 90) badges.add('Accuracy Pro');
+  members.forEach(member => member.badges.forEach(badge => badges.add(badge)));
+  return Array.from(badges).slice(0, 5);
+}
+
+function getTeamRecognitionMessage(team: TeamRecord, employee: Employee, points: number): string {
+  const firstName = employee.name.split(' ')[0];
+  return `Hi ${firstName}, great work with ${team.name} on ${team.projects[0]}. ${points} recognition points are queued for the team based on SLA ${team.sla}%, quality ${team.quality}%, and CX ${team.residentSatisfaction}%. Keep the streak moving.`;
+}
+
 function TrendIcon({ trend }: { trend: Trend }) {
   if (trend === 'up') return <TrendingUp size={13} className="text-emerald-300" />;
   if (trend === 'down') return <TrendingDown size={13} className="text-red-300" />;
@@ -883,7 +949,10 @@ function WorkforceProfileDrawer({ employee, onClose }: { employee: Employee; onC
   );
 }
 
-function OverviewTab({ onEmployeeSelect }: { onEmployeeSelect: (employee: Employee) => void }) {
+function OverviewTab({ onEmployeeSelect, onToast }: { onEmployeeSelect: (employee: Employee) => void; onToast: ToastFn }) {
+  const [activeTeamId, setActiveTeamId] = useState<string | null>(null);
+  const [sentMailByTeam, setSentMailByTeam] = useState<Record<string, string[]>>({});
+  const [teamAwardPoints, setTeamAwardPoints] = useState<Record<string, number>>({});
   const topTeams = teams.slice(0, 4);
   const riskAlerts = [
     'Tower B inspection team overloaded by 32% against planned capacity.',
@@ -891,6 +960,28 @@ function OverviewTab({ onEmployeeSelect }: { onEmployeeSelect: (employee: Employ
     'Project Bayz 102 operating below required QA staffing.',
     'Repeat QA rejection rate increasing for facade team.',
   ];
+
+  const handleMailToggle = (team: TeamRecord, memberCount: number) => {
+    const opening = activeTeamId !== team.id;
+    setActiveTeamId(opening ? team.id : null);
+    if (opening) onToast(`${team.name} mail queue opened for ${memberCount} staff`, 'info');
+  };
+
+  const handleSendMail = (team: TeamRecord, employee: Employee) => {
+    const current = sentMailByTeam[team.id] ?? [];
+    if (current.includes(employee.id)) return;
+    setSentMailByTeam(prev => ({
+      ...prev,
+      [team.id]: [...(prev[team.id] ?? []), employee.id],
+    }));
+    onToast(`Recognition mail queued for ${employee.name}`, 'success');
+  };
+
+  const handleAwardPoints = (team: TeamRecord) => {
+    const points = getSuggestedAwardPoints(team);
+    setTeamAwardPoints(prev => ({ ...prev, [team.id]: (prev[team.id] ?? 0) + points }));
+    onToast(`${points} incentive points awarded to ${team.name}`, 'success');
+  };
 
   return (
     <div className="space-y-4">
@@ -947,31 +1038,142 @@ function OverviewTab({ onEmployeeSelect }: { onEmployeeSelect: (employee: Employ
         <Panel className="p-4">
           <SectionTitle icon={<Award size={15} />} title="Top Performing Teams" />
           <div className="space-y-3">
-            {topTeams.map(team => (
-              <button key={team.id} className="w-full rounded-lg border border-white/[0.07] bg-white/[0.03] p-3 text-left hover:border-[#2E7FFF]/45 transition-colors">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-[12px] font-bold text-[#EEF3FA]">{team.name}</p>
-                    <p className="text-[10px] text-[#7A94B4]">{team.projects[0]}</p>
-                  </div>
-                  <Pill className={riskClass[team.risk]}>{team.risk}</Pill>
-                </div>
-                <div className="mt-3 grid grid-cols-5 gap-2 text-center">
-                  {[
-                    ['Prod', team.productivity],
-                    ['SLA', team.sla],
-                    ['Quality', team.quality],
-                    ['Accuracy', team.inspectionAccuracy],
-                    ['CX', team.residentSatisfaction],
-                  ].map(([label, value]) => (
-                    <div key={label}>
-                      <p className="text-[12px] font-bold" style={{ color: scoreColor(value as number) }}>{value}</p>
-                      <p className="text-[8px] text-[#7A94B4]">{label}</p>
+            {topTeams.map(team => {
+              const teamMembers = getTeamMembers(team);
+              const sentIds = sentMailByTeam[team.id] ?? [];
+              const suggestedAward = getSuggestedAwardPoints(team);
+              const earnedPoints = teamMembers.reduce((total, member) => total + member.incentivePoints, 0) + (teamAwardPoints[team.id] ?? 0);
+              const streakDays = Math.max(3, ...teamMembers.map(member => member.streakDays));
+              const badges = getTeamBadges(team, teamMembers);
+              const active = activeTeamId === team.id;
+
+              return (
+                <div
+                  key={team.id}
+                  className={`w-full rounded-lg border bg-white/[0.03] p-3 text-left transition-colors ${
+                    active ? 'border-[#2E7FFF]/50 shadow-[0_0_0_1px_rgba(46,127,255,0.12)]' : 'border-white/[0.07] hover:border-[#2E7FFF]/45'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-[12px] font-bold text-[#EEF3FA]">{team.name}</p>
+                      <p className="truncate text-[10px] text-[#7A94B4]">{team.projects[0]}</p>
                     </div>
-                  ))}
+                    <Pill className={riskClass[team.risk]}>{team.risk}</Pill>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-5 gap-2 text-center">
+                    {[
+                      ['Prod', team.productivity],
+                      ['SLA', team.sla],
+                      ['Quality', team.quality],
+                      ['Accuracy', team.inspectionAccuracy],
+                      ['CX', team.residentSatisfaction],
+                    ].map(([label, value]) => (
+                      <div key={label}>
+                        <p className="text-[12px] font-bold" style={{ color: scoreColor(value as number) }}>{value}</p>
+                        <p className="text-[8px] text-[#7A94B4]">{label}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-3 rounded-lg border border-[#38D98A]/15 bg-[#38D98A]/[0.045] p-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold">
+                        <span className="inline-flex items-center gap-1 text-emerald-200"><Trophy size={11} /> {earnedPoints.toLocaleString()} pts</span>
+                        <span className="inline-flex items-center gap-1 text-amber-200"><Flame size={11} /> {streakDays}-day streak</span>
+                      </div>
+                      <Pill className="border-emerald-500/25 bg-emerald-500/10 text-emerald-200">+{suggestedAward} this week</Pill>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {badges.slice(0, 3).map(badge => (
+                        <Pill key={badge} className="border-[#00C6FF]/20 bg-[#00C6FF]/10 text-cyan-100"><Star size={9} /> {badge}</Pill>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleMailToggle(team, teamMembers.length)}
+                      aria-expanded={active}
+                      className={`inline-flex items-center justify-center gap-1.5 rounded-lg border px-2.5 py-2 text-[10px] font-bold transition-colors ${
+                        active
+                          ? 'border-[#2E7FFF]/50 bg-[#2E7FFF]/18 text-white'
+                          : 'border-[#2E7FFF]/25 bg-[#2E7FFF]/10 text-blue-100 hover:border-[#2E7FFF]/55 hover:bg-[#2E7FFF]/18'
+                      }`}
+                    >
+                      <Mail size={12} />
+                      Mail staff
+                      <span className="text-[#8AA6C8]">{sentIds.length}/{teamMembers.length}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleAwardPoints(team)}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-2 text-[10px] font-bold text-emerald-100 transition-colors hover:border-emerald-400/50 hover:bg-emerald-500/16"
+                    >
+                      <Award size={12} />
+                      Award points
+                    </button>
+                  </div>
+
+                  <AnimatePresence initial={false}>
+                    {active && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0, y: -4 }}
+                        animate={{ opacity: 1, height: 'auto', y: 0 }}
+                        exit={{ opacity: 0, height: 0, y: -4 }}
+                        transition={{ duration: 0.16 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="mt-3 rounded-lg border border-[#2E7FFF]/20 bg-[#071224] p-2">
+                          <div className="mb-2 flex items-center justify-between gap-2">
+                            <p className="text-[10px] font-bold uppercase text-[#7A94B4]">Demo mail queue</p>
+                            <Pill className="border-white/[0.08] bg-white/[0.035] text-[#8AA6C8]">Queued only</Pill>
+                          </div>
+                          <div className="space-y-2">
+                            {teamMembers.map(member => {
+                              const sent = sentIds.includes(member.id);
+                              return (
+                                <div key={member.id} className="rounded-lg border border-white/[0.07] bg-white/[0.03] p-2">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="min-w-0">
+                                      <div className="flex items-center gap-2">
+                                        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-white/[0.08] bg-white/[0.06] text-[10px] font-bold text-[#EEF3FA]">{getInitials(member.name)}</span>
+                                        <div className="min-w-0">
+                                          <p className="truncate text-[11px] font-bold text-[#EEF3FA]">{member.name}</p>
+                                          <p className="truncate text-[9px] text-[#7A94B4]">{member.role} - {member.email}</p>
+                                        </div>
+                                      </div>
+                                      <p className="mt-2 line-clamp-2 text-[10px] leading-4 text-[#C8D6E8]">{getTeamRecognitionMessage(team, member, suggestedAward)}</p>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      disabled={sent}
+                                      onClick={() => handleSendMail(team, member)}
+                                      className={`shrink-0 rounded-lg border px-2 py-1.5 text-[9px] font-bold transition-colors ${
+                                        sent
+                                          ? 'border-emerald-500/25 bg-emerald-500/12 text-emerald-200'
+                                          : 'border-[#2E7FFF]/25 bg-[#2E7FFF]/10 text-blue-100 hover:border-[#2E7FFF]/55 hover:bg-[#2E7FFF]/18'
+                                      }`}
+                                    >
+                                      <span className="inline-flex items-center gap-1">
+                                        {sent ? <CheckCircle size={10} /> : <Send size={10} />}
+                                        {sent ? 'Queued' : 'Send queued mail'}
+                                      </span>
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
-              </button>
-            ))}
+              );
+            })}
           </div>
         </Panel>
       </div>
@@ -1650,9 +1852,248 @@ function ReportsTab({ onToast }: { onToast: ToastFn }) {
   );
 }
 
+function StaffIntakeModal({ onClose, onToast }: { onClose: () => void; onToast: ToastFn }) {
+  const [mode, setMode] = useState<StaffIntakeMode>('single');
+  const [singleFile, setSingleFile] = useState<File | null>(null);
+  const [bulkFile, setBulkFile] = useState<File | null>(null);
+  const [singleForm, setSingleForm] = useState({
+    name: '',
+    role: '',
+    team: 'MEP Team Alpha',
+    property: 'Sobha Pilot Tower',
+    project: 'Bayz 102 - Main Construction',
+    certification: '',
+  });
+  const [apiForm, setApiForm] = useState({
+    provider: 'HRIS / Payroll API',
+    endpoint: '',
+    syncScope: 'Active staff, teams, roles, certifications, availability',
+    cadence: 'Every 15 minutes',
+  });
+
+  const modeCards: { id: StaffIntakeMode; title: string; detail: string; icon: ReactNode }[] = [
+    { id: 'single', title: 'One staff member', detail: 'Create or upload one profile with role, team, certifications, and project links.', icon: <UserPlus size={16} /> },
+    { id: 'bulk', title: 'Bulk upload', detail: 'Import CSV/XLSX rosters with staff, teams, roles, certificates, and availability.', icon: <UploadCloud size={16} /> },
+    { id: 'api', title: 'API connection', detail: 'Prepare a live sync from HRIS, payroll, access control, or contractor systems.', icon: <PlugZap size={16} /> },
+  ];
+
+  const handleSingleField = (field: keyof typeof singleForm) => (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    setSingleForm(prev => ({ ...prev, [field]: event.target.value }));
+  };
+
+  const handleApiField = (field: keyof typeof apiForm) => (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    setApiForm(prev => ({ ...prev, [field]: event.target.value }));
+  };
+
+  const handleConfirm = () => {
+    if (mode === 'single') {
+      onToast(singleForm.name.trim() ? `${singleForm.name} staged for workforce onboarding` : 'Single staff intake staged for review', 'success');
+    } else if (mode === 'bulk') {
+      onToast(bulkFile ? `${bulkFile.name} staged for workforce bulk import` : 'Bulk staff import template prepared', 'success');
+    } else {
+      onToast(apiForm.endpoint.trim() ? 'Workforce API connection staged for technical review' : 'API connection template prepared', 'success');
+    }
+    onClose();
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[#020814]/78 p-4 backdrop-blur-sm"
+    >
+      <motion.div
+        initial={{ opacity: 0, y: 16, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 12, scale: 0.98 }}
+        className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-[#2E7FFF]/28 bg-[#081528] shadow-2xl"
+      >
+        <div className="flex items-start justify-between gap-4 border-b border-white/[0.08] bg-gradient-to-r from-[#121D3E] to-[#0A1628] px-6 py-5">
+          <div>
+            <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[#00C6FF]/25 bg-[#00C6FF]/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-200">
+              <UserPlus size={12} />
+              Workforce intake
+            </div>
+            <h3 className="text-xl font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Add Staff</h3>
+            <p className="mt-1 max-w-3xl text-[12px] leading-5 text-[#8AA6C8]">
+              Add one person, import a whole roster, or prepare an API sync. Staff records feed teams, certifications, availability, assignments, and ProjectCommand capacity.
+            </p>
+          </div>
+          <button onClick={onClose} className="rounded-xl border border-white/10 bg-white/5 p-2 text-[#8AA6C8] transition-colors hover:bg-white/10 hover:text-white" aria-label="Close Add Staff">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto custom-scrollbar px-6 py-5">
+          <div className="grid gap-3 md:grid-cols-3">
+            {modeCards.map(card => {
+              const active = mode === card.id;
+              return (
+                <button
+                  key={card.id}
+                  type="button"
+                  onClick={() => setMode(card.id)}
+                  className={`rounded-2xl border p-4 text-left transition-all ${
+                    active
+                      ? 'border-[#2E7FFF]/55 bg-[#2E7FFF]/14 shadow-[0_0_0_1px_rgba(46,127,255,0.18)]'
+                      : 'border-white/[0.08] bg-[#07111F] hover:border-[#2E7FFF]/35 hover:bg-[#102544]'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className={`grid h-9 w-9 place-items-center rounded-xl ${active ? 'bg-[#2E7FFF] text-white' : 'bg-white/[0.05] text-[#8DBDFF]'}`}>{card.icon}</span>
+                    <span className="text-[13px] font-black text-[#EEF3FA]">{card.title}</span>
+                  </div>
+                  <p className="mt-3 text-[11px] leading-5 text-[#8AA6C8]">{card.detail}</p>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="mt-5 rounded-2xl border border-white/[0.08] bg-[#07111F] p-5">
+            {mode === 'single' && (
+              <div className="grid gap-5 lg:grid-cols-[1fr_0.9fr]">
+                <div>
+                  <SectionTitle icon={<UserPlus size={15} />} title="Single Staff Profile" />
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="space-y-1.5">
+                      <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#7A94B4]">Full name</span>
+                      <input value={singleForm.name} onChange={handleSingleField('name')} placeholder="e.g. Nour Al Mansoori" className="w-full rounded-xl border border-white/[0.09] bg-[#050C17] px-3 py-2.5 text-[12px] text-[#EEF3FA] outline-none focus:border-[#2E7FFF]/60" />
+                    </label>
+                    <label className="space-y-1.5">
+                      <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#7A94B4]">Role</span>
+                      <input value={singleForm.role} onChange={handleSingleField('role')} placeholder="QA Inspector, MEP Technician..." className="w-full rounded-xl border border-white/[0.09] bg-[#050C17] px-3 py-2.5 text-[12px] text-[#EEF3FA] outline-none focus:border-[#2E7FFF]/60" />
+                    </label>
+                    <label className="space-y-1.5">
+                      <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#7A94B4]">Team</span>
+                      <select value={singleForm.team} onChange={handleSingleField('team')} className="w-full rounded-xl border border-white/[0.09] bg-[#050C17] px-3 py-2.5 text-[12px] text-[#EEF3FA] outline-none focus:border-[#2E7FFF]/60">
+                        {teams.map(team => <option key={team.id}>{team.name}</option>)}
+                      </select>
+                    </label>
+                    <label className="space-y-1.5">
+                      <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#7A94B4]">Certification</span>
+                      <input value={singleForm.certification} onChange={handleSingleField('certification')} placeholder="OSHAD, Fire Safety, Lift Competent..." className="w-full rounded-xl border border-white/[0.09] bg-[#050C17] px-3 py-2.5 text-[12px] text-[#EEF3FA] outline-none focus:border-[#2E7FFF]/60" />
+                    </label>
+                    <label className="space-y-1.5">
+                      <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#7A94B4]">Property</span>
+                      <input value={singleForm.property} onChange={handleSingleField('property')} className="w-full rounded-xl border border-white/[0.09] bg-[#050C17] px-3 py-2.5 text-[12px] text-[#EEF3FA] outline-none focus:border-[#2E7FFF]/60" />
+                    </label>
+                    <label className="space-y-1.5">
+                      <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#7A94B4]">Project</span>
+                      <input value={singleForm.project} onChange={handleSingleField('project')} className="w-full rounded-xl border border-white/[0.09] bg-[#050C17] px-3 py-2.5 text-[12px] text-[#EEF3FA] outline-none focus:border-[#2E7FFF]/60" />
+                    </label>
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-[#00C6FF]/18 bg-[#00C6FF]/[0.055] p-4">
+                  <SectionTitle icon={<UploadCloud size={15} />} title="Optional Profile Upload" />
+                  <label className="flex min-h-[150px] cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-[#2E7FFF]/30 bg-[#050C17] p-5 text-center transition-colors hover:border-[#2E7FFF]/55 hover:bg-[#102544]">
+                    <UploadCloud size={24} className="text-[#8DBDFF]" />
+                    <span className="mt-3 text-[12px] font-bold text-[#EEF3FA]">{singleFile?.name ?? 'Upload CV, ID, certificate, or onboarding form'}</span>
+                    <span className="mt-1 text-[10px] text-[#7A94B4]">PDF, DOC, XLSX, CSV, or image</span>
+                    <input type="file" className="hidden" accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.png,.jpg,.jpeg" onChange={event => setSingleFile(event.target.files?.[0] ?? null)} />
+                  </label>
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    <Pill className="border-emerald-500/25 bg-emerald-500/10 text-emerald-200">Profile draft</Pill>
+                    <Pill className="border-[#2E7FFF]/25 bg-[#2E7FFF]/10 text-blue-200">Cert check</Pill>
+                    <Pill className="border-[#FFCD57]/25 bg-[#FFCD57]/10 text-amber-200">Team link</Pill>
+                    <Pill className="border-purple-500/25 bg-purple-500/10 text-purple-200">Access review</Pill>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {mode === 'bulk' && (
+              <div className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
+                <div>
+                  <SectionTitle icon={<UploadCloud size={15} />} title="Bulk Staff Upload" />
+                  <label className="flex min-h-[210px] cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-[#2E7FFF]/30 bg-[#050C17] p-6 text-center transition-colors hover:border-[#2E7FFF]/55 hover:bg-[#102544]">
+                    <FileSpreadsheet size={28} className="text-[#00C6FF]" />
+                    <span className="mt-3 text-[13px] font-black text-[#EEF3FA]">{bulkFile?.name ?? 'Upload staff roster CSV/XLSX'}</span>
+                    <span className="mt-1 text-[11px] text-[#7A94B4]">Columns: name, role, team, property, project, certificates, availability, manager</span>
+                    <input type="file" className="hidden" accept=".csv,.xls,.xlsx" onChange={event => setBulkFile(event.target.files?.[0] ?? null)} />
+                  </label>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {[
+                    ['Roster validation', 'Duplicates, missing roles, invalid teams, expired certifications'],
+                    ['Assignment mapping', 'Links staff to ProjectCommand, FieldOps, InspectPro, and ServiceDesk'],
+                    ['Certification matching', 'Finds OSH, fire, lift, MEP, QA/QC, and authority credentials'],
+                    ['Import review', 'Creates a manager review queue before records are activated'],
+                  ].map(([title, detail]) => (
+                    <div key={title} className="rounded-xl border border-white/[0.08] bg-white/[0.035] p-4">
+                      <CheckCircle size={15} className="text-emerald-300" />
+                      <p className="mt-3 text-[12px] font-black text-[#EEF3FA]">{title}</p>
+                      <p className="mt-1 text-[11px] leading-5 text-[#8AA6C8]">{detail}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {mode === 'api' && (
+              <div className="grid gap-5 lg:grid-cols-[1fr_0.9fr]">
+                <div>
+                  <SectionTitle icon={<PlugZap size={15} />} title="API Staff Sync" />
+                  <div className="grid gap-3">
+                    <label className="space-y-1.5">
+                      <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#7A94B4]">Source system</span>
+                      <select value={apiForm.provider} onChange={handleApiField('provider')} className="w-full rounded-xl border border-white/[0.09] bg-[#050C17] px-3 py-2.5 text-[12px] text-[#EEF3FA] outline-none focus:border-[#2E7FFF]/60">
+                        {['HRIS / Payroll API', 'Contractor workforce API', 'Access control system', 'FieldOps workforce endpoint', 'Custom REST API'].map(option => <option key={option}>{option}</option>)}
+                      </select>
+                    </label>
+                    <label className="space-y-1.5">
+                      <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#7A94B4]">Endpoint</span>
+                      <input value={apiForm.endpoint} onChange={handleApiField('endpoint')} placeholder="https://api.company.com/workforce/staff" className="w-full rounded-xl border border-white/[0.09] bg-[#050C17] px-3 py-2.5 text-[12px] text-[#EEF3FA] outline-none focus:border-[#2E7FFF]/60" />
+                    </label>
+                    <label className="space-y-1.5">
+                      <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#7A94B4]">Sync scope</span>
+                      <input value={apiForm.syncScope} onChange={handleApiField('syncScope')} className="w-full rounded-xl border border-white/[0.09] bg-[#050C17] px-3 py-2.5 text-[12px] text-[#EEF3FA] outline-none focus:border-[#2E7FFF]/60" />
+                    </label>
+                    <label className="space-y-1.5">
+                      <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#7A94B4]">Sync cadence</span>
+                      <select value={apiForm.cadence} onChange={handleApiField('cadence')} className="w-full rounded-xl border border-white/[0.09] bg-[#050C17] px-3 py-2.5 text-[12px] text-[#EEF3FA] outline-none focus:border-[#2E7FFF]/60">
+                        {['Every 15 minutes', 'Hourly', 'Daily', 'On demand'].map(option => <option key={option}>{option}</option>)}
+                      </select>
+                    </label>
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-purple-500/20 bg-purple-500/[0.07] p-4">
+                  <SectionTitle icon={<ShieldCheck size={15} />} title="Connection Checklist" />
+                  <div className="space-y-2">
+                    {['Map staff ID to 4C360 identity', 'Map team, role, manager, property, and project', 'Sync certification expiry and availability', 'Stage imported changes before activation', 'Keep API credentials outside the demo UI'].map(item => (
+                      <div key={item} className="flex gap-2 rounded-lg border border-white/[0.07] bg-[#07111F] p-3 text-[11px] leading-5 text-[#C8D6E8]">
+                        <CheckCircle size={12} className="mt-1 shrink-0 text-emerald-300" />
+                        {item}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.08] px-6 py-4">
+          <p className="text-[11px] text-[#7A94B4]">
+            Demo-safe: this stages the intake path and confirms the review workflow without creating external HR, email, or API actions.
+          </p>
+          <div className="flex gap-2">
+            <button onClick={onClose} className="rounded-xl border border-white/[0.10] bg-[#07111F] px-4 py-2 text-[12px] font-bold text-[#8AA6C8] transition-colors hover:bg-white/[0.06] hover:text-white">Cancel</button>
+            <button onClick={handleConfirm} className="inline-flex items-center gap-2 rounded-xl bg-[#2E7FFF] px-5 py-2 text-[12px] font-black text-white shadow-lg shadow-[#2E7FFF]/20 transition-colors hover:bg-[#4B91FF]">
+              <CheckCircle size={14} />
+              {mode === 'single' ? 'Stage Staff Profile' : mode === 'bulk' ? 'Stage Bulk Import' : 'Stage API Sync'}
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 export function Team({ onToast }: { onToast: ToastFn }) {
   const [activeTab, setActiveTab] = useState<WorkforceTab>('overview');
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [showStaffIntake, setShowStaffIntake] = useState(false);
 
   const activeTabLabel = useMemo(() => tabs.find(tab => tab.id === activeTab)?.label ?? 'Overview', [activeTab]);
 
@@ -1679,6 +2120,14 @@ export function Team({ onToast }: { onToast: ToastFn }) {
           <div className="rounded-lg border border-[#00C6FF]/20 bg-[#00C6FF]/[0.055] p-3 w-[360px]">
             <div className="flex items-center gap-2 text-[10px] font-bold uppercase text-cyan-200"><Bot size={13} /> Live workforce intelligence</div>
             <p className="mt-2 text-[11px] leading-relaxed text-[#C8D6E8]">Connected to ProjectCommand, FieldOps, InspectPro, ServiceDesk, VendorIQ, FacilityCore, ResidentPortal, and OSH.</p>
+            <button
+              type="button"
+              onClick={() => setShowStaffIntake(true)}
+              className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#2E7FFF] px-4 py-2 text-[12px] font-black text-white shadow-lg shadow-[#2E7FFF]/20 transition-all hover:bg-[#4B91FF]"
+            >
+              <Plus size={14} />
+              Add Staff
+            </button>
           </div>
         </div>
 
@@ -1713,7 +2162,7 @@ export function Team({ onToast }: { onToast: ToastFn }) {
               Operational mock model active
             </div>
           </div>
-          {activeTab === 'overview' && <OverviewTab onEmployeeSelect={setSelectedEmployee} />}
+          {activeTab === 'overview' && <OverviewTab onEmployeeSelect={setSelectedEmployee} onToast={onToast} />}
           {activeTab === 'workforce' && <WorkforceTabView onEmployeeSelect={setSelectedEmployee} />}
           {activeTab === 'teams' && <TeamsTab />}
           {activeTab === 'assignments' && <AssignmentsTab />}
@@ -1728,6 +2177,9 @@ export function Team({ onToast }: { onToast: ToastFn }) {
       <AnimatePresence>
         {selectedEmployee && (
           <WorkforceProfileDrawer employee={selectedEmployee} onClose={() => setSelectedEmployee(null)} />
+        )}
+        {showStaffIntake && (
+          <StaffIntakeModal onClose={() => setShowStaffIntake(false)} onToast={onToast} />
         )}
       </AnimatePresence>
     </div>
