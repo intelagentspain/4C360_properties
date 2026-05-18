@@ -256,10 +256,19 @@ function buildRfqTemplates(): RfqTemplate[] {
       id: 'fm-hvac',
       label: 'FM / HVAC Services',
       category: 'FM & HVAC',
-      serviceDefaults: ['Planned preventive maintenance', 'Reactive call-outs', 'Asset condition reporting', 'Emergency response coverage'],
-      requirementDefaults: ['Minimum SLA commitment by priority', 'Technician certification evidence', 'Asset-level close-out evidence'],
+      serviceDefaults: ['Chiller, AHU, FCU, and split-unit PPM', 'Reactive cooling fault attendance', 'Filter, coil, drain, and condensate checks', 'Cooling performance and temperature reporting'],
+      requirementDefaults: ['P1 cooling fault response and rectification SLA', 'Technician HVAC certification evidence', 'Asset-level PPM and close-out evidence'],
       mandatoryDocuments: ['Trade licence', 'Public liability insurance', 'Technician certifications', 'HSE plan', 'Comparable client references'],
       scoringDefaults: { price: 25, sla: 20, quality: 20, compliance: 15, capacity: 10, risk: 10 },
+    },
+    {
+      id: 'fm-electrical',
+      label: 'FM / Electrical Services',
+      category: 'FM & Electrical',
+      serviceDefaults: ['LV panel and DB inspection', 'Lighting, small power, and emergency lighting repairs', 'Thermography and load balance checks', 'Electrical incident response and isolation support'],
+      requirementDefaults: ['Emergency electrical response SLA', 'Licensed electrician allocation', 'Panel inspection and test evidence'],
+      mandatoryDocuments: ['Trade licence', 'Public liability insurance', 'Electrical technician licences', 'HSE plan', 'Testing equipment calibration certificates'],
+      scoringDefaults: { price: 23, sla: 20, quality: 20, compliance: 17, capacity: 10, risk: 10 },
     },
     {
       id: 'cleaning-soft-fm',
@@ -274,8 +283,8 @@ function buildRfqTemplates(): RfqTemplate[] {
       id: 'mep-systems',
       label: 'MEP & Systems',
       category: 'MEP & Systems',
-      serviceDefaults: ['MEP inspection and maintenance', 'Corrective works', 'Testing and commissioning support', 'Specialist escalation'],
-      requirementDefaults: ['Method statements', 'Testing certificates', 'Close-out packs for completed works'],
+      serviceDefaults: ['Mechanical, electrical, and plumbing planned maintenance', 'Corrective works for MEP defects', 'Testing, commissioning, and recommissioning support', 'Specialist escalation for critical systems'],
+      requirementDefaults: ['Method statements by discipline', 'Testing and commissioning certificates', 'Close-out packs for completed works'],
       mandatoryDocuments: ['Trade licence', 'Insurance certificates', 'Engineer credentials', 'Method statement', 'Testing certificate examples'],
       scoringDefaults: { price: 22, sla: 18, quality: 22, compliance: 16, capacity: 12, risk: 10 },
     },
@@ -283,8 +292,8 @@ function buildRfqTemplates(): RfqTemplate[] {
       id: 'fire-safety',
       label: 'Fire & Safety',
       category: 'Fire & Safety',
-      serviceDefaults: ['Fire alarm and life-safety inspection', 'Civil defence readiness support', 'Testing and corrective actions'],
-      requirementDefaults: ['Authority compliance evidence', 'Testing records', 'Certified technician allocation'],
+      serviceDefaults: ['Fire alarm and life-safety system inspection', 'Fire pump, sprinkler, and extinguisher maintenance', 'Civil defence readiness support', 'Testing, corrective actions, and impairment reporting'],
+      requirementDefaults: ['Authority compliance evidence', 'Testing records by system', 'Certified technician allocation'],
       mandatoryDocuments: ['Trade licence', 'Civil defence approvals', 'Insurance certificates', 'Technician certifications', 'Testing records'],
       scoringDefaults: { price: 18, sla: 18, quality: 20, compliance: 24, capacity: 10, risk: 10 },
     },
@@ -292,8 +301,8 @@ function buildRfqTemplates(): RfqTemplate[] {
       id: 'security',
       label: 'Security Services',
       category: 'Security',
-      serviceDefaults: ['Guarding coverage', 'Access control support', 'Incident reporting', 'Supervisor patrols'],
-      requirementDefaults: ['Post orders', 'Guard licence compliance', 'Incident escalation matrix'],
+      serviceDefaults: ['Guarding coverage by post and shift', 'Access control and visitor management support', 'Incident reporting and escalation', 'Supervisor patrols and handover logs'],
+      requirementDefaults: ['Post orders by location', 'Guard licence compliance', 'Incident escalation matrix'],
       mandatoryDocuments: ['Security licence', 'Insurance certificates', 'Guard licence evidence', 'Supervisor CVs', 'Incident report format'],
       scoringDefaults: { price: 24, sla: 16, quality: 18, compliance: 20, capacity: 12, risk: 10 },
     },
@@ -301,10 +310,28 @@ function buildRfqTemplates(): RfqTemplate[] {
       id: 'landscape-soft-fm',
       label: 'Landscape / Soft FM',
       category: 'Landscaping',
-      serviceDefaults: ['Landscape maintenance', 'Irrigation checks', 'Seasonal planting support', 'Defect and pest escalation'],
-      requirementDefaults: ['Monthly service calendar', 'Irrigation response SLA', 'Material and plant replacement rules'],
+      serviceDefaults: ['Lawn, shrub, palm, and planter maintenance', 'Irrigation controller, valve, and leak checks', 'Seasonal planting and soil treatment support', 'Pest, plant health, and landscape defect escalation'],
+      requirementDefaults: ['Monthly landscape service calendar', 'Irrigation leak and outage response SLA', 'Plant replacement and material approval rules'],
       mandatoryDocuments: ['Trade licence', 'Insurance certificates', 'HSE plan', 'Resource plan', 'Comparable community references'],
       scoringDefaults: { price: 26, sla: 16, quality: 22, compliance: 12, capacity: 14, risk: 10 },
+    },
+    {
+      id: 'elevators-lifts',
+      label: 'Elevators & Lifts',
+      category: 'Elevators & Lifts',
+      serviceDefaults: ['Passenger and service lift PPM', 'Breakdown attendance and passenger release support', 'Safety gear, door, and controller inspections', 'Authority inspection and certification support'],
+      requirementDefaults: ['Passenger entrapment response SLA', 'OEM or approved specialist technician evidence', 'Monthly lift inspection and safety report'],
+      mandatoryDocuments: ['Trade licence', 'Lift maintenance approval', 'Insurance certificates', 'Technician certifications', 'Authority inspection evidence'],
+      scoringDefaults: { price: 20, sla: 22, quality: 20, compliance: 20, capacity: 8, risk: 10 },
+    },
+    {
+      id: 'engineering-civil',
+      label: 'Engineering & Civil',
+      category: 'Engineering & Civil',
+      serviceDefaults: ['Civil repair and minor works', 'Waterproofing, facade, and structural defect support', 'Masonry, tiling, and finishing repairs', 'Inspection reports and method statements'],
+      requirementDefaults: ['Method statement and risk assessment for each work package', 'Engineer supervision and QA sign-off', 'Defect photo evidence before and after completion'],
+      mandatoryDocuments: ['Trade licence', 'Insurance certificates', 'Engineer credentials', 'HSE plan', 'Comparable civil works references'],
+      scoringDefaults: { price: 24, sla: 14, quality: 24, compliance: 14, capacity: 14, risk: 10 },
     },
     {
       id: 'general-sourcing',
@@ -320,6 +347,13 @@ function buildRfqTemplates(): RfqTemplate[] {
 
 function defaultRfqScoring(): Record<RfqScoringKey, string> {
   return { price: '25', sla: '20', quality: '20', compliance: '15', capacity: '10', risk: '10' };
+}
+
+function relevantRfqTemplates(templates: RfqTemplate[], serviceCategory: string): RfqTemplate[] {
+  const category = serviceCategory.trim().toLowerCase();
+  const exactMatches = templates.filter(template => template.category.trim().toLowerCase() === category);
+  if (exactMatches.length > 0) return exactMatches;
+  return templates.filter(template => template.category === 'General FM');
 }
 
 function splitRfqLines(value: string): string[] {
@@ -1917,12 +1951,54 @@ function PageProcurementCopilotModal({
     });
   }
 
+  function changeRfqServiceCategory(serviceCategory: string) {
+    const relevantTemplates = relevantRfqTemplates(rfqTemplates, serviceCategory);
+    setRfqState(prev => {
+      const currentTemplate = rfqTemplates.find(item => item.id === prev.templateId);
+      const shouldKeepTemplate = Boolean(currentTemplate && currentTemplate.category === serviceCategory);
+      const autoTemplate = prev.mode === 'template' && !shouldKeepTemplate && relevantTemplates.length === 1
+        ? relevantTemplates[0]
+        : undefined;
+      const baseState: RfqWizardState = {
+        ...prev,
+        anchor: { ...prev.anchor, serviceCategory },
+      };
+
+      if (shouldKeepTemplate) return baseState;
+      if (autoTemplate) return applyRfqTemplate(baseState, autoTemplate);
+
+      return {
+        ...baseState,
+        templateId: '',
+        services: '',
+        sla: '',
+        compliance: '',
+        scoring: defaultRfqScoring(),
+      };
+    });
+    setRfqPackage(null);
+    setRfqFeedback('');
+  }
+
   function changeRfqTemplate(templateId: string) {
     const template = rfqTemplates.find(item => item.id === templateId);
     if (!template) return;
     setRfqState(prev => applyRfqTemplate(prev, template));
     setRfqPackage(null);
     setRfqFeedback('');
+  }
+
+  function chooseRfqMode(mode: RfqCreationMode) {
+    if (mode === 'template') {
+      const relevantTemplates = relevantRfqTemplates(rfqTemplates, rfqState.anchor.serviceCategory);
+      if (relevantTemplates.length === 1) {
+        setRfqState(prev => ({ ...applyRfqTemplate(prev, relevantTemplates[0]), mode, step: 'scope' }));
+        setRfqPackage(null);
+        setRfqFeedback('');
+        return;
+      }
+    }
+    patchRfq({ mode, step: mode === 'template' && !rfqState.templateId ? 'mode' : 'scope' });
   }
 
   async function addRfqDocuments(event: React.ChangeEvent<HTMLInputElement>) {
@@ -1991,6 +2067,7 @@ function PageProcurementCopilotModal({
   const isCompareMode = result.action === 'compare';
   const isRfqMode = result.action === 'rfq';
   const rfqCurrentStepIndex = rfqStepOrder.indexOf(rfqState.step);
+  const visibleRfqTemplates = relevantRfqTemplates(rfqTemplates, rfqState.anchor.serviceCategory);
   const selectedRfqTemplate = rfqTemplates.find(item => item.id === rfqState.templateId);
   const rfqScoringTotal = (Object.values(rfqState.scoring) as string[]).reduce((sum, value) => sum + (Number(value) || 0), 0);
   const rfqExtracted = extractRfqScopeFromDocuments(rfqState.documents, rfqState.pastedScope);
@@ -2512,7 +2589,7 @@ function PageProcurementCopilotModal({
                         </VendorWizardSelect>
                       </VendorWizardField>
                       <VendorWizardField label="Service category">
-                        <VendorWizardSelect value={rfqState.anchor.serviceCategory} onChange={event => patchRfqAnchor({ serviceCategory: event.target.value })}>
+                        <VendorWizardSelect value={rfqState.anchor.serviceCategory} onChange={event => changeRfqServiceCategory(event.target.value)}>
                           {vendorCategories.map(category => <option key={category}>{category}</option>)}
                         </VendorWizardSelect>
                       </VendorWizardField>
@@ -2544,7 +2621,7 @@ function PageProcurementCopilotModal({
                           <button
                             key={mode.id}
                             type="button"
-                            onClick={() => patchRfq({ mode: mode.id, step: mode.id === 'template' && !rfqState.templateId ? 'mode' : 'scope' })}
+                            onClick={() => chooseRfqMode(mode.id)}
                             className={`rounded-xl border p-3 text-left transition-all hover:-translate-y-0.5 ${
                               rfqState.mode === mode.id
                                 ? 'border-[#2E7FFF]/50 bg-[#2E7FFF]/18 shadow-[0_0_24px_rgba(46,127,255,0.14)]'
@@ -2579,7 +2656,7 @@ function PageProcurementCopilotModal({
                         <button
                           key={mode.id}
                           type="button"
-                          onClick={() => patchRfq({ mode: mode.id, step: mode.id === 'template' && !rfqState.templateId ? 'mode' : 'scope' })}
+                          onClick={() => chooseRfqMode(mode.id)}
                           className={`rounded-2xl border p-4 text-left transition-all hover:-translate-y-0.5 ${
                             rfqState.mode === mode.id
                               ? 'border-[#2E7FFF]/50 bg-[#2E7FFF]/18 shadow-[0_0_24px_rgba(46,127,255,0.14)]'
@@ -2594,9 +2671,12 @@ function PageProcurementCopilotModal({
                     </div>
                     {rfqState.mode === 'template' && (
                       <div className="rounded-2xl border border-[rgba(46,127,255,0.16)] bg-[#0D1E3A] p-4">
-                        <div className="mb-3 text-[10px] font-black uppercase tracking-[0.16em] text-[#8DBDFF]">Template</div>
+                        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                          <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#8DBDFF]">Templates for {rfqState.anchor.serviceCategory}</div>
+                          <div className="rounded-full border border-[#2E7FFF]/18 bg-[#07111F] px-2.5 py-1 text-[10px] font-black text-[#8DBDFF]">{visibleRfqTemplates.length} relevant option{visibleRfqTemplates.length === 1 ? '' : 's'}</div>
+                        </div>
                         <div className="grid gap-2 sm:grid-cols-2">
-                          {rfqTemplates.map(template => (
+                          {visibleRfqTemplates.map(template => (
                             <button
                               key={template.id}
                               type="button"
