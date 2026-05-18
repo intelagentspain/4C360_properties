@@ -17,6 +17,11 @@ import {
 import { buildDefaultVendor, useVendors } from '@/context/VendorsContext';
 import type { ToastFn } from '@/lib/ui';
 import { parseProjectDocumentFile } from '@/modules/projectcommand/data/projectDocumentParser';
+import {
+  useProjectCommandProjectOptions,
+  useProjectCommandPropertyOptions,
+  useSelectedProjectCommandData,
+} from '@/modules/projectcommand/useProjectCommandData';
 
 type FilterTab = 'all' | 'top' | 'atrisk' | 'cost';
 
@@ -65,13 +70,26 @@ type VendorAiExtraction = {
   source: string;
 };
 
-type QuoteExtractionStatus = 'Read' | 'Missing price' | 'Missing SLA' | 'Needs clarification';
+type QuoteExtractionStatus = 'Read' | 'Missing price' | 'Missing SLA' | 'Missing delivery' | 'Needs clarification' | 'Unsupported / no text';
+
+type ProcurementAssignmentContext = {
+  propertyId: string;
+  propertyName: string;
+  projectId: string;
+  projectName: string;
+  packageName: string;
+  budgetAllowance: number;
+  requiredDeliveryDate: string;
+  evaluationCriteria: string[];
+  evidenceRequirements: string[];
+};
 
 type QuoteAnalysisItem = {
   id: string;
   vendorName: string;
   amount: number | null;
   sla: number | null;
+  deliveryDate: string | null;
   warranty: string;
   exclusions: string;
   extractionStatus: QuoteExtractionStatus;
@@ -86,6 +104,7 @@ type QuoteAnalysisItem = {
 };
 
 type QuoteAnalysis = {
+  assignment: ProcurementAssignmentContext;
   winner: QuoteAnalysisItem;
   items: QuoteAnalysisItem[];
   summary: string;
@@ -104,6 +123,73 @@ type QuoteActionArtifact = {
   lines: string[];
 };
 
+type RfqCreationMode = 'tell' | 'template' | 'docs';
+type RfqWizardStep = 'project' | 'mode' | 'scope' | 'requirements' | 'scoring' | 'review';
+type RfqScoringKey = 'price' | 'sla' | 'quality' | 'compliance' | 'capacity' | 'risk';
+
+type RfqTemplate = {
+  id: string;
+  label: string;
+  category: string;
+  serviceDefaults: string[];
+  requirementDefaults: string[];
+  mandatoryDocuments: string[];
+  scoringDefaults: Record<RfqScoringKey, number>;
+};
+
+type RfqAnchor = {
+  propertyId: string;
+  propertyName: string;
+  propertyMeta: string;
+  projectId: string;
+  projectName: string;
+  projectType: string;
+  serviceCategory: string;
+  sitesAreas: string;
+  targetStartDate: string;
+  contractPeriod: string;
+  currentVendor: string;
+  shortlistContext: string;
+};
+
+type RfqWizardState = {
+  step: RfqWizardStep;
+  mode: RfqCreationMode | null;
+  anchor: RfqAnchor;
+  templateId: string;
+  aiBrief: string;
+  documents: VendorSetupDocument[];
+  pastedScope: string;
+  services: string;
+  inclusions: string;
+  exclusions: string;
+  volume: string;
+  timeline: string;
+  sla: string;
+  evidence: string;
+  compliance: string;
+  licenses: string;
+  insurance: string;
+  hse: string;
+  mobilisation: string;
+  scoring: Record<RfqScoringKey, string>;
+};
+
+type RfqGeneratedPackage = {
+  title: string;
+  status: string;
+  summary: string;
+  contextLines: string[];
+  scopeLines: string[];
+  responseFields: string[];
+  mandatoryDocuments: string[];
+  slaEvidence: string[];
+  commercialTable: string[];
+  scoringMatrix: { label: string; weight: number }[];
+  submissionRules: string[];
+  actions: string[];
+};
+
 const vendorCategories = [
   'FM & HVAC',
   'FM & Electrical',
@@ -116,6 +202,317 @@ const vendorCategories = [
   'Engineering & Civil',
   'General FM',
 ];
+
+const procurementPackageTemplates = [
+  {
+    name: 'Facade Systems',
+    budgetAllowance: 58_000_000,
+    requiredDeliveryDate: '2026-08-15',
+    evaluationCriteria: ['Cost', 'Delivery', 'Warranty', 'Exclusions', 'Evidence', 'Compliance'],
+    evidenceRequirements: ['Shop drawings', 'Material certificates', 'Inspection test plan', 'Warranty pack', 'Authority-ready submittals'],
+  },
+  {
+    name: 'MEP',
+    budgetAllowance: 86_000_000,
+    requiredDeliveryDate: '2026-09-20',
+    evaluationCriteria: ['Cost', 'Delivery', 'Coordination risk', 'Warranty', 'Evidence', 'Compliance'],
+    evidenceRequirements: ['Method statement', 'Testing certificates', 'Commissioning plan', 'As-built pack', 'Warranty pack'],
+  },
+  {
+    name: 'Elevators',
+    budgetAllowance: 34_000_000,
+    requiredDeliveryDate: '2026-10-05',
+    evaluationCriteria: ['Cost', 'Lead time', 'Warranty', 'Authority sign-off readiness', 'Evidence', 'Maintenance support'],
+    evidenceRequirements: ['Lift inspection plan', 'Factory certificates', 'Warranty pack', 'Maintenance proposal', 'Authority sign-off evidence'],
+  },
+  {
+    name: 'Fire Systems',
+    budgetAllowance: 22_000_000,
+    requiredDeliveryDate: '2026-09-10',
+    evaluationCriteria: ['Cost', 'Civil defence readiness', 'Warranty', 'Exclusions', 'Evidence', 'Compliance'],
+    evidenceRequirements: ['Civil defence submittals', 'Testing certificates', 'Commissioning report', 'Warranty pack', 'Inspection evidence'],
+  },
+  {
+    name: 'Fit-out',
+    budgetAllowance: 72_000_000,
+    requiredDeliveryDate: '2026-11-01',
+    evaluationCriteria: ['Cost', 'Delivery', 'Mockup readiness', 'Warranty', 'Exclusions', 'Evidence'],
+    evidenceRequirements: ['Material approvals', 'Mockup sign-off', 'Inspection reports', 'Snag closure evidence', 'Warranty pack'],
+  },
+  {
+    name: 'Custom package',
+    budgetAllowance: 10_000_000,
+    requiredDeliveryDate: '2026-09-30',
+    evaluationCriteria: ['Cost', 'Delivery', 'Warranty', 'Exclusions', 'Evidence', 'Compliance'],
+    evidenceRequirements: ['Commercial offer', 'Programme commitment', 'Warranty statement', 'Evidence pack', 'Compliance declaration'],
+  },
+];
+
+const rfqStepOrder: RfqWizardStep[] = ['project', 'mode', 'scope', 'requirements', 'scoring', 'review'];
+
+function buildRfqTemplates(): RfqTemplate[] {
+  return [
+    {
+      id: 'fm-hvac',
+      label: 'FM / HVAC Services',
+      category: 'FM & HVAC',
+      serviceDefaults: ['Planned preventive maintenance', 'Reactive call-outs', 'Asset condition reporting', 'Emergency response coverage'],
+      requirementDefaults: ['Minimum SLA commitment by priority', 'Technician certification evidence', 'Asset-level close-out evidence'],
+      mandatoryDocuments: ['Trade licence', 'Public liability insurance', 'Technician certifications', 'HSE plan', 'Comparable client references'],
+      scoringDefaults: { price: 25, sla: 20, quality: 20, compliance: 15, capacity: 10, risk: 10 },
+    },
+    {
+      id: 'cleaning-soft-fm',
+      label: 'Cleaning & Soft FM',
+      category: 'Cleaning & Soft FM',
+      serviceDefaults: ['Daily cleaning routines', 'Deep cleaning schedule', 'Waste handling coordination', 'Supervisor inspection rounds'],
+      requirementDefaults: ['Shift coverage plan', 'Consumables responsibility', 'Inspection checklist evidence'],
+      mandatoryDocuments: ['Trade licence', 'Insurance certificates', 'Staff deployment plan', 'Chemical MSDS sheets', 'HSE plan'],
+      scoringDefaults: { price: 28, sla: 16, quality: 22, compliance: 14, capacity: 12, risk: 8 },
+    },
+    {
+      id: 'mep-systems',
+      label: 'MEP & Systems',
+      category: 'MEP & Systems',
+      serviceDefaults: ['MEP inspection and maintenance', 'Corrective works', 'Testing and commissioning support', 'Specialist escalation'],
+      requirementDefaults: ['Method statements', 'Testing certificates', 'Close-out packs for completed works'],
+      mandatoryDocuments: ['Trade licence', 'Insurance certificates', 'Engineer credentials', 'Method statement', 'Testing certificate examples'],
+      scoringDefaults: { price: 22, sla: 18, quality: 22, compliance: 16, capacity: 12, risk: 10 },
+    },
+    {
+      id: 'fire-safety',
+      label: 'Fire & Safety',
+      category: 'Fire & Safety',
+      serviceDefaults: ['Fire alarm and life-safety inspection', 'Civil defence readiness support', 'Testing and corrective actions'],
+      requirementDefaults: ['Authority compliance evidence', 'Testing records', 'Certified technician allocation'],
+      mandatoryDocuments: ['Trade licence', 'Civil defence approvals', 'Insurance certificates', 'Technician certifications', 'Testing records'],
+      scoringDefaults: { price: 18, sla: 18, quality: 20, compliance: 24, capacity: 10, risk: 10 },
+    },
+    {
+      id: 'security',
+      label: 'Security Services',
+      category: 'Security',
+      serviceDefaults: ['Guarding coverage', 'Access control support', 'Incident reporting', 'Supervisor patrols'],
+      requirementDefaults: ['Post orders', 'Guard licence compliance', 'Incident escalation matrix'],
+      mandatoryDocuments: ['Security licence', 'Insurance certificates', 'Guard licence evidence', 'Supervisor CVs', 'Incident report format'],
+      scoringDefaults: { price: 24, sla: 16, quality: 18, compliance: 20, capacity: 12, risk: 10 },
+    },
+    {
+      id: 'landscape-soft-fm',
+      label: 'Landscape / Soft FM',
+      category: 'Landscaping',
+      serviceDefaults: ['Landscape maintenance', 'Irrigation checks', 'Seasonal planting support', 'Defect and pest escalation'],
+      requirementDefaults: ['Monthly service calendar', 'Irrigation response SLA', 'Material and plant replacement rules'],
+      mandatoryDocuments: ['Trade licence', 'Insurance certificates', 'HSE plan', 'Resource plan', 'Comparable community references'],
+      scoringDefaults: { price: 26, sla: 16, quality: 22, compliance: 12, capacity: 14, risk: 10 },
+    },
+    {
+      id: 'general-sourcing',
+      label: 'General Vendor Sourcing',
+      category: 'General FM',
+      serviceDefaults: ['Defined service scope', 'Mobilisation plan', 'Reporting and governance cadence', 'Operational escalation route'],
+      requirementDefaults: ['Clear SLA commitments', 'Evidence pack for completed work', 'Commercial validity period'],
+      mandatoryDocuments: ['Trade licence', 'Insurance certificates', 'Company profile', 'Reference projects', 'HSE declaration'],
+      scoringDefaults: { price: 25, sla: 15, quality: 20, compliance: 15, capacity: 15, risk: 10 },
+    },
+  ];
+}
+
+function defaultRfqScoring(): Record<RfqScoringKey, string> {
+  return { price: '25', sla: '20', quality: '20', compliance: '15', capacity: '10', risk: '10' };
+}
+
+function splitRfqLines(value: string): string[] {
+  return value
+    .split(/\n|;|\u2022|-/)
+    .map(line => line.trim())
+    .filter(Boolean)
+    .slice(0, 8);
+}
+
+function extractRfqScopeFromDocuments(documents: VendorSetupDocument[], notes: string) {
+  const combined = [notes, ...documents.map(doc => `${doc.name}\n${doc.content}`)].filter(Boolean).join('\n');
+  if (!combined.trim()) return {};
+  const sentenceFallback = combined
+    .replace(/\s+/g, ' ')
+    .split(/(?<=[.!?])\s+/)
+    .filter(sentence => sentence.length > 24)
+    .slice(0, 4)
+    .join(' ');
+  return {
+    services: extractLabeledValue(combined, ['scope of services', 'service scope', 'scope', 'services required', 'work scope']) || sentenceFallback,
+    inclusions: extractLabeledValue(combined, ['inclusions', 'included services', 'included scope']),
+    exclusions: extractLabeledValue(combined, ['exclusions', 'excluded services', 'out of scope']),
+    volume: extractLabeledValue(combined, ['volume', 'quantities', 'boq summary', 'asset count', 'units']),
+    timeline: extractLabeledValue(combined, ['timeline', 'programme', 'duration', 'start date', 'delivery date']),
+    sla: extractLabeledValue(combined, ['sla', 'service level', 'response time', 'rectification time']),
+    evidence: extractLabeledValue(combined, ['evidence', 'reporting', 'close out', 'completion evidence']),
+    compliance: extractLabeledValue(combined, ['compliance', 'regulatory', 'authority requirements']),
+  };
+}
+
+function buildInitialRfqState(focusVendor: VendorIntelData, selectedProject: ReturnType<typeof useSelectedProjectCommandData>): RfqWizardState {
+  return {
+    step: 'project',
+    mode: null,
+    anchor: {
+      propertyId: selectedProject.property.id,
+      propertyName: selectedProject.property.name,
+      propertyMeta: `${selectedProject.property.type} / ${selectedProject.property.location}`,
+      projectId: selectedProject.project.id,
+      projectName: selectedProject.project.name,
+      projectType: selectedProject.project.projectType,
+      serviceCategory: focusVendor.category,
+      sitesAreas: focusVendor.sites.join(', '),
+      targetStartDate: '',
+      contractPeriod: '12 months',
+      currentVendor: focusVendor.name,
+      shortlistContext: `${focusVendor.name} plus qualified alternates`,
+    },
+    templateId: '',
+    aiBrief: '',
+    documents: [],
+    pastedScope: '',
+    services: '',
+    inclusions: '',
+    exclusions: '',
+    volume: '',
+    timeline: '',
+    sla: '',
+    evidence: '',
+    compliance: '',
+    licenses: '',
+    insurance: '',
+    hse: '',
+    mobilisation: '',
+    scoring: defaultRfqScoring(),
+  };
+}
+
+function applyRfqTemplate(state: RfqWizardState, template: RfqTemplate): RfqWizardState {
+  return {
+    ...state,
+    templateId: template.id,
+    anchor: { ...state.anchor, serviceCategory: template.category },
+    services: template.serviceDefaults.join('\n'),
+    sla: template.requirementDefaults.join('\n'),
+    compliance: template.mandatoryDocuments.join('\n'),
+    scoring: Object.fromEntries(
+      Object.entries(template.scoringDefaults).map(([key, value]) => [key, String(value)]),
+    ) as Record<RfqScoringKey, string>,
+  };
+}
+
+function buildRfqDraft(template: RfqTemplate | undefined, focusVendor: VendorIntelData, peers: VendorIntelData[], state: RfqWizardState): RfqGeneratedPackage {
+  const extracted = extractRfqScopeFromDocuments(state.documents, state.pastedScope);
+  const serviceLines = splitRfqLines(state.services || extracted.services || state.aiBrief || template?.serviceDefaults.join('\n') || state.anchor.serviceCategory);
+  const inclusionLines = splitRfqLines(state.inclusions || extracted.inclusions || 'Vendor to confirm all inclusions against uploaded/provided scope.');
+  const exclusionLines = splitRfqLines(state.exclusions || extracted.exclusions || 'Vendor must state all exclusions, assumptions, and client dependencies.');
+  const requiredDocs = splitRfqLines(state.compliance)
+    .concat(template?.mandatoryDocuments ?? [])
+    .filter((item, index, items) => items.indexOf(item) === index)
+    .slice(0, 8);
+  const scoringMatrix = (Object.entries(state.scoring) as [RfqScoringKey, string][])
+    .map(([key, value]) => ({
+      label: ({ price: 'Price', sla: 'SLA', quality: 'Quality', compliance: 'Compliance', capacity: 'Capacity', risk: 'Risk' } as Record<RfqScoringKey, string>)[key],
+      weight: Number(value) || 0,
+    }));
+  const peerNames = peers.filter(peer => peer.id !== focusVendor.id).slice(0, 3).map(peer => peer.name);
+
+  return {
+    title: `${state.anchor.serviceCategory} RFQ - ${state.anchor.projectName}`,
+    status: 'Review package ready',
+    summary: `RFQ anchored to ${state.anchor.propertyName} / ${state.anchor.projectName} for ${state.anchor.serviceCategory}.`,
+    contextLines: [
+      `Property: ${state.anchor.propertyName} (${state.anchor.propertyMeta}).`,
+      `Project: ${state.anchor.projectName} / ${state.anchor.projectType}.`,
+      `Sites or areas: ${state.anchor.sitesAreas || 'To be confirmed before issue'}.`,
+      `Target start: ${state.anchor.targetStartDate || 'To be confirmed'} / Contract period: ${state.anchor.contractPeriod || 'To be confirmed'}.`,
+      `Current vendor or shortlist context: ${state.anchor.currentVendor || focusVendor.name}; ${state.anchor.shortlistContext || peerNames.join(', ') || 'shortlist to be confirmed'}.`,
+    ],
+    scopeLines: [
+      ...serviceLines.map(line => `Service: ${line}`),
+      ...inclusionLines.map(line => `Inclusion: ${line}`),
+      ...exclusionLines.map(line => `Exclusion/assumption: ${line}`),
+      `Volume or asset basis: ${state.volume || extracted.volume || 'Vendor to price against provided BOQ/scope schedule.'}`,
+      `Timeline: ${state.timeline || extracted.timeline || 'Vendor to provide mobilisation and delivery programme.'}`,
+    ].slice(0, 12),
+    responseFields: [
+      'Company profile and nominated account lead.',
+      'Commercial offer with fixed rates, variable rates, assumptions, and validity period.',
+      'Mobilisation plan with resource counts and start-date constraints.',
+      'SLA commitment by priority level and escalation route.',
+      'Exclusions, client dependencies, and optional alternates.',
+      'Comparable references for similar property/project scope.',
+    ],
+    mandatoryDocuments: requiredDocs.length ? requiredDocs : ['Trade licence', 'Insurance certificates', 'HSE plan', 'Resource plan', 'Comparable references'],
+    slaEvidence: splitRfqLines(state.sla || extracted.sla || template?.requirementDefaults.join('\n') || 'Vendor to propose measurable SLA and response commitments.')
+      .concat(splitRfqLines(state.evidence || extracted.evidence || 'Completion evidence must include photos, timestamp, asset/location reference, work summary, and supervisor sign-off.'))
+      .slice(0, 8),
+    commercialTable: [
+      'Line item / service package',
+      'Unit of measure and quantity basis',
+      'Unit rate and total price',
+      'Mobilisation or one-off cost',
+      'Emergency or out-of-hours rate',
+      'Exclusions, provisional sums, and validity period',
+    ],
+    scoringMatrix,
+    submissionRules: [
+      'Bidders must answer every response field and identify any non-compliance clearly.',
+      'Commercials must remain valid for at least 60 days unless procurement sets a different validity period.',
+      'Clarification questions must be submitted before the clarification deadline stated by procurement.',
+      'Late or incomplete submissions can be excluded from evaluation.',
+    ],
+    actions: ['Copy RFQ', 'Save to workbench', 'Prepare vendor invite'],
+  };
+}
+
+function buildRfqCopilotResult(rfqPackage: RfqGeneratedPackage): VendorCopilotResult {
+  return {
+    action: 'rfq',
+    title: rfqPackage.title,
+    status: rfqPackage.status,
+    summary: rfqPackage.summary,
+    primaryCta: 'Prepare vendor invite',
+    sections: [
+      { title: 'Project anchor', lines: rfqPackage.contextLines.slice(0, 5) },
+      { title: 'Scope and requirements', lines: [...rfqPackage.scopeLines.slice(0, 4), ...rfqPackage.slaEvidence.slice(0, 2)] },
+      { title: 'Evaluation', lines: rfqPackage.scoringMatrix.map(item => `${item.label}: ${item.weight}%`).concat(rfqPackage.submissionRules.slice(0, 2)) },
+    ],
+  };
+}
+
+function formatRfqPackageText(rfqPackage: RfqGeneratedPackage): string {
+  return [
+    rfqPackage.title,
+    rfqPackage.summary,
+    '',
+    'Project / Property Context',
+    ...rfqPackage.contextLines,
+    '',
+    'Scope of Services',
+    ...rfqPackage.scopeLines,
+    '',
+    'Vendor Response Fields',
+    ...rfqPackage.responseFields,
+    '',
+    'Mandatory Documents',
+    ...rfqPackage.mandatoryDocuments,
+    '',
+    'SLA and Evidence Requirements',
+    ...rfqPackage.slaEvidence,
+    '',
+    'Commercial Pricing Table',
+    ...rfqPackage.commercialTable,
+    '',
+    'Evaluation Scoring Matrix',
+    ...rfqPackage.scoringMatrix.map(item => `${item.label}: ${item.weight}%`),
+    '',
+    'Submission and Clarification Rules',
+    ...rfqPackage.submissionRules,
+  ].join('\n');
+}
 
 const initialVendorWizardForm: VendorWizardForm = {
   name: 'Nexus Facilities Services',
@@ -179,6 +576,28 @@ function extractMoneyValue(text: string, labels: string[]): number | null {
   const match = raw?.match(/(\d{2,9}(?:,\d{3})?)/);
   const value = Number(match?.[1]?.replace(/,/g, ''));
   return Number.isFinite(value) && value > 0 ? value : null;
+}
+
+function extractDateValue(text: string, labels: string[]): string | null {
+  const raw = extractLabeledValue(text, labels)
+    ?? text.match(/\b(?:delivery|mobilization|handover|award deadline|lead time)\b[^:\n\r]*[:\-]?\s*([0-3]?\d[\/\-. ][0-1]?\d[\/\-. ]20\d{2}|20\d{2}[\/\-. ][0-1]?\d[\/\-. ][0-3]?\d|[0-3]?\d\s+[A-Za-z]{3,9}\s+20\d{2})/i)?.[1]
+    ?? null;
+  return raw?.trim().replace(/\s+/g, ' ') ?? null;
+}
+
+function parseComparableDate(value: string | null) {
+  if (!value) return null;
+  const normalized = value.replace(/\./g, '/').replace(/-/g, '/');
+  const dmy = normalized.match(/^(\d{1,2})\/(\d{1,2})\/(20\d{2})$/);
+  const parsed = dmy
+    ? new Date(Number(dmy[3]), Number(dmy[2]) - 1, Number(dmy[1]))
+    : new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function formatProcurementMoney(value: number) {
+  if (Math.abs(value) >= 1_000_000) return `AED ${(value / 1_000_000).toFixed(value % 1_000_000 === 0 ? 0 : 1)}M`;
+  return `AED ${value.toLocaleString()}`;
 }
 
 function inferVendorCategory(text: string): string | null {
@@ -263,83 +682,110 @@ function buildVendorAiDraft(
   return { form: next, extractions };
 }
 
-function buildQuoteAnalysis(documents: VendorSetupDocument[], notes: string, focusVendor: VendorIntelData): QuoteAnalysis {
+function buildQuoteAnalysis(documents: VendorSetupDocument[], notes: string, assignment: ProcurementAssignmentContext): QuoteAnalysis {
   const noteBlocks = notes
     .split(/\n\s*(?:---+|quote\s+\d+|vendor\s+quote)\s*\n/i)
     .map(block => block.trim())
     .filter(Boolean);
   const sources = [
-    ...documents.map(doc => ({ id: doc.id, name: doc.name, content: doc.content || doc.name })),
-    ...noteBlocks.map((block, index) => ({ id: `note-${index}`, name: `Pasted quote ${index + 1}`, content: block })),
+    ...documents.map(doc => ({ id: doc.id, name: doc.name, content: doc.content, fromFile: true })),
+    ...noteBlocks.map((block, index) => ({ id: `note-${index}`, name: `Pasted quote ${index + 1}`, content: block, fromFile: false })),
   ];
-  const fallbackSources = sources.length > 0 ? sources : [{ id: 'current', name: focusVendor.name, content: focusVendor.name }];
-  const items = fallbackSources.map((source, index) => {
+  const requiredDate = parseComparableDate(assignment.requiredDeliveryDate);
+  const items = sources.map((source, index) => {
+    const hasExtractableText = source.content.trim().length > 20;
     const text = `${source.name}\n${source.content}`;
     const vendorName = extractLabeledValue(text, ['vendor name', 'supplier name', 'company name', 'contractor', 'vendor'])
       || cleanDocumentName(source.name)
-      || `${focusVendor.category} bidder ${index + 1}`;
-    const amount = extractMoneyValue(text, ['total', 'quote total', 'quoted price', 'price', 'amount', 'commercial offer', 'annual value'])
-      ?? null;
+      || `${assignment.packageName} bidder ${index + 1}`;
+    const amount = hasExtractableText
+      ? (extractMoneyValue(text, ['total', 'quote total', 'quoted price', 'price', 'amount', 'commercial offer', 'annual value', 'contract value', 'package value']) ?? null)
+      : null;
     const slaValue = Number(extractNumberValue(text, ['sla', 'sla commitment', 'response sla', 'service level']));
-    const sla = Number.isFinite(slaValue) && slaValue > 0 ? slaValue : null;
-    const warranty = extractLabeledValue(text, ['warranty', 'defect liability', 'guarantee']) || (text.toLowerCase().includes('warranty') ? 'Included' : 'Not clearly stated');
-    const exclusions = extractLabeledValue(text, ['exclusions', 'excluded', 'not included']) || (text.toLowerCase().includes('parts') ? 'Parts to be confirmed' : 'No major exclusions detected');
+    const sla = hasExtractableText && Number.isFinite(slaValue) && slaValue > 0 ? slaValue : null;
+    const deliveryDate = hasExtractableText ? extractDateValue(text, ['delivery date', 'required delivery', 'mobilization date', 'mobilisation date', 'lead time', 'award deadline', 'handover date']) : null;
+    const deliveryParsed = parseComparableDate(deliveryDate);
+    const deliveryLate = Boolean(requiredDate && deliveryParsed && deliveryParsed.getTime() > requiredDate.getTime());
+    const warranty = hasExtractableText
+      ? extractLabeledValue(text, ['warranty', 'defect liability', 'guarantee']) || (text.toLowerCase().includes('warranty') ? 'Included' : 'Not clearly stated')
+      : 'Not clearly stated';
+    const exclusions = hasExtractableText
+      ? extractLabeledValue(text, ['exclusions', 'excluded', 'not included']) || (text.toLowerCase().includes('parts') ? 'Parts to be confirmed' : 'No major exclusions detected')
+      : 'Needs readable quote text';
     const evidence = /photo|evidence|report|completion|close.?out/i.test(text) ? 8 : 0;
     const warrantyBonus = warranty === 'Not clearly stated' ? 0 : 4;
     const exclusionPenalty = /not included|excluded|tbd|to be confirmed/i.test(exclusions) ? 7 : 0;
-    const missingPenalty = (amount === null ? 14 : 0) + (sla === null ? 8 : 0);
-    const pricePenalty = amount === null ? 0 : Math.max(0, (amount - focusVendor.avgCostPerJob) / 35);
-    const score = Math.max(30, Math.min(98, Math.round(52 + Math.min(28, (sla ?? 75) / 4) + evidence + warrantyBonus - exclusionPenalty - pricePenalty - missingPenalty)));
+    const missingPenalty = (hasExtractableText ? 0 : 22) + (amount === null ? 14 : 0) + (sla === null ? 8 : 0) + (deliveryDate === null ? 8 : 0);
+    const overBudgetRatio = amount === null ? 0 : Math.max(0, (amount - assignment.budgetAllowance) / Math.max(assignment.budgetAllowance, 1));
+    const pricePenalty = Math.min(22, overBudgetRatio * 70);
+    const deliveryPenalty = deliveryLate ? 10 : 0;
+    const score = Math.max(20, Math.min(98, Math.round(54 + Math.min(22, (sla ?? 75) / 5) + evidence + warrantyBonus - exclusionPenalty - pricePenalty - deliveryPenalty - missingPenalty)));
     const risk: QuoteAnalysisItem['risk'] = score >= 78 ? 'Low' : score >= 62 ? 'Medium' : 'High';
     const missingFields = [
       amount === null ? 'Price' : null,
       sla === null ? 'SLA commitment' : null,
+      deliveryDate === null ? 'Delivery / award date' : null,
       warranty === 'Not clearly stated' ? 'Warranty' : null,
       /not included|tbd|to be confirmed/i.test(exclusions) ? 'Exclusions detail' : null,
       evidence === 0 ? 'Evidence commitment' : null,
     ].filter((field): field is string => Boolean(field));
-    const extractionStatus: QuoteExtractionStatus = amount === null && sla === null
-      ? 'Needs clarification'
+    const extractionStatus: QuoteExtractionStatus = !hasExtractableText
+      ? 'Unsupported / no text'
       : amount === null
         ? 'Missing price'
         : sla === null
           ? 'Missing SLA'
-          : missingFields.length > 0
-            ? 'Needs clarification'
-            : 'Read';
-    const clarificationQuestions = [
-      amount === null ? 'Confirm total commercial offer and whether the rate is fixed or provisional.' : null,
-      sla === null ? 'Confirm committed SLA percentage and response-time basis.' : null,
-      warranty === 'Not clearly stated' ? 'Confirm warranty or defect liability period.' : null,
-      /not included|tbd|to be confirmed/i.test(exclusions) ? 'Itemize exclusions, parts markup, and emergency call-out assumptions.' : null,
-      evidence === 0 ? 'Confirm completion evidence: photos, asset tag, timestamp, root cause, and resident confirmation where applicable.' : null,
-    ].filter((question): question is string => Boolean(question));
-    const commercialDelta = amount === null ? null : amount - focusVendor.avgCostPerJob;
-    const recommendationReason = risk === 'Low'
-      ? 'Strong balance of service commitment, evidence readiness, and commercial control.'
-      : risk === 'Medium'
-        ? 'Commercially usable but needs clarification before award.'
-        : 'Do not award until missing commitments and exclusions are resolved.';
+          : deliveryDate === null
+            ? 'Missing delivery'
+            : missingFields.length > 0
+              ? 'Needs clarification'
+              : 'Read';
+    const clarificationQuestions = !hasExtractableText
+      ? ['Upload a text-readable quote PDF/DOC/XLSX or paste the quote terms manually so AI can extract commercial, delivery, and evidence commitments.']
+      : [
+        amount === null ? `Confirm total commercial offer for ${assignment.packageName} and whether the rate is fixed or provisional.` : null,
+        sla === null ? 'Confirm committed SLA percentage and response-time basis.' : null,
+        deliveryDate === null ? `Confirm delivery or mobilization date against the ${assignment.requiredDeliveryDate} requirement.` : null,
+        deliveryLate ? `Delivery date appears later than required ${assignment.requiredDeliveryDate}; confirm mitigation or accelerated delivery.` : null,
+        warranty === 'Not clearly stated' ? 'Confirm warranty or defect liability period.' : null,
+        /not included|tbd|to be confirmed/i.test(exclusions) ? 'Itemize exclusions, provisional sums, and parts/material assumptions.' : null,
+        evidence === 0 ? `Confirm evidence commitments: ${assignment.evidenceRequirements.join(', ')}.` : null,
+      ].filter((question): question is string => Boolean(question));
+    const commercialDelta = amount === null ? null : amount - assignment.budgetAllowance;
+    const recommendationReason = !hasExtractableText
+      ? 'Cannot score reliably until quote text is extracted or pasted.'
+      : risk === 'Low'
+        ? `Strong fit against ${assignment.packageName} cost, delivery, evidence, and compliance requirements.`
+        : risk === 'Medium'
+          ? 'Commercially usable but needs clarification before award.'
+          : 'Do not award until missing commitments, exclusions, and delivery risk are resolved.';
     const nextActions = [
       risk === 'Low' ? 'Prepare award brief' : null,
       missingFields.length > 0 ? 'Draft clarification email' : null,
       commercialDelta !== null && commercialDelta > 0 ? 'Create negotiation points' : null,
       risk !== 'Low' ? 'Hold award decision' : null,
     ].filter((action): action is string => Boolean(action));
-    const finding = amount === null
-      ? 'Price was not detected. Review this quote before award.'
-      : sla === null
-        ? 'SLA was not detected. Clarify service commitment before award.'
-        : risk === 'Low'
-      ? 'Strong commercial and service fit for shortlisting.'
-      : risk === 'Medium'
-        ? 'Usable quote, but clarify scope or commercial assumptions.'
-        : 'High-risk quote unless exclusions and SLA commitments improve.';
+    const finding = !hasExtractableText
+      ? 'No extractable quote text was found. Paste the quote terms or upload a readable document.'
+      : amount === null
+        ? 'Price was not detected. Review this quote before award.'
+        : sla === null
+          ? 'SLA was not detected. Clarify service commitment before award.'
+          : deliveryDate === null
+            ? 'Delivery date was not detected. Clarify programme commitment before award.'
+            : deliveryLate
+              ? 'Delivery appears later than the required package date.'
+              : risk === 'Low'
+                ? 'Strong commercial and programme fit for shortlisting.'
+                : risk === 'Medium'
+                  ? 'Usable quote, but clarify scope or commercial assumptions.'
+                  : 'High-risk quote unless exclusions and commitments improve.';
     return {
       id: source.id,
       vendorName,
       amount,
       sla,
+      deliveryDate,
       warranty,
       exclusions,
       extractionStatus,
@@ -360,10 +806,12 @@ function buildQuoteAnalysis(documents: VendorSetupDocument[], notes: string, foc
   const savings = winner.amount === null ? 0 : Math.max(0, highestAmount - winner.amount);
   const commercialSpread = amounts.length >= 2 ? highestAmount - lowestAmount : null;
   const winnerLowestPremium = winner.amount === null || amounts.length < 2 ? null : winner.amount - lowestAmount;
-  const clarificationQuestions = items.flatMap(item => item.clarificationQuestions.map(question => `${item.vendorName}: ${question}`)).slice(0, 6);
+  const clarificationQuestions = items.flatMap(item => item.clarificationQuestions.map(question => `${item.vendorName}: ${question}`)).slice(0, 8);
   const riskConditions = [
+    items.some(item => item.extractionStatus === 'Unsupported / no text') ? 'At least one quote has no extractable text.' : null,
     items.some(item => item.amount === null) ? 'At least one quote is missing a commercial offer.' : null,
     items.some(item => item.sla === null) ? 'At least one quote is missing an SLA commitment.' : null,
+    items.some(item => item.deliveryDate === null) ? 'At least one quote is missing delivery or mobilization date.' : null,
     items.some(item => item.risk === 'High') ? 'High-risk quote present; do not award without clarification.' : null,
     winner.missingFields.length > 0 ? `Recommended bidder still needs confirmation: ${winner.missingFields.join(', ')}.` : null,
   ].filter((condition): condition is string => Boolean(condition));
@@ -371,21 +819,23 @@ function buildQuoteAnalysis(documents: VendorSetupDocument[], notes: string, foc
     'Prepare Award Brief',
     clarificationQuestions.length > 0 ? 'Draft Clarification Email' : null,
     items.some(item => item.commercialDelta !== null && item.commercialDelta > 0) ? 'Create Negotiation Points' : null,
-    'Open Vendor Profile',
+    'Link Result To ProjectCommand',
   ].filter((action): action is string => Boolean(action));
   return {
+    assignment,
     winner,
     items,
     savings,
     summary: winner.amount === null
-      ? `${winner.vendorName} is the strongest readable quote with a ${winner.score}/100 comparison score, but price still needs confirmation.`
-      : `${winner.vendorName} is the recommended quote with a ${winner.score}/100 comparison score and AED ${winner.amount.toLocaleString()} commercial offer.`,
+      ? `${winner.vendorName} is the strongest readable quote for ${assignment.packageName} with a ${winner.score}/100 comparison score, but price still needs confirmation.`
+      : `${winner.vendorName} is the recommended quote for ${assignment.packageName} with a ${winner.score}/100 comparison score and ${formatProcurementMoney(winner.amount)} commercial offer.`,
     findings: [
       amounts.length >= 2
         ? winnerLowestPremium && winnerLowestPremium > 0
-          ? `${winner.vendorName} is AED ${winnerLowestPremium.toLocaleString()} above the lowest quote; award rationale depends on SLA, warranty, evidence, and lower operational risk.`
-          : `Selecting the recommended quote is AED ${savings.toLocaleString()} below the highest readable offer.`
+          ? `${winner.vendorName} is ${formatProcurementMoney(winnerLowestPremium)} above the lowest quote; award rationale depends on delivery, warranty, evidence, and lower execution risk.`
+          : `Selecting the recommended quote is ${formatProcurementMoney(savings)} below the highest readable offer.`
         : 'Commercial spread needs at least two readable prices before final award.',
+      `${winner.vendorName} ${winner.deliveryDate === null ? 'needs delivery confirmation' : `commits delivery/mobilization around ${winner.deliveryDate}`} against required ${assignment.requiredDeliveryDate}.`,
       `${winner.vendorName} ${winner.sla === null ? 'needs SLA confirmation' : `offers ${winner.sla}% SLA commitment`} with ${winner.warranty.toLowerCase()} warranty position.`,
       items.some(item => item.risk === 'High') ? 'At least one quote carries high clarification risk before award.' : 'No high-risk quote blockers were detected in the submitted set.',
     ],
@@ -396,73 +846,22 @@ function buildQuoteAnalysis(documents: VendorSetupDocument[], notes: string, foc
   };
 }
 
-function buildSampleQuotePack(focusVendor: VendorIntelData): VendorSetupDocument[] {
-  return [
-    {
-      id: 'sample-developmentx-core-quote',
-      name: 'DevelopmentX Core - Cleaning Soft FM Quote.pdf',
-      type: 'Sample quote',
-      sizeLabel: '118 KB',
-      content: [
-        'Vendor name: DevelopmentX Core',
-        `Service category: ${focusVendor.category}`,
-        'Quote total: AED 420',
-        'SLA commitment: 96',
-        'Warranty: 18 months workmanship warranty',
-        'Exclusions: No major exclusions detected; emergency parts priced at approved rate card',
-        'Mobilization: 7 days from award',
-        'Evidence: before/after photos, asset tag, timestamp, root cause, resident confirmation, supervisor QA sample',
-      ].join('\n'),
-    },
-    {
-      id: 'sample-gulf-fm-quote',
-      name: 'Gulf FM Services - Commercial Offer.xlsx',
-      type: 'Sample quote',
-      sizeLabel: '82 KB',
-      content: [
-        'Vendor name: Gulf FM Services',
-        `Service category: ${focusVendor.category}`,
-        'Quote total: AED 398',
-        'SLA commitment: 92',
-        'Warranty: 12 months',
-        'Exclusions: Emergency parts above AED 1,500 to be confirmed',
-        'Mobilization: 10 days',
-        'Evidence: completion report, photos, asset tag, supervisor sign-off',
-      ].join('\n'),
-    },
-    {
-      id: 'sample-current-vendor-quote',
-      name: `${focusVendor.name} - Revised Quote.docx`,
-      type: 'Sample quote',
-      sizeLabel: '74 KB',
-      content: [
-        `Vendor name: ${focusVendor.name}`,
-        `Service category: ${focusVendor.category}`,
-        `Quote total: AED ${focusVendor.avgCostPerJob}`,
-        'SLA commitment: 82',
-        'Warranty: Not clearly stated',
-        'Exclusions: Parts to be confirmed; weekend coverage excluded',
-        'Mobilization: 14 days',
-        'Evidence: close-out report only',
-      ].join('\n'),
-    },
-  ];
-}
-
-function buildQuoteActionArtifact(action: string, analysis: QuoteAnalysis, focusVendor: VendorIntelData): QuoteActionArtifact {
-  const winner = analysis.winner;
-  const competitorLines = analysis.items.map(item => `${item.vendorName}: ${item.score}/100, ${item.amount === null ? 'price missing' : `AED ${item.amount.toLocaleString()}`}, ${item.sla === null ? 'SLA missing' : `${item.sla}% SLA`}, ${item.risk} risk.`);
+function buildQuoteActionArtifact(action: string, analysis: QuoteAnalysis): QuoteActionArtifact {
+  const { assignment, winner } = analysis;
+  const competitorLines = analysis.items.map(item => `${item.vendorName}: ${item.score}/100, ${item.amount === null ? 'price missing' : formatProcurementMoney(item.amount)}, ${item.sla === null ? 'SLA missing' : `${item.sla}% SLA`}, ${item.deliveryDate ?? 'delivery missing'}, ${item.risk} risk.`);
   if (action === 'Prepare Award Brief') {
     return {
       title: 'Award Brief Prepared',
       status: 'Draft prepared',
-      body: `${winner.vendorName} is recommended subject to resolving listed conditions. The recommendation is based on score, price, SLA, exclusions, evidence readiness, and award risk.`,
+      body: `${winner.vendorName} is recommended for ${assignment.packageName} subject to resolving listed conditions. The recommendation is based on package budget, delivery, SLA, warranty, exclusions, evidence readiness, and award risk.`,
       lines: [
+        `Assigned to: ${assignment.propertyName} / ${assignment.projectName} / ${assignment.packageName}`,
         `Recommended bidder: ${winner.vendorName}`,
         `Score: ${winner.score}/100 (${winner.risk} risk)`,
-        winner.amount === null ? 'Commercial offer: requires confirmation' : `Commercial offer: AED ${winner.amount.toLocaleString()}`,
+        winner.amount === null ? 'Commercial offer: requires confirmation' : `Commercial offer: ${formatProcurementMoney(winner.amount)} vs budget ${formatProcurementMoney(assignment.budgetAllowance)}`,
+        winner.deliveryDate === null ? 'Delivery: requires confirmation' : `Delivery / mobilization: ${winner.deliveryDate} vs required ${assignment.requiredDeliveryDate}`,
         winner.sla === null ? 'SLA: requires confirmation' : `SLA: ${winner.sla}%`,
-        analysis.commercialSpread === null ? 'Commercial spread: incomplete until all prices are readable' : `Commercial spread: AED ${analysis.commercialSpread.toLocaleString()}`,
+        analysis.commercialSpread === null ? 'Commercial spread: incomplete until all prices are readable' : `Commercial spread: ${formatProcurementMoney(analysis.commercialSpread)}`,
         `Award conditions: ${analysis.riskConditions.length ? analysis.riskConditions.join(' ') : 'No blocking clarification conditions detected.'}`,
       ],
     };
@@ -471,29 +870,34 @@ function buildQuoteActionArtifact(action: string, analysis: QuoteAnalysis, focus
     return {
       title: 'Clarification Email Draft',
       status: 'Draft prepared',
-      body: `Draft clarification request for ${focusVendor.category} bidders. No email is sent in demo mode.`,
+      body: `Draft clarification request for ${assignment.packageName} bidders. No email is sent from this screen.`,
       lines: analysis.clarificationQuestions.length
         ? analysis.clarificationQuestions
-        : ['Confirm commercial validity, SLA basis, warranty, exclusions, mobilization date, and evidence commitments before award.'],
+        : ['Confirm commercial validity, delivery date, SLA basis, warranty, exclusions, and evidence commitments before award.'],
     };
   }
   if (action === 'Create Negotiation Points') {
     return {
       title: 'Negotiation Points Created',
       status: 'Ready for manager review',
-      body: 'Use the strongest compliant offer as the commercial anchor while protecting SLA and evidence quality.',
+      body: `Use the strongest compliant offer as the commercial anchor while protecting ${assignment.packageName} delivery and evidence quality.`,
       lines: [
-        `Current vendor benchmark: AED ${focusVendor.avgCostPerJob}/job.`,
+        `Package budget guardrail: ${formatProcurementMoney(assignment.budgetAllowance)}.`,
+        `Required delivery / award deadline: ${assignment.requiredDeliveryDate}.`,
         ...competitorLines,
-        'Ask higher-priced bidders to match the strongest commercial offer without reducing SLA, evidence, or warranty commitments.',
+        'Ask higher-priced bidders to match the strongest commercial offer without reducing delivery, evidence, warranty, or compliance commitments.',
       ],
     };
   }
   return {
-    title: 'Vendor Profile Link Ready',
-    status: 'Ready to open',
-    body: `Open ${focusVendor.name} to compare historical score, active contracts, cost per job, dependency risk, and compliance flags against this quote decision.`,
-    lines: competitorLines,
+    title: 'ProjectCommand Link Ready',
+    status: 'Ready to link',
+    body: `This quote comparison is ready to attach to ${assignment.propertyName} / ${assignment.projectName} / ${assignment.packageName}.`,
+    lines: [
+      'Source: user-selected procurement context.',
+      'Quote data: uploaded files and pasted quote text only.',
+      ...competitorLines,
+    ],
   };
 }
 
@@ -725,8 +1129,8 @@ type VendorCopilotResult = {
 
 function formatVendorAction(action: VendorCopilotAction): string {
   return {
-    rfq: 'RFQ drafted',
-    compare: 'Quotes compared',
+    rfq: 'RFQ builder opened',
+    compare: 'Quote comparison intake opened',
     background: 'Background check completed',
     price: 'Price analysis completed',
     negotiation: 'Action pack prepared',
@@ -737,42 +1141,39 @@ function buildVendorCopilotResult(vendor: VendorIntelData, peers: VendorIntelDat
   const score = computeVendorScore(vendor);
   const risk = classifyVendorRisk(score);
   const peerAvgCost = Math.round(peers.reduce((sum, peer) => sum + peer.avgCostPerJob, 0) / Math.max(1, peers.length));
-  const sortedPeers = [...peers].sort((a, b) => computeVendorScore(b) - computeVendorScore(a));
-  const strongestPeer = sortedPeers.find(peer => peer.id !== vendor.id) ?? sortedPeers[0] ?? vendor;
-  const cheapestPeer = [...peers].sort((a, b) => a.avgCostPerJob - b.avgCostPerJob).find(peer => peer.id !== vendor.id) ?? vendor;
   const costDelta = vendor.avgCostPerJob - peerAvgCost;
   const dueDate = '7 working days';
 
   if (action === 'rfq') {
     return {
       action,
-      title: `RFQ package for ${vendor.category}`,
-      status: 'Ready for procurement review',
-      summary: `Drafted an RFQ using ${vendor.name}'s current scope, KPI gaps, evidence rules, and site coverage.`,
-      primaryCta: 'Send RFQ to shortlisted vendors',
+      title: 'RFQ builder',
+      status: 'Project anchor required',
+      summary: 'Start with the property, project, service category, and sourcing mode before generating the RFQ review package.',
+      primaryCta: 'Open RFQ wizard',
       sections: [
         {
-          title: 'Scope',
+          title: 'Start with',
           lines: [
-            `Service category: ${vendor.category}.`,
-            `Sites in scope: ${vendor.sites.join(', ')}.`,
-            `Current workload reference: ${vendor.jobsLast30d} jobs in the last 30 days.`,
+            'Select the property and project this procurement supports.',
+            `Confirm the service category, starting from ${vendor.category}.`,
+            'Choose whether to tell AI, use a template, or upload/paste scope documents.',
           ],
         },
         {
-          title: 'Mandatory commercial response',
+          title: 'Then define',
           lines: [
-            `Submit fixed rate card and average job cost target at or below AED ${Math.max(250, peerAvgCost - 25)}.`,
-            `Confirm SLA commitment above ${Math.max(88, vendor.slaCompliance + 3)}% and first-time fix above ${Math.max(86, vendor.firstTimeFixRate + 2)}%.`,
-            `Response deadline: ${dueDate}, including exclusions, parts markup, escalation matrix, and mobilization date.`,
+            'Scope, inclusions, exclusions, volumes, and delivery timeline.',
+            'SLA, evidence, compliance, insurance, HSE, and mobilisation requirements.',
+            'Editable scoring weights for price, SLA, quality, compliance, capacity, and risk.',
           ],
         },
         {
-          title: 'Evidence and governance',
+          title: 'Output',
           lines: [
-            'Attach trade licenses, insurance, technician certifications, HSE records, and three comparable client references.',
-            'Completion evidence must include before/after photos, asset tag, timestamp, root cause, and resident confirmation where applicable.',
-            `Evaluation weighting: 35% performance, 25% cost, 20% compliance, 20% capacity and response model.`,
+            'A complete project-anchored RFQ package for review.',
+            'Copy RFQ, save to workbench, and prepare vendor invite actions.',
+            'No preloaded RFQ content is inserted; the package is built from user choices, typed scope, templates, or uploaded documents.',
           ],
         },
       ],
@@ -780,36 +1181,35 @@ function buildVendorCopilotResult(vendor: VendorIntelData, peers: VendorIntelDat
   }
 
   if (action === 'compare') {
-    const vendorGap = computeVendorScore(strongestPeer) - score;
     return {
       action,
-      title: 'Quote and vendor comparison',
-      status: strongestPeer.id === vendor.id ? 'Current vendor leads peer set' : `${strongestPeer.name} is the recommended benchmark`,
-      summary: `Compared ${vendor.name} against peer vendors using score, SLA, first-time fix, evidence quality, cost, and risk flags.`,
-      primaryCta: strongestPeer.id === vendor.id ? 'Keep vendor in current rotation' : `Invite ${strongestPeer.name} to bid`,
+      title: 'Assigned RFQ quote intake',
+      status: 'Procurement context required',
+      summary: 'Start by assigning the property, project, and procurement package. AI only compares uploaded supplier quotes or manually pasted quote text against that selected package context.',
+      primaryCta: 'Open assigned intake',
       sections: [
         {
-          title: 'Decision view',
+          title: 'Step 1 - assign context',
           lines: [
-            `${vendor.name}: ${score}/100, ${risk}, AED ${vendor.avgCostPerJob}/job.`,
-            `${strongestPeer.name}: ${computeVendorScore(strongestPeer)}/100, ${classifyVendorRisk(computeVendorScore(strongestPeer))}, AED ${strongestPeer.avgCostPerJob}/job.`,
-            vendorGap > 0 ? `Performance gap: ${vendorGap} points behind the strongest peer.` : 'No score gap against the strongest available peer.',
+            'Select the property and project this procurement decision belongs to.',
+            'Choose the package or scope, such as Facade Systems, MEP, Elevators, Fire Systems, or Fit-out.',
+            'Confirm package budget, required delivery or award deadline, and evaluation basis.',
           ],
         },
         {
-          title: 'Commercial signal',
+          title: 'Step 2 - upload quote data',
           lines: [
-            `${cheapestPeer.name} is the lowest cost reference at AED ${cheapestPeer.avgCostPerJob}/job.`,
-            costDelta > 0 ? `${vendor.name} is AED ${costDelta} above the peer average.` : `${vendor.name} is AED ${Math.abs(costDelta)} below the peer average.`,
-            `Quality check: ${vendor.firstTimeFixRate}% first-time fix and ${vendor.evidenceCompliance}% evidence compliance.`,
+            'Upload actual PDF, DOC, XLSX, CSV, or TXT quote files.',
+            'Paste quote text manually only when a scanned or locked file has no readable text.',
+            'Missing price, SLA, delivery, warranty, exclusions, or evidence commitments stay visible as clarification needs.',
           ],
         },
         {
-          title: 'Recommended next step',
+          title: 'Step 3 - compare and act',
           lines: [
-            strongestPeer.id === vendor.id ? 'Retain the vendor, but request updated pricing if the category benchmark is lower.' : 'Run a controlled RFQ with the current vendor and the stronger peer as minimum participants.',
-            'Require bidders to price the same job basket so comparisons are like-for-like.',
-            'Use evidence compliance and repeat failure history as commercial scoring gates, not only price.',
+            'Rank submitted supplier quotes against the selected package budget, delivery date, evidence rules, and compliance criteria.',
+            'Prepare an award brief, clarification request, negotiation points, or ProjectCommand link.',
+            'Only submitted quote data is used in the comparison.',
           ],
         },
       ],
@@ -1177,15 +1577,17 @@ function VendorCopilotWorkbench({
   log,
   onRun,
   onOpenQuoteIntake,
+  onOpenRfqWizard,
 }: {
   result: VendorCopilotResult;
   log: string[];
   onRun: (action: VendorCopilotAction) => void;
   onOpenQuoteIntake?: () => void;
+  onOpenRfqWizard?: () => void;
 }) {
   const actions: { id: VendorCopilotAction; label: string; detail: string; tone: string; icon: React.ReactNode }[] = [
     { id: 'rfq', label: 'Write RFQ', detail: 'Scope, questions, scoring, and evidence rules', tone: 'border-blue-400/30 bg-blue-400/10 text-blue-200', icon: <FileWarning size={13} /> },
-    { id: 'compare', label: 'Compare Quotes', detail: 'Score peers by cost, SLA, quality, and risk', tone: 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200', icon: <BarChart3 size={13} /> },
+    { id: 'compare', label: 'Compare Quotes', detail: 'Assign context, upload quotes, rank bids', tone: 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200', icon: <BarChart3 size={13} /> },
     { id: 'background', label: 'Background Checks', detail: 'Contracts, evidence, risk, and dependency', tone: 'border-violet-400/30 bg-violet-400/10 text-violet-200', icon: <ShieldCheck size={13} /> },
     { id: 'price', label: 'Price Analysis', detail: 'Peer average, savings, and rate-card ask', tone: 'border-amber-400/30 bg-amber-400/10 text-amber-200', icon: <DollarSign size={13} /> },
     { id: 'negotiation', label: 'Action Pack', detail: 'Vendor message, approvals, and KPI targets', tone: 'border-red-400/30 bg-red-400/10 text-red-200', icon: <Target size={13} /> },
@@ -1209,6 +1611,10 @@ function VendorCopilotWorkbench({
               key={action.id}
               type="button"
               onClick={() => {
+                if (action.id === 'rfq' && onOpenRfqWizard) {
+                  onOpenRfqWizard();
+                  return;
+                }
                 onRun(action.id);
                 if (action.id === 'compare') onOpenQuoteIntake?.();
               }}
@@ -1262,10 +1668,16 @@ function VendorCopilotWorkbench({
           </div>
           <button
             type="button"
-            onClick={() => onRun(result.action)}
+            onClick={() => {
+              if (result.action === 'rfq' && onOpenRfqWizard) {
+                onOpenRfqWizard();
+                return;
+              }
+              onRun(result.action);
+            }}
             className="rounded-lg bg-[#2E7FFF] px-3 py-2 text-[11px] font-black text-white transition-all hover:bg-[#4B91FF]"
           >
-            Refresh artifact
+            {result.action === 'rfq' ? 'Open builder' : 'Refresh artifact'}
           </button>
         </div>
 
@@ -1276,7 +1688,7 @@ function VendorCopilotWorkbench({
             className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-400/30 bg-emerald-400/12 px-4 py-3 text-[12px] font-black text-emerald-100 transition-all hover:border-emerald-300/50 hover:bg-emerald-400/18"
           >
             <UploadCloud size={14} />
-            Upload or paste quote files
+            Open assigned quote intake
           </button>
         )}
 
@@ -1307,17 +1719,24 @@ function inferVendorCopilotAction(prompt: string): VendorCopilotAction {
 
 function PageProcurementCopilotModal({
   focusVendor,
+  vendors,
   result,
   onClose,
   onRun,
   onOpenProfile,
+  onRfqGenerated,
 }: {
   focusVendor: VendorIntelData;
+  vendors: VendorIntelData[];
   result: VendorCopilotResult;
   onClose: () => void;
   onRun: (action: VendorCopilotAction) => void;
   onOpenProfile: () => void;
+  onRfqGenerated?: (result: VendorCopilotResult) => void;
 }) {
+  const selectedProjectData = useSelectedProjectCommandData();
+  const propertyOptions = useProjectCommandPropertyOptions();
+  const rfqTemplates = buildRfqTemplates();
   const [prompt, setPrompt] = useState('');
   const [isListening, setIsListening] = useState(false);
   const [assistantNote, setAssistantNote] = useState(`Ready for ${focusVendor.name}. Choose an outcome or describe the procurement task.`);
@@ -1325,9 +1744,34 @@ function PageProcurementCopilotModal({
   const [quoteNotes, setQuoteNotes] = useState('');
   const [quoteAnalysis, setQuoteAnalysis] = useState<QuoteAnalysis | null>(null);
   const [quoteActionArtifact, setQuoteActionArtifact] = useState<QuoteActionArtifact | null>(null);
+  const [rfqState, setRfqState] = useState<RfqWizardState>(() => buildInitialRfqState(focusVendor, selectedProjectData));
+  const [rfqPackage, setRfqPackage] = useState<RfqGeneratedPackage | null>(null);
+  const [rfqFeedback, setRfqFeedback] = useState('');
+  const allProjectOptions = useProjectCommandProjectOptions();
+  const projectOptions = useProjectCommandProjectOptions(rfqState.anchor.propertyId);
+  const defaultQuotePackage = procurementPackageTemplates[0];
+  const [quoteAssignment, setQuoteAssignment] = useState<ProcurementAssignmentContext>(() => ({
+    propertyId: selectedProjectData.property.id,
+    propertyName: selectedProjectData.property.name,
+    projectId: selectedProjectData.project.id,
+    projectName: selectedProjectData.project.name,
+    packageName: defaultQuotePackage.name,
+    budgetAllowance: defaultQuotePackage.budgetAllowance,
+    requiredDeliveryDate: defaultQuotePackage.requiredDeliveryDate,
+    evaluationCriteria: defaultQuotePackage.evaluationCriteria,
+    evidenceRequirements: defaultQuotePackage.evidenceRequirements,
+  }));
+  const quoteProjectOptions = allProjectOptions.filter(option => option.propertyId === quoteAssignment.propertyId);
+  const quoteAssignmentComplete = Boolean(
+    quoteAssignment.propertyId
+    && quoteAssignment.projectId
+    && quoteAssignment.packageName
+    && quoteAssignment.budgetAllowance > 0
+    && quoteAssignment.requiredDeliveryDate,
+  );
   const chips: { label: string; detail: string; action: VendorCopilotAction; icon: React.ReactNode }[] = [
     { label: 'Draft RFQ', detail: 'Scope, criteria, evidence, deadlines', action: 'rfq', icon: <FileWarning size={15} /> },
-    { label: 'Compare Quotes', detail: 'Rank vendors and recommend winner', action: 'compare', icon: <BarChart3 size={15} /> },
+    { label: 'Compare Quotes', detail: 'Assign context, upload quotes, rank bids', action: 'compare', icon: <BarChart3 size={15} /> },
     { label: 'Run Checks', detail: 'Compliance, documents, dependency', action: 'background', icon: <ShieldCheck size={15} /> },
     { label: 'Analyse Price', detail: 'Savings, rate card, value guardrails', action: 'price', icon: <DollarSign size={15} /> },
     { label: 'Prepare Action Pack', detail: 'Negotiation brief and KPI targets', action: 'negotiation', icon: <Target size={15} /> },
@@ -1346,8 +1790,51 @@ function PageProcurementCopilotModal({
     run(action);
   }
 
+  function patchQuoteAssignment(patch: Partial<ProcurementAssignmentContext>) {
+    setQuoteAssignment(prev => ({ ...prev, ...patch }));
+    setQuoteAnalysis(null);
+    setQuoteActionArtifact(null);
+  }
+
+  function changeQuoteProperty(propertyId: string) {
+    const property = propertyOptions.find(option => option.id === propertyId);
+    const nextProject = allProjectOptions.find(option => option.propertyId === propertyId);
+    patchQuoteAssignment({
+      propertyId,
+      propertyName: property?.label ?? quoteAssignment.propertyName,
+      projectId: nextProject?.id ?? '',
+      projectName: nextProject?.label ?? '',
+    });
+  }
+
+  function changeQuoteProject(projectId: string) {
+    const project = allProjectOptions.find(option => option.id === projectId);
+    patchQuoteAssignment({
+      projectId,
+      projectName: project?.label ?? quoteAssignment.projectName,
+      propertyId: project?.propertyId ?? quoteAssignment.propertyId,
+      propertyName: project?.propertyName ?? quoteAssignment.propertyName,
+    });
+  }
+
+  function changeQuotePackage(packageName: string) {
+    const template = procurementPackageTemplates.find(item => item.name === packageName) ?? procurementPackageTemplates[0];
+    patchQuoteAssignment({
+      packageName,
+      budgetAllowance: template.budgetAllowance,
+      requiredDeliveryDate: template.requiredDeliveryDate,
+      evaluationCriteria: template.evaluationCriteria,
+      evidenceRequirements: template.evidenceRequirements,
+    });
+  }
+
   async function addQuoteDocuments(event: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? []);
+    if (!quoteAssignmentComplete) {
+      setAssistantNote('Assign the quote comparison to a property, project, and procurement package before uploading quote files.');
+      event.target.value = '';
+      return;
+    }
     if (!files.length) return;
     const docs = await Promise.all(files.map(async file => {
       const parsed = await parseProjectDocumentFile(file).catch(() => null);
@@ -1362,29 +1849,19 @@ function PageProcurementCopilotModal({
     }));
     const nextDocuments = [...docs, ...quoteDocuments].slice(0, 8);
     setQuoteDocuments(nextDocuments);
-    setQuoteAnalysis(buildQuoteAnalysis(nextDocuments, quoteNotes, focusVendor));
+    setQuoteAnalysis(buildQuoteAnalysis(nextDocuments, quoteNotes, quoteAssignment));
     setQuoteActionArtifact(null);
     onRun('compare');
     event.target.value = '';
   }
 
   function analyseQuotes() {
-    if (quoteDocuments.length === 0 && !quoteNotes.trim()) return;
-    const analysis = buildQuoteAnalysis(quoteDocuments, quoteNotes, focusVendor);
+    if (!quoteAssignmentComplete || (quoteDocuments.length === 0 && !quoteNotes.trim())) return;
+    const analysis = buildQuoteAnalysis(quoteDocuments, quoteNotes, quoteAssignment);
     setQuoteAnalysis(analysis);
     setQuoteActionArtifact(null);
     onRun('compare');
     setAssistantNote(`${analysis.winner.vendorName} is currently recommended. Review the findings, exclusions, and next action before award.`);
-  }
-
-  function useSampleQuotePack() {
-    const sampleDocuments = buildSampleQuotePack(focusVendor);
-    const analysis = buildQuoteAnalysis(sampleDocuments, quoteNotes, focusVendor);
-    setQuoteDocuments(sampleDocuments);
-    setQuoteAnalysis(analysis);
-    setQuoteActionArtifact(null);
-    onRun('compare');
-    setAssistantNote(`${analysis.winner.vendorName} is recommended from the sample quote pack. Use the action outputs to show award, clarification, and negotiation artifacts.`);
   }
 
   function clearQuoteIntake() {
@@ -1401,37 +1878,172 @@ function PageProcurementCopilotModal({
       return;
     }
     if (!quoteAnalysis) return;
-    setQuoteActionArtifact(buildQuoteActionArtifact(action, quoteAnalysis, focusVendor));
+    setQuoteActionArtifact(buildQuoteActionArtifact(action, quoteAnalysis));
+  }
+
+  function patchRfq(patch: Partial<RfqWizardState>) {
+    const isStepOnly = Object.keys(patch).length === 1 && patch.step;
+    setRfqState(prev => ({ ...prev, ...patch }));
+    if (!isStepOnly) {
+      setRfqPackage(null);
+      setRfqFeedback('');
+    }
+  }
+
+  function patchRfqAnchor(patch: Partial<RfqAnchor>) {
+    setRfqState(prev => ({ ...prev, anchor: { ...prev.anchor, ...patch } }));
+    setRfqPackage(null);
+    setRfqFeedback('');
+  }
+
+  function patchRfqScoring(key: RfqScoringKey, value: string) {
+    setRfqState(prev => ({ ...prev, scoring: { ...prev.scoring, [key]: value } }));
+    setRfqPackage(null);
+    setRfqFeedback('');
+  }
+
+  function changeRfqProperty(propertyId: string) {
+    const property = propertyOptions.find(option => option.id === propertyId);
+    const nextProject = allProjectOptions.find(option => option.propertyId === propertyId);
+    patchRfqAnchor({
+      propertyId,
+      propertyName: property?.label ?? rfqState.anchor.propertyName,
+      propertyMeta: property ? `${property.type} / ${property.location}` : rfqState.anchor.propertyMeta,
+      projectId: nextProject?.id ?? '',
+      projectName: nextProject?.label ?? '',
+      projectType: nextProject?.projectType ?? '',
+    });
+  }
+
+  function changeRfqProject(projectId: string) {
+    const project = projectOptions.find(option => option.id === projectId);
+    patchRfqAnchor({
+      projectId,
+      projectName: project?.label ?? rfqState.anchor.projectName,
+      projectType: project?.projectType ?? rfqState.anchor.projectType,
+      propertyId: project?.propertyId ?? rfqState.anchor.propertyId,
+      propertyName: project?.propertyName ?? rfqState.anchor.propertyName,
+    });
+  }
+
+  function changeRfqTemplate(templateId: string) {
+    const template = rfqTemplates.find(item => item.id === templateId);
+    if (!template) return;
+    setRfqState(prev => applyRfqTemplate(prev, template));
+    setRfqPackage(null);
+    setRfqFeedback('');
+  }
+
+  async function addRfqDocuments(event: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? []);
+    if (!files.length) return;
+    const docs = await Promise.all(files.map(async file => {
+      const parsed = await parseProjectDocumentFile(file).catch(() => null);
+      return {
+        id: `${file.name}-${file.size}-${Date.now()}`,
+        name: file.name,
+        type: file.type || 'Scope document',
+        sizeLabel: formatDocumentSize(file.size),
+        content: parsed?.text ?? '',
+        warning: parsed?.warning,
+      };
+    }));
+    setRfqState(prev => {
+      const nextDocuments = [...docs, ...prev.documents].slice(0, 8);
+      const extracted = extractRfqScopeFromDocuments(nextDocuments, prev.pastedScope);
+      return {
+        ...prev,
+        documents: nextDocuments,
+        services: prev.services || extracted.services || '',
+        inclusions: prev.inclusions || extracted.inclusions || '',
+        exclusions: prev.exclusions || extracted.exclusions || '',
+        volume: prev.volume || extracted.volume || '',
+        timeline: prev.timeline || extracted.timeline || '',
+        sla: prev.sla || extracted.sla || '',
+        evidence: prev.evidence || extracted.evidence || '',
+        compliance: prev.compliance || extracted.compliance || '',
+      };
+    });
+    setRfqPackage(null);
+    setRfqFeedback('');
+    onRun('rfq');
+    event.target.value = '';
+  }
+
+  function generateRfqPackage() {
+    const template = rfqTemplates.find(item => item.id === rfqState.templateId);
+    const generated = buildRfqDraft(template, focusVendor, vendors, rfqState);
+    setRfqPackage(generated);
+    setRfqState(prev => ({ ...prev, step: 'review' }));
+    const workbenchResult = buildRfqCopilotResult(generated);
+    onRfqGenerated?.(workbenchResult);
+    onRun('rfq');
+    setAssistantNote('RFQ review package generated. Review the sections, then copy, save, or prepare the vendor invite.');
+    setRfqFeedback('RFQ review package generated.');
+  }
+
+  function runRfqAction(action: string) {
+    if (!rfqPackage) return;
+    if (action === 'Copy RFQ') {
+      void navigator.clipboard?.writeText(formatRfqPackageText(rfqPackage));
+      setRfqFeedback('RFQ copied for review.');
+      return;
+    }
+    if (action === 'Save to workbench') {
+      onRfqGenerated?.(buildRfqCopilotResult(rfqPackage));
+      setRfqFeedback('RFQ saved to the page workbench.');
+      return;
+    }
+    setRfqFeedback('Vendor invite prepared with selected project, scope, deadline, response fields, and required documents.');
   }
 
   const isCompareMode = result.action === 'compare';
-  const quoteRequiredSla = Math.max(88, focusVendor.slaCompliance + 3);
+  const isRfqMode = result.action === 'rfq';
+  const rfqCurrentStepIndex = rfqStepOrder.indexOf(rfqState.step);
+  const selectedRfqTemplate = rfqTemplates.find(item => item.id === rfqState.templateId);
+  const rfqScoringTotal = (Object.values(rfqState.scoring) as string[]).reduce((sum, value) => sum + (Number(value) || 0), 0);
+  const rfqExtracted = extractRfqScopeFromDocuments(rfqState.documents, rfqState.pastedScope);
+  const canGenerateRfq = Boolean(
+    rfqState.anchor.propertyName
+      && rfqState.anchor.projectName
+      && rfqState.anchor.serviceCategory
+      && rfqState.anchor.sitesAreas
+      && rfqState.mode
+      && (
+        rfqState.mode === 'template'
+          ? rfqState.templateId
+          : rfqState.mode === 'docs'
+            ? (rfqState.documents.length > 0 || rfqState.pastedScope.trim() || rfqState.services.trim())
+            : (rfqState.aiBrief.trim() || rfqState.services.trim())
+      ),
+  );
   const readableQuoteCount = quoteAnalysis?.items.filter(item => item.extractionStatus === 'Read').length ?? 0;
   const quoteChecklist = [
-    'Price / rate card',
+    'Package price',
     'Committed SLA',
+    'Delivery / award date',
     'Exclusions',
     'Warranty',
-    'Mobilization date',
     'Evidence commitment',
   ];
   const quoteContextItems = [
-    { label: 'Service category', value: focusVendor.category },
-    { label: 'Sites in scope', value: focusVendor.sites.join(', ') },
-    { label: 'Current vendor', value: focusVendor.name },
-    { label: 'Benchmark cost', value: `AED ${focusVendor.avgCostPerJob}/job` },
-    { label: 'Required SLA', value: `${quoteRequiredSla}% minimum` },
-    { label: 'Evidence rules', value: 'Photos, asset tag, timestamp, root cause, resident confirmation' },
+    { label: 'Property', value: quoteAssignment.propertyName || 'Select property' },
+    { label: 'Project', value: quoteAssignment.projectName || 'Select project' },
+    { label: 'Package / scope', value: quoteAssignment.packageName || 'Select package' },
+    { label: 'Budget guardrail', value: formatProcurementMoney(quoteAssignment.budgetAllowance) },
+    { label: 'Required delivery', value: quoteAssignment.requiredDeliveryDate || 'Select date' },
+    { label: 'Quote data source', value: 'Uploaded files / pasted quote text only' },
   ];
   const quoteSteps = [
-    { label: '1 RFQ Context', value: `${focusVendor.category} / ${focusVendor.sites.length} sites`, active: true },
-    { label: '2 Quote Intake', value: `${quoteDocuments.length} file${quoteDocuments.length === 1 ? '' : 's'} / ${quoteNotes.trim() ? 'text pasted' : 'text optional'}`, active: quoteDocuments.length > 0 || Boolean(quoteNotes.trim()) },
+    { label: '1 Assign Context', value: quoteAssignmentComplete ? `${quoteAssignment.propertyName} / ${quoteAssignment.packageName}` : 'required before upload', active: quoteAssignmentComplete },
+    { label: '2 Upload Quotes', value: `${quoteDocuments.length} file${quoteDocuments.length === 1 ? '' : 's'} / ${quoteNotes.trim() ? 'text pasted' : 'text optional'}`, active: quoteAssignmentComplete && (quoteDocuments.length > 0 || Boolean(quoteNotes.trim())) },
     { label: '3 AI Comparison', value: quoteAnalysis ? `${readableQuoteCount}/${quoteAnalysis.items.length} quotes readable` : 'ready to run', active: Boolean(quoteAnalysis) },
   ];
   const quoteItemForDocument = (doc: VendorSetupDocument) => quoteAnalysis?.items.find(item => item.id === doc.id);
   const quoteStatusTone = (status?: QuoteExtractionStatus) => {
     if (status === 'Read') return 'border-emerald-400/25 bg-emerald-400/10 text-emerald-200';
-    if (status === 'Missing price' || status === 'Missing SLA') return 'border-amber-400/25 bg-amber-400/10 text-amber-200';
+    if (status === 'Missing price' || status === 'Missing SLA' || status === 'Missing delivery') return 'border-amber-400/25 bg-amber-400/10 text-amber-200';
+    if (status === 'Unsupported / no text') return 'border-slate-400/25 bg-slate-400/10 text-slate-200';
     if (status === 'Needs clarification') return 'border-red-400/25 bg-red-400/10 text-red-200';
     return 'border-[#2E7FFF]/22 bg-[#2E7FFF]/10 text-[#8DBDFF]';
   };
@@ -1454,20 +2066,22 @@ function PageProcurementCopilotModal({
         initial={{ opacity: 0, y: 18, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 12, scale: 0.98 }}
-        className={`flex max-h-[90vh] w-full ${isCompareMode ? (quoteAnalysis ? 'max-w-6xl' : 'max-w-5xl') : 'max-w-5xl'} flex-col overflow-hidden rounded-2xl border border-[#2E7FFF]/30 bg-[#081528] shadow-2xl`}
+        className={`flex max-h-[90vh] w-full ${isCompareMode || isRfqMode ? 'max-w-6xl' : 'max-w-5xl'} flex-col overflow-hidden rounded-2xl border border-[#2E7FFF]/30 bg-[#081528] shadow-2xl`}
       >
         <div className="flex items-start justify-between gap-4 border-b border-[rgba(46,127,255,0.16)] bg-[linear-gradient(135deg,rgba(46,127,255,0.18),rgba(124,58,237,0.12))] px-5 py-4">
           <div>
             <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-violet-300/25 bg-violet-400/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-violet-100">
               <MessageSquare size={12} />
-              {isCompareMode ? 'Quote Comparison Workbench' : 'Procurement assistant'}
+              {isCompareMode ? 'Quote Comparison Workbench' : isRfqMode ? 'RFQ Builder' : 'Procurement assistant'}
             </div>
             <h3 className="text-xl font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-              {isCompareMode ? 'Compare supplier quotes' : 'How can I help?'}
+              {isCompareMode ? 'Compare supplier quotes' : isRfqMode ? 'Build a project-anchored RFQ' : 'How can I help?'}
             </h3>
             <p className="mt-1 max-w-2xl text-[12px] leading-5 text-[#9CB1CC]">
               {isCompareMode
-                ? 'RFQ context, quote intake, AI scoring, risk flags, and action drafts in one flow.'
+                ? 'Assign the property, project, and package first, then compare uploaded supplier quotes against that context.'
+                : isRfqMode
+                  ? <>Anchor the property and project first, then choose whether to tell AI, use a template, or upload scope documents for <span className="font-bold text-[#EEF3FA]">{focusVendor.name}</span>.</>
                 : <>Tell me the procurement outcome. I will generate the artifact and keep the vendor context anchored to <span className="font-bold text-[#EEF3FA]">{focusVendor.name}</span>.</>}
             </p>
           </div>
@@ -1497,17 +2111,71 @@ function PageProcurementCopilotModal({
             <div className="mt-4 grid gap-4 lg:grid-cols-[0.92fr_1.08fr]">
               <div className="space-y-4">
                 <section className="rounded-2xl border border-[rgba(46,127,255,0.18)] bg-[#07111F] p-4">
-                  <div className="mb-3 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-[#8DBDFF]">
-                    <Target size={13} />
-                    RFQ Context
-                  </div>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {quoteContextItems.map(item => (
-                      <div key={item.label} className="rounded-xl border border-[rgba(46,127,255,0.12)] bg-[#0D1E3A] p-3">
-                        <div className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">{item.label}</div>
-                        <div className="mt-1 text-[12px] font-bold leading-5 text-[#EEF3FA]">{item.value}</div>
+                  <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-[#8DBDFF]">
+                        <Target size={13} />
+                        Assign Procurement Context
                       </div>
-                    ))}
+                      <p className="mt-1 text-[11px] leading-5 text-[#9CB1CC]">Choose where these uploaded quotes belong before AI compares them.</p>
+                    </div>
+                    <span className={`rounded-full border px-2.5 py-1 text-[9px] font-black ${quoteAssignmentComplete ? 'border-emerald-400/25 bg-emerald-400/10 text-emerald-200' : 'border-amber-400/25 bg-amber-400/10 text-amber-200'}`}>
+                      {quoteAssignmentComplete ? 'Context assigned' : 'Context required'}
+                    </span>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <VendorWizardField label="Property">
+                      <VendorWizardSelect value={quoteAssignment.propertyId} onChange={event => changeQuoteProperty(event.target.value)}>
+                        {propertyOptions.map(option => (
+                          <option key={option.id} value={option.id}>{option.label}</option>
+                        ))}
+                      </VendorWizardSelect>
+                    </VendorWizardField>
+                    <VendorWizardField label="Project">
+                      <VendorWizardSelect value={quoteAssignment.projectId} onChange={event => changeQuoteProject(event.target.value)}>
+                        {quoteProjectOptions.map(option => (
+                          <option key={option.id} value={option.id}>{option.label}</option>
+                        ))}
+                      </VendorWizardSelect>
+                    </VendorWizardField>
+                    <VendorWizardField label="Procurement package / scope">
+                      <VendorWizardSelect value={quoteAssignment.packageName} onChange={event => changeQuotePackage(event.target.value)}>
+                        {procurementPackageTemplates.map(option => (
+                          <option key={option.name} value={option.name}>{option.name}</option>
+                        ))}
+                      </VendorWizardSelect>
+                    </VendorWizardField>
+                    <VendorWizardField label="Package budget / estimate">
+                      <VendorWizardInput
+                        type="number"
+                        min={1}
+                        value={quoteAssignment.budgetAllowance}
+                        onChange={event => patchQuoteAssignment({ budgetAllowance: Number(event.target.value) || 0 })}
+                      />
+                    </VendorWizardField>
+                    <VendorWizardField label="Required delivery / award deadline">
+                      <VendorWizardInput
+                        type="date"
+                        value={quoteAssignment.requiredDeliveryDate}
+                        onChange={event => patchQuoteAssignment({ requiredDeliveryDate: event.target.value })}
+                      />
+                    </VendorWizardField>
+                    <div className="rounded-xl border border-[rgba(46,127,255,0.12)] bg-[#0D1E3A] p-3">
+                      <div className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">Evaluation basis</div>
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {quoteAssignment.evaluationCriteria.map(item => (
+                          <span key={item} className="rounded-full border border-[#2E7FFF]/18 bg-[#2E7FFF]/10 px-2 py-1 text-[9px] font-bold text-[#BFD8FF]">{item}</span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 rounded-xl border border-cyan-300/18 bg-cyan-300/8 p-3">
+                    <div className="text-[9px] font-black uppercase tracking-[0.14em] text-cyan-100">Source</div>
+                    <div className="mt-1 text-[11px] leading-5 text-[#DDF7FF]">
+                      Assigned to: <span className="font-black">{quoteAssignment.propertyName} / {quoteAssignment.projectName} / {quoteAssignment.packageName}</span>. Source: user-selected procurement context. Quote data: actual uploaded files, with manual paste only as backup.
+                    </div>
                   </div>
                 </section>
 
@@ -1518,13 +2186,17 @@ function PageProcurementCopilotModal({
                         <BarChart3 size={13} />
                         Quote Intake
                       </div>
-                      <h4 className="mt-1 text-sm font-bold text-[#EEF3FA]">Upload, paste, or run the sample pack</h4>
+                      <h4 className="mt-1 text-sm font-bold text-[#EEF3FA]">Upload actual quote files</h4>
                       <p className="mt-1 text-[11px] leading-5 text-[#9CB1CC]">
-                        The demo keeps missing price or SLA fields visible as clarification needs.
+                        AI reads uploaded quote files and keeps missing price, SLA, delivery, or evidence fields visible as clarification needs.
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-[#2E7FFF]/30 bg-[#2E7FFF]/12 px-3 py-2 text-[11px] font-bold text-[#BFD8FF] transition-all hover:bg-[#2E7FFF]/18">
+                      <label className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-[11px] font-bold transition-all ${
+                        quoteAssignmentComplete
+                          ? 'cursor-pointer border-[#2E7FFF]/30 bg-[#2E7FFF]/12 text-[#BFD8FF] hover:bg-[#2E7FFF]/18'
+                          : 'cursor-not-allowed border-[#2E7FFF]/12 bg-[#0D1E3A] text-[#607B9A]'
+                      }`}>
                         <UploadCloud size={13} />
                         Upload quotes
                         <input
@@ -1532,17 +2204,10 @@ function PageProcurementCopilotModal({
                           multiple
                           accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.md,.json"
                           onChange={addQuoteDocuments}
+                          disabled={!quoteAssignmentComplete}
                           className="hidden"
                         />
                       </label>
-                      <button
-                        type="button"
-                        onClick={useSampleQuotePack}
-                        className="inline-flex items-center gap-2 rounded-xl border border-violet-300/25 bg-violet-400/12 px-3 py-2 text-[11px] font-bold text-violet-100 transition-all hover:bg-violet-400/18"
-                      >
-                        <Wand2 size={13} />
-                        Use Sample Quote Pack
-                      </button>
                     </div>
                   </div>
 
@@ -1553,7 +2218,8 @@ function PageProcurementCopilotModal({
                       setQuoteAnalysis(null);
                       setQuoteActionArtifact(null);
                     }}
-                    placeholder="Paste supplier quote text here. Separate multiple quotes with --- so the AI can compare them cleanly."
+                    disabled={!quoteAssignmentComplete}
+                    placeholder={quoteAssignmentComplete ? 'Paste quote text manually. Separate multiple quotes with --- so AI can compare them cleanly.' : 'Assign property, project, and package before pasting quote text.'}
                     className="mt-4 min-h-[104px] w-full resize-none rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#050C17] px-3 py-2.5 text-[12px] leading-relaxed text-[#EEF3FA] outline-none transition-all placeholder:text-[#4A6480] focus:border-[#2E7FFF]"
                   />
 
@@ -1561,7 +2227,7 @@ function PageProcurementCopilotModal({
                     <button
                       type="button"
                       onClick={analyseQuotes}
-                      disabled={quoteDocuments.length === 0 && !quoteNotes.trim()}
+                      disabled={!quoteAssignmentComplete || (quoteDocuments.length === 0 && !quoteNotes.trim())}
                       className="inline-flex items-center gap-2 rounded-xl bg-[#2E7FFF] px-3 py-2 text-[11px] font-bold text-white shadow-lg shadow-[#2E7FFF]/20 transition-all hover:bg-[#4B91FF] disabled:cursor-not-allowed disabled:bg-[#1A3356] disabled:text-[#7891B0] disabled:shadow-none"
                     >
                       <Sparkles size={13} />
@@ -1577,7 +2243,9 @@ function PageProcurementCopilotModal({
                   <div className="mt-4 grid gap-2">
                     {quoteDocuments.length === 0 ? (
                       <div className="rounded-xl border border-dashed border-[#2E7FFF]/25 bg-[#07111F] px-3 py-3 text-[11px] leading-5 text-[#8AA6C8]">
-                        No quote files uploaded yet. Use the sample pack for the live path, or paste a supplier quote above.
+                        {quoteAssignmentComplete
+                          ? 'No quote files uploaded yet. Upload actual supplier quotes or paste quote text manually above.'
+                          : 'Assign a property, project, and package first. Quote upload unlocks after context is complete.'}
                       </div>
                     ) : (
                       quoteDocuments.map(doc => {
@@ -1635,18 +2303,13 @@ function PageProcurementCopilotModal({
                       ))}
                     </div>
                     <div className="mt-4 rounded-xl border border-violet-300/18 bg-violet-400/10 p-4">
-                      <div className="text-[12px] font-black text-[#EEF3FA]">Demo-ready sample path</div>
+                      <div className="text-[12px] font-black text-[#EEF3FA]">Upload-driven comparison</div>
                       <p className="mt-1 text-[11px] leading-5 text-[#9CB1CC]">
-                        Loads three supplier submissions with one clean bidder, one commercial condition, and one current-vendor risk so the comparison never stalls.
+                        The ranking starts only after actual supplier quote files are uploaded or quote text is manually pasted for the selected project package.
                       </p>
-                      <button
-                        type="button"
-                        onClick={useSampleQuotePack}
-                        className="mt-3 inline-flex items-center gap-2 rounded-xl bg-[#2E7FFF] px-3 py-2 text-[11px] font-bold text-white shadow-lg shadow-[#2E7FFF]/20 transition-all hover:bg-[#4B91FF]"
-                      >
-                        <Wand2 size={13} />
-                        Use Sample Quote Pack
-                      </button>
+                      <div className="mt-3 rounded-lg border border-[#2E7FFF]/14 bg-[#07111F] px-3 py-2 text-[10px] leading-4 text-[#BFD8FF]">
+                        Current assignment: {quoteAssignment.propertyName} / {quoteAssignment.projectName} / {quoteAssignment.packageName}
+                      </div>
                     </div>
                   </section>
                 ) : (
@@ -1671,15 +2334,15 @@ function PageProcurementCopilotModal({
                         <div className="rounded-xl border border-emerald-400/18 bg-[#07111F] p-3">
                           <div className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">Commercial spread</div>
                           <div className="mt-1 text-[13px] font-black text-[#EEF3FA]">
-                            {quoteAnalysis.commercialSpread === null ? 'Incomplete' : `AED ${quoteAnalysis.commercialSpread.toLocaleString()}`}
+                            {quoteAnalysis.commercialSpread === null ? 'Incomplete' : formatProcurementMoney(quoteAnalysis.commercialSpread)}
                           </div>
                         </div>
                         <div className="rounded-xl border border-emerald-400/18 bg-[#07111F] p-3">
-                          <div className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">Vs benchmark</div>
+                          <div className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">Vs package budget</div>
                           <div className="mt-1 text-[13px] font-black text-emerald-200">
                             {quoteAnalysis.winner.commercialDelta === null
                               ? 'Needs price'
-                              : `${quoteAnalysis.winner.commercialDelta >= 0 ? '+' : '-'}AED ${Math.abs(quoteAnalysis.winner.commercialDelta).toLocaleString()}`}
+                              : `${quoteAnalysis.winner.commercialDelta >= 0 ? '+' : '-'}${formatProcurementMoney(Math.abs(quoteAnalysis.winner.commercialDelta))}`}
                           </div>
                         </div>
                         <div className="rounded-xl border border-emerald-400/18 bg-[#07111F] p-3">
@@ -1703,10 +2366,11 @@ function PageProcurementCopilotModal({
                                 <div className="mt-1 text-[10px] leading-4 text-[#8AA6C8]">{item.recommendationReason}</div>
                               </div>
                               <div className="text-[10px] leading-5 text-[#C8D8EE]">
-                                <div>{item.amount === null ? 'Price not found' : `Price: AED ${item.amount.toLocaleString()}`}</div>
+                                <div>{item.amount === null ? 'Price not found' : `Price: ${formatProcurementMoney(item.amount)}`}</div>
                                 <div>{item.sla === null ? 'SLA not found' : `SLA: ${item.sla}%`}</div>
+                                <div>{item.deliveryDate === null ? 'Delivery not found' : `Delivery: ${item.deliveryDate}`}</div>
                                 <div>Warranty: {item.warranty}</div>
-                                <div>Delta: {item.commercialDelta === null ? 'not available' : `${item.commercialDelta >= 0 ? '+' : '-'}AED ${Math.abs(item.commercialDelta).toLocaleString()} vs benchmark`}</div>
+                                <div>Delta: {item.commercialDelta === null ? 'not available' : `${item.commercialDelta >= 0 ? '+' : '-'}${formatProcurementMoney(Math.abs(item.commercialDelta))} vs package budget`}</div>
                               </div>
                               <div className="flex flex-wrap gap-2 lg:justify-end">
                                 <span className={`rounded-full border px-2 py-1 text-[9px] font-black ${quoteStatusTone(item.extractionStatus)}`}>
@@ -1791,7 +2455,7 @@ function PageProcurementCopilotModal({
                               type="button"
                               onClick={() => {
                                 setQuoteActionArtifact(prev => prev ? { ...prev, status: 'Ready for manager review' } : prev);
-                                setAssistantNote('The draft is marked ready in demo mode. Nothing has been sent externally.');
+                                setAssistantNote('The draft is marked ready. Nothing has been sent externally.');
                               }}
                               className="rounded-xl bg-[#2E7FFF] px-3 py-2 text-[10px] font-bold text-white transition-all hover:bg-[#4B91FF]"
                             >
@@ -1810,6 +2474,375 @@ function PageProcurementCopilotModal({
                       </section>
                     )}
                   </>
+                )}
+              </div>
+            </div>
+          </div>
+        ) : isRfqMode ? (
+          <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto p-5">
+            <div className="grid gap-2 sm:grid-cols-6">
+              {rfqStepOrder.map((step, index) => (
+                <button
+                  key={step}
+                  type="button"
+                  onClick={() => patchRfq({ step })}
+                  className={`rounded-xl border px-3 py-2 text-left transition-all ${
+                    rfqState.step === step
+                      ? 'border-[#2E7FFF]/45 bg-[#2E7FFF]/18 text-white'
+                      : index < rfqCurrentStepIndex
+                        ? 'border-emerald-400/24 bg-emerald-400/10 text-emerald-100'
+                        : 'border-[rgba(46,127,255,0.14)] bg-[#07111F] text-[#8AA6C8]'
+                  }`}
+                >
+                  <div className="text-[9px] font-black uppercase tracking-[0.14em]">{index + 1}</div>
+                  <div className="mt-1 text-[11px] font-black capitalize">{step}</div>
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_320px]">
+              <section className="rounded-2xl border border-[rgba(46,127,255,0.18)] bg-[#07111F] p-5">
+                {rfqState.step === 'project' && (
+                  <div className="space-y-4">
+                    <div>
+                      <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#8DBDFF]">Project anchor</div>
+                      <h4 className="mt-1 text-lg font-black text-[#EEF3FA]">Select where this RFQ belongs</h4>
+                      <p className="mt-1 text-[12px] leading-5 text-[#9CB1CC]">The generated RFQ will carry this property, project, site, and vendor context.</p>
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <VendorWizardField label="Property">
+                        <VendorWizardSelect value={rfqState.anchor.propertyId} onChange={event => changeRfqProperty(event.target.value)}>
+                          {propertyOptions.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
+                        </VendorWizardSelect>
+                      </VendorWizardField>
+                      <VendorWizardField label="Project">
+                        <VendorWizardSelect value={rfqState.anchor.projectId} onChange={event => changeRfqProject(event.target.value)}>
+                          {projectOptions.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
+                        </VendorWizardSelect>
+                      </VendorWizardField>
+                      <VendorWizardField label="Service category">
+                        <VendorWizardSelect value={rfqState.anchor.serviceCategory} onChange={event => patchRfqAnchor({ serviceCategory: event.target.value })}>
+                          {vendorCategories.map(category => <option key={category}>{category}</option>)}
+                        </VendorWizardSelect>
+                      </VendorWizardField>
+                      <VendorWizardField label="Sites / areas">
+                        <VendorWizardInput value={rfqState.anchor.sitesAreas} onChange={event => patchRfqAnchor({ sitesAreas: event.target.value })} placeholder="Tower, floors, assets, zones, communities" />
+                      </VendorWizardField>
+                      <VendorWizardField label="Target start date">
+                        <VendorWizardInput type="date" value={rfqState.anchor.targetStartDate} onChange={event => patchRfqAnchor({ targetStartDate: event.target.value })} />
+                      </VendorWizardField>
+                      <VendorWizardField label="Contract period">
+                        <VendorWizardInput value={rfqState.anchor.contractPeriod} onChange={event => patchRfqAnchor({ contractPeriod: event.target.value })} placeholder="12 months, project duration, one-off package" />
+                      </VendorWizardField>
+                      <VendorWizardField label="Current vendor / incumbent">
+                        <VendorWizardInput value={rfqState.anchor.currentVendor} onChange={event => patchRfqAnchor({ currentVendor: event.target.value })} />
+                      </VendorWizardField>
+                      <VendorWizardField label="Shortlist context">
+                        <VendorWizardInput value={rfqState.anchor.shortlistContext} onChange={event => patchRfqAnchor({ shortlistContext: event.target.value })} placeholder="Incumbent plus 3 approved alternates" />
+                      </VendorWizardField>
+                    </div>
+                  </div>
+                )}
+
+                {rfqState.step === 'mode' && (
+                  <div className="space-y-4">
+                    <div>
+                      <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#8DBDFF]">Creation mode</div>
+                      <h4 className="mt-1 text-lg font-black text-[#EEF3FA]">Choose how to build the RFQ</h4>
+                      <p className="mt-1 text-[12px] leading-5 text-[#9CB1CC]">All modes produce the same structured review package.</p>
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-3">
+                      {[
+                        { id: 'tell' as const, label: 'Tell AI', icon: <MessageSquare size={17} />, detail: 'Describe the outcome and scope in plain language.' },
+                        { id: 'template' as const, label: 'Use Template', icon: <ListChecks size={17} />, detail: 'Start from a service category structure, then edit it.' },
+                        { id: 'docs' as const, label: 'Upload Scope Docs', icon: <UploadCloud size={17} />, detail: 'Use scope, BOQ, SLA, service notes, or site requirements.' },
+                      ].map(mode => (
+                        <button
+                          key={mode.id}
+                          type="button"
+                          onClick={() => patchRfq({ mode: mode.id, step: mode.id === 'template' && !rfqState.templateId ? 'mode' : 'scope' })}
+                          className={`rounded-2xl border p-4 text-left transition-all hover:-translate-y-0.5 ${
+                            rfqState.mode === mode.id
+                              ? 'border-[#2E7FFF]/50 bg-[#2E7FFF]/18 shadow-[0_0_24px_rgba(46,127,255,0.14)]'
+                              : 'border-[rgba(46,127,255,0.16)] bg-[#0D1E3A] hover:border-[#2E7FFF]/34'
+                          }`}
+                        >
+                          <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#2E7FFF]/14 text-[#8DBDFF]">{mode.icon}</span>
+                          <div className="mt-3 text-[13px] font-black text-[#EEF3FA]">{mode.label}</div>
+                          <p className="mt-1 text-[11px] leading-5 text-[#9CB1CC]">{mode.detail}</p>
+                        </button>
+                      ))}
+                    </div>
+                    {rfqState.mode === 'template' && (
+                      <div className="rounded-2xl border border-[rgba(46,127,255,0.16)] bg-[#0D1E3A] p-4">
+                        <div className="mb-3 text-[10px] font-black uppercase tracking-[0.16em] text-[#8DBDFF]">Template</div>
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          {rfqTemplates.map(template => (
+                            <button
+                              key={template.id}
+                              type="button"
+                              onClick={() => changeRfqTemplate(template.id)}
+                              className={`rounded-xl border p-3 text-left transition-all ${
+                                rfqState.templateId === template.id
+                                  ? 'border-emerald-400/38 bg-emerald-400/12 text-white'
+                                  : 'border-[rgba(46,127,255,0.14)] bg-[#07111F] text-[#C8D8EE] hover:border-[#2E7FFF]/34'
+                              }`}
+                            >
+                              <div className="text-[12px] font-black">{template.label}</div>
+                              <div className="mt-1 text-[10px] leading-4 text-[#8AA6C8]">{template.category}</div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {rfqState.step === 'scope' && (
+                  <div className="space-y-4">
+                    <div>
+                      <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#8DBDFF]">Scope</div>
+                      <h4 className="mt-1 text-lg font-black text-[#EEF3FA]">Define what vendors are pricing</h4>
+                      <p className="mt-1 text-[12px] leading-5 text-[#9CB1CC]">Enter only what you know. The review package will show anything that still needs confirmation.</p>
+                    </div>
+                    {rfqState.mode === 'tell' && (
+                      <VendorWizardField label="Tell AI what you need">
+                        <textarea value={rfqState.aiBrief} onChange={event => patchRfq({ aiBrief: event.target.value })} placeholder="Describe the procurement outcome, service scope, sites, constraints, current vendor issue, and desired timeline." className="min-h-[118px] w-full resize-none rounded-xl border border-[rgba(46,127,255,0.22)] bg-[#07111F] px-3 py-2.5 text-[12px] leading-5 text-[#EEF3FA] outline-none placeholder:text-[#4A6480] focus:border-[#2E7FFF]" />
+                      </VendorWizardField>
+                    )}
+                    {rfqState.mode === 'docs' && (
+                      <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/8 p-4">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div>
+                            <div className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-200">Scope documents</div>
+                            <p className="mt-1 text-[11px] leading-5 text-[#9CB1CC]">Upload or paste the scope content you want used.</p>
+                          </div>
+                          <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-[#2E7FFF]/30 bg-[#2E7FFF]/12 px-3 py-2 text-[11px] font-bold text-[#BFD8FF] transition-all hover:bg-[#2E7FFF]/18">
+                            <UploadCloud size={13} />
+                            Upload docs
+                            <input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.md,.json" onChange={addRfqDocuments} className="hidden" />
+                          </label>
+                        </div>
+                        <textarea value={rfqState.pastedScope} onChange={event => {
+                          const extracted = extractRfqScopeFromDocuments(rfqState.documents, event.target.value);
+                          patchRfq({
+                            pastedScope: event.target.value,
+                            services: rfqState.services || extracted.services || '',
+                            inclusions: rfqState.inclusions || extracted.inclusions || '',
+                            exclusions: rfqState.exclusions || extracted.exclusions || '',
+                            volume: rfqState.volume || extracted.volume || '',
+                            timeline: rfqState.timeline || extracted.timeline || '',
+                          });
+                        }} placeholder="Paste scope, BOQ, SLA, service notes, or site requirements." className="mt-3 min-h-[106px] w-full resize-none rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#050C17] px-3 py-2.5 text-[12px] leading-relaxed text-[#EEF3FA] outline-none placeholder:text-[#4A6480] focus:border-[#2E7FFF]" />
+                        <div className="mt-3 grid gap-2">
+                          {rfqState.documents.length === 0 ? (
+                            <div className="rounded-xl border border-dashed border-[#2E7FFF]/25 px-3 py-3 text-[11px] text-[#8AA6C8]">No scope files uploaded yet.</div>
+                          ) : rfqState.documents.map(doc => (
+                            <div key={doc.id} className="flex flex-wrap items-center gap-2 rounded-xl border border-[#2E7FFF]/18 bg-[#102544] p-3 text-[10px] text-[#C8D8EE]">
+                              <FileText size={12} className="text-[#8DBDFF]" />
+                              <span className="max-w-[280px] truncate font-semibold">{doc.name}</span>
+                              <span className="text-[#6F89AA]">{doc.sizeLabel}</span>
+                              {doc.warning && <span className="text-amber-200">{doc.warning}</span>}
+                              <button type="button" onClick={() => patchRfq({ documents: rfqState.documents.filter(item => item.id !== doc.id) })} className="ml-auto text-[#7A94B4] hover:text-red-300" aria-label={`Remove ${doc.name}`}>
+                                <Trash2 size={11} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <VendorWizardField label="Services">
+                        <textarea value={rfqState.services} onChange={event => patchRfq({ services: event.target.value })} placeholder="Service lines, packages, or workstreams" className="min-h-[96px] w-full resize-none rounded-xl border border-[rgba(46,127,255,0.22)] bg-[#07111F] px-3 py-2.5 text-[12px] text-[#EEF3FA] outline-none placeholder:text-[#4A6480] focus:border-[#2E7FFF]" />
+                      </VendorWizardField>
+                      <VendorWizardField label="Inclusions">
+                        <textarea value={rfqState.inclusions} onChange={event => patchRfq({ inclusions: event.target.value })} placeholder="What must be included" className="min-h-[96px] w-full resize-none rounded-xl border border-[rgba(46,127,255,0.22)] bg-[#07111F] px-3 py-2.5 text-[12px] text-[#EEF3FA] outline-none placeholder:text-[#4A6480] focus:border-[#2E7FFF]" />
+                      </VendorWizardField>
+                      <VendorWizardField label="Exclusions / assumptions">
+                        <textarea value={rfqState.exclusions} onChange={event => patchRfq({ exclusions: event.target.value })} placeholder="What bidders must call out clearly" className="min-h-[84px] w-full resize-none rounded-xl border border-[rgba(46,127,255,0.22)] bg-[#07111F] px-3 py-2.5 text-[12px] text-[#EEF3FA] outline-none placeholder:text-[#4A6480] focus:border-[#2E7FFF]" />
+                      </VendorWizardField>
+                      <div className="grid gap-4">
+                        <VendorWizardField label="Volume / asset basis">
+                          <VendorWizardInput value={rfqState.volume || rfqExtracted.volume || ''} onChange={event => patchRfq({ volume: event.target.value })} placeholder="Assets, units, sqm, monthly jobs, BOQ basis" />
+                        </VendorWizardField>
+                        <VendorWizardField label="Timeline">
+                          <VendorWizardInput value={rfqState.timeline || rfqExtracted.timeline || ''} onChange={event => patchRfq({ timeline: event.target.value })} placeholder="Mobilisation, milestones, service start" />
+                        </VendorWizardField>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {rfqState.step === 'requirements' && (
+                  <div className="space-y-4">
+                    <div>
+                      <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#8DBDFF]">Requirements</div>
+                      <h4 className="mt-1 text-lg font-black text-[#EEF3FA]">Set the rules vendors must answer</h4>
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      {[
+                        ['SLA / response rules', 'sla', rfqState.sla || rfqExtracted.sla || ''],
+                        ['Evidence requirements', 'evidence', rfqState.evidence || rfqExtracted.evidence || ''],
+                        ['Compliance documents', 'compliance', rfqState.compliance || rfqExtracted.compliance || ''],
+                        ['Licences / authority approvals', 'licenses', rfqState.licenses],
+                        ['Insurance', 'insurance', rfqState.insurance],
+                        ['HSE and mobilisation', 'hse', rfqState.hse],
+                      ].map(([label, key, value]) => (
+                        <VendorWizardField key={key} label={label}>
+                          <textarea
+                            value={value}
+                            onChange={event => patchRfq({ [key]: event.target.value } as Partial<RfqWizardState>)}
+                            placeholder={`Add ${label.toLowerCase()}`}
+                            className="min-h-[92px] w-full resize-none rounded-xl border border-[rgba(46,127,255,0.22)] bg-[#07111F] px-3 py-2.5 text-[12px] text-[#EEF3FA] outline-none placeholder:text-[#4A6480] focus:border-[#2E7FFF]"
+                          />
+                        </VendorWizardField>
+                      ))}
+                      <VendorWizardField label="Mobilisation notes">
+                        <textarea value={rfqState.mobilisation} onChange={event => patchRfq({ mobilisation: event.target.value })} placeholder="Resource plan, lead times, access constraints, kickoff sequence" className="min-h-[92px] w-full resize-none rounded-xl border border-[rgba(46,127,255,0.22)] bg-[#07111F] px-3 py-2.5 text-[12px] text-[#EEF3FA] outline-none placeholder:text-[#4A6480] focus:border-[#2E7FFF]" />
+                      </VendorWizardField>
+                    </div>
+                  </div>
+                )}
+
+                {rfqState.step === 'scoring' && (
+                  <div className="space-y-4">
+                    <div>
+                      <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#8DBDFF]">Scoring</div>
+                      <h4 className="mt-1 text-lg font-black text-[#EEF3FA]">Tune the evaluation weights</h4>
+                      <p className="mt-1 text-[12px] leading-5 text-[#9CB1CC]">Current total: <span className={rfqScoringTotal === 100 ? 'text-emerald-200' : 'text-amber-200'}>{rfqScoringTotal}%</span>. The package will show the weights exactly as set.</p>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {(Object.keys(rfqState.scoring) as RfqScoringKey[]).map(key => (
+                        <div key={key} className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#0D1E3A] p-3">
+                          <div className="mb-2 flex items-center justify-between gap-3">
+                            <label className="text-[11px] font-black uppercase tracking-[0.12em] text-[#8DBDFF]">{key}</label>
+                            <span className="text-[12px] font-black text-[#EEF3FA]">{rfqState.scoring[key]}%</span>
+                          </div>
+                          <input type="range" min="0" max="50" value={rfqState.scoring[key]} onChange={event => patchRfqScoring(key, event.target.value)} className="w-full accent-[#2E7FFF]" />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {rfqState.step === 'review' && (
+                  <div className="space-y-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#8DBDFF]">Review package</div>
+                        <h4 className="mt-1 text-lg font-black text-[#EEF3FA]">{rfqPackage?.title ?? 'Generate the RFQ review package'}</h4>
+                        <p className="mt-1 text-[12px] leading-5 text-[#9CB1CC]">{rfqPackage?.summary ?? 'Complete the required context, then generate the package for review before sending.'}</p>
+                      </div>
+                      <button type="button" onClick={generateRfqPackage} disabled={!canGenerateRfq} className="inline-flex items-center gap-2 rounded-xl bg-[#2E7FFF] px-4 py-2 text-[11px] font-black text-white shadow-lg shadow-[#2E7FFF]/20 transition-all hover:bg-[#4B91FF] disabled:cursor-not-allowed disabled:bg-[#1A3356] disabled:text-[#7891B0] disabled:shadow-none">
+                        <Sparkles size={13} />
+                        Generate RFQ
+                      </button>
+                    </div>
+                    {!rfqPackage ? (
+                      <div className="rounded-2xl border border-dashed border-[#2E7FFF]/28 bg-[#0D1E3A] p-5 text-[12px] leading-6 text-[#9CB1CC]">
+                        Provide a project anchor and one source of scope: tell AI, select a template, or upload/paste scope documents.
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {[
+                          ['Project / Property Context', rfqPackage.contextLines],
+                          ['Scope of Services', rfqPackage.scopeLines],
+                          ['Vendor Response Fields', rfqPackage.responseFields],
+                          ['Mandatory Documents', rfqPackage.mandatoryDocuments],
+                          ['SLA and Evidence Requirements', rfqPackage.slaEvidence],
+                          ['Commercial Pricing Table', rfqPackage.commercialTable],
+                          ['Submission Rules', rfqPackage.submissionRules],
+                        ].map(([title, lines]) => (
+                          <div key={title as string} className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#0D1E3A] p-3">
+                            <div className="mb-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#8DBDFF]">{title as string}</div>
+                            <ul className="space-y-1.5">
+                              {(lines as string[]).map(line => <li key={line} className="flex gap-2 text-[11px] leading-5 text-[#C8D8EE]"><CheckCircle size={11} className="mt-1 shrink-0 text-emerald-400" />{line}</li>)}
+                            </ul>
+                          </div>
+                        ))}
+                        <div className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#0D1E3A] p-3">
+                          <div className="mb-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#8DBDFF]">Evaluation Scoring Matrix</div>
+                          <div className="grid gap-2 sm:grid-cols-3">
+                            {rfqPackage.scoringMatrix.map(item => (
+                              <div key={item.label} className="rounded-lg border border-[#2E7FFF]/14 bg-[#07111F] px-3 py-2 text-[11px] font-bold text-[#DDE6F8]">{item.label}: {item.weight}%</div>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {rfqPackage.actions.map(action => (
+                            <button key={action} type="button" onClick={() => runRfqAction(action)} className="rounded-xl border border-[#2E7FFF]/28 bg-[#2E7FFF]/12 px-3 py-2 text-[11px] font-bold text-[#BFD8FF] transition-all hover:bg-[#2E7FFF]/18">
+                              {action}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </section>
+
+              <aside className="space-y-3">
+                <div className="rounded-2xl border border-[rgba(46,127,255,0.18)] bg-[#0D1E3A] p-4">
+                  <div className="mb-3 text-[10px] font-black uppercase tracking-[0.16em] text-[#8DBDFF]">Selected context</div>
+                  {[
+                    ['Property', rfqState.anchor.propertyName],
+                    ['Project', rfqState.anchor.projectName],
+                    ['Project type', rfqState.anchor.projectType],
+                    ['Category', rfqState.anchor.serviceCategory],
+                    ['Sites / areas', rfqState.anchor.sitesAreas],
+                    ['Mode', rfqState.mode ? rfqState.mode === 'tell' ? 'Tell AI' : rfqState.mode === 'template' ? 'Use Template' : 'Upload Scope Docs' : 'Choose next'],
+                  ].map(([label, value]) => (
+                    <div key={label} className="border-b border-[rgba(46,127,255,0.10)] py-2 last:border-b-0">
+                      <div className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">{label}</div>
+                      <div className="mt-1 text-[12px] font-bold leading-5 text-[#EEF3FA]">{value || 'Not set'}</div>
+                    </div>
+                  ))}
+                </div>
+                <div className="rounded-2xl border border-emerald-400/18 bg-emerald-400/8 p-4">
+                  <div className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-200">Ready checks</div>
+                  <div className="mt-3 space-y-2">
+                    {[
+                      ['Project selected', Boolean(rfqState.anchor.projectName)],
+                      ['Sites confirmed', Boolean(rfqState.anchor.sitesAreas)],
+                      ['Creation mode selected', Boolean(rfqState.mode)],
+                      ['Scope source provided', canGenerateRfq],
+                    ].map(([label, done]) => (
+                      <div key={label as string} className="flex items-center gap-2 text-[11px] text-[#C8D8EE]">
+                        <CheckCircle size={12} className={done ? 'text-emerald-300' : 'text-[#415A76]'} />
+                        {label as string}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {selectedRfqTemplate && (
+                  <div className="rounded-2xl border border-violet-300/18 bg-violet-400/10 p-4">
+                    <div className="text-[10px] font-black uppercase tracking-[0.16em] text-violet-100">Template selected</div>
+                    <div className="mt-1 text-[13px] font-black text-[#EEF3FA]">{selectedRfqTemplate.label}</div>
+                    <p className="mt-2 text-[11px] leading-5 text-[#C8D8EE]">Defaults are editable in the next steps.</p>
+                  </div>
+                )}
+                {rfqFeedback && (
+                  <div className="rounded-2xl border border-[#2E7FFF]/22 bg-[#2E7FFF]/10 p-4 text-[12px] font-bold text-[#BFD8FF]">{rfqFeedback}</div>
+                )}
+              </aside>
+            </div>
+
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[rgba(46,127,255,0.14)] pt-4">
+              <div className="text-[11px] text-[#7A94B4]">
+                {canGenerateRfq ? 'Ready to generate once you reach Review.' : 'Complete the project anchor and provide scope through one creation mode.'}
+              </div>
+              <div className="flex gap-2">
+                <button type="button" onClick={rfqCurrentStepIndex === 0 ? onClose : () => patchRfq({ step: rfqStepOrder[Math.max(0, rfqCurrentStepIndex - 1)] })} className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#07111F] px-4 py-2 text-[12px] font-semibold text-[#8AA6C8] transition-all hover:bg-white/5 hover:text-white">
+                  {rfqCurrentStepIndex === 0 ? 'Cancel' : 'Back'}
+                </button>
+                {rfqState.step === 'review' ? (
+                  <button type="button" onClick={generateRfqPackage} disabled={!canGenerateRfq} className="rounded-xl bg-[#2E7FFF] px-5 py-2 text-[12px] font-bold text-white shadow-lg shadow-[#2E7FFF]/20 transition-all hover:bg-[#4B91FF] disabled:cursor-not-allowed disabled:bg-[#1A3356] disabled:text-[#7891B0] disabled:shadow-none">
+                    Generate RFQ
+                  </button>
+                ) : (
+                  <button type="button" onClick={() => patchRfq({ step: rfqStepOrder[Math.min(rfqStepOrder.length - 1, rfqCurrentStepIndex + 1)] })} className="rounded-xl bg-[#2E7FFF] px-5 py-2 text-[12px] font-bold text-white shadow-lg shadow-[#2E7FFF]/20 transition-all hover:bg-[#4B91FF]">
+                    Continue
+                  </button>
                 )}
               </div>
             </div>
@@ -1855,7 +2888,7 @@ function PageProcurementCopilotModal({
                   type="button"
                   onClick={() => {
                     setIsListening(prev => !prev);
-                    setAssistantNote(isListening ? 'Voice paused. You can type or choose an outcome.' : 'Listening mode is ready for this demo. Speak the procurement task, then send it as text.');
+                    setAssistantNote(isListening ? 'Voice paused. You can type or choose an outcome.' : 'Listening mode is ready. Speak the procurement task, then send it as text.');
                   }}
                   className={`grid h-12 w-12 shrink-0 place-items-center rounded-xl border transition-all ${isListening ? 'border-red-400/45 bg-red-400/14 text-red-200 shadow-lg shadow-red-500/20' : 'border-[#2E7FFF]/28 bg-[#2E7FFF]/12 text-[#8DBDFF] hover:bg-[#2E7FFF]/20'}`}
                   aria-label={isListening ? 'Stop voice input' : 'Start voice input'}
@@ -2099,7 +3132,9 @@ function VendorDetailPage({ vendor, onBack, onToast }: { vendor: VendorIntelData
   const [showReassignModal, setShowReassignModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [selectedMetricInsight, setSelectedMetricInsight] = useState<VendorMetricInsight | null>(null);
+  const [showCopilotModal, setShowCopilotModal] = useState(false);
   const [copilotAction, setCopilotAction] = useState<VendorCopilotAction>('rfq');
+  const [copilotOverride, setCopilotOverride] = useState<VendorCopilotResult | null>(null);
   const [copilotLog, setCopilotLog] = useState<string[]>([
     'Ready to draft RFQs, compare quotes, run checks, and prepare price actions.',
   ]);
@@ -2113,16 +3148,30 @@ function VendorDetailPage({ vendor, onBack, onToast }: { vendor: VendorIntelData
   const rankedVendors = [...allVendors].sort((a, b) => computeVendorScore(b) - computeVendorScore(a));
   const benchmarkRank = rankedVendors.findIndex(v => v.id === vendor.id) + 1;
 
-  const copilotResult = buildVendorCopilotResult(vendor, allVendors, copilotAction);
+  const copilotResult = copilotOverride ?? buildVendorCopilotResult(vendor, allVendors, copilotAction);
   const sections = ['Overview', 'Procurement Copilot', 'AI Insights', 'Contract Compliance', 'Cost vs Performance', 'Benchmarking', 'Predictive Risk', 'Recommendations', 'Dependency Risk'];
   const openMetricInsight = (metricName: VendorMetricName) => setSelectedMetricInsight(buildVendorMetricInsight(vendor, metricName));
   const runCopilotAction = (action: VendorCopilotAction) => {
     setCopilotAction(action);
+    if (action !== 'rfq') setCopilotOverride(null);
     setCopilotLog(prev => [
       `${formatVendorAction(action)} for ${vendor.name}`,
       ...prev.filter(item => item !== `${formatVendorAction(action)} for ${vendor.name}`),
     ]);
     onToast(`${formatVendorAction(action)} for ${vendor.name}`, action === 'background' ? 'warning' : 'success');
+  };
+  const openRfqWizard = () => {
+    setCopilotAction('rfq');
+    setShowCopilotModal(true);
+  };
+  const updateRfqWorkbench = (rfqResult: VendorCopilotResult) => {
+    setCopilotAction('rfq');
+    setCopilotOverride(rfqResult);
+    setCopilotLog(prev => [
+      `${rfqResult.title} saved for ${vendor.name}`,
+      ...prev.filter(item => item !== `${rfqResult.title} saved for ${vendor.name}`),
+    ]);
+    onToast('RFQ package saved to VendorIQ workbench', 'success');
   };
 
   return (
@@ -2234,6 +3283,7 @@ function VendorDetailPage({ vendor, onBack, onToast }: { vendor: VendorIntelData
               result={copilotResult}
               log={copilotLog}
               onRun={runCopilotAction}
+              onOpenRfqWizard={openRfqWizard}
             />
           </DetailSection>
         </div>
@@ -2502,6 +3552,17 @@ function VendorDetailPage({ vendor, onBack, onToast }: { vendor: VendorIntelData
       </AnimatePresence>
 
       <AnimatePresence>
+        {showCopilotModal && (
+          <PageProcurementCopilotModal
+            focusVendor={vendor}
+            vendors={allVendors}
+            result={buildVendorCopilotResult(vendor, allVendors, copilotAction)}
+            onClose={() => setShowCopilotModal(false)}
+            onRun={runCopilotAction}
+            onOpenProfile={() => setShowCopilotModal(false)}
+            onRfqGenerated={updateRfqWorkbench}
+          />
+        )}
         {showReassignModal && (
           <motion.div
             initial={{ opacity: 0 }}
@@ -3095,6 +4156,7 @@ export function VendorIntelligence({ onToast }: Props) {
   const [showAddVendorWizard, setShowAddVendorWizard] = useState(false);
   const [showPageCopilotModal, setShowPageCopilotModal] = useState(false);
   const [pageCopilotAction, setPageCopilotAction] = useState<VendorCopilotAction>('compare');
+  const [pageCopilotOverride, setPageCopilotOverride] = useState<VendorCopilotResult | null>(null);
   const [pageCopilotLog, setPageCopilotLog] = useState<string[]>([
     'Portfolio procurement copilot ready on the Vendor Intelligence page.',
   ]);
@@ -3134,15 +4196,31 @@ export function VendorIntelligence({ onToast }: Props) {
     if (aPriority !== bPriority) return aPriority - bPriority;
     return a.score - b.score;
   })[0]?.vendor ?? allVendors[0];
-  const pageCopilotResult = buildVendorCopilotResult(procurementFocus, allVendors, pageCopilotAction);
+  const pageCopilotResult = pageCopilotOverride ?? buildVendorCopilotResult(procurementFocus, allVendors, pageCopilotAction);
 
   function runPageCopilotAction(action: VendorCopilotAction) {
     setPageCopilotAction(action);
+    if (action !== 'rfq') setPageCopilotOverride(null);
     setPageCopilotLog(prev => [
       `${formatVendorAction(action)} from page copilot for ${procurementFocus.name}`,
       ...prev.filter(item => item !== `${formatVendorAction(action)} from page copilot for ${procurementFocus.name}`),
     ]);
     onToast(`${formatVendorAction(action)} from Procurement Copilot`, action === 'background' ? 'warning' : 'success');
+  }
+
+  function openPageRfqWizard() {
+    setPageCopilotAction('rfq');
+    setShowPageCopilotModal(true);
+  }
+
+  function updatePageRfqWorkbench(rfqResult: VendorCopilotResult) {
+    setPageCopilotAction('rfq');
+    setPageCopilotOverride(rfqResult);
+    setPageCopilotLog(prev => [
+      `${rfqResult.title} saved to Procurement Copilot`,
+      ...prev.filter(item => item !== `${rfqResult.title} saved to Procurement Copilot`),
+    ]);
+    onToast('RFQ package saved to Procurement Copilot', 'success');
   }
 
   function createVendor(vendor: VendorIntelData) {
@@ -3245,6 +4323,7 @@ export function VendorIntelligence({ onToast }: Props) {
               log={pageCopilotLog}
               onRun={runPageCopilotAction}
               onOpenQuoteIntake={() => setShowPageCopilotModal(true)}
+              onOpenRfqWizard={openPageRfqWizard}
             />
           </div>
         </div>
@@ -3321,13 +4400,15 @@ export function VendorIntelligence({ onToast }: Props) {
         {showPageCopilotModal && (
           <PageProcurementCopilotModal
             focusVendor={procurementFocus}
-            result={pageCopilotResult}
+            vendors={allVendors}
+            result={buildVendorCopilotResult(procurementFocus, allVendors, pageCopilotAction)}
             onClose={() => setShowPageCopilotModal(false)}
             onRun={runPageCopilotAction}
             onOpenProfile={() => {
               setShowPageCopilotModal(false);
               setSelectedVendor(procurementFocus);
             }}
+            onRfqGenerated={updatePageRfqWorkbench}
           />
         )}
         {showAddVendorWizard && (
