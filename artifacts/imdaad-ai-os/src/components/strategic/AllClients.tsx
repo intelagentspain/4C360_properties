@@ -1175,29 +1175,9 @@ function ActionPlanWorkbench({
             ))}
           </div>
 
-          <div className="mt-3 rounded-xl border border-cyan-400/20 bg-cyan-500/10 p-3">
-            <div className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wide text-cyan-200">
-              <FileText size={12} />
-              {activeAction.detail.artifact.title}
-            </div>
-            <pre className="max-h-56 whitespace-pre-wrap rounded-lg border border-[rgba(46,127,255,0.10)] bg-[#050C17] p-3 text-[11px] leading-relaxed text-[#D8E7FA]">
-              {activeAction.detail.artifact.body}
-            </pre>
-          </div>
-
-          <div className="mt-3 grid gap-2 md:grid-cols-[1fr_auto] md:items-start">
-            <div className="rounded-xl border border-[rgba(46,127,255,0.12)] bg-[#0A1628] p-3">
-              <div className="mb-2 text-[9px] font-bold uppercase tracking-wide text-[#8DBDFF]">Manager checklist</div>
-              <div className="space-y-1.5">
-                {activeAction.detail.checklist.map(item => (
-                  <div key={item} className="flex items-start gap-2 text-[10px] leading-relaxed text-[#C8D8EE]">
-                    <Check size={10} className="mt-0.5 shrink-0 text-emerald-300" />
-                    {item}
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="grid gap-2 sm:grid-cols-3 md:min-w-[160px] md:grid-cols-1">
+          <div className="mt-3 rounded-xl border border-[#2E7FFF]/20 bg-[#102544] p-3">
+            <div className="mb-2 text-[9px] font-bold uppercase tracking-wide text-[#8DBDFF]">Ready next clicks</div>
+            <div className="flex flex-wrap gap-2">
               {activeAction.detail.quickCommands.map(command => (
                 <button
                   key={command.label}
@@ -1209,6 +1189,30 @@ function ActionPlanWorkbench({
                   {command.label}
                 </button>
               ))}
+            </div>
+          </div>
+
+          <div className="mt-3 rounded-xl border border-cyan-400/20 bg-cyan-500/10 p-3">
+            <div className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wide text-cyan-200">
+              <FileText size={12} />
+              {activeAction.detail.artifact.title}
+            </div>
+            <pre className="max-h-56 whitespace-pre-wrap rounded-lg border border-[rgba(46,127,255,0.10)] bg-[#050C17] p-3 text-[11px] leading-relaxed text-[#D8E7FA]">
+              {activeAction.detail.artifact.body}
+            </pre>
+          </div>
+
+          <div className="mt-3">
+            <div className="rounded-xl border border-[rgba(46,127,255,0.12)] bg-[#0A1628] p-3">
+              <div className="mb-2 text-[9px] font-bold uppercase tracking-wide text-[#8DBDFF]">Manager checklist</div>
+              <div className="space-y-1.5">
+                {activeAction.detail.checklist.map(item => (
+                  <div key={item} className="flex items-start gap-2 text-[10px] leading-relaxed text-[#C8D8EE]">
+                    <Check size={10} className="mt-0.5 shrink-0 text-emerald-300" />
+                    {item}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -2807,6 +2811,7 @@ function PortfolioPulseFeed({ onToast }: { onToast: ToastFn }) {
   const [filter, setFilter] = useState<'all' | PulseEvent['severity']>('all');
   const [simRunning, setSimRunning] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<PulseEvent | null>(null);
+  const eventIdSeed = useRef(0);
 
   useEffect(() => {
     const t = setInterval(() => {
@@ -2819,7 +2824,8 @@ function PortfolioPulseFeed({ onToast }: { onToast: ToastFn }) {
     if (idx > 0) {
       const next = PULSE_EVENTS[(4 + idx) % PULSE_EVENTS.length];
       if (next) setEvents(prev => {
-        const updated = [{ ...next, id: `${next.id}-${idx}`, time: 'Just now' }, ...prev];
+        eventIdSeed.current += 1;
+        const updated = [{ ...next, id: `${next.id}-${idx}-${eventIdSeed.current}`, time: 'Just now' }, ...prev];
         return updated.slice(0, 7);
       });
     }
@@ -2832,7 +2838,8 @@ function PortfolioPulseFeed({ onToast }: { onToast: ToastFn }) {
     setSimRunning(true);
     SIMULATION_EVENTS.forEach((event, step) => {
       window.setTimeout(() => {
-        setEvents(prev => [{ ...event, id: `${event.id}-${Date.now()}` }, ...prev].slice(0, 8));
+        eventIdSeed.current += 1;
+        setEvents(prev => [{ ...event, id: `${event.id}-${Date.now()}-${eventIdSeed.current}` }, ...prev].slice(0, 8));
         if (step === SIMULATION_EVENTS.length - 1) {
           window.setTimeout(() => setSimRunning(false), 900);
         }
