@@ -444,6 +444,28 @@ function formatAed(value: number) {
   return `AED ${value}`;
 }
 
+async function shareCommandCard(title: string, body: string, onToast: ToastFn) {
+  const text = `${title}\n${body}`;
+  const nav = navigator as Navigator & { share?: (data: ShareData) => Promise<void> };
+
+  try {
+    if (nav.share) {
+      await nav.share({ title, text });
+      onToast(`${title}: share opened`, 'success');
+      return;
+    }
+    await navigator.clipboard.writeText(text);
+    onToast(`${title}: share summary copied`, 'success');
+  } catch {
+    try {
+      await navigator.clipboard.writeText(text);
+      onToast(`${title}: share summary copied`, 'success');
+    } catch {
+      onToast(`${title}: share summary is ready in the card`, 'warning');
+    }
+  }
+}
+
 type PortfolioKpiKey = 'properties' | 'sites' | 'workOrders' | 'incidents' | 'sla' | 'dataSources';
 type PortfolioStatusKey = 'critical' | 'warning' | 'live';
 type ExecutiveImpactKey = 'aedRisk' | 'penaltiesAvoided' | 'residentSentiment' | 'aiPrevented' | 'technicianUtilization';
@@ -1129,18 +1151,39 @@ function PortfolioSummaryStrip({ clients, onToast }: { clients: PortfolioClient[
     <>
       <div className="grid grid-cols-2 md:grid-cols-3 2xl:grid-cols-6 gap-2 px-5 py-3 border-b border-[rgba(46,127,255,0.12)] flex-shrink-0">
         {kpis.map(k => (
-          <button
+          <div
             key={k.key}
-            onClick={() => setSelectedKpi(k)}
-            className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-left transition-all hover:-translate-y-0.5 hover:border-[#2E7FFF]/45 hover:shadow-[0_0_18px_rgba(46,127,255,0.16)] focus:outline-none focus:ring-1 focus:ring-[#2E7FFF]/70 ${k.bg}`}
-            aria-label={`Open ${k.label} KPI details`}
+            className={`group relative rounded-xl border transition-all hover:-translate-y-0.5 hover:border-[#2E7FFF]/45 hover:shadow-[0_0_18px_rgba(46,127,255,0.16)] ${k.bg}`}
           >
-            <div className={k.color}>{k.icon}</div>
-            <div>
-              <div className={`text-base font-bold leading-tight ${k.color}`}>{k.value}</div>
-              <div className="text-[9px] text-[#7A94B4] uppercase tracking-wide leading-tight mt-0.5">{k.label}</div>
-            </div>
-          </button>
+            <button
+              type="button"
+              onClick={() => setSelectedKpi(k)}
+              className="flex w-full items-center gap-2.5 px-3 py-2.5 pr-9 text-left focus:outline-none focus:ring-1 focus:ring-[#2E7FFF]/70"
+              aria-label={`Open ${k.label} KPI details`}
+            >
+              <div className={k.color}>{k.icon}</div>
+              <div>
+                <div className={`text-base font-bold leading-tight ${k.color}`}>{k.value}</div>
+                <div className="mt-0.5 text-[9px] uppercase tracking-wide leading-tight text-[#7A94B4]">{k.label}</div>
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={event => {
+                event.stopPropagation();
+                void shareCommandCard(
+                  `${k.label}: ${k.value}`,
+                  `${k.commandAnswer}\nBest next move: ${k.nextBestAction}\nIf ignored: ${k.ifIgnored}`,
+                  onToast,
+                );
+              }}
+              className="absolute right-2 top-2 rounded-md border border-white/10 bg-black/10 p-1.5 text-[#7A94B4] opacity-75 transition-colors hover:border-[#2E7FFF]/35 hover:bg-[#2E7FFF]/12 hover:text-[#BFD8FF] group-hover:opacity-100"
+              aria-label={`Share ${k.label} summary`}
+              title={`Share ${k.label}`}
+            >
+              <Share2 size={12} />
+            </button>
+          </div>
         ))}
       </div>
       <AnimatePresence>
@@ -1511,20 +1554,40 @@ function ExecutiveImpactStrip({ clients, onToast }: { clients: PortfolioClient[]
     <>
       <div className="grid grid-cols-2 gap-2 px-5 py-2.5 border-b border-[rgba(46,127,255,0.12)] flex-shrink-0 lg:grid-cols-5">
         {items.map(item => (
-          <button
+          <div
             key={item.key}
-            type="button"
-            onClick={() => setSelectedCard(item)}
-            className={`rounded-lg border px-3 py-2 text-left transition-all hover:-translate-y-0.5 hover:border-[#2E7FFF]/45 hover:shadow-[0_0_18px_rgba(46,127,255,0.16)] focus:outline-none focus:ring-1 focus:ring-[#2E7FFF]/70 ${item.tone}`}
-            aria-label={`Open ${item.label} actions`}
+            className={`group relative rounded-lg border text-left transition-all hover:-translate-y-0.5 hover:border-[#2E7FFF]/45 hover:shadow-[0_0_18px_rgba(46,127,255,0.16)] ${item.tone}`}
           >
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[9px] uppercase tracking-wide opacity-75">{item.label}</span>
-              {item.icon}
-            </div>
-            <div className="mt-1 text-base font-bold leading-tight">{item.value}</div>
-            <div className="text-[9px] opacity-60">{item.sub}</div>
-          </button>
+            <button
+              type="button"
+              onClick={() => setSelectedCard(item)}
+              className="w-full px-3 py-2 pr-9 text-left focus:outline-none focus:ring-1 focus:ring-[#2E7FFF]/70"
+              aria-label={`Open ${item.label} actions`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[9px] uppercase tracking-wide opacity-75">{item.label}</span>
+                {item.icon}
+              </div>
+              <div className="mt-1 text-base font-bold leading-tight">{item.value}</div>
+              <div className="text-[9px] opacity-60">{item.sub}</div>
+            </button>
+            <button
+              type="button"
+              onClick={event => {
+                event.stopPropagation();
+                void shareCommandCard(
+                  `${item.label}: ${item.value}`,
+                  `${item.summary}\nTrigger: ${item.trigger}\nRecommended: ${item.recommended}`,
+                  onToast,
+                );
+              }}
+              className="absolute right-2 top-2 rounded-md border border-white/10 bg-black/10 p-1.5 opacity-75 transition-colors hover:border-[#2E7FFF]/35 hover:bg-[#2E7FFF]/12 hover:text-white group-hover:opacity-100"
+              aria-label={`Share ${item.label} action summary`}
+              title={`Share ${item.label}`}
+            >
+              <Share2 size={12} />
+            </button>
+          </div>
         ))}
       </div>
       <AnimatePresence>
@@ -1793,26 +1856,48 @@ function PortfolioPulseFeed({ onToast }: { onToast: ToastFn }) {
           {visibleEvents.map(ev => {
             const border = PULSE_SEV_BORDER[ev.severity];
             const cfg    = PULSE_SEV_ICON[ev.severity];
+            const plan = buildPulseCommandPlan(ev);
             return (
-              <motion.button
+              <motion.div
                 key={ev.id}
                 initial={{ opacity: 0, x: -16 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, height: 0 }}
                 transition={{ duration: 0.22 }}
-                onClick={() => setSelectedEvent(ev)}
-                className={`flex-1 min-w-[220px] lg:min-w-0 flex items-start gap-2 px-3 py-2 text-left border-r border-[rgba(46,127,255,0.08)] border-l-2 ${border} last:border-r-0 transition-colors hover:bg-[#17315A]/55 focus:outline-none focus:ring-1 focus:ring-[#2E7FFF]/70`}
+                className={`group relative flex min-w-[220px] flex-1 border-r border-l-2 border-[rgba(46,127,255,0.08)] ${border} transition-colors last:border-r-0 hover:bg-[#17315A]/55 lg:min-w-0`}
               >
-                <div className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 mt-0.5 ${cfg.cls}`}>
-                  {cfg.icon}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="text-[10px] text-[#7A94B4] truncate">{ev.client}</div>
-                  <div className="text-[11px] text-[#EEF3FA] font-medium leading-tight truncate">{ev.title}</div>
-                  <div className="text-[9px] text-[#7A94B4] mt-0.5 truncate">{ev.sub}</div>
-                  <div className="text-[8px] text-[#7A94B4] opacity-60 mt-0.5">{ev.time}</div>
-                </div>
-              </motion.button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedEvent(ev)}
+                  className="flex w-full items-start gap-2 px-3 py-2 pr-9 text-left focus:outline-none focus:ring-1 focus:ring-[#2E7FFF]/70"
+                >
+                  <div className={`mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded ${cfg.cls}`}>
+                    {cfg.icon}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-[10px] text-[#7A94B4]">{ev.client}</div>
+                    <div className="truncate text-[11px] font-medium leading-tight text-[#EEF3FA]">{ev.title}</div>
+                    <div className="mt-0.5 truncate text-[9px] text-[#7A94B4]">{ev.sub}</div>
+                    <div className="mt-0.5 text-[8px] text-[#7A94B4] opacity-60">{ev.time}</div>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={event => {
+                    event.stopPropagation();
+                    void shareCommandCard(
+                      `${ev.client}: ${ev.title}`,
+                      `${plan.decision}\nOwner: ${plan.owner}\nDeadline: ${plan.deadline}\nClient update: ${plan.updateDraft}`,
+                      onToast,
+                    );
+                  }}
+                  className="absolute right-2 top-2 rounded-md border border-white/10 bg-black/10 p-1.5 text-[#7A94B4] opacity-75 transition-colors hover:border-[#2E7FFF]/35 hover:bg-[#2E7FFF]/12 hover:text-[#BFD8FF] group-hover:opacity-100"
+                  aria-label={`Share ${ev.title} event summary`}
+                  title="Share event"
+                >
+                  <Share2 size={12} />
+                </button>
+              </motion.div>
             );
           })}
         </AnimatePresence>
