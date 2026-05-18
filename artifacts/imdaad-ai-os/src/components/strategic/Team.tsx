@@ -42,8 +42,6 @@ import {
   Zap,
 } from 'lucide-react';
 import {
-  Area,
-  AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
@@ -954,6 +952,31 @@ function OverviewTab({ onEmployeeSelect, onToast }: { onEmployeeSelect: (employe
   const [sentMailByTeam, setSentMailByTeam] = useState<Record<string, string[]>>({});
   const [teamAwardPoints, setTeamAwardPoints] = useState<Record<string, number>>({});
   const topTeams = teams.slice(0, 4);
+  const prioritySite = capacityBySite.find(site => site.risk === 'Critical') ?? capacityBySite[0];
+  const coverageGap = prioritySite ? Math.max(0, prioritySite.required - prioritySite.staffed) : 0;
+  const workforceSignals = [
+    {
+      label: 'Priority coverage gap',
+      value: `${coverageGap} people`,
+      detail: `${prioritySite.site} needs support before the next inspection window.`,
+      tone: 'text-red-200',
+      bg: 'bg-red-500/[0.07] border-red-500/18',
+    },
+    {
+      label: 'Best spare capacity',
+      value: 'FM Response',
+      detail: 'Can absorb lower-risk HVAC and resident follow-up work today.',
+      tone: 'text-emerald-200',
+      bg: 'bg-emerald-500/[0.06] border-emerald-500/18',
+    },
+    {
+      label: 'Next manager move',
+      value: 'Rebalance 6 jobs',
+      detail: 'Protects Bayz 102 QA and reduces overtime pressure.',
+      tone: 'text-cyan-100',
+      bg: 'bg-[#00C6FF]/[0.065] border-[#00C6FF]/18',
+    },
+  ];
   const riskAlerts = [
     'Tower B inspection team overloaded by 32% against planned capacity.',
     '3 electrical and fire safety certifications expire within 7 days.',
@@ -985,7 +1008,7 @@ function OverviewTab({ onEmployeeSelect, onToast }: { onEmployeeSelect: (employe
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-9 gap-3">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-6">
         <MetricCard title="Active Workforce" value="1,284" note="Portfolio personnel across projects, sites, vendors, and service teams." icon={<Users size={17} />} tone="#2E7FFF" />
         <MetricCard title="On-Site Today" value="812" note="Checked into active properties and project work fronts." icon={<MapPin size={17} />} tone="#00C6FF" />
         <MetricCard title="Assigned to Projects" value="936" note="Linked to ProjectCommand, FieldOps, InspectPro, OSH, or FacilityCore." icon={<BriefcaseBusiness size={17} />} tone="#9C7CFF" />
@@ -997,47 +1020,95 @@ function OverviewTab({ onEmployeeSelect, onToast }: { onEmployeeSelect: (employe
         <MetricCard title="Utilization" value="78%" note="Live capacity balance across sites, projects, and shifts." icon={<GaugeIcon />} tone="#38D98A" />
       </div>
 
-      <div className="grid grid-cols-[1.3fr_1fr] gap-4">
-        <Panel className="p-4">
-          <SectionTitle icon={<Activity size={15} />} title="Workforce Health Summary" />
-          <div className="h-[230px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={healthTrend} margin={{ top: 8, right: 8, bottom: 0, left: -18 }}>
-                <defs>
-                  <linearGradient id="productivityFill" x1="0" x2="0" y1="0" y2="1">
-                    <stop offset="5%" stopColor="#00C6FF" stopOpacity={0.35} />
-                    <stop offset="95%" stopColor="#00C6FF" stopOpacity={0.02} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid stroke="rgba(255,255,255,0.05)" vertical={false} />
-                <XAxis dataKey="week" stroke="#4A6080" tickLine={false} axisLine={false} tick={{ fontSize: 10 }} />
-                <YAxis stroke="#4A6080" tickLine={false} axisLine={false} tick={{ fontSize: 10 }} />
-                <Tooltip contentStyle={{ background: '#0A1628', border: '1px solid rgba(46,127,255,0.25)', borderRadius: 8, color: '#EEF3FA' }} />
-                <Area type="monotone" dataKey="productivity" stroke="#00C6FF" fill="url(#productivityFill)" strokeWidth={2} />
-                <Line type="monotone" dataKey="utilization" stroke="#38D98A" strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="completion" stroke="#FFCD57" strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="risk" stroke="#FF4B4B" strokeWidth={2} dot={false} />
-              </AreaChart>
-            </ResponsiveContainer>
+      <div className="grid grid-cols-[minmax(0,1.35fr)_minmax(390px,0.85fr)] gap-4">
+        <Panel className="overflow-hidden">
+          <div className="border-b border-white/[0.08] bg-[#10264A]/55 px-4 py-3">
+            <SectionTitle
+              icon={<Activity size={15} />}
+              title="Workforce Command Pulse"
+              action={<Pill className="border-emerald-500/25 bg-emerald-500/10 text-emerald-200">AI signal live</Pill>}
+            />
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                ['Portfolio load', '78%', 'Healthy, but Bayz 102 needs QA cover'],
+                ['Capacity at risk', '64 people', 'Overload, certification, or quality flags'],
+                ['Recommended move', 'Rebalance today', 'Shift routine work away from critical fronts'],
+              ].map(([label, value, detail]) => (
+                <div key={label} className="rounded-lg border border-white/[0.07] bg-[#071224]/70 p-3">
+                  <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#7A94B4]">{label}</p>
+                  <p className="mt-1 text-[18px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{value}</p>
+                  <p className="mt-1 line-clamp-2 text-[10px] leading-4 text-[#8AA6C8]">{detail}</p>
+                </div>
+              ))}
+            </div>
           </div>
-          <div className="mt-3 grid grid-cols-4 gap-2">
-            {[
-              ['Productivity trend', '+6 pts', '#00C6FF'],
-              ['Utilization', '78%', '#38D98A'],
-              ['Attendance/completion', '90%', '#FFCD57'],
-              ['Risk indicators', '27', '#FF4B4B'],
-            ].map(([label, value, color]) => (
-              <div key={label} className="rounded-lg bg-white/[0.03] border border-white/[0.07] p-2">
-                <p className="text-[10px] text-[#7A94B4]">{label}</p>
-                <p className="text-[15px] font-bold" style={{ color }}>{value}</p>
+
+          <div className="grid grid-cols-[minmax(0,1fr)_260px] gap-4 p-4">
+            <div className="min-w-0 rounded-xl border border-white/[0.07] bg-[#071224]/60 p-3">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#7A94B4]">6-week operating trend</p>
+                  <p className="mt-1 text-[11px] text-[#C8D6E8]">Productivity is improving while risk is rising, so the next decision is capacity control.</p>
+                </div>
+                <div className="flex flex-wrap justify-end gap-2 text-[10px]">
+                  {[
+                    ['Productivity', '#00C6FF'],
+                    ['Utilization', '#38D98A'],
+                    ['Completion', '#FFCD57'],
+                    ['Risk', '#FF5C6C'],
+                  ].map(([label, color]) => (
+                    <span key={label} className="inline-flex items-center gap-1 text-[#8AA6C8]">
+                      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
+                      {label}
+                    </span>
+                  ))}
+                </div>
               </div>
-            ))}
+              <div className="h-[180px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={healthTrend} margin={{ top: 10, right: 12, bottom: 0, left: -16 }}>
+                    <CartesianGrid stroke="rgba(255,255,255,0.055)" vertical={false} />
+                    <XAxis dataKey="week" stroke="#4A6080" tickLine={false} axisLine={false} tick={{ fontSize: 10 }} />
+                    <YAxis domain={[0, 100]} stroke="#4A6080" tickLine={false} axisLine={false} tick={{ fontSize: 10 }} />
+                    <Tooltip contentStyle={{ background: '#0A1628', border: '1px solid rgba(46,127,255,0.25)', borderRadius: 8, color: '#EEF3FA' }} />
+                    <Line type="monotone" dataKey="productivity" stroke="#00C6FF" strokeWidth={3} dot={{ r: 3, fill: '#00C6FF' }} activeDot={{ r: 5 }} />
+                    <Line type="monotone" dataKey="utilization" stroke="#38D98A" strokeWidth={2.5} dot={false} />
+                    <Line type="monotone" dataKey="completion" stroke="#FFCD57" strokeWidth={2.5} dot={false} />
+                    <Line type="monotone" dataKey="risk" stroke="#FF5C6C" strokeWidth={2.5} dot={{ r: 2, fill: '#FF5C6C' }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              {workforceSignals.map(signal => (
+                <div key={signal.label} className={`rounded-xl border p-3 ${signal.bg}`}>
+                  <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-[#7A94B4]">{signal.label}</p>
+                  <p className={`mt-1 text-[15px] font-black ${signal.tone}`} style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{signal.value}</p>
+                  <p className="mt-1 text-[11px] leading-5 text-[#C8D6E8]">{signal.detail}</p>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => onToast('AI prepared a workforce rebalance plan for Bayz 102 and Tower B.', 'info')}
+                className="w-full rounded-xl border border-[#2E7FFF]/30 bg-[#2E7FFF]/14 px-3 py-2.5 text-[11px] font-bold text-blue-100 transition-colors hover:border-[#2E7FFF]/60 hover:bg-[#2E7FFF]/22"
+              >
+                Build rebalance plan
+              </button>
+            </div>
           </div>
         </Panel>
 
-        <Panel className="p-4">
-          <SectionTitle icon={<Award size={15} />} title="Top Performing Teams" />
-          <div className="space-y-3">
+        <Panel className="overflow-hidden">
+          <div className="border-b border-white/[0.08] bg-[#10264A]/55 px-4 py-3">
+            <SectionTitle
+              icon={<Award size={15} />}
+              title="Team Recognition Queue"
+              action={<Pill className="border-[#FFCD57]/25 bg-[#FFCD57]/10 text-amber-100">4 teams ranked</Pill>}
+            />
+            <p className="text-[11px] text-[#8AA6C8]">Reward strong execution without losing the operational context behind each score.</p>
+          </div>
+          <div className="space-y-3 p-4">
             {topTeams.map(team => {
               const teamMembers = getTeamMembers(team);
               const sentIds = sentMailByTeam[team.id] ?? [];
@@ -1046,23 +1117,32 @@ function OverviewTab({ onEmployeeSelect, onToast }: { onEmployeeSelect: (employe
               const streakDays = Math.max(3, ...teamMembers.map(member => member.streakDays));
               const badges = getTeamBadges(team, teamMembers);
               const active = activeTeamId === team.id;
+              const teamScore = Math.round((team.productivity + team.sla + team.quality + team.inspectionAccuracy + team.residentSatisfaction) / 5);
+              const nextAction = team.risk === 'Low'
+                ? 'Recognize and copy the playbook to similar teams.'
+                : team.risk === 'Medium'
+                  ? 'Reward wins, then clear the next operational blocker.'
+                  : 'Keep recognition focused on recovery outcomes.';
 
               return (
                 <div
                   key={team.id}
-                  className={`w-full rounded-lg border bg-white/[0.03] p-3 text-left transition-colors ${
-                    active ? 'border-[#2E7FFF]/50 shadow-[0_0_0_1px_rgba(46,127,255,0.12)]' : 'border-white/[0.07] hover:border-[#2E7FFF]/45'
+                  className={`w-full overflow-hidden rounded-xl border bg-[#071224]/55 text-left transition-colors ${
+                    active ? 'border-[#2E7FFF]/55 shadow-[0_0_0_1px_rgba(46,127,255,0.14)]' : 'border-white/[0.07] hover:border-[#2E7FFF]/45'
                   }`}
                 >
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-start justify-between gap-3 p-3">
                     <div className="min-w-0">
-                      <p className="truncate text-[12px] font-bold text-[#EEF3FA]">{team.name}</p>
-                      <p className="truncate text-[10px] text-[#7A94B4]">{team.projects[0]}</p>
+                      <p className="truncate text-[13px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{team.name}</p>
+                      <p className="truncate text-[10px] text-[#7A94B4]">{team.projects[0]} - {team.manager}</p>
                     </div>
-                    <Pill className={riskClass[team.risk]}>{team.risk}</Pill>
+                    <div className="shrink-0 text-right">
+                      <p className="text-[21px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{teamScore}</p>
+                      <Pill className={riskClass[team.risk]}>{team.risk}</Pill>
+                    </div>
                   </div>
 
-                  <div className="mt-3 grid grid-cols-5 gap-2 text-center">
+                  <div className="grid grid-cols-5 gap-1.5 border-y border-white/[0.06] bg-white/[0.025] px-3 py-2 text-center">
                     {[
                       ['Prod', team.productivity],
                       ['SLA', team.sla],
@@ -1071,13 +1151,13 @@ function OverviewTab({ onEmployeeSelect, onToast }: { onEmployeeSelect: (employe
                       ['CX', team.residentSatisfaction],
                     ].map(([label, value]) => (
                       <div key={label}>
-                        <p className="text-[12px] font-bold" style={{ color: scoreColor(value as number) }}>{value}</p>
+                        <p className="text-[13px] font-black" style={{ color: scoreColor(value as number), fontFamily: 'Space Grotesk, sans-serif' }}>{value}</p>
                         <p className="text-[8px] text-[#7A94B4]">{label}</p>
                       </div>
                     ))}
                   </div>
 
-                  <div className="mt-3 rounded-lg border border-[#38D98A]/15 bg-[#38D98A]/[0.045] p-2">
+                  <div className="m-3 rounded-lg border border-[#38D98A]/15 bg-[#38D98A]/[0.045] p-2.5">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold">
                         <span className="inline-flex items-center gap-1 text-emerald-200"><Trophy size={11} /> {earnedPoints.toLocaleString()} pts</span>
@@ -1085,6 +1165,7 @@ function OverviewTab({ onEmployeeSelect, onToast }: { onEmployeeSelect: (employe
                       </div>
                       <Pill className="border-emerald-500/25 bg-emerald-500/10 text-emerald-200">+{suggestedAward} this week</Pill>
                     </div>
+                    <p className="mt-2 text-[10px] leading-4 text-[#C8D6E8]">{nextAction}</p>
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       {badges.slice(0, 3).map(badge => (
                         <Pill key={badge} className="border-[#00C6FF]/20 bg-[#00C6FF]/10 text-cyan-100"><Star size={9} /> {badge}</Pill>
@@ -1092,7 +1173,7 @@ function OverviewTab({ onEmployeeSelect, onToast }: { onEmployeeSelect: (employe
                     </div>
                   </div>
 
-                  <div className="mt-3 grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-2 px-3 pb-3">
                     <button
                       type="button"
                       onClick={() => handleMailToggle(team, teamMembers.length)}
@@ -1124,9 +1205,9 @@ function OverviewTab({ onEmployeeSelect, onToast }: { onEmployeeSelect: (employe
                         animate={{ opacity: 1, height: 'auto', y: 0 }}
                         exit={{ opacity: 0, height: 0, y: -4 }}
                         transition={{ duration: 0.16 }}
-                        className="overflow-hidden"
+                        className="overflow-hidden px-3 pb-3"
                       >
-                        <div className="mt-3 rounded-lg border border-[#2E7FFF]/20 bg-[#071224] p-2">
+                        <div className="rounded-lg border border-[#2E7FFF]/20 bg-[#071224] p-2">
                           <div className="mb-2 flex items-center justify-between gap-2">
                             <p className="text-[10px] font-bold uppercase text-[#7A94B4]">Demo mail queue</p>
                             <Pill className="border-white/[0.08] bg-white/[0.035] text-[#8AA6C8]">Queued only</Pill>
