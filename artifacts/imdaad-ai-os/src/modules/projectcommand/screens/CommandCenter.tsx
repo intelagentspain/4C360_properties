@@ -824,7 +824,7 @@ function DemoControls({
         </div>
         <div className="flex flex-wrap gap-2">
           <button onClick={onReset} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[rgba(46,127,255,0.18)] bg-[#07111F] px-3 text-[10px] font-black text-[#DCE8F8] hover:bg-white/5"><RefreshCw size={12} /> Reset Baseline</button>
-          <button onClick={() => onSimulate()} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#7C3AED] px-3 text-[10px] font-black text-white shadow-[0_0_22px_rgba(124,58,237,0.26)] hover:bg-[#6D28D9]"><Play size={12} /> Simulate Project Event <span className="text-white/70">({next.label.replace('Trigger ', '')})</span></button>
+          <button onClick={() => onSimulate()} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#7C3AED] px-3 text-[10px] font-black text-white shadow-[0_0_22px_rgba(124,58,237,0.26)] hover:bg-[#6D28D9]"><Play size={12} /> Simulate Project Event</button>
         </div>
       </div>
       <div className="mb-3 grid gap-2 md:grid-cols-3">
