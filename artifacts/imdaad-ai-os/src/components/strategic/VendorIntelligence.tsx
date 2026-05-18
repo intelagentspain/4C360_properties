@@ -16,6 +16,7 @@ import {
 } from '@/data/mockData';
 import { buildDefaultVendor, useVendors } from '@/context/VendorsContext';
 import type { ToastFn } from '@/lib/ui';
+import { parseProjectDocumentFile } from '@/modules/projectcommand/data/projectDocumentParser';
 
 type FilterTab = 'all' | 'top' | 'atrisk' | 'cost';
 
@@ -55,6 +56,7 @@ type VendorSetupDocument = {
   type: string;
   sizeLabel: string;
   content: string;
+  warning?: string;
 };
 
 type VendorAiExtraction = {
@@ -66,8 +68,8 @@ type VendorAiExtraction = {
 type QuoteAnalysisItem = {
   id: string;
   vendorName: string;
-  amount: number;
-  sla: number;
+  amount: number | null;
+  sla: number | null;
   warranty: string;
   exclusions: string;
   score: number;
@@ -258,16 +260,23 @@ function buildQuoteAnalysis(documents: VendorSetupDocument[], notes: string, foc
       || cleanDocumentName(source.name)
       || `${focusVendor.category} bidder ${index + 1}`;
     const amount = extractMoneyValue(text, ['total', 'quote total', 'quoted price', 'price', 'amount', 'commercial offer', 'annual value'])
-      ?? Math.max(250, focusVendor.avgCostPerJob + (index - 1) * 45);
-    const sla = Number(extractNumberValue(text, ['sla', 'sla commitment', 'response sla', 'service level'])) || Math.max(78, focusVendor.slaCompliance + (index % 3) * 3 - 2);
+      ?? null;
+    const slaValue = Number(extractNumberValue(text, ['sla', 'sla commitment', 'response sla', 'service level']));
+    const sla = Number.isFinite(slaValue) && slaValue > 0 ? slaValue : null;
     const warranty = extractLabeledValue(text, ['warranty', 'defect liability', 'guarantee']) || (text.toLowerCase().includes('warranty') ? 'Included' : 'Not clearly stated');
     const exclusions = extractLabeledValue(text, ['exclusions', 'excluded', 'not included']) || (text.toLowerCase().includes('parts') ? 'Parts to be confirmed' : 'No major exclusions detected');
     const evidence = /photo|evidence|report|completion|close.?out/i.test(text) ? 8 : 0;
     const warrantyBonus = warranty === 'Not clearly stated' ? 0 : 4;
     const exclusionPenalty = /not included|excluded|tbd|to be confirmed/i.test(exclusions) ? 7 : 0;
-    const score = Math.max(40, Math.min(98, Math.round(52 + Math.min(28, sla / 4) + evidence + warrantyBonus - exclusionPenalty - Math.max(0, (amount - focusVendor.avgCostPerJob) / 35))));
+    const missingPenalty = (amount === null ? 14 : 0) + (sla === null ? 8 : 0);
+    const pricePenalty = amount === null ? 0 : Math.max(0, (amount - focusVendor.avgCostPerJob) / 35);
+    const score = Math.max(30, Math.min(98, Math.round(52 + Math.min(28, (sla ?? 75) / 4) + evidence + warrantyBonus - exclusionPenalty - pricePenalty - missingPenalty)));
     const risk: QuoteAnalysisItem['risk'] = score >= 78 ? 'Low' : score >= 62 ? 'Medium' : 'High';
-    const finding = risk === 'Low'
+    const finding = amount === null
+      ? 'Price was not detected. Review this quote before award.'
+      : sla === null
+        ? 'SLA was not detected. Clarify service commitment before award.'
+        : risk === 'Low'
       ? 'Strong commercial and service fit for shortlisting.'
       : risk === 'Medium'
         ? 'Usable quote, but clarify scope or commercial assumptions.'
@@ -275,16 +284,19 @@ function buildQuoteAnalysis(documents: VendorSetupDocument[], notes: string, foc
     return { id: source.id, vendorName, amount, sla, warranty, exclusions, score, risk, finding };
   }).sort((a, b) => b.score - a.score);
   const winner = items[0];
-  const highestAmount = Math.max(...items.map(item => item.amount));
-  const savings = Math.max(0, highestAmount - winner.amount);
+  const amounts = items.map(item => item.amount).filter((amount): amount is number => amount !== null);
+  const highestAmount = amounts.length ? Math.max(...amounts) : 0;
+  const savings = winner.amount === null ? 0 : Math.max(0, highestAmount - winner.amount);
   return {
     winner,
     items,
     savings,
-    summary: `${winner.vendorName} is the recommended quote with a ${winner.score}/100 comparison score and AED ${winner.amount.toLocaleString()} commercial offer.`,
+    summary: winner.amount === null
+      ? `${winner.vendorName} is the strongest readable quote with a ${winner.score}/100 comparison score, but price still needs confirmation.`
+      : `${winner.vendorName} is the recommended quote with a ${winner.score}/100 comparison score and AED ${winner.amount.toLocaleString()} commercial offer.`,
     findings: [
-      savings > 0 ? `Selecting the recommended quote is AED ${savings.toLocaleString()} below the highest offer.` : 'Commercial spread is narrow, so quality and exclusions should drive the decision.',
-      `${winner.vendorName} offers ${winner.sla}% SLA commitment with ${winner.warranty.toLowerCase()} warranty position.`,
+      amounts.length >= 2 && savings > 0 ? `Selecting the recommended quote is AED ${savings.toLocaleString()} below the highest readable offer.` : 'Commercial spread needs complete price extraction before final award.',
+      `${winner.vendorName} ${winner.sla === null ? 'needs SLA confirmation' : `offers ${winner.sla}% SLA commitment`} with ${winner.warranty.toLowerCase()} warranty position.`,
       items.some(item => item.risk === 'High') ? 'At least one quote carries high clarification risk before award.' : 'No high-risk quote blockers were detected in the submitted set.',
     ],
   };
@@ -1142,18 +1154,20 @@ function PageProcurementCopilotModal({
     const files = Array.from(event.target.files ?? []);
     if (!files.length) return;
     const docs = await Promise.all(files.map(async file => {
-      const isReadable = file.type.startsWith('text/') || /\.(txt|csv|md|json|log)$/i.test(file.name);
-      const content = isReadable ? await file.text().catch(() => '') : '';
+      const parsed = await parseProjectDocumentFile(file).catch(() => null);
       return {
         id: `${file.name}-${file.size}-${Date.now()}`,
         name: file.name,
         type: file.type || 'Quote document',
         sizeLabel: formatDocumentSize(file.size),
-        content,
+        content: parsed?.text ?? '',
+        warning: parsed?.warning,
       };
     }));
-    setQuoteDocuments(prev => [...docs, ...prev].slice(0, 8));
-    setQuoteAnalysis(null);
+    const nextDocuments = [...docs, ...quoteDocuments].slice(0, 8);
+    setQuoteDocuments(nextDocuments);
+    setQuoteAnalysis(buildQuoteAnalysis(nextDocuments, quoteNotes, focusVendor));
+    onRun('compare');
     event.target.value = '';
   }
 
@@ -1172,6 +1186,8 @@ function PageProcurementCopilotModal({
     setAssistantNote('Quote comparison reset. Upload or paste new quotes to analyse again.');
   }
 
+  const isCompareMode = result.action === 'compare';
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -1183,7 +1199,7 @@ function PageProcurementCopilotModal({
         initial={{ opacity: 0, y: 18, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 12, scale: 0.98 }}
-        className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-[#2E7FFF]/30 bg-[#081528] shadow-2xl"
+        className={`flex max-h-[90vh] w-full ${isCompareMode ? 'max-w-3xl' : 'max-w-5xl'} flex-col overflow-hidden rounded-2xl border border-[#2E7FFF]/30 bg-[#081528] shadow-2xl`}
       >
         <div className="flex items-start justify-between gap-4 border-b border-[rgba(46,127,255,0.16)] bg-[linear-gradient(135deg,rgba(46,127,255,0.18),rgba(124,58,237,0.12))] px-5 py-4">
           <div>
@@ -1192,10 +1208,12 @@ function PageProcurementCopilotModal({
               Procurement assistant
             </div>
             <h3 className="text-xl font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-              How can I help?
+              {isCompareMode ? 'Compare Quotes' : 'How can I help?'}
             </h3>
             <p className="mt-1 max-w-2xl text-[12px] leading-5 text-[#9CB1CC]">
-              Tell me the procurement outcome. I will generate the artifact and keep the vendor context anchored to <span className="font-bold text-[#EEF3FA]">{focusVendor.name}</span>.
+              {isCompareMode
+                ? 'Upload quote files, run analysis, and review the extracted comparison.'
+                : <>Tell me the procurement outcome. I will generate the artifact and keep the vendor context anchored to <span className="font-bold text-[#EEF3FA]">{focusVendor.name}</span>.</>}
             </p>
           </div>
           <button onClick={onClose} className="rounded-xl border border-white/10 bg-white/5 p-2 text-[#8AA6C8] transition-colors hover:bg-white/10 hover:text-white" aria-label="Close procurement assistant">
@@ -1203,6 +1221,132 @@ function PageProcurementCopilotModal({
           </button>
         </div>
 
+        {isCompareMode ? (
+          <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto p-5">
+            <div className="rounded-2xl border border-emerald-400/22 bg-emerald-500/8 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <div className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-200">
+                    <BarChart3 size={13} />
+                    Quote intake
+                  </div>
+                  <h4 className="mt-1 text-sm font-bold text-[#EEF3FA]">Upload quote files</h4>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-[#2E7FFF]/30 bg-[#2E7FFF]/12 px-3 py-2 text-[11px] font-bold text-[#BFD8FF] transition-all hover:bg-[#2E7FFF]/18">
+                    <UploadCloud size={13} />
+                    Upload quotes
+                    <input
+                      type="file"
+                      multiple
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.md,.json"
+                      onChange={addQuoteDocuments}
+                      className="hidden"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={analyseQuotes}
+                    disabled={quoteDocuments.length === 0 && !quoteNotes.trim()}
+                    className="inline-flex items-center gap-2 rounded-xl bg-[#2E7FFF] px-3 py-2 text-[11px] font-bold text-white shadow-lg shadow-[#2E7FFF]/20 transition-all hover:bg-[#4B91FF] disabled:cursor-not-allowed disabled:bg-[#1A3356] disabled:text-[#7891B0] disabled:shadow-none"
+                  >
+                    <Sparkles size={13} />
+                    Analyse quotes
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                {quoteDocuments.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-[#2E7FFF]/25 px-3 py-2 text-[11px] text-[#7A94B4]">
+                    No quote files uploaded
+                  </div>
+                ) : (
+                  quoteDocuments.map(doc => (
+                    <div key={doc.id} className="rounded-lg border border-[#2E7FFF]/18 bg-[#102544] px-3 py-2 text-[10px] text-[#C8D8EE]">
+                      <div className="flex items-center gap-2">
+                        <FileText size={12} className="text-[#8DBDFF]" />
+                        <span className="max-w-[220px] truncate font-semibold">{doc.name}</span>
+                        <span className="text-[#6F89AA]">{doc.sizeLabel}</span>
+                        <button type="button" onClick={() => { setQuoteDocuments(prev => prev.filter(item => item.id !== doc.id)); setQuoteAnalysis(null); }} className="text-[#7A94B4] hover:text-red-300" aria-label={`Remove ${doc.name}`}>
+                          <Trash2 size={11} />
+                        </button>
+                      </div>
+                      {doc.warning && <div className="mt-1 text-[9px] leading-4 text-amber-200">{doc.warning}</div>}
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <details className="mt-4 rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#07111F]">
+                <summary className="cursor-pointer px-3 py-2 text-[10px] font-bold uppercase tracking-[0.16em] text-[#8DBDFF]">Paste quote text</summary>
+                <div className="border-t border-[rgba(46,127,255,0.12)] p-3">
+                  <textarea
+                    value={quoteNotes}
+                    onChange={event => {
+                      setQuoteNotes(event.target.value);
+                      setQuoteAnalysis(null);
+                    }}
+                    placeholder="Paste quote text"
+                    className="min-h-[88px] w-full resize-none rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#050C17] px-3 py-2.5 text-[12px] leading-relaxed text-[#EEF3FA] outline-none transition-all placeholder:text-[#4A6480] focus:border-[#2E7FFF]"
+                  />
+                </div>
+              </details>
+            </div>
+
+            {quoteAnalysis ? (
+              <div className="mt-4 space-y-3">
+                <div className="rounded-xl border border-emerald-400/25 bg-emerald-500/10 p-4">
+                  <div className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-200">Recommended winner</div>
+                  <div className="mt-1 text-[16px] font-black text-[#EEF3FA]">{quoteAnalysis.winner.vendorName}</div>
+                  <p className="mt-1 text-[12px] leading-5 text-[#C8D8EE]">{quoteAnalysis.summary}</p>
+                </div>
+                <div className="grid gap-2">
+                  {quoteAnalysis.items.map(item => (
+                    <div key={item.id} className="grid gap-3 rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#07111F] p-3 sm:grid-cols-[1fr_auto] sm:items-center">
+                      <div>
+                        <div className="text-[12px] font-bold text-[#EEF3FA]">{item.vendorName}</div>
+                        <div className="mt-1 text-[10px] leading-4 text-[#8AA6C8]">
+                          {item.amount === null ? 'Price not found' : `AED ${item.amount.toLocaleString()}`} / {item.sla === null ? 'SLA not found' : `${item.sla}% SLA`} / {item.warranty} / {item.exclusions}
+                        </div>
+                        <div className="mt-1 text-[10px] text-[#C8D8EE]">{item.finding}</div>
+                      </div>
+                      <div className="flex items-center gap-2 sm:justify-end">
+                        <span className={`rounded-full border px-2 py-1 text-[9px] font-black ${item.risk === 'Low' ? 'border-emerald-400/25 bg-emerald-400/10 text-emerald-200' : item.risk === 'Medium' ? 'border-amber-400/25 bg-amber-400/10 text-amber-200' : 'border-red-400/25 bg-red-400/10 text-red-200'}`}>
+                          {item.risk} risk
+                        </span>
+                        <span className="rounded-full border border-[#2E7FFF]/25 bg-[#2E7FFF]/10 px-2 py-1 text-[9px] font-black text-[#8DBDFF]">
+                          {item.score}/100
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#07111F] p-3">
+                  <div className="mb-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#8DBDFF]">Findings</div>
+                  <ul className="space-y-2">
+                    {quoteAnalysis.findings.map(finding => (
+                      <li key={finding} className="flex gap-2 text-[11px] leading-5 text-[#C8D8EE]">
+                        <CheckCircle size={11} className="mt-1 shrink-0 text-emerald-400" />
+                        {finding}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <button type="button" onClick={clearQuoteIntake} className="text-[10px] font-bold text-[#8AA6C8] transition-colors hover:text-white">
+                  Clear quote intake
+                </button>
+              </div>
+            ) : (
+              <div className="mt-4 rounded-2xl border border-[rgba(46,127,255,0.16)] bg-[#07111F] p-6 text-center">
+                <div className="mx-auto grid h-10 w-10 place-items-center rounded-xl bg-[#2E7FFF]/12 text-[#8DBDFF]">
+                  <UploadCloud size={18} />
+                </div>
+                <div className="mt-3 text-[13px] font-bold text-[#EEF3FA]">Upload quotes to see the comparison</div>
+              </div>
+            )}
+          </div>
+        ) : (
         <div className="grid min-h-0 flex-1 lg:grid-cols-[0.9fr_1.1fr]">
           <div className="custom-scrollbar min-h-0 overflow-y-auto border-b border-[rgba(46,127,255,0.14)] p-5 lg:border-b-0 lg:border-r">
             <div className="rounded-2xl border border-[#2E7FFF]/18 bg-[#07111F] p-4">
@@ -1316,7 +1460,7 @@ function PageProcurementCopilotModal({
                     setQuoteNotes(event.target.value);
                     setQuoteAnalysis(null);
                   }}
-                  placeholder="Paste quotes here. Example: Vendor name: Gulf FM Quote total: AED 440 SLA: 92 Warranty: 12 months Exclusions: emergency parts."
+                  placeholder="Paste quote text"
                   className="min-h-[88px] w-full resize-none rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#050C17] px-3 py-2.5 text-[12px] leading-relaxed text-[#EEF3FA] outline-none transition-all placeholder:text-[#4A6480] focus:border-[#2E7FFF]"
                 />
 
@@ -1352,7 +1496,7 @@ function PageProcurementCopilotModal({
                           <div>
                             <div className="text-[12px] font-bold text-[#EEF3FA]">{item.vendorName}</div>
                             <div className="mt-1 text-[10px] leading-4 text-[#8AA6C8]">
-                              AED {item.amount.toLocaleString()} · SLA {item.sla}% · {item.warranty} · {item.exclusions}
+                              {item.amount === null ? 'Price not found' : `AED ${item.amount.toLocaleString()}`} / {item.sla === null ? 'SLA not found' : `${item.sla}% SLA`} / {item.warranty} / {item.exclusions}
                             </div>
                             <div className="mt-1 text-[10px] text-[#C8D8EE]">{item.finding}</div>
                           </div>
@@ -1435,6 +1579,7 @@ function PageProcurementCopilotModal({
             </button>
           </div>
         </div>
+        )}
       </motion.div>
     </motion.div>
   );
