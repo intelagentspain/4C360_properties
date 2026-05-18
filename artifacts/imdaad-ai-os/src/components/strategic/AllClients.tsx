@@ -4,7 +4,7 @@ import {
   Search, X, Grid, List, AlertTriangle, CheckCircle, Clock,
   Zap, ChevronRight, Activity, Database, Users, BarChart2,
   TrendingUp, MapPin, ArrowRight, Shield, Bot, Plus,
-  FileText, Truck, Package, Wrench, Calendar, Share2, Link2, Mail, Send, Check,
+  FileText, Truck, Package, Wrench, Calendar, Share2, Link2, Mail, Send, Check, Mic,
 } from 'lucide-react';
 import { type PortfolioClient } from '@/data/mockData';
 import { type ToastFn } from '@/lib/ui';
@@ -234,6 +234,12 @@ interface PortfolioKpi {
   summary: string;
   detailRows: Array<{ label: string; value: string; tone: string }>;
   chips: string[];
+  commandAnswer: string;
+  nextBestAction: string;
+  ifIgnored: string;
+  sourceTrace: string;
+  focusRows: Array<{ label: string; value: string; detail: string; action: string; tone: string }>;
+  actions: Array<{ label: string; owner: string; impact: string; channel: string }>;
 }
 
 interface PortfolioStatusSummary {
@@ -267,6 +273,20 @@ interface ExecutiveImpactCard {
   recommended: string;
   actions: ExecutiveAction[];
 }
+
+type SpeechRecognitionLike = {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  start: () => void;
+  stop: () => void;
+  onstart: (() => void) | null;
+  onend: (() => void) | null;
+  onerror: ((event: { error?: string }) => void) | null;
+  onresult: ((event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
+};
+
+type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
 
 const STATUS_SUMMARY_CONFIG: Record<PortfolioStatusKey, Omit<PortfolioStatusSummary, 'key' | 'count' | 'clients'>> = {
   critical: {
@@ -439,14 +459,14 @@ function StatusSummaryModal({
 }
 
 function PortfolioKpiModal({ kpi, onClose, onToast }: { kpi: PortfolioKpi; onClose: () => void; onToast: ToastFn }) {
-  const [selectedChips, setSelectedChips] = useState<string[]>(kpi.chips.slice(0, 3));
+  const [selectedActions, setSelectedActions] = useState<string[]>(kpi.actions.slice(0, 2).map(action => action.label));
 
-  const toggleChip = (chip: string) => {
-    setSelectedChips(prev => prev.includes(chip) ? prev.filter(c => c !== chip) : [...prev, chip]);
+  const toggleAction = (action: string) => {
+    setSelectedActions(prev => prev.includes(action) ? prev.filter(item => item !== action) : [...prev, action]);
   };
 
   const queueActions = () => {
-    onToast(`${kpi.label}: ${selectedChips.length} command actions queued`, 'success');
+    onToast(`${kpi.label}: ${selectedActions.length} command action${selectedActions.length === 1 ? '' : 's'} queued`, 'success');
     onClose();
   };
 
@@ -456,20 +476,20 @@ function PortfolioKpiModal({ kpi, onClose, onToast }: { kpi: PortfolioKpi; onClo
       animate={{ opacity: 1, scale: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.96, y: 12 }}
       transition={{ duration: 0.18 }}
-      className="fixed left-1/2 top-1/2 z-[320] w-[min(580px,calc(100%-32px))] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl border border-[rgba(46,127,255,0.28)] bg-[#0B172A] shadow-2xl"
+      className="fixed left-1/2 top-1/2 z-[320] flex max-h-[calc(100vh-48px)] w-[min(760px,calc(100%-32px))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-[rgba(46,127,255,0.28)] bg-[#0B172A] shadow-2xl"
       role="dialog"
       aria-modal="true"
       aria-label={`${kpi.label} details`}
     >
-      <div className="flex items-start justify-between gap-3 border-b border-[rgba(46,127,255,0.16)] bg-[#112040] px-4 py-3">
+      <div className="flex flex-shrink-0 items-start justify-between gap-3 border-b border-[rgba(46,127,255,0.16)] bg-[linear-gradient(90deg,rgba(46,127,255,0.18),rgba(17,32,64,0.98))] px-4 py-3">
         <div className="flex items-start gap-3">
           <div className={`mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg ${kpi.bg} ${kpi.color}`}>
             {kpi.icon}
           </div>
           <div>
-            <div className="text-[9px] font-bold uppercase tracking-wide text-[#7A94B4]">Portfolio KPI</div>
+            <div className="text-[9px] font-bold uppercase tracking-wide text-[#7A94B4]">Command Answer</div>
             <h3 className="mt-0.5 text-sm font-bold leading-tight text-[#EEF3FA]">{kpi.label}</h3>
-            <p className="mt-1 text-[11px] leading-relaxed text-[#9DB9E8]">{kpi.summary}</p>
+            <p className="mt-1 max-w-2xl text-[11px] leading-relaxed text-[#9DB9E8]">{kpi.commandAnswer}</p>
           </div>
         </div>
         <button onClick={onClose} className="rounded-lg p-1.5 text-[#7A94B4] transition-colors hover:bg-white/5 hover:text-white" aria-label="Close KPI details">
@@ -477,47 +497,92 @@ function PortfolioKpiModal({ kpi, onClose, onToast }: { kpi: PortfolioKpi; onClo
         </button>
       </div>
 
-      <div className="space-y-3 p-4">
-        <div className="grid gap-2 md:grid-cols-4">
-          <div className={`rounded-xl border p-3 md:col-span-1 ${kpi.bg}`}>
-            <div className="text-[9px] uppercase tracking-wide text-[#7A94B4]">Current</div>
-            <div className={`mt-1 text-xl font-bold leading-tight ${kpi.color}`}>{kpi.value}</div>
+      <div className="custom-scrollbar min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
+        <div className="grid gap-2 md:grid-cols-[0.8fr_1.2fr_1.2fr]">
+          <div className={`rounded-xl border p-3 ${kpi.bg}`}>
+            <div className="text-[9px] uppercase tracking-wide text-[#7A94B4]">Signal</div>
+            <div className={`mt-1 text-2xl font-black leading-tight ${kpi.color}`}>{kpi.value}</div>
+            <div className="mt-1 text-[10px] leading-relaxed text-[#8EA7C7]">{kpi.label}</div>
           </div>
-          <div className="grid gap-2 md:col-span-3 md:grid-cols-3">
-            {kpi.detailRows.map(row => (
-              <div key={row.label} className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#0A1628] p-3">
-                <div className="text-[9px] uppercase tracking-wide text-[#7A94B4]">{row.label}</div>
-                <div className={`mt-1 text-[13px] font-bold leading-tight ${row.tone}`}>{row.value}</div>
+          <div className="rounded-xl border border-emerald-400/20 bg-emerald-500/10 p-3">
+            <div className="mb-1 flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-wide text-emerald-200">
+              <Zap size={11} />
+              Best next move
+            </div>
+            <div className="text-[12px] font-bold leading-snug text-[#EEF3FA]">{kpi.nextBestAction}</div>
+          </div>
+          <div className="rounded-xl border border-amber-400/20 bg-amber-500/10 p-3">
+            <div className="mb-1 flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-wide text-amber-200">
+              <AlertTriangle size={11} />
+              If ignored
+            </div>
+            <div className="text-[12px] font-bold leading-snug text-[#EEF3FA]">{kpi.ifIgnored}</div>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#07111F] p-3">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <div className="text-[10px] font-bold uppercase tracking-wide text-[#8DBDFF]">Where to act first</div>
+            <div className="rounded-full border border-[rgba(46,127,255,0.16)] bg-[#0A1628] px-2 py-0.5 text-[9px] text-[#7A94B4]">{kpi.sourceTrace}</div>
+          </div>
+          <div className="space-y-2">
+            {kpi.focusRows.map(row => (
+              <div key={`${row.label}-${row.value}`} className="grid gap-2 rounded-xl border border-[rgba(46,127,255,0.10)] bg-[#0A1628] p-3 md:grid-cols-[1fr_auto] md:items-center">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="truncate text-[12px] font-black text-[#EEF3FA]">{row.label}</div>
+                    <div className={`rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-bold ${row.tone}`}>{row.value}</div>
+                  </div>
+                  <div className="mt-1 text-[10px] leading-relaxed text-[#8EA7C7]">{row.detail}</div>
+                </div>
+                <div className="inline-flex items-center gap-1 rounded-lg border border-[#2E7FFF]/22 bg-[#2E7FFF]/10 px-2.5 py-1.5 text-[10px] font-bold text-[#BFD8FF]">
+                  {row.action}
+                  <ArrowRight size={11} />
+                </div>
               </div>
             ))}
           </div>
         </div>
 
-        <div>
-          <div className="mb-2 text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">Command Chips</div>
-          <div className="flex flex-wrap gap-2">
-            {kpi.chips.map(chip => {
-              const active = selectedChips.includes(chip);
-              return (
-                <button
-                  key={chip}
-                  onClick={() => toggleChip(chip)}
-                  className={`rounded-lg border px-2.5 py-1.5 text-[10px] font-semibold transition-all ${active ? 'border-[#2E7FFF] bg-[#2E7FFF]/20 text-blue-100' : 'border-[rgba(46,127,255,0.16)] bg-[#0A1628] text-[#7A94B4] hover:text-[#EEF3FA]'}`}
-                >
-                  {active && <Check size={10} className="mr-1 inline" />}
-                  {chip}
-                </button>
-              );
-            })}
-          </div>
+        <div className="grid gap-2 md:grid-cols-2">
+          {kpi.actions.map(action => {
+            const active = selectedActions.includes(action.label);
+            return (
+              <button
+                key={action.label}
+                type="button"
+                onClick={() => toggleAction(action.label)}
+                className={`rounded-xl border p-3 text-left transition-all ${
+                  active
+                    ? 'border-[#2E7FFF]/70 bg-[#2E7FFF]/18 shadow-[0_0_16px_rgba(46,127,255,0.16)]'
+                    : 'border-[rgba(46,127,255,0.14)] bg-[#0A1628] hover:border-[#2E7FFF]/45 hover:bg-[#102544]'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="flex items-center gap-2 text-[12px] font-bold text-[#EEF3FA]">
+                      {active && <Check size={12} className="text-blue-200" />}
+                      {action.label}
+                    </div>
+                    <p className="mt-1 text-[10px] leading-relaxed text-[#8EA7C7]">{action.impact}</p>
+                  </div>
+                  <span className="shrink-0 rounded-md border border-white/10 bg-white/5 px-2 py-0.5 text-[8px] font-bold uppercase tracking-wide text-[#9DB9E8]">
+                    {action.channel}
+                  </span>
+                </div>
+                <div className="mt-2 text-[9px] font-semibold uppercase tracking-wide text-[#6F89AA]">Owner: {action.owner}</div>
+              </button>
+            );
+          })}
         </div>
 
-        <div className="flex items-center justify-between gap-3 border-t border-[rgba(46,127,255,0.12)] pt-3">
-          <div className="text-[10px] text-[#7A94B4]">{selectedChips.length} KPI actions selected for command queue</div>
-          <div className="flex gap-2">
-            <button onClick={onClose} className="rounded-lg border border-[rgba(46,127,255,0.18)] px-3 py-2 text-[11px] font-semibold text-[#9DB9E8] transition-colors hover:bg-white/5">Review Later</button>
-            <button onClick={queueActions} className="rounded-lg bg-[#2E7FFF] px-3 py-2 text-[11px] font-bold text-white shadow-[0_0_14px_rgba(46,127,255,0.32)] transition-colors hover:bg-blue-500">Queue Actions</button>
-          </div>
+      </div>
+
+      <div className="flex flex-shrink-0 items-center justify-between gap-3 border-t border-[rgba(46,127,255,0.12)] bg-[#0B172A]/96 px-4 py-3">
+        <div className="text-[10px] text-[#7A94B4]">{selectedActions.length} useful action{selectedActions.length === 1 ? '' : 's'} selected for the command queue</div>
+        <div className="flex gap-2">
+          <button onClick={onClose} className="rounded-lg border border-[rgba(46,127,255,0.18)] px-3 py-2 text-[11px] font-semibold text-[#9DB9E8] transition-colors hover:bg-white/5">Review Later</button>
+          <button onClick={queueActions} className="rounded-lg bg-[#2E7FFF] px-3 py-2 text-[11px] font-bold text-white shadow-[0_0_14px_rgba(46,127,255,0.32)] transition-colors hover:bg-blue-500">Queue Actions</button>
         </div>
       </div>
     </motion.div>
@@ -547,6 +612,72 @@ function PortfolioSummaryStrip({ clients, onToast }: { clients: PortfolioClient[
     .sort((a, b) => b[1] - a[1])
     .slice(0, 3)
     .map(([label, value]) => ({ label, value: value.toLocaleString(), tone: 'text-purple-200' }));
+  const pressureScore = (client: PortfolioClient) =>
+    client.incidents * 10 + client.overdueTasks * 6 + client.workOrders / Math.max(client.sites, 1) + (100 - client.sla);
+  const statusFocusRows = [...clients]
+    .sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status] || RISK_ORDER[a.riskLevel] - RISK_ORDER[b.riskLevel] || b.incidents - a.incidents)
+    .slice(0, 3)
+    .map(client => ({
+      label: client.name,
+      value: `${client.status.toUpperCase()} · ${client.riskLevel.toUpperCase()}`,
+      detail: `${client.sites} sites, ${client.incidents} incidents, ${client.overdueTasks} overdue tasks, ${client.sla}% SLA.`,
+      action: client.status === 'critical' ? 'Open recovery bridge' : client.status === 'warning' ? 'Stabilize next shift' : 'Use spare capacity',
+      tone: client.status === 'critical' ? 'text-red-200' : client.status === 'warning' ? 'text-amber-200' : 'text-emerald-200',
+    }));
+  const siteCoverageRows = [...clients]
+    .sort((a, b) => b.sites - a.sites || pressureScore(b) - pressureScore(a))
+    .slice(0, 3)
+    .map(client => ({
+      label: client.name,
+      value: `${client.sites} sites`,
+      detail: `${client.workOrders} active WOs and ${client.incidents} incidents across this footprint. Route load is ${Math.round(client.workOrders / Math.max(client.sites, 1))} WOs/site.`,
+      action: client.incidents > 5 || client.sla < 85 ? 'Rebalance coverage' : 'Check route density',
+      tone: client.sla < 85 ? 'text-red-200' : client.incidents > 5 ? 'text-amber-200' : 'text-cyan-200',
+    }));
+  const workOrderFocusRows = [...clients]
+    .sort((a, b) => b.workOrders - a.workOrders || b.overdueTasks - a.overdueTasks)
+    .slice(0, 3)
+    .map(client => ({
+      label: client.name,
+      value: `${client.workOrders} WOs`,
+      detail: `${client.overdueTasks} overdue tasks, ${client.incidents} incidents, ${client.people.technicians.length} technicians mapped.`,
+      action: client.overdueTasks > 5 ? 'Escalate backlog' : 'Tune dispatch',
+      tone: client.overdueTasks > 5 ? 'text-red-200' : client.workOrders > 50 ? 'text-amber-200' : 'text-emerald-200',
+    }));
+  const incidentFocusRows = [...clients]
+    .sort((a, b) => b.incidents - a.incidents || a.sla - b.sla)
+    .slice(0, 3)
+    .map(client => ({
+      label: client.name,
+      value: `${client.incidents} incidents`,
+      detail: `${client.sla}% SLA, ${client.overdueTasks} overdue tasks, ${client.people.supervisors[0]?.name ?? 'Supervisor'} owns first response.`,
+      action: client.incidents > 0 ? 'Assign supervisor' : 'Keep watch',
+      tone: client.incidents > 8 ? 'text-red-200' : client.incidents > 0 ? 'text-amber-200' : 'text-emerald-200',
+    }));
+  const slaFocusRows = [...clients]
+    .sort((a, b) => a.sla - b.sla || b.incidents - a.incidents)
+    .slice(0, 3)
+    .map(client => ({
+      label: client.name,
+      value: `${client.sla}% SLA`,
+      detail: `${client.incidents} incidents and ${client.overdueTasks} overdue tasks are the fastest path to recovery.`,
+      action: client.sla < 80 ? 'Start SLA recovery' : client.sla < 90 ? 'Protect next breach' : 'Maintain standard',
+      tone: client.sla < 80 ? 'text-red-200' : client.sla < 90 ? 'text-amber-200' : 'text-emerald-200',
+    }));
+  const dataSourceFocusRows = [...clients]
+    .sort((a, b) => a.dataSources.length - b.dataSources.length || a.dataSources.reduce((sum, source) => sum + source.count, 0) - b.dataSources.reduce((sum, source) => sum + source.count, 0))
+    .slice(0, 3)
+    .map(client => {
+      const sourceCount = client.dataSources.length;
+      const recordCount = client.dataSources.reduce((sum, source) => sum + source.count, 0);
+      return {
+        label: client.name,
+        value: `${sourceCount} feeds`,
+        detail: `${recordCount.toLocaleString()} records connected. Missing feeds weaken AI confidence and client evidence.`,
+        action: sourceCount < 3 ? 'Complete onboarding' : 'Audit data quality',
+        tone: sourceCount < 3 ? 'text-amber-200' : 'text-purple-200',
+      };
+    });
 
   const kpis: PortfolioKpi[] = [
     {
@@ -563,6 +694,17 @@ function PortfolioSummaryStrip({ clients, onToast }: { clients: PortfolioClient[
         { label: 'Live', value: String(statusCounts.live), tone: 'text-emerald-300' },
       ],
       chips: ['Open property review', 'Prioritize critical sites', 'Assign account owner', 'Export roster'],
+      commandAnswer: `${clients.length} properties is only useful if it shows where leadership attention should move. Right now the command priority is ${statusCounts.critical} critical and ${statusCounts.warning} warning properties, with the rest available for prevention capacity.`,
+      nextBestAction: statusCounts.critical > 0 ? 'Open a recovery bridge for the critical property before reviewing healthy assets.' : 'Use healthy properties for preventive work and client value stories.',
+      ifIgnored: 'Critical and warning portfolios stay blended into the total count, so recovery ownership gets delayed.',
+      sourceTrace: 'Based on property status, SLA, incidents, and overdue tasks',
+      focusRows: statusFocusRows,
+      actions: [
+        { label: 'Open portfolio recovery board', owner: 'Portfolio Director', impact: 'Separates critical, warning, and healthy assets into the right operating rhythm.', channel: 'Command' },
+        { label: 'Assign named recovery owners', owner: 'Operations Lead', impact: 'Moves the riskiest properties from observation into accountability.', channel: 'Task' },
+        { label: 'Prepare client sponsor update', owner: 'Account Manager', impact: 'Creates a clean executive update for critical and warning accounts.', channel: 'Email' },
+        { label: 'Shift spare capacity to prevention', owner: 'Dispatch Lead', impact: 'Uses healthy properties to reduce future incident pressure.', channel: 'Dispatch' },
+      ],
     },
     {
       key: 'sites',
@@ -574,6 +716,17 @@ function PortfolioSummaryStrip({ clients, onToast }: { clients: PortfolioClient[
       summary: `${totalSites} sites are distributed across the active property portfolio. The highest-site properties drive field coverage and route planning.`,
       detailRows: topClientRows(clients, c => c.sites),
       chips: ['Open site heatmap', 'Review route load', 'Flag coverage gaps', 'Export site list'],
+      commandAnswer: `${totalSites} sites is a coverage-control question, not a geography fact. The useful view is where site density meets work-order load, incidents, and low SLA because that is where routes, supervisors, and vendors break first.`,
+      nextBestAction: 'Open the route view for the largest site clusters and rebalance the next shift around pressure, not only distance.',
+      ifIgnored: 'Large clusters can hide slow response pockets until resident complaints or SLA breaches surface late.',
+      sourceTrace: 'Based on sites, active WOs, incidents, overdue tasks, and SLA',
+      focusRows: siteCoverageRows,
+      actions: [
+        { label: 'Rebalance route coverage', owner: 'Dispatch Lead', impact: 'Moves technicians toward the clusters where site density is creating response risk.', channel: 'Dispatch' },
+        { label: 'Assign cluster supervisor', owner: 'Operations Lead', impact: 'Creates one accountable owner for the highest-pressure footprint.', channel: 'Task' },
+        { label: 'Open site heatmap', owner: 'Command Center', impact: 'Shows which sites need coverage review before the next shift starts.', channel: 'Map' },
+        { label: 'Flag uncovered service windows', owner: 'DevelopmentX Copilot', impact: 'Finds site/time combinations likely to miss SLA before field load spikes.', channel: 'AI Watch' },
+      ],
     },
     {
       key: 'workOrders',
@@ -585,6 +738,17 @@ function PortfolioSummaryStrip({ clients, onToast }: { clients: PortfolioClient[
       summary: `${totalWO} active work orders are currently visible to command. High-volume properties should be checked for backlog concentration.`,
       detailRows: topClientRows(clients, c => c.workOrders),
       chips: ['Open WO command', 'Rebalance technicians', 'Escalate overdue jobs', 'Notify supervisors'],
+      commandAnswer: `${totalWO} work orders matter because they show where today’s field capacity is being consumed. The decision is whether to rebalance technicians now, escalate overdue work, or protect specialist capacity.`,
+      nextBestAction: 'Sort by overdue and resident-impacting work, then move technicians before the queue becomes an SLA breach.',
+      ifIgnored: 'Work volume turns into hidden backlog, repeat visits, and resident-facing delays.',
+      sourceTrace: 'Based on active WOs, overdue tasks, incidents, and technician coverage',
+      focusRows: workOrderFocusRows,
+      actions: [
+        { label: 'Rebalance technician load', owner: 'Dispatch Lead', impact: 'Moves field capacity to the properties with the highest backlog pressure.', channel: 'Dispatch' },
+        { label: 'Escalate overdue jobs', owner: 'Site Supervisor', impact: 'Pushes aged work into named recovery before SLA breach.', channel: 'Task' },
+        { label: 'Protect specialist capacity', owner: 'Field Supervisor', impact: 'Keeps HVAC, lift, MEP, and fire resources available for critical work.', channel: 'Roster' },
+        { label: 'Notify supervisors of pressure points', owner: 'Command Center', impact: 'Gives each site lead the exact queue that needs attention now.', channel: 'Message' },
+      ],
     },
     {
       key: 'incidents',
@@ -600,6 +764,17 @@ function PortfolioSummaryStrip({ clients, onToast }: { clients: PortfolioClient[
         { label: 'Open Feed', value: String(incidents.filter(i => i.status !== 'closed').length), tone: 'text-[#EEF3FA]' },
       ],
       chips: ['Open incident bridge', 'Notify client leads', 'Assign supervisor', 'Start SLA recovery'],
+      commandAnswer: `${criticalInc} critical incidents means the portfolio needs a command response, not just a count. Prioritize resident safety, trapped-lift or life-safety cases, and any incident creating immediate client exposure.`,
+      nextBestAction: 'Assign one supervisor per critical incident and publish the next update time to client-facing teams.',
+      ifIgnored: 'Critical incidents create resident escalation, penalty exposure, and loss of client confidence within the same shift.',
+      sourceTrace: 'Based on open incidents, severity, overdue tasks, and SLA exposure',
+      focusRows: incidentFocusRows,
+      actions: [
+        { label: 'Open incident bridge', owner: 'Command Center', impact: 'Creates one place for incident status, owner, resident impact, and next update.', channel: 'Command' },
+        { label: 'Notify client leads', owner: 'Account Manager', impact: 'Keeps the client informed before they ask for escalation.', channel: 'Email' },
+        { label: 'Assign supervisor now', owner: 'Operations Lead', impact: 'Stops critical work from sitting without named field ownership.', channel: 'Task' },
+        { label: 'Start resident communication', owner: 'Community Manager', impact: 'Reduces uncertainty for affected residents while operations recover.', channel: 'Notice' },
+      ],
     },
     {
       key: 'sla',
@@ -614,6 +789,17 @@ function PortfolioSummaryStrip({ clients, onToast }: { clients: PortfolioClient[
         .slice(0, 3)
         .map(client => ({ label: client.name, value: `${client.sla}%`, tone: client.sla >= 90 ? 'text-emerald-300' : client.sla >= 80 ? 'text-amber-300' : 'text-red-300' })),
       chips: ['Open SLA recovery', 'Schedule client update', 'Prioritize breaches', 'Export SLA pack'],
+      commandAnswer: `${avgSLA}% average SLA can look acceptable while individual properties are failing. The useful answer is which property is dragging the portfolio and what operational lever recovers it fastest.`,
+      nextBestAction: 'Start with the lowest-SLA property and clear overdue or resident-impacting work before opening broad reports.',
+      ifIgnored: 'The average masks weak spots, and the next client review becomes a defensive explanation instead of a recovery story.',
+      sourceTrace: 'Based on property SLA, incidents, overdue tasks, and active WOs',
+      focusRows: slaFocusRows,
+      actions: [
+        { label: 'Start SLA recovery sprint', owner: 'Operations Lead', impact: 'Targets the lowest-SLA properties with owners, deadlines, and update cadence.', channel: 'Command' },
+        { label: 'Prioritize breach-risk jobs', owner: 'Dispatch Lead', impact: 'Moves work likely to breach SLA ahead of low-impact tasks.', channel: 'Dispatch' },
+        { label: 'Schedule client recovery update', owner: 'Account Manager', impact: 'Turns low SLA into a visible recovery plan before the governance meeting.', channel: 'Meeting' },
+        { label: 'Lock evidence for closed jobs', owner: 'QA Lead', impact: 'Prevents recovered jobs from being challenged later due to missing proof.', channel: 'Evidence' },
+      ],
     },
     {
       key: 'dataSources',
@@ -625,6 +811,17 @@ function PortfolioSummaryStrip({ clients, onToast }: { clients: PortfolioClient[
       summary: `${totalDS} source connections are feeding portfolio intelligence. Low or missing feeds should be pushed into onboarding.`,
       detailRows: topSourceRows.length > 0 ? topSourceRows : [{ label: 'Onboarding', value: '0', tone: 'text-amber-300' }],
       chips: ['Open data health', 'Reconnect failed feeds', 'Audit zero-count sources', 'Export source map'],
+      commandAnswer: `${totalDS} connected sources only matter if they improve trust. The useful question is where missing, stale, or low-volume feeds weaken AI recommendations and client evidence.`,
+      nextBestAction: 'Audit the weakest property feeds first, then reconnect sources that drive SLA, evidence, and resident communication.',
+      ifIgnored: 'AI confidence drops, evidence gaps appear, and teams argue over whose data is correct.',
+      sourceTrace: 'Based on connected feeds, source record volume, and property onboarding state',
+      focusRows: dataSourceFocusRows,
+      actions: [
+        { label: 'Open data health review', owner: 'Data Lead', impact: 'Shows which feeds are missing, stale, or producing weak signal quality.', channel: 'Data' },
+        { label: 'Reconnect priority feeds', owner: 'Integration Lead', impact: 'Restores the systems needed for SLA, evidence, and resident confidence.', channel: 'Integration' },
+        { label: 'Audit zero-count sources', owner: 'QA Lead', impact: 'Finds broken connectors before AI decisions rely on incomplete data.', channel: 'Audit' },
+        { label: 'Publish source confidence note', owner: 'DevelopmentX Copilot', impact: 'Makes AI recommendations explain which systems they are based on.', channel: 'AI Explain' },
+      ],
     },
   ];
 
@@ -660,15 +857,90 @@ function PortfolioSummaryStrip({ clients, onToast }: { clients: PortfolioClient[
 
 function ExecutiveImpactActionModal({ card, onClose, onToast }: { card: ExecutiveImpactCard; onClose: () => void; onToast: ToastFn }) {
   const [selectedActions, setSelectedActions] = useState<string[]>(card.actions.slice(0, 3).map(action => action.label));
+  const [customAction, setCustomAction] = useState('');
+  const [customActions, setCustomActions] = useState<string[]>([]);
+  const [isListening, setIsListening] = useState(false);
+  const speechRecognitionRef = useRef<SpeechRecognitionLike | null>(null);
+
+  useEffect(() => () => {
+    speechRecognitionRef.current?.stop();
+  }, []);
 
   const toggleAction = (action: string) => {
     setSelectedActions(prev => prev.includes(action) ? prev.filter(item => item !== action) : [...prev, action]);
   };
 
+  const normalizeCustomAction = (action: string) => action.trim().replace(/\s+/g, ' ');
+
+  const addCustomAction = () => {
+    const normalized = normalizeCustomAction(customAction);
+    if (!normalized) return;
+    if ([...selectedActions, ...customActions].includes(normalized)) {
+      setCustomAction('');
+      return;
+    }
+    setCustomActions(prev => [...prev, normalized]);
+    setCustomAction('');
+  };
+
+  const removeCustomAction = (action: string) => {
+    setCustomActions(prev => prev.filter(item => item !== action));
+  };
+
+  const startDictation = () => {
+    const speechWindow = window as typeof window & {
+      SpeechRecognition?: SpeechRecognitionConstructor;
+      webkitSpeechRecognition?: SpeechRecognitionConstructor;
+    };
+    const Recognition = speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition;
+    if (!Recognition) {
+      onToast('Voice dictation is not available here. Type the custom action instead.', 'warning');
+      return;
+    }
+
+    speechRecognitionRef.current?.stop();
+    const recognition = new Recognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US';
+    recognition.onstart = () => setIsListening(true);
+    recognition.onend = () => setIsListening(false);
+    recognition.onerror = () => {
+      setIsListening(false);
+      onToast('Dictation stopped. You can type the action instead.', 'warning');
+    };
+    recognition.onresult = event => {
+      const latestResult = event.results[event.results.length - 1];
+      const transcript = latestResult?.[0]?.transcript?.trim();
+      if (transcript) {
+        setCustomAction(prev => normalizeCustomAction(`${prev} ${transcript}`));
+      }
+    };
+    speechRecognitionRef.current = recognition;
+    recognition.start();
+  };
+
+  const stopDictation = () => {
+    speechRecognitionRef.current?.stop();
+    setIsListening(false);
+  };
+
   const queueActions = () => {
-    onToast(`${card.label}: ${selectedActions.length} action${selectedActions.length === 1 ? '' : 's'} queued`, 'success');
+    const typedAction = normalizeCustomAction(customAction);
+    const queuedActions = typedAction && ![...selectedActions, ...customActions].includes(typedAction)
+      ? [...selectedActions, ...customActions, typedAction]
+      : [...selectedActions, ...customActions];
+    onToast(`${card.label}: ${queuedActions.length} action${queuedActions.length === 1 ? '' : 's'} queued`, 'success');
     onClose();
   };
+
+  const pendingCustomAction = normalizeCustomAction(customAction);
+  const actionCount = new Set([
+    ...selectedActions,
+    ...customActions,
+    ...(pendingCustomAction ? [pendingCustomAction] : []),
+  ]).size;
+  const hasCustomSelection = customActions.length > 0 || Boolean(pendingCustomAction);
 
   return (
     <motion.div
@@ -751,8 +1023,72 @@ function ExecutiveImpactActionModal({ card, onClose, onToast }: { card: Executiv
           })}
         </div>
 
+        <div className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#07111F] p-3">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-wide text-[#8DBDFF]">Custom action</div>
+              <p className="mt-0.5 text-[10px] leading-relaxed text-[#7A94B4]">
+                Type or dictate a one-off action for this situation. It will be queued with the selected playbook actions.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={isListening ? stopDictation : startDictation}
+              className={`inline-flex shrink-0 items-center gap-1 rounded-lg border px-2.5 py-2 text-[10px] font-bold transition-colors ${
+                isListening
+                  ? 'border-red-400/45 bg-red-500/15 text-red-100'
+                  : 'border-cyan-400/25 bg-cyan-500/10 text-cyan-100 hover:bg-cyan-500/15'
+              }`}
+              aria-label={isListening ? 'Stop dictating custom action' : 'Dictate custom action'}
+            >
+              <Mic size={12} />
+              {isListening ? 'Listening' : 'Dictate'}
+            </button>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <textarea
+              value={customAction}
+              onChange={event => setCustomAction(event.target.value)}
+              rows={2}
+              className="min-h-[58px] flex-1 resize-none rounded-lg border border-[rgba(46,127,255,0.18)] bg-[#0B172A] px-3 py-2 text-[12px] leading-5 text-[#EEF3FA] outline-none transition-colors placeholder:text-[#57708E] focus:border-[#2E7FFF]/70"
+              placeholder={`Example: ${card.key === 'residentSentiment' ? 'Send SMS update to residents in Tower B before 5 PM' : 'Add a manager-approved action for this signal'}`}
+              aria-label="Type custom action"
+            />
+            <button
+              type="button"
+              onClick={addCustomAction}
+              disabled={!normalizeCustomAction(customAction)}
+              className="inline-flex items-center justify-center gap-1 rounded-lg border border-[#2E7FFF]/35 bg-[#2E7FFF]/12 px-3 py-2 text-[11px] font-bold text-[#BFD8FF] transition-colors hover:bg-[#2E7FFF]/18 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-[#657891]"
+            >
+              <Plus size={12} />
+              Add Custom
+            </button>
+          </div>
+          {customActions.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {customActions.map(action => (
+                <button
+                  key={action}
+                  type="button"
+                  onClick={() => removeCustomAction(action)}
+                  className="inline-flex items-center gap-1 rounded-full border border-cyan-400/25 bg-cyan-500/10 px-2.5 py-1 text-[10px] font-semibold text-cyan-100 transition-colors hover:border-red-400/35 hover:bg-red-500/10 hover:text-red-100"
+                  aria-label={`Remove custom action ${action}`}
+                >
+                  <Check size={10} />
+                  {action}
+                  <X size={10} />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
         <div className="flex items-center justify-between gap-3 border-t border-[rgba(46,127,255,0.12)] pt-3">
-          <div className="text-[10px] text-[#7A94B4]">{selectedActions.length} pre-configured actions selected</div>
+          <div className="text-[10px] text-[#7A94B4]">
+            {hasCustomSelection
+              ? `${actionCount} action${actionCount === 1 ? '' : 's'} selected, including custom action${customActions.length + (pendingCustomAction ? 1 : 0) === 1 ? '' : 's'}`
+              : `${actionCount} pre-configured action${actionCount === 1 ? '' : 's'} selected`}
+          </div>
           <div className="flex gap-2">
             <button onClick={onClose} className="rounded-lg border border-[rgba(46,127,255,0.18)] px-3 py-2 text-[11px] font-semibold text-[#9DB9E8] transition-colors hover:bg-white/5">Review Later</button>
             <button onClick={queueActions} className="rounded-lg bg-[#2E7FFF] px-3 py-2 text-[11px] font-bold text-white shadow-[0_0_14px_rgba(46,127,255,0.32)] transition-colors hover:bg-blue-500">Queue Actions</button>
