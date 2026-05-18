@@ -405,7 +405,7 @@ function WhatChangedToday({ context, goTo }: { context: ProjectControlContext; g
         affectedModule: 'Project Control Layer',
         impactLabel: 'Work packages, phases, cost baseline, stage gates, vendors, risks, obligations, evidence, and milestones are ready.',
         timestamp: new Date().toISOString(),
-        cta: 'Simulate Project Event',
+        cta: 'Review live event readiness',
         affectedAreas: [],
         description: '',
         severity: 'positive' as const,
@@ -797,12 +797,16 @@ function DemoControls({
   events,
   ledgerSource,
   ledgerStatus,
+  expanded,
+  onToggleExpanded,
   onReset,
   onSimulate,
 }: {
   events: ProjectControlContext['events'];
   ledgerSource: string;
   ledgerStatus: string;
+  expanded: boolean;
+  onToggleExpanded: () => void;
   onReset: () => void;
   onSimulate: (type?: ProjectEventType) => void;
 }) {
@@ -811,20 +815,47 @@ function DemoControls({
   const simulatedCount = events.filter(event => event.type !== 'baseline-created').length;
   const next = projectEventOptions[simulatedCount % projectEventOptions.length];
   return (
-    <section className="rounded-xl border border-[#7C3AED]/28 bg-[linear-gradient(135deg,rgba(124,58,237,0.16),rgba(7,17,31,0.88))] p-4">
+    <section className={`rounded-xl border transition-all ${
+      expanded
+        ? 'border-[#7C3AED]/28 bg-[linear-gradient(135deg,rgba(124,58,237,0.16),rgba(7,17,31,0.88))] p-4'
+        : 'border-[rgba(46,127,255,0.12)] bg-[#07111F]/36 p-3'
+    }`}>
+      {!expanded ? (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#8DBDFF]">
+              <Zap size={13} />
+              Live Twin Ready
+            </div>
+            <p className="mt-1 text-[11px] text-[#7A94B4]">
+              Client-facing view is clean. Presenter controls are hidden.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onToggleExpanded}
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#7C3AED]/24 bg-[#7C3AED]/10 px-3 text-[10px] font-black text-[#DDD6FE] transition-colors hover:border-[#7C3AED]/42 hover:bg-[#7C3AED]/16"
+          >
+            <Play size={12} />
+            Presenter Controls
+          </button>
+        </div>
+      ) : (
+        <>
       <div className="mb-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#C4B5FD]"><Zap size={13} /> Demo Controls</div>
+          <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#C4B5FD]"><Zap size={13} /> Presenter Controls</div>
           <p className="mt-1 text-[11px] text-[#8EA7C7]">
-            Presentation controls drive the story. {events.length} event(s) active{latest ? ` - latest: ${latest.title}` : ''}.
+            Use this panel to drive the live story. Collapse it before client discussion. {events.length} event(s) active{latest ? ` - latest: ${latest.title}` : ''}.
           </p>
           <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#A78BFA]">
             Event ledger: {ledgerStatus} / {ledgerSource}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <button onClick={onToggleExpanded} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[rgba(46,127,255,0.18)] bg-[#07111F] px-3 text-[10px] font-black text-[#DCE8F8] hover:bg-white/5">Hide Controls</button>
           <button onClick={onReset} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[rgba(46,127,255,0.18)] bg-[#07111F] px-3 text-[10px] font-black text-[#DCE8F8] hover:bg-white/5"><RefreshCw size={12} /> Reset Baseline</button>
-          <button onClick={() => onSimulate()} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#7C3AED] px-3 text-[10px] font-black text-white shadow-[0_0_22px_rgba(124,58,237,0.26)] hover:bg-[#6D28D9]"><Play size={12} /> Simulate Project Event</button>
+          <button onClick={() => onSimulate()} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#7C3AED] px-3 text-[10px] font-black text-white shadow-[0_0_22px_rgba(124,58,237,0.26)] hover:bg-[#6D28D9]"><Play size={12} /> Inject Live Event <span className="text-white/70">({next.label.replace('Trigger ', '')})</span></button>
         </div>
       </div>
       <div className="mb-3 grid gap-2 md:grid-cols-3">
@@ -852,10 +883,12 @@ function DemoControls({
                 : 'border-[#7C3AED]/24 bg-[#07111F]/82 text-[#DDD6FE] hover:border-[#7C3AED]/45 hover:bg-[#7C3AED]/14'
             }`}
           >
-            {option.label}
+            {option.label.replace('Trigger ', '')}
           </button>
         ))}
       </div>
+        </>
+      )}
     </section>
   );
 }
@@ -869,6 +902,7 @@ export function CommandCenter({ goTo, onToast }: { goTo: (screen: ProjectCommand
   const context = useMemo(() => buildProjectControlContext(dataset, events), [dataset, events]);
   const [selectedInsight, setSelectedInsight] = useState<{ metricName: MetricName; value: string | number } | null>(null);
   const [executiveMode, setExecutiveMode] = useState(false);
+  const [showPresenterControls, setShowPresenterControls] = useState(false);
   const visibleControlMetrics = executiveMode
     ? context.controlMetrics.filter(metric => ['CPI', 'SPI', 'Float Remaining', 'EAC'].includes(metric.label))
     : context.controlMetrics;
@@ -893,7 +927,15 @@ export function CommandCenter({ goTo, onToast }: { goTo: (screen: ProjectCommand
     <div className="custom-scrollbar h-full overflow-x-hidden overflow-y-auto px-5 py-4 text-[#EEF3FA]">
       <div className="space-y-4">
         <ProjectHeader context={context} executiveMode={executiveMode} onToggleExecutive={() => setExecutiveMode(value => !value)} />
-        <DemoControls events={events} ledgerSource={ledgerSource} ledgerStatus={ledgerStatus} onReset={handleReset} onSimulate={handleSimulate} />
+        <DemoControls
+          events={events}
+          ledgerSource={ledgerSource}
+          ledgerStatus={ledgerStatus}
+          expanded={showPresenterControls}
+          onToggleExpanded={() => setShowPresenterControls(value => !value)}
+          onReset={handleReset}
+          onSimulate={handleSimulate}
+        />
         <ProjectTwinLayer context={context} executiveMode={executiveMode} />
         <ProjectPulse context={context} onExplain={() => setSelectedInsight({ metricName: 'Float Remaining', value: `${context.metrics.floatRemaining}d` })} />
 
