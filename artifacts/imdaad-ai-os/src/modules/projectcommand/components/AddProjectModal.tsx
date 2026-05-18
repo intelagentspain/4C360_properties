@@ -79,6 +79,13 @@ const baselineSteps = [
   'Creating manager actions',
 ];
 
+const sampleDocumentHighlights = [
+  { label: 'LOA signal', value: 'Sobha Pilot Tower / Main Construction' },
+  { label: 'Commercial', value: 'AED 420M / 8% contingency' },
+  { label: 'Delivery', value: '102 floors / 680 units / Dubai' },
+  { label: 'Control hooks', value: 'Gates, vendors, risks, evidence' },
+];
+
 const confidenceBreakdown = [
   { label: 'Property', value: 96 },
   { label: 'Scope', value: 94 },
@@ -113,7 +120,7 @@ function sourceTypeLabel(sourceType: ExtractedProjectContext['sourceType']) {
     case 'pasted-brief':
       return 'Pasted brief parsed';
     case 'sample-document':
-      return 'Sample project document';
+      return 'Sobha sample document';
     case 'manual':
       return 'Manual context';
     default:
@@ -185,8 +192,8 @@ function SampleDocumentButton({ onClick }: { onClick: () => void }) {
         <FileText className="h-4 w-4" />
       </span>
       <span>
-        <span className="block">Load sample project</span>
-        <span className="block text-[10px] font-bold uppercase tracking-[0.14em] text-blue-200/80">Fallback data</span>
+        <span className="block">Use sample Sobha document</span>
+        <span className="block text-[10px] font-bold uppercase tracking-[0.14em] text-blue-200/80">1-click live demo</span>
       </span>
     </button>
   );
@@ -425,7 +432,7 @@ function ProjectContextImportStep({
               className="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-300/45 bg-blue-500/15 px-4 py-3 text-[12px] font-black text-blue-100 transition hover:border-blue-200/80 hover:bg-blue-500/25"
             >
               <FileText className="h-4 w-4" />
-              Load sample project
+              Use sample Sobha document
             </button>
             <button type="button" onClick={onManual} className="text-[12px] font-bold text-[#8FB4E4] underline-offset-4 hover:text-white hover:underline">
               Continue manually
@@ -438,14 +445,24 @@ function ProjectContextImportStep({
         </div>
       }
     >
-      <section className="mb-5 overflow-hidden rounded-lg border border-blue-300/25 bg-[linear-gradient(135deg,rgba(7,25,45,0.98),rgba(6,20,38,0.96))] p-5">
-        <div className="flex items-start gap-4">
-          <IconBox icon={ScanLine} tone="blue" />
-          <div>
-            <h3 className="text-[22px] font-black text-white">Upload project documents</h3>
-            <p className="mt-2 max-w-3xl text-[13px] leading-relaxed text-[#A9C5E8]">
-              Add LOA, BOQ, programme, contract award, or project brief. ProjectCommand will extract the baseline and ask you to confirm before creating controls.
-            </p>
+      <section className="mb-5 overflow-hidden rounded-lg border border-blue-300/25 bg-[radial-gradient(circle_at_18%_0%,rgba(46,127,255,0.22),transparent_34%),linear-gradient(135deg,rgba(7,25,45,0.98),rgba(6,20,38,0.96))] p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-start gap-4">
+            <IconBox icon={ScanLine} tone="blue" />
+            <div>
+              <h3 className="text-[22px] font-black text-white">Start from the construction document</h3>
+              <p className="mt-2 max-w-3xl text-[13px] leading-relaxed text-[#A9C5E8]">
+                The demo now begins the way a real controls kickoff would: ingest LOA, contract award, BOQ, programme note, or project brief, then extract the baseline from the evidence.
+              </p>
+            </div>
+          </div>
+          <div className="grid min-w-[280px] grid-cols-2 gap-2">
+            {sampleDocumentHighlights.map(item => (
+              <div key={item.label} className="rounded-lg border border-[#24486F] bg-[#061529]/78 px-3 py-2">
+                <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#6F89AA]">{item.label}</p>
+                <p className="mt-1 text-[11px] font-black leading-snug text-white">{item.value}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -469,7 +486,7 @@ function ProjectContextImportStep({
               <FileUp className="h-7 w-7" />
             </span>
             <span className="mt-3 text-[14px] font-black text-white">{material.fileName || 'Drop in a project document'}</span>
-            <span className="mt-1 text-[12px] text-[#8FB4E4]">PDF, DOC, DOCX, XLS, XLSX accepted</span>
+            <span className="mt-1 text-[12px] text-[#8FB4E4]">PDF, DOC, DOCX, XLS, XLSX accepted for the demo intake</span>
             {parserStatusLabel && (
               <span className={`mt-3 rounded-full border px-3 py-1 text-[11px] font-black ${
                 material.fileParseStatus === 'ready'
@@ -522,17 +539,17 @@ function ProjectContextImportStep({
           <div className="flex items-start gap-4">
             <IconBox icon={FileText} tone="green" />
             <div>
-              <h3 className="text-[18px] font-black text-white">Paste a project brief</h3>
+              <h3 className="text-[18px] font-black text-white">Paste a brief or launch the Sobha sample</h3>
               <p className="mt-2 text-[13px] leading-relaxed text-[#9DBBE0]">
-                Use this when the live case is easier to share as text, or when you want to add context alongside uploaded files.
+                The sample button preloads the Sobha Pilot Tower LOA/project summary and starts extraction immediately.
               </p>
             </div>
           </div>
-          <div className="mt-5 rounded-lg border border-[#24486F] bg-[#061529] p-4">
+          <div className="mt-5 rounded-lg border border-emerald-300/22 bg-emerald-500/8 p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#6F89AA]">Optional sample</p>
-                <p className="mt-1 text-[13px] font-black text-white">Load a sample project only if you need a fallback.</p>
+                <p className="text-[11px] font-black uppercase tracking-[0.14em] text-emerald-200">Live demo document</p>
+                <p className="mt-1 text-[13px] font-black text-white">Sample Sobha Pilot Tower LOA / Project Summary.pdf</p>
               </div>
               <SampleDocumentButton onClick={onUseSample} />
             </div>
@@ -592,7 +609,7 @@ function AIProjectUnderstandingStep({
             </span>
             <div>
               <h3 className="text-[22px] font-black text-white">AI is understanding the project material</h3>
-              <p className="mt-1 text-[13px] text-[#9DBBE0]">ProjectCommand is extracting control signals from the imported context.</p>
+              <p className="mt-1 text-[13px] text-[#9DBBE0]">The demo engine is extracting control signals from the imported context.</p>
             </div>
           </div>
           <div className="mb-6 grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
