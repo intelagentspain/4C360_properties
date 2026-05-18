@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   TrendingUp, TrendingDown, Minus, ArrowLeft, ShieldCheck,
@@ -1774,6 +1774,7 @@ function PageProcurementCopilotModal({
   const [rfqState, setRfqState] = useState<RfqWizardState>(() => buildInitialRfqState(focusVendor, selectedProjectData));
   const [rfqPackage, setRfqPackage] = useState<RfqGeneratedPackage | null>(null);
   const [rfqFeedback, setRfqFeedback] = useState('');
+  const rfqReviewRef = useRef<HTMLDivElement | null>(null);
   const allProjectOptions = useProjectCommandProjectOptions();
   const projectOptions = useProjectCommandProjectOptions(rfqState.anchor.propertyId);
   const defaultQuotePackage = procurementPackageTemplates[0];
@@ -2051,8 +2052,18 @@ function PageProcurementCopilotModal({
     const workbenchResult = buildRfqCopilotResult(generated);
     onRfqGenerated?.(workbenchResult);
     onRun('rfq');
-    setAssistantNote('RFQ review package generated. Review the sections, then copy, save, or prepare the vendor invite.');
-    setRfqFeedback('RFQ review package generated.');
+    setAssistantNote('Generated package ready. Review the RFQ package, then copy it, save it, or prepare the vendor invite.');
+    setRfqFeedback('Generated package ready. Review the RFQ package, then copy it, save it, or prepare the vendor invite.');
+    window.setTimeout(() => {
+      rfqReviewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 0);
+  }
+
+  function viewRfqPackage() {
+    setRfqState(prev => ({ ...prev, step: 'review' }));
+    window.setTimeout(() => {
+      rfqReviewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 0);
   }
 
   function runRfqAction(action: string) {
@@ -2894,24 +2905,46 @@ function PageProcurementCopilotModal({
                 )}
 
                 {rfqState.step === 'review' && (
-                  <div className="space-y-4">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#8DBDFF]">Review package</div>
-                        <h4 className="mt-1 text-lg font-black text-[#EEF3FA]">{rfqPackage?.title ?? 'Generate the RFQ review package'}</h4>
-                        <p className="mt-1 text-[12px] leading-5 text-[#9CB1CC]">{rfqPackage?.summary ?? 'Complete the required context, then generate the package for review before sending.'}</p>
-                      </div>
-                      <button type="button" onClick={generateRfqPackage} disabled={!canGenerateRfq} className="inline-flex items-center gap-2 rounded-xl bg-[#2E7FFF] px-4 py-2 text-[11px] font-black text-white shadow-lg shadow-[#2E7FFF]/20 transition-all hover:bg-[#4B91FF] disabled:cursor-not-allowed disabled:bg-[#1A3356] disabled:text-[#7891B0] disabled:shadow-none">
-                        <Sparkles size={13} />
-                        Generate RFQ
-                      </button>
-                    </div>
+                  <div ref={rfqReviewRef} className="space-y-4">
                     {!rfqPackage ? (
-                      <div className="rounded-2xl border border-dashed border-[#2E7FFF]/28 bg-[#0D1E3A] p-5 text-[12px] leading-6 text-[#9CB1CC]">
-                        Provide a project anchor and one source of scope: tell AI, select a template, or upload/paste scope documents.
-                      </div>
+                      <>
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#8DBDFF]">Review package</div>
+                            <h4 className="mt-1 text-lg font-black text-[#EEF3FA]">Generate the RFQ review package</h4>
+                            <p className="mt-1 text-[12px] leading-5 text-[#9CB1CC]">Complete the required context, then generate the package for review before sending.</p>
+                          </div>
+                          <button type="button" onClick={generateRfqPackage} disabled={!canGenerateRfq} className="inline-flex items-center gap-2 rounded-xl bg-[#2E7FFF] px-4 py-2 text-[11px] font-black text-white shadow-lg shadow-[#2E7FFF]/20 transition-all hover:bg-[#4B91FF] disabled:cursor-not-allowed disabled:bg-[#1A3356] disabled:text-[#7891B0] disabled:shadow-none">
+                            <Sparkles size={13} />
+                            Generate RFQ
+                          </button>
+                        </div>
+                        <div className="rounded-2xl border border-dashed border-[#2E7FFF]/28 bg-[#0D1E3A] p-5 text-[12px] leading-6 text-[#9CB1CC]">
+                          Provide a project anchor and one source of scope: tell AI, select a template, or upload/paste scope documents.
+                        </div>
+                      </>
                     ) : (
                       <div className="space-y-3">
+                        <div className="rounded-2xl border border-emerald-300/24 bg-emerald-400/10 p-4 shadow-[0_0_28px_rgba(16,185,129,0.10)]">
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                              <div className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-200">Generated package ready</div>
+                              <h4 className="mt-1 text-xl font-black leading-7 text-[#EEF3FA]">{rfqPackage.title}</h4>
+                              <p className="mt-2 text-[12px] leading-5 text-[#C8D8EE]">{rfqPackage.summary}</p>
+                            </div>
+                            <button type="button" onClick={generateRfqPackage} disabled={!canGenerateRfq} className="inline-flex items-center gap-2 rounded-xl border border-[#2E7FFF]/24 bg-[#07111F] px-3 py-2 text-[11px] font-bold text-[#BFD8FF] transition-colors hover:bg-[#2E7FFF]/12 hover:text-white disabled:cursor-not-allowed disabled:text-[#5A7393]">
+                              <Sparkles size={13} />
+                              Regenerate
+                            </button>
+                          </div>
+                          <div className="mt-4 flex flex-wrap gap-2">
+                            {rfqPackage.actions.map(action => (
+                              <button key={action} type="button" onClick={() => runRfqAction(action)} className="rounded-xl border border-emerald-300/24 bg-[#07111F] px-3 py-2 text-[11px] font-bold text-emerald-100 transition-all hover:border-emerald-200/50 hover:bg-emerald-400/12">
+                                {action}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                         {[
                           ['Project / Property Context', rfqPackage.contextLines],
                           ['Scope of Services', rfqPackage.scopeLines],
@@ -2936,13 +2969,6 @@ function PageProcurementCopilotModal({
                             ))}
                           </div>
                         </div>
-                        <div className="flex flex-wrap gap-2">
-                          {rfqPackage.actions.map(action => (
-                            <button key={action} type="button" onClick={() => runRfqAction(action)} className="rounded-xl border border-[#2E7FFF]/28 bg-[#2E7FFF]/12 px-3 py-2 text-[11px] font-bold text-[#BFD8FF] transition-all hover:bg-[#2E7FFF]/18">
-                              {action}
-                            </button>
-                          ))}
-                        </div>
                       </div>
                     )}
                   </div>
@@ -2950,6 +2976,21 @@ function PageProcurementCopilotModal({
               </section>
 
               <aside className="space-y-3">
+                {rfqPackage && (
+                  <div className="rounded-2xl border border-emerald-300/24 bg-emerald-400/10 p-4 shadow-[0_0_26px_rgba(16,185,129,0.10)]">
+                    <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-emerald-200">
+                      <CheckCircle size={13} />
+                      Generated package ready
+                    </div>
+                    <p className="mt-2 text-[11px] leading-5 text-[#C8D8EE]">
+                      Review the RFQ package, then copy it, save it, or prepare the vendor invite.
+                    </p>
+                    <button type="button" onClick={viewRfqPackage} className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#2E7FFF] px-3 py-2 text-[11px] font-black text-white shadow-lg shadow-[#2E7FFF]/20 transition-all hover:bg-[#4B91FF]">
+                      View RFQ Package
+                      <ChevronRight size={13} />
+                    </button>
+                  </div>
+                )}
                 <div className="rounded-2xl border border-[rgba(46,127,255,0.18)] bg-[#0D1E3A] p-4">
                   <div className="mb-3 text-[10px] font-black uppercase tracking-[0.16em] text-[#8DBDFF]">Selected context</div>
                   {[
@@ -2966,22 +3007,24 @@ function PageProcurementCopilotModal({
                     </div>
                   ))}
                 </div>
-                <div className="rounded-2xl border border-emerald-400/18 bg-emerald-400/8 p-4">
-                  <div className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-200">Ready checks</div>
-                  <div className="mt-3 space-y-2">
-                    {[
-                      ['Project selected', Boolean(rfqState.anchor.projectName)],
-                      ['Sites confirmed', Boolean(rfqState.anchor.sitesAreas)],
-                      ['Creation mode selected', Boolean(rfqState.mode)],
-                      ['Scope source provided', canGenerateRfq],
-                    ].map(([label, done]) => (
-                      <div key={label as string} className="flex items-center gap-2 text-[11px] text-[#C8D8EE]">
-                        <CheckCircle size={12} className={done ? 'text-emerald-300' : 'text-[#415A76]'} />
-                        {label as string}
-                      </div>
-                    ))}
+                {!rfqPackage && (
+                  <div className="rounded-2xl border border-emerald-400/18 bg-emerald-400/8 p-4">
+                    <div className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-200">Ready checks</div>
+                    <div className="mt-3 space-y-2">
+                      {[
+                        ['Project selected', Boolean(rfqState.anchor.projectName)],
+                        ['Sites confirmed', Boolean(rfqState.anchor.sitesAreas)],
+                        ['Creation mode selected', Boolean(rfqState.mode)],
+                        ['Scope source provided', canGenerateRfq],
+                      ].map(([label, done]) => (
+                        <div key={label as string} className="flex items-center gap-2 text-[11px] text-[#C8D8EE]">
+                          <CheckCircle size={12} className={done ? 'text-emerald-300' : 'text-[#415A76]'} />
+                          {label as string}
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
                 {selectedRfqTemplate && (
                   <div className="rounded-2xl border border-violet-300/18 bg-violet-400/10 p-4">
                     <div className="text-[10px] font-black uppercase tracking-[0.16em] text-violet-100">Template selected</div>
@@ -2997,7 +3040,7 @@ function PageProcurementCopilotModal({
 
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[rgba(46,127,255,0.14)] pt-4">
               <div className="text-[11px] text-[#7A94B4]">
-                {canGenerateRfq ? 'Ready to generate once you reach Review.' : 'Complete the project anchor and provide scope through one creation mode.'}
+                {rfqPackage ? 'RFQ package generated and ready to review.' : canGenerateRfq ? 'Ready to generate once you reach Review.' : 'Complete the project anchor and provide scope through one creation mode.'}
               </div>
               <div className="flex gap-2">
                 <button type="button" onClick={rfqCurrentStepIndex === 0 ? onClose : () => patchRfq({ step: rfqStepOrder[Math.max(0, rfqCurrentStepIndex - 1)] })} className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#07111F] px-4 py-2 text-[12px] font-semibold text-[#8AA6C8] transition-all hover:bg-white/5 hover:text-white">
@@ -3005,7 +3048,7 @@ function PageProcurementCopilotModal({
                 </button>
                 {rfqState.step === 'review' ? (
                   <button type="button" onClick={generateRfqPackage} disabled={!canGenerateRfq} className="rounded-xl bg-[#2E7FFF] px-5 py-2 text-[12px] font-bold text-white shadow-lg shadow-[#2E7FFF]/20 transition-all hover:bg-[#4B91FF] disabled:cursor-not-allowed disabled:bg-[#1A3356] disabled:text-[#7891B0] disabled:shadow-none">
-                    Generate RFQ
+                    {rfqPackage ? 'Regenerate RFQ' : 'Generate RFQ'}
                   </button>
                 ) : (
                   <button type="button" onClick={() => patchRfq({ step: rfqStepOrder[Math.min(rfqStepOrder.length - 1, rfqCurrentStepIndex + 1)] })} className="rounded-xl bg-[#2E7FFF] px-5 py-2 text-[12px] font-bold text-white shadow-lg shadow-[#2E7FFF]/20 transition-all hover:bg-[#4B91FF]">
