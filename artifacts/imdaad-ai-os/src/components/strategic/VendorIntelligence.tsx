@@ -969,10 +969,12 @@ function VendorCopilotWorkbench({
   result,
   log,
   onRun,
+  onOpenQuoteIntake,
 }: {
   result: VendorCopilotResult;
   log: string[];
   onRun: (action: VendorCopilotAction) => void;
+  onOpenQuoteIntake?: () => void;
 }) {
   const actions: { id: VendorCopilotAction; label: string; detail: string; tone: string; icon: React.ReactNode }[] = [
     { id: 'rfq', label: 'Write RFQ', detail: 'Scope, questions, scoring, and evidence rules', tone: 'border-blue-400/30 bg-blue-400/10 text-blue-200', icon: <FileWarning size={13} /> },
@@ -999,7 +1001,10 @@ function VendorCopilotWorkbench({
             <button
               key={action.id}
               type="button"
-              onClick={() => onRun(action.id)}
+              onClick={() => {
+                onRun(action.id);
+                if (action.id === 'compare') onOpenQuoteIntake?.();
+              }}
               className={`group rounded-xl border p-3 text-left transition-all hover:-translate-y-0.5 hover:border-white/30 ${action.tone}`}
             >
               <div className="flex items-center gap-2">
@@ -1056,6 +1061,17 @@ function VendorCopilotWorkbench({
             Refresh artifact
           </button>
         </div>
+
+        {result.action === 'compare' && onOpenQuoteIntake && (
+          <button
+            type="button"
+            onClick={onOpenQuoteIntake}
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-400/30 bg-emerald-400/12 px-4 py-3 text-[12px] font-black text-emerald-100 transition-all hover:border-emerald-300/50 hover:bg-emerald-400/18"
+          >
+            <UploadCloud size={14} />
+            Upload or paste quote files
+          </button>
+        )}
 
         <div className="mt-3 rounded-xl border border-[rgba(46,127,255,0.12)] bg-[#07111F] p-3">
           <div className="mb-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#7A94B4]">Copilot activity</div>
@@ -2615,6 +2631,7 @@ export function VendorIntelligence({ onToast }: Props) {
               result={pageCopilotResult}
               log={pageCopilotLog}
               onRun={runPageCopilotAction}
+              onOpenQuoteIntake={() => setShowPageCopilotModal(true)}
             />
           </div>
         </div>
