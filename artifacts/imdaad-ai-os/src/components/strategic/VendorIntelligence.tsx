@@ -27,6 +27,7 @@ type FilterTab = 'copilot' | 'all' | 'top' | 'atrisk' | 'cost';
 
 type VendorWizardStep = 1 | 2 | 3 | 4;
 type VendorSetupMode = 'manual' | 'ai';
+type VendorCreateSource = 'manual' | 'ai';
 
 type VendorWizardForm = {
   name: string;
@@ -597,6 +598,33 @@ const initialVendorWizardForm: VendorWizardForm = {
   contractFlags: 'Onboarding evidence pack due within 14 days',
 };
 
+const aiVendorWizardForm: VendorWizardForm = {
+  name: '',
+  category: 'General FM',
+  sites: '',
+  address: '',
+  city: 'Dubai',
+  country: 'UAE',
+  pocName: '',
+  pocTitle: '',
+  pocPhone: '',
+  pocEmail: '',
+  activeContracts: '1',
+  contractExpiry: '',
+  slaCompliance: '',
+  firstTimeFixRate: '',
+  avgResolutionMin: '',
+  evidenceCompliance: '',
+  repeatFailureRate: '',
+  jobsLast30d: '',
+  avgCostPerJob: '',
+  trend: 'flat',
+  dependencyRisk: 'Medium',
+  dependencyNote: '',
+  predictedRisk30d: '',
+  contractFlags: '',
+};
+
 function formatDocumentSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
@@ -629,7 +657,7 @@ function extractNumberValue(text: string, labels: string[]): string | null {
 
 function extractMoneyValue(text: string, labels: string[]): number | null {
   const raw = extractLabeledValue(text, labels) ?? text.match(/(?:AED|د\.إ)\s*([0-9][0-9,]*)/i)?.[1] ?? null;
-  const match = raw?.match(/(\d{2,9}(?:,\d{3})?)/);
+  const match = raw?.match(/(\d{1,3}(?:,\d{3})+|\d{2,12})/);
   const value = Number(match?.[1]?.replace(/,/g, ''));
   return Number.isFinite(value) && value > 0 ? value : null;
 }
@@ -654,6 +682,23 @@ function parseComparableDate(value: string | null) {
 function formatProcurementMoney(value: number) {
   if (Math.abs(value) >= 1_000_000) return `AED ${(value / 1_000_000).toFixed(value % 1_000_000 === 0 ? 0 : 1)}M`;
   return `AED ${value.toLocaleString()}`;
+}
+
+function cleanQuoteVendorName(value: string | null, fallback: string) {
+  const raw = (value || fallback).replace(/\s+/g, ' ').trim();
+  const cleaned = raw
+    .replace(/^(supplier|vendor|company|contractor)\s*name\s*[:\-]?\s*/i, '')
+    .split(/\b(?:quote status|quote total|commercial offer|sla commitment|service level|delivery date|mobilization date|mobilisation date|warranty|exclusions|scope of|commercial conditions|recommendation context|clarification)\b/i)[0]
+    .replace(/[.;,:-]+$/g, '')
+    .trim();
+  const words = cleaned.split(/\s+/).filter(Boolean);
+  if (!cleaned) return fallback;
+  return words.length > 6 ? words.slice(0, 6).join(' ') : cleaned;
+}
+
+function compactQuoteText(value: string, maxLength = 96) {
+  const normalized = value.replace(/\s+/g, ' ').trim();
+  return normalized.length > maxLength ? `${normalized.slice(0, maxLength - 1).trim()}...` : normalized;
 }
 
 function inferVendorCategory(text: string): string | null {
@@ -751,9 +796,10 @@ function buildQuoteAnalysis(documents: VendorSetupDocument[], notes: string, ass
   const items = sources.map((source, index) => {
     const hasExtractableText = source.content.trim().length > 20;
     const text = `${source.name}\n${source.content}`;
-    const vendorName = extractLabeledValue(text, ['vendor name', 'supplier name', 'company name', 'contractor', 'vendor'])
-      || cleanDocumentName(source.name)
-      || `${assignment.packageName} bidder ${index + 1}`;
+    const vendorName = cleanQuoteVendorName(
+      extractLabeledValue(text, ['vendor name', 'supplier name', 'company name', 'contractor', 'vendor']),
+      cleanDocumentName(source.name) || `${assignment.packageName} bidder ${index + 1}`,
+    );
     const amount = hasExtractableText
       ? (extractMoneyValue(text, ['total', 'quote total', 'quoted price', 'price', 'amount', 'commercial offer', 'annual value', 'contract value', 'package value']) ?? null)
       : null;
@@ -2506,82 +2552,123 @@ function PageProcurementCopilotModal({
                   </section>
                 ) : (
                   <>
-                    <section className="rounded-2xl border border-emerald-400/25 bg-emerald-500/10 p-4">
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                          <div className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-200">Recommended bidder</div>
-                          <div className="mt-1 text-[18px] font-black text-[#EEF3FA]">{quoteAnalysis.winner.vendorName}</div>
-                          <p className="mt-1 text-[12px] leading-5 text-[#C8D8EE]">{quoteAnalysis.summary}</p>
-                        </div>
-                        <div className="flex gap-2">
-                          <span className={`rounded-full border px-2 py-1 text-[9px] font-black ${quoteRiskTone(quoteAnalysis.winner.risk)}`}>
-                            {quoteAnalysis.winner.risk} risk
-                          </span>
-                          <span className="rounded-full border border-[#2E7FFF]/25 bg-[#2E7FFF]/10 px-2 py-1 text-[9px] font-black text-[#8DBDFF]">
-                            {quoteAnalysis.winner.score}/100
-                          </span>
+                    <section className="overflow-hidden rounded-2xl border border-emerald-400/24 bg-[linear-gradient(135deg,rgba(6,78,59,0.32),rgba(7,17,31,0.96))]">
+                      <div className="border-b border-emerald-400/16 px-4 py-3">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <div className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-200">Award recommendation</div>
+                              <span className={`rounded-full border px-2 py-1 text-[9px] font-black ${quoteRiskTone(quoteAnalysis.winner.risk)}`}>
+                                {quoteAnalysis.winner.risk} risk
+                              </span>
+                              <span className="rounded-full border border-[#2E7FFF]/25 bg-[#2E7FFF]/10 px-2 py-1 text-[9px] font-black text-[#8DBDFF]">
+                                {quoteAnalysis.winner.score}/100
+                              </span>
+                            </div>
+                            <h4 className="mt-2 text-[22px] font-black leading-tight text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+                              {quoteAnalysis.winner.vendorName}
+                            </h4>
+                            <p className="mt-2 max-w-3xl text-[12px] leading-5 text-[#C8D8EE]">{quoteAnalysis.summary}</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => prepareQuoteAction('Prepare Award Brief')}
+                            className="rounded-xl bg-emerald-400 px-3 py-2 text-[10px] font-black text-[#032014] shadow-[0_0_18px_rgba(52,211,153,0.22)] transition-all hover:-translate-y-0.5 hover:bg-emerald-300"
+                          >
+                            Prepare award brief
+                          </button>
                         </div>
                       </div>
-                      <div className="mt-3 grid gap-2 sm:grid-cols-3">
-                        <div className="rounded-xl border border-emerald-400/18 bg-[#07111F] p-3">
-                          <div className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">Commercial spread</div>
-                          <div className="mt-1 text-[13px] font-black text-[#EEF3FA]">
-                            {quoteAnalysis.commercialSpread === null ? 'Incomplete' : formatProcurementMoney(quoteAnalysis.commercialSpread)}
-                          </div>
+
+                      <div className="grid gap-3 p-4 xl:grid-cols-[1fr_0.72fr]">
+                        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                          {[
+                            ['Commercial offer', quoteAnalysis.winner.amount === null ? 'Needs price' : formatProcurementMoney(quoteAnalysis.winner.amount), 'text-[#EEF3FA]'],
+                            ['Budget variance', quoteAnalysis.winner.commercialDelta === null ? 'Not available' : `${quoteAnalysis.winner.commercialDelta >= 0 ? '+' : '-'}${formatProcurementMoney(Math.abs(quoteAnalysis.winner.commercialDelta))}`, quoteAnalysis.winner.commercialDelta !== null && quoteAnalysis.winner.commercialDelta > 0 ? 'text-amber-200' : 'text-emerald-200'],
+                            ['SLA commitment', quoteAnalysis.winner.sla === null ? 'Needs SLA' : `${quoteAnalysis.winner.sla}%`, 'text-[#EEF3FA]'],
+                            ['Delivery', quoteAnalysis.winner.deliveryDate ?? 'Needs date', 'text-[#EEF3FA]'],
+                            ['Warranty', compactQuoteText(quoteAnalysis.winner.warranty, 42), 'text-[#EEF3FA]'],
+                            ['Clarifications', `${quoteAnalysis.clarificationQuestions.length}`, quoteAnalysis.clarificationQuestions.length ? 'text-amber-200' : 'text-emerald-200'],
+                          ].map(([label, value, tone]) => (
+                            <div key={label} className="rounded-xl border border-emerald-400/16 bg-[#07111F]/84 p-3">
+                              <div className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">{label}</div>
+                              <div className={`mt-1 text-[13px] font-black leading-5 ${tone}`}>{value}</div>
+                            </div>
+                          ))}
                         </div>
-                        <div className="rounded-xl border border-emerald-400/18 bg-[#07111F] p-3">
-                          <div className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">Vs package budget</div>
-                          <div className="mt-1 text-[13px] font-black text-emerald-200">
-                            {quoteAnalysis.winner.commercialDelta === null
-                              ? 'Needs price'
-                              : `${quoteAnalysis.winner.commercialDelta >= 0 ? '+' : '-'}${formatProcurementMoney(Math.abs(quoteAnalysis.winner.commercialDelta))}`}
+
+                        <div className="rounded-xl border border-emerald-400/16 bg-[#07111F]/84 p-3">
+                          <div className="text-[9px] font-black uppercase tracking-[0.14em] text-emerald-200">Decision rationale</div>
+                          <div className="mt-2 space-y-2">
+                            {quoteAnalysis.findings.slice(0, 3).map(finding => (
+                              <div key={finding} className="flex gap-2 text-[10px] leading-4 text-[#C8D8EE]">
+                                <CheckCircle size={11} className="mt-0.5 shrink-0 text-emerald-300" />
+                                <span>{finding}</span>
+                              </div>
+                            ))}
                           </div>
-                        </div>
-                        <div className="rounded-xl border border-emerald-400/18 bg-[#07111F] p-3">
-                          <div className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">Clarifications</div>
-                          <div className="mt-1 text-[13px] font-black text-amber-200">{quoteAnalysis.clarificationQuestions.length}</div>
                         </div>
                       </div>
                     </section>
 
                     <section className="rounded-2xl border border-[rgba(46,127,255,0.18)] bg-[#07111F] p-4">
-                      <div className="mb-3 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-[#8DBDFF]">
-                        <ListChecks size={13} />
-                        AI Comparison
+                      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                        <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-[#8DBDFF]">
+                          <ListChecks size={13} />
+                          Supplier ranking
+                        </div>
+                        <div className="rounded-full border border-[#2E7FFF]/18 bg-[#0A1628] px-2.5 py-1 text-[9px] font-black text-[#8DBDFF]">
+                          {quoteAnalysis.items.length} quote{quoteAnalysis.items.length === 1 ? '' : 's'} analysed
+                        </div>
                       </div>
                       <div className="space-y-2">
-                        {quoteAnalysis.items.map(item => (
-                          <div key={item.id} className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#0D1E3A] p-3">
-                            <div className="grid gap-3 lg:grid-cols-[1.1fr_0.7fr_auto] lg:items-start">
+                        {quoteAnalysis.items.map((item, index) => (
+                          <div key={item.id} className={`rounded-xl border p-3 ${index === 0 ? 'border-emerald-400/28 bg-emerald-400/8' : 'border-[rgba(46,127,255,0.14)] bg-[#0D1E3A]'}`}>
+                            <div className="grid gap-3 xl:grid-cols-[46px_1fr_130px_120px_120px_120px] xl:items-center">
+                              <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#2E7FFF]/18 bg-[#07111F] text-[13px] font-black text-[#8DBDFF]">
+                                #{index + 1}
+                              </div>
+                              <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <div className="truncate text-[13px] font-black text-[#EEF3FA]">{item.vendorName}</div>
+                                  {index === 0 && <span className="rounded-full border border-emerald-400/24 bg-emerald-400/10 px-2 py-0.5 text-[8px] font-black uppercase text-emerald-200">Recommended</span>}
+                                </div>
+                                <div className="mt-1 line-clamp-1 text-[10px] leading-4 text-[#8AA6C8]">{item.recommendationReason}</div>
+                              </div>
                               <div>
-                                <div className="text-[12px] font-black text-[#EEF3FA]">{item.vendorName}</div>
-                                <div className="mt-1 text-[10px] leading-4 text-[#8AA6C8]">{item.recommendationReason}</div>
+                                <div className="text-[8px] font-black uppercase tracking-[0.12em] text-[#6F89AA]">Score</div>
+                                <div className="mt-1 flex items-center gap-2">
+                                  <div className="h-1.5 flex-1 rounded-full bg-[#07111F]">
+                                    <div className="h-full rounded-full bg-[#2E7FFF]" style={{ width: `${item.score}%` }} />
+                                  </div>
+                                  <span className="text-[11px] font-black text-[#8DBDFF]">{item.score}</span>
+                                </div>
                               </div>
-                              <div className="text-[10px] leading-5 text-[#C8D8EE]">
-                                <div>{item.amount === null ? 'Price not found' : `Price: ${formatProcurementMoney(item.amount)}`}</div>
-                                <div>{item.sla === null ? 'SLA not found' : `SLA: ${item.sla}%`}</div>
-                                <div>{item.deliveryDate === null ? 'Delivery not found' : `Delivery: ${item.deliveryDate}`}</div>
-                                <div>Warranty: {item.warranty}</div>
-                                <div>Delta: {item.commercialDelta === null ? 'not available' : `${item.commercialDelta >= 0 ? '+' : '-'}${formatProcurementMoney(Math.abs(item.commercialDelta))} vs package budget`}</div>
+                              <div>
+                                <div className="text-[8px] font-black uppercase tracking-[0.12em] text-[#6F89AA]">Commercial</div>
+                                <div className="mt-1 text-[11px] font-black text-[#EEF3FA]">{item.amount === null ? 'Not found' : formatProcurementMoney(item.amount)}</div>
                               </div>
-                              <div className="flex flex-wrap gap-2 lg:justify-end">
-                                <span className={`rounded-full border px-2 py-1 text-[9px] font-black ${quoteStatusTone(item.extractionStatus)}`}>
+                              <div>
+                                <div className="text-[8px] font-black uppercase tracking-[0.12em] text-[#6F89AA]">SLA / Delivery</div>
+                                <div className="mt-1 text-[11px] font-black text-[#EEF3FA]">{item.sla === null ? 'SLA ?' : `${item.sla}%`} / {item.deliveryDate ?? 'Date ?'}</div>
+                              </div>
+                              <div className="flex flex-wrap gap-1.5 xl:justify-end">
+                                <span className={`rounded-full border px-2 py-1 text-[8px] font-black ${quoteStatusTone(item.extractionStatus)}`}>
                                   {item.extractionStatus}
                                 </span>
-                                <span className={`rounded-full border px-2 py-1 text-[9px] font-black ${quoteRiskTone(item.risk)}`}>
-                                  {item.risk} risk
-                                </span>
-                                <span className="rounded-full border border-[#2E7FFF]/25 bg-[#2E7FFF]/10 px-2 py-1 text-[9px] font-black text-[#8DBDFF]">
-                                  {item.score}/100
+                                <span className={`rounded-full border px-2 py-1 text-[8px] font-black ${quoteRiskTone(item.risk)}`}>
+                                  {item.risk}
                                 </span>
                               </div>
                             </div>
-                            <div className="mt-2 text-[10px] leading-5 text-[#8AA6C8]">Exclusions: {item.exclusions}</div>
-                            {item.clarificationQuestions.length > 0 && (
-                              <div className="mt-2 rounded-lg border border-amber-400/18 bg-amber-400/8 p-2 text-[10px] leading-5 text-amber-100">
-                                {item.clarificationQuestions[0]}
+                            <div className="mt-3 grid gap-2 lg:grid-cols-[1fr_1fr]">
+                              <div className="rounded-lg border border-[rgba(46,127,255,0.10)] bg-[#07111F]/72 px-3 py-2 text-[10px] leading-4 text-[#8AA6C8]">
+                                <span className="font-black text-[#BFD8FF]">Exclusions: </span>{compactQuoteText(item.exclusions, 150)}
                               </div>
-                            )}
+                              <div className={`rounded-lg border px-3 py-2 text-[10px] leading-4 ${item.clarificationQuestions.length ? 'border-amber-400/18 bg-amber-400/8 text-amber-100' : 'border-emerald-400/18 bg-emerald-400/8 text-emerald-100'}`}>
+                                {item.clarificationQuestions[0] ?? 'No immediate clarification blocker detected.'}
+                              </div>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -3970,11 +4057,11 @@ function AddVendorWizard({
   onCreate,
 }: {
   onClose: () => void;
-  onCreate: (vendor: VendorIntelData) => void;
+  onCreate: (vendor: VendorIntelData, source?: VendorCreateSource) => void;
 }) {
   const [step, setStep] = useState<VendorWizardStep>(1);
-  const [form, setForm] = useState<VendorWizardForm>(initialVendorWizardForm);
-  const [setupMode, setSetupMode] = useState<VendorSetupMode>('manual');
+  const [form, setForm] = useState<VendorWizardForm>(aiVendorWizardForm);
+  const [setupMode, setSetupMode] = useState<VendorSetupMode>('ai');
   const [aiDocuments, setAiDocuments] = useState<VendorSetupDocument[]>([]);
   const [aiNotes, setAiNotes] = useState('');
   const [aiExtractions, setAiExtractions] = useState<VendorAiExtraction[]>([]);
@@ -3987,12 +4074,19 @@ function AddVendorWizard({
     setForm(prev => ({ ...prev, [field]: e.target.value }));
   };
 
-  const stepCards = [
-    { id: 1 as const, label: 'Vendor profile', detail: 'Scope, category, contacts' },
-    { id: 2 as const, label: 'Performance baseline', detail: 'Score, SLA, evidence, cost' },
-    { id: 3 as const, label: 'Compliance and risk', detail: 'Flags, dependency, prediction' },
-    { id: 4 as const, label: 'AI review', detail: 'Insights and actions' },
-  ];
+  const stepCards = setupMode === 'ai'
+    ? [
+      { id: 1 as const, label: 'Import vendor context', detail: 'Docs, notes, proposal' },
+      { id: 2 as const, label: 'AI understanding', detail: 'Extract signals' },
+      { id: 3 as const, label: 'Review & correct', detail: 'Confirm fields' },
+      { id: 4 as const, label: 'Create vendor profile', detail: 'Score, risk, actions' },
+    ]
+    : [
+      { id: 1 as const, label: 'Vendor profile', detail: 'Scope, category, contacts' },
+      { id: 2 as const, label: 'Performance baseline', detail: 'Score, SLA, evidence, cost' },
+      { id: 3 as const, label: 'Compliance and risk', detail: 'Flags, dependency, prediction' },
+      { id: 4 as const, label: 'AI review', detail: 'Insights and actions' },
+    ];
 
   const dashboardSections = [
     { label: 'Overview', value: `${score}/100 score`, tone: riskTone },
@@ -4002,25 +4096,77 @@ function AddVendorWizard({
     { label: 'Dependency Risk', value: form.dependencyRisk, tone: form.dependencyRisk === 'Low' ? 'green' : form.dependencyRisk === 'Medium' ? 'amber' : 'red' },
   ] as const;
 
+  const hasAiInput = aiDocuments.length > 0 || aiNotes.trim().length > 0;
+  const extractedFieldLabels = aiExtractions.map(item => item.label.toLowerCase());
+  const extracted = (label: string) => extractedFieldLabels.some(item => item.includes(label.toLowerCase()));
+  const aiConfidence = aiExtractions.length === 0
+    ? 0
+    : Math.min(94, 52 + aiExtractions.length * 5 + Math.min(10, aiDocuments.length * 3) + (aiNotes.trim() ? 4 : 0));
+  const needsConfirmation = [
+    form.name.trim() ? null : 'Vendor name',
+    extracted('category') ? null : 'Service category',
+    extracted('SLA') ? null : 'SLA commitment',
+    extracted('evidence') ? null : 'Evidence requirement',
+    extracted('Contract expiry') ? null : 'Contract expiry',
+    extracted('Dependency risk') ? null : 'Dependency risk',
+  ].filter((item): item is string => Boolean(item));
+  const aiPhases = [
+    'Reading vendor material',
+    'Finding service scope',
+    'Detecting SLA and evidence commitments',
+    'Checking compliance and dependency risk',
+    'Preparing VendorIQ profile',
+  ];
+
+  function confidenceBadge(value: number) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-lg border border-emerald-400/25 bg-emerald-400/10 px-2 py-1 text-[9px] font-black uppercase tracking-wide text-emerald-200">
+        <Sparkles size={11} />
+        {value}% confidence
+      </span>
+    );
+  }
+
+  function confirmationBadge(label: string, confirmed: boolean) {
+    return (
+      <span className={`inline-flex rounded-lg border px-2 py-1 text-[9px] font-black uppercase tracking-wide ${
+        confirmed
+          ? 'border-emerald-400/25 bg-emerald-400/10 text-emerald-200'
+          : 'border-amber-400/25 bg-amber-400/10 text-amber-200'
+      }`}>
+        {confirmed ? 'Detected' : `${label} needs confirmation`}
+      </span>
+    );
+  }
+
+  function switchSetupMode(mode: VendorSetupMode) {
+    setSetupMode(mode);
+    setStep(1);
+    if (mode === 'manual' && setupMode === 'ai' && !form.name.trim() && aiExtractions.length === 0) setForm(initialVendorWizardForm);
+    if (mode === 'ai' && setupMode === 'manual') setForm(aiVendorWizardForm);
+  }
+
   function submit() {
-    onCreate(buildVendorFromWizard(form));
+    onCreate(buildVendorFromWizard(form), setupMode === 'ai' && hasAiInput ? 'ai' : 'manual');
   }
 
   async function addAiDocuments(event: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? []);
     if (!files.length) return;
     const docs = await Promise.all(files.map(async file => {
-      const isReadable = file.type.startsWith('text/') || /\.(txt|csv|md|json|log)$/i.test(file.name);
-      const content = isReadable ? await file.text().catch(() => '') : '';
+      const parsed = await parseProjectDocumentFile(file).catch(() => null);
       return {
         id: `${file.name}-${file.size}-${Date.now()}`,
         name: file.name,
         type: file.type || 'Document',
         sizeLabel: formatDocumentSize(file.size),
-        content,
+        content: parsed?.text ?? '',
+        warning: parsed?.warning,
       };
     }));
     setAiDocuments(prev => [...docs, ...prev].slice(0, 8));
+    setAiExtractions([]);
+    setStep(1);
     event.target.value = '';
   }
 
@@ -4029,13 +4175,15 @@ function AddVendorWizard({
     const draft = buildVendorAiDraft(form, aiDocuments, aiNotes);
     setForm(draft.form);
     setAiExtractions(draft.extractions);
-    setStep(1);
+    setStep(2);
   }
 
   function clearAiDocuments() {
     setAiDocuments([]);
     setAiNotes('');
     setAiExtractions([]);
+    setForm(aiVendorWizardForm);
+    setStep(1);
   }
 
   return (
@@ -4059,28 +4207,20 @@ function AddVendorWizard({
                 VendorIQ setup
               </div>
               <h3 className="text-xl font-bold text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Add Vendor</h3>
-              <p className="mt-1 text-[12px] text-[#8AA6C8]">Create the vendor exactly as Vendor Intelligence monitors it: score, contracts, cost, risk, dependency, and AI recommendations.</p>
+              <p className="mt-1 text-[12px] text-[#8AA6C8]">
+                {setupMode === 'ai'
+                  ? 'Start with vendor documents or notes. VendorIQ extracts the profile, baseline, risk, and recommendations before you create the monitored record.'
+                  : 'Manual setup is available when no vendor material is ready. VendorIQ still generates score, risk, and recommendations before creation.'}
+              </p>
             </div>
             <div className="flex items-start gap-3">
-              <div className="flex shrink-0 rounded-xl border border-[#2E7FFF]/20 bg-[#07111F] p-1">
-                {[
-                  { id: 'manual' as const, label: 'Manual' },
-                  { id: 'ai' as const, label: 'AI from docs' },
-                ].map(mode => (
-                  <button
-                    key={mode.id}
-                    type="button"
-                    onClick={() => setSetupMode(mode.id)}
-                    className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-[11px] font-bold transition-all ${
-                      setupMode === mode.id
-                        ? 'bg-[#2E7FFF] text-white shadow-lg shadow-[#2E7FFF]/20'
-                        : 'text-[#8AA6C8] hover:bg-white/5 hover:text-white'
-                    }`}
-                  >
-                    {mode.label}
-                  </button>
-                ))}
-              </div>
+              <button
+                type="button"
+                onClick={() => switchSetupMode(setupMode === 'ai' ? 'manual' : 'ai')}
+                className="whitespace-nowrap rounded-xl border border-[#2E7FFF]/24 bg-[#07111F] px-3 py-2 text-[11px] font-bold text-[#BFD8FF] transition-all hover:bg-[#2E7FFF]/12 hover:text-white"
+              >
+                {setupMode === 'ai' ? 'Enter manually instead' : 'Use AI from vendor docs'}
+              </button>
               <button onClick={onClose} className="rounded-xl border border-white/10 bg-white/5 p-2 text-[#8AA6C8] transition-colors hover:bg-white/10 hover:text-white">
                 <X size={18} />
               </button>
@@ -4111,20 +4251,23 @@ function AddVendorWizard({
           </div>
 
           <div className="flex-1 overflow-y-auto custom-scrollbar px-6 py-5">
-            {setupMode === 'ai' && (
-              <div className="mb-5 rounded-2xl border border-cyan-400/22 bg-cyan-500/8 p-4">
-                <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <div className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-200">
-                      <Wand2 size={13} />
-                      AI document mode
+            {setupMode === 'ai' && step === 1 && (
+              <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+                <div className="rounded-2xl border border-cyan-400/22 bg-cyan-500/8 p-5">
+                  <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <div className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-200">
+                        <Wand2 size={13} />
+                        Import vendor context
+                      </div>
+                      <h4 className="mt-2 text-lg font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Upload vendor docs or paste onboarding notes</h4>
+                      <p className="mt-1 text-[12px] leading-5 text-[#8AA6C8]">
+                        VendorIQ reads proposals, contracts, SLA notes, trade licenses, insurance summaries, and onboarding emails before creating the monitored vendor profile.
+                      </p>
                     </div>
-                    <h4 className="mt-1 text-sm font-bold text-[#EEF3FA]">Populate setup from vendor documents</h4>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-[#2E7FFF]/30 bg-[#2E7FFF]/12 px-3 py-2 text-[11px] font-bold text-[#BFD8FF] transition-all hover:bg-[#2E7FFF]/18">
-                      <UploadCloud size={13} />
-                      Add docs
+                    <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-[#2E7FFF]/30 bg-[#2E7FFF]/14 px-4 py-2.5 text-[12px] font-black text-[#BFD8FF] transition-all hover:bg-[#2E7FFF]/22 hover:text-white">
+                      <UploadCloud size={14} />
+                      Add vendor docs
                       <input
                         type="file"
                         multiple
@@ -4133,74 +4276,279 @@ function AddVendorWizard({
                         className="hidden"
                       />
                     </label>
-                    <button
-                      type="button"
-                      onClick={populateFromAiDocuments}
-                      disabled={aiDocuments.length === 0 && !aiNotes.trim()}
-                      className="inline-flex items-center gap-2 rounded-xl bg-[#2E7FFF] px-3 py-2 text-[11px] font-bold text-white shadow-lg shadow-[#2E7FFF]/20 transition-all hover:bg-[#4B91FF] disabled:cursor-not-allowed disabled:bg-[#1A3356] disabled:text-[#7891B0] disabled:shadow-none"
-                    >
-                      <Sparkles size={13} />
-                      Populate fields
-                    </button>
+                  </div>
+
+                  <textarea
+                    value={aiNotes}
+                    onChange={event => {
+                      setAiNotes(event.target.value);
+                      setAiExtractions([]);
+                    }}
+                    placeholder="Paste vendor proposal, SLA commitment, contract scope, trade license details, insurance summary, contact info, rate card, or onboarding email."
+                    className="min-h-[152px] w-full resize-none rounded-2xl border border-[rgba(46,127,255,0.18)] bg-[#050C17] px-4 py-3 text-[13px] leading-6 text-[#EEF3FA] outline-none transition-all placeholder:text-[#4A6480] focus:border-[#2E7FFF]"
+                  />
+
+                  <div className="mt-4 grid gap-2">
+                    {aiDocuments.length === 0 ? (
+                      <div className="rounded-xl border border-dashed border-[#2E7FFF]/28 bg-[#07111F] px-4 py-3 text-[12px] text-[#7A94B4]">
+                        No documents added yet. Upload vendor files or paste text, then let AI prepare the setup.
+                      </div>
+                    ) : (
+                      aiDocuments.map(doc => (
+                        <div key={doc.id} className="flex flex-wrap items-center gap-2 rounded-xl border border-[#2E7FFF]/18 bg-[#102544] px-3 py-2 text-[11px] text-[#C8D8EE]">
+                          <FileText size={13} className="text-[#8DBDFF]" />
+                          <span className="min-w-0 flex-1 truncate font-bold">{doc.name}</span>
+                          <span className="text-[#6F89AA]">{doc.sizeLabel}</span>
+                          <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold ${doc.content.trim() ? 'border-emerald-400/25 bg-emerald-400/10 text-emerald-200' : 'border-amber-400/25 bg-amber-400/10 text-amber-200'}`}>
+                            {doc.content.trim() ? 'Readable' : 'Needs pasted text'}
+                          </span>
+                          <button type="button" onClick={() => setAiDocuments(prev => prev.filter(item => item.id !== doc.id))} className="text-[#7A94B4] hover:text-red-300" aria-label={`Remove ${doc.name}`}>
+                            <Trash2 size={12} />
+                          </button>
+                          {doc.warning && <div className="basis-full text-[10px] text-amber-200">{doc.warning}</div>}
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {['Vendor proposal', 'Contract / SLA', 'Trade license', 'Insurance summary', 'Onboarding email'].map(item => (
+                      <span key={item} className="rounded-lg border border-[#2E7FFF]/18 bg-[#07111F] px-2.5 py-1 text-[10px] font-bold text-[#8AA6C8]">{item}</span>
+                    ))}
+                    {hasAiInput && (
+                      <button type="button" onClick={clearAiDocuments} className="rounded-lg border border-red-300/20 bg-red-400/8 px-2.5 py-1 text-[10px] font-bold text-red-200 transition-all hover:bg-red-400/14">
+                        Clear intake
+                      </button>
+                    )}
                   </div>
                 </div>
 
-                <div className="grid gap-3 lg:grid-cols-[1fr_0.9fr]">
-                  <div className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#07111F] p-3">
-                    <textarea
-                      value={aiNotes}
-                      onChange={event => setAiNotes(event.target.value)}
-                      placeholder="Paste contract scope, trade license text, quote details, SLA notes, insurance summary, or onboarding email."
-                      className="min-h-[94px] w-full resize-none rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#050C17] px-3 py-2.5 text-[12px] leading-relaxed text-[#EEF3FA] outline-none transition-all placeholder:text-[#4A6480] focus:border-[#2E7FFF]"
-                    />
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {aiDocuments.length === 0 ? (
-                        <div className="rounded-lg border border-dashed border-[#2E7FFF]/25 px-3 py-2 text-[11px] text-[#7A94B4]">
-                          No documents added yet
+                <div className="space-y-4">
+                  <div className="rounded-2xl border border-[rgba(46,127,255,0.16)] bg-[#07111F] p-5">
+                    <div className="mb-3 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-[#8DBDFF]">
+                      <Brain size={13} />
+                      What AI will extract
+                    </div>
+                    <div className="grid gap-2">
+                      {[
+                        'Vendor name, category, service scope, and sites covered',
+                        'SLA, first-time fix, evidence, cost, and volume signals',
+                        'Contact, contract expiry, insurance, license, and compliance flags',
+                        'Dependency risk, predicted risk, VendorIQ score, and recommendations',
+                      ].map(item => (
+                        <div key={item} className="flex gap-2 rounded-xl border border-[rgba(46,127,255,0.12)] bg-[#0D1E3A] p-3 text-[12px] leading-5 text-[#C8D8EE]">
+                          <CheckCircle size={13} className="mt-0.5 shrink-0 text-emerald-400" />
+                          {item}
                         </div>
-                      ) : (
-                        aiDocuments.map(doc => (
-                          <div key={doc.id} className="inline-flex items-center gap-2 rounded-lg border border-[#2E7FFF]/18 bg-[#102544] px-2.5 py-1.5 text-[10px] text-[#C8D8EE]">
-                            <FileText size={12} className="text-[#8DBDFF]" />
-                            <span className="max-w-[180px] truncate font-semibold">{doc.name}</span>
-                            <span className="text-[#6F89AA]">{doc.sizeLabel}</span>
-                            <button type="button" onClick={() => setAiDocuments(prev => prev.filter(item => item.id !== doc.id))} className="text-[#7A94B4] hover:text-red-300" aria-label={`Remove ${doc.name}`}>
-                              <Trash2 size={11} />
-                            </button>
-                          </div>
-                        ))
-                      )}
+                      ))}
                     </div>
                   </div>
-
-                  <div className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#0D1E3A] p-3">
-                    <div className="mb-2 text-[9px] font-bold uppercase tracking-[0.18em] text-[#8DBDFF]">Detected fields</div>
-                    {aiExtractions.length === 0 ? (
-                      <div className="rounded-xl border border-[rgba(46,127,255,0.12)] bg-[#07111F] p-3 text-[11px] leading-relaxed text-[#7A94B4]">
-                        Add documents or paste notes, then populate fields.
-                      </div>
-                    ) : (
-                      <div className="grid gap-2 sm:grid-cols-2">
-                        {aiExtractions.slice(0, 8).map(item => (
-                          <div key={`${item.label}-${item.value}`} className="rounded-lg border border-cyan-400/18 bg-cyan-500/8 p-2">
-                            <div className="text-[8px] font-bold uppercase tracking-wide text-cyan-200">{item.label}</div>
-                            <div className="mt-1 truncate text-[11px] font-bold text-[#EEF3FA]">{item.value}</div>
-                            <div className="mt-0.5 text-[8px] uppercase tracking-wide text-[#6F89AA]">{item.source}</div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {(aiDocuments.length > 0 || aiNotes || aiExtractions.length > 0) && (
-                      <button type="button" onClick={clearAiDocuments} className="mt-3 text-[10px] font-bold text-[#8AA6C8] transition-colors hover:text-white">
-                        Clear AI intake
-                      </button>
-                    )}
+                  <div className="rounded-2xl border border-purple-400/20 bg-purple-500/8 p-5">
+                    <div className="text-[10px] font-black uppercase tracking-[0.18em] text-purple-200">Fallback path</div>
+                    <p className="mt-2 text-[12px] leading-5 text-[#C8D8EE]">If the vendor material is not ready, use the manual wizard and still create the same VendorIQ monitored profile.</p>
+                    <button type="button" onClick={() => switchSetupMode('manual')} className="mt-4 rounded-xl border border-purple-300/25 bg-purple-400/10 px-4 py-2 text-[12px] font-black text-purple-100 transition-all hover:bg-purple-400/16">
+                      Enter manually instead
+                    </button>
                   </div>
                 </div>
               </div>
             )}
 
-            {step === 1 && (
+            {setupMode === 'ai' && step === 2 && (
+              <div className="grid gap-4 lg:grid-cols-[0.95fr_1.05fr]">
+                <div className="rounded-2xl border border-cyan-400/22 bg-cyan-500/8 p-5">
+                  <div className="mb-4 flex items-start justify-between gap-3">
+                    <div>
+                      <div className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-200">
+                        <Sparkles size={13} />
+                        AI understanding
+                      </div>
+                      <h4 className="mt-2 text-lg font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+                        {aiExtractions.length ? `AI detected ${aiExtractions.length} vendor signals` : 'Ready to extract vendor signals'}
+                      </h4>
+                      <p className="mt-1 text-[12px] leading-5 text-[#8AA6C8]">
+                        {aiExtractions.length
+                          ? `${needsConfirmation.length || 0} item${needsConfirmation.length === 1 ? '' : 's'} require confirmation before creation.`
+                          : 'Run the extraction after adding documents or pasted notes.'}
+                      </p>
+                    </div>
+                    {aiExtractions.length > 0 && confidenceBadge(aiConfidence)}
+                  </div>
+                  <div className="space-y-2">
+                    {aiPhases.map((phase, index) => (
+                      <div key={phase} className="flex items-center gap-3 rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#07111F] p-3">
+                        <span className={`grid h-7 w-7 place-items-center rounded-full text-[10px] font-black ${aiExtractions.length ? 'bg-emerald-400/15 text-emerald-200' : index === 0 ? 'bg-[#2E7FFF]/18 text-[#8DBDFF]' : 'bg-[#102544] text-[#6F89AA]'}`}>
+                          {aiExtractions.length ? <CheckCircle size={13} /> : index + 1}
+                        </span>
+                        <span className="text-[12px] font-bold text-[#DDE6F8]">{phase}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {!aiExtractions.length && (
+                    <button type="button" onClick={populateFromAiDocuments} disabled={!hasAiInput} className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#2E7FFF] px-4 py-3 text-[12px] font-black text-white shadow-lg shadow-[#2E7FFF]/20 transition-all hover:bg-[#4B91FF] disabled:cursor-not-allowed disabled:bg-[#1A3356] disabled:text-[#7891B0] disabled:shadow-none">
+                      <Sparkles size={14} />
+                      Run AI understanding
+                    </button>
+                  )}
+                </div>
+
+                <div className="rounded-2xl border border-[rgba(46,127,255,0.16)] bg-[#07111F] p-5">
+                  <div className="mb-3 text-[10px] font-black uppercase tracking-[0.18em] text-[#8DBDFF]">Extracted signal cards</div>
+                  {aiExtractions.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-[#2E7FFF]/25 bg-[#0D1E3A] p-5 text-center text-[12px] leading-5 text-[#7A94B4]">
+                      Add vendor docs or paste notes, then run AI understanding.
+                    </div>
+                  ) : (
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {aiExtractions.map(item => (
+                        <div key={`${item.label}-${item.value}`} className="rounded-xl border border-cyan-400/18 bg-cyan-500/8 p-3">
+                          <div className="text-[9px] font-bold uppercase tracking-wide text-cyan-200">{item.label}</div>
+                          <div className="mt-1 truncate text-[13px] font-black text-[#EEF3FA]">{item.value}</div>
+                          <div className="mt-1 text-[9px] uppercase tracking-wide text-[#6F89AA]">Source: {item.source}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {needsConfirmation.length > 0 && (
+                    <div className="mt-4 rounded-xl border border-amber-400/20 bg-amber-400/8 p-3">
+                      <div className="text-[10px] font-black uppercase tracking-[0.16em] text-amber-200">Needs confirmation</div>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {needsConfirmation.map(item => (
+                          <span key={item} className="rounded-lg border border-amber-400/24 bg-amber-400/10 px-2 py-1 text-[10px] font-bold text-amber-100">{item}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {setupMode === 'ai' && step === 3 && (
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div className="rounded-2xl border border-[rgba(46,127,255,0.16)] bg-[#07111F] p-5">
+                  <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                    <h4 className="text-sm font-black text-[#EEF3FA]">Vendor profile</h4>
+                    {confidenceBadge(Math.max(62, aiConfidence || 62))}
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <VendorWizardField label="Vendor name"><VendorWizardInput value={form.name} onChange={input('name')} /></VendorWizardField>
+                    <VendorWizardField label="Category"><VendorWizardSelect value={form.category} onChange={input('category')}>{vendorCategories.map(category => <option key={category}>{category}</option>)}</VendorWizardSelect></VendorWizardField>
+                    <VendorWizardField label="Sites covered" helper="Comma separated"><VendorWizardInput value={form.sites} onChange={input('sites')} /></VendorWizardField>
+                    <VendorWizardField label="Contract expiry"><VendorWizardInput value={form.contractExpiry} onChange={input('contractExpiry')} /></VendorWizardField>
+                    <VendorWizardField label="Primary contact"><VendorWizardInput value={form.pocName} onChange={input('pocName')} /></VendorWizardField>
+                    <VendorWizardField label="Email"><VendorWizardInput type="email" value={form.pocEmail} onChange={input('pocEmail')} /></VendorWizardField>
+                  </div>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {confirmationBadge('Vendor name', extracted('Vendor name'))}
+                    {confirmationBadge('Category', extracted('Category'))}
+                    {confirmationBadge('Contact', extracted('Email') || extracted('Phone') || extracted('Primary contact'))}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-[rgba(46,127,255,0.16)] bg-[#07111F] p-5">
+                  <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                    <h4 className="text-sm font-black text-[#EEF3FA]">Performance baseline</h4>
+                    {confirmationBadge('SLA', extracted('SLA'))}
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <VendorWizardField label="SLA compliance %"><VendorWizardInput type="number" min="0" max="100" value={form.slaCompliance} onChange={input('slaCompliance')} /></VendorWizardField>
+                    <VendorWizardField label="First-time fix %"><VendorWizardInput type="number" min="0" max="100" value={form.firstTimeFixRate} onChange={input('firstTimeFixRate')} /></VendorWizardField>
+                    <VendorWizardField label="Evidence compliance %"><VendorWizardInput type="number" min="0" max="100" value={form.evidenceCompliance} onChange={input('evidenceCompliance')} /></VendorWizardField>
+                    <VendorWizardField label="Avg cost / job"><VendorWizardInput type="number" min="0" value={form.avgCostPerJob} onChange={input('avgCostPerJob')} /></VendorWizardField>
+                    <VendorWizardField label="Jobs last 30 days"><VendorWizardInput type="number" min="0" value={form.jobsLast30d} onChange={input('jobsLast30d')} /></VendorWizardField>
+                    <VendorWizardField label="Active contracts"><VendorWizardInput type="number" min="0" value={form.activeContracts} onChange={input('activeContracts')} /></VendorWizardField>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-amber-400/18 bg-amber-400/8 p-5">
+                  <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                    <h4 className="text-sm font-black text-[#EEF3FA]">Compliance & risk</h4>
+                    {confirmationBadge('Dependency risk', extracted('Dependency risk'))}
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <VendorWizardField label="Trend"><VendorWizardSelect value={form.trend} onChange={input('trend')}><option value="up">Improving</option><option value="flat">Stable</option><option value="down">Declining</option></VendorWizardSelect></VendorWizardField>
+                    <VendorWizardField label="Dependency risk"><VendorWizardSelect value={form.dependencyRisk} onChange={input('dependencyRisk')}>{['Low', 'Medium', 'High', 'Critical'].map(level => <option key={level}>{level}</option>)}</VendorWizardSelect></VendorWizardField>
+                    <VendorWizardField label="30-day predicted risk %"><VendorWizardInput type="number" min="0" max="100" value={form.predictedRisk30d} onChange={input('predictedRisk30d')} /></VendorWizardField>
+                    <VendorWizardField label="Contract flags" helper="Separate with semicolons"><VendorWizardInput value={form.contractFlags} onChange={input('contractFlags')} /></VendorWizardField>
+                    <div className="sm:col-span-2"><VendorWizardField label="Dependency note"><textarea value={form.dependencyNote} onChange={input('dependencyNote')} className="min-h-[92px] w-full rounded-xl border border-[rgba(46,127,255,0.22)] bg-[#07111F] px-3 py-2.5 text-[12px] text-[#EEF3FA] outline-none transition-all placeholder:text-[#4A6480] focus:border-[#2E7FFF]" /></VendorWizardField></div>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-purple-500/20 bg-purple-500/8 p-5">
+                  <div className="mb-4 flex items-center justify-between gap-3">
+                    <div>
+                      <h4 className="text-sm font-black text-[#EEF3FA]">VendorIQ monitoring setup</h4>
+                      <p className="mt-1 text-[11px] text-[#8AA6C8]">This is what the live Vendor Intelligence dashboard will monitor after creation.</p>
+                    </div>
+                    <ScoreRing score={score} size={70} />
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <VendorWizardSummaryPill label="Classification" value={risk} tone={riskTone} />
+                    <VendorWizardSummaryPill label="Dependency" value={form.dependencyRisk} tone={form.dependencyRisk === 'Low' ? 'green' : form.dependencyRisk === 'Medium' ? 'amber' : 'red'} />
+                    <VendorWizardSummaryPill label="Evidence" value={`${numeric(form.evidenceCompliance, 85)}%`} tone={numeric(form.evidenceCompliance, 85) >= 85 ? 'green' : 'amber'} />
+                    <VendorWizardSummaryPill label="Coverage" value={`${sites.length || 1} site scope`} tone="blue" />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {setupMode === 'ai' && step === 4 && (
+              <div className="grid gap-5 lg:grid-cols-[0.85fr_1.15fr]">
+                <div className="rounded-2xl border border-[#2E7FFF]/20 bg-[#07111F] p-5">
+                  <div className="mb-4 flex items-center justify-between gap-4">
+                    <div>
+                      <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[#8DBDFF]">Create monitored vendor</div>
+                      <h4 className="mt-2 text-lg font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{form.name || 'New Vendor'}</h4>
+                      <p className="mt-1 text-[12px] text-[#8AA6C8]">{form.category} / {sites.join(', ') || 'site scope pending'}</p>
+                    </div>
+                    <ScoreRing score={score} size={82} />
+                  </div>
+                  <div className="grid gap-2">
+                    <VendorWizardSummaryPill label="Risk tier" value={risk} tone={riskTone} />
+                    <VendorWizardSummaryPill label="AI confidence" value={aiExtractions.length ? `${aiConfidence}%` : 'Manual review'} tone={aiConfidence >= 80 ? 'green' : 'amber'} />
+                    <VendorWizardSummaryPill label="Needs confirmation" value={`${needsConfirmation.length}`} tone={needsConfirmation.length ? 'amber' : 'green'} />
+                  </div>
+                  <div className="mt-4 rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#0D1E3A] p-3">
+                    <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#7A94B4]">Source trace</div>
+                    <p className="mt-2 text-[12px] leading-5 text-[#C8D8EE]">
+                      {aiDocuments.length} document{aiDocuments.length === 1 ? '' : 's'} and {aiNotes.trim() ? 'pasted notes' : 'no pasted notes'} prepared this VendorIQ profile. No external workflow is triggered until the profile is created.
+                    </p>
+                  </div>
+                </div>
+                <div className="grid gap-4">
+                  <div className="rounded-2xl border border-purple-500/20 bg-purple-500/8 p-5">
+                    <div className="mb-3 flex items-center gap-2">
+                      <Brain size={15} className="text-purple-300" />
+                      <h4 className="text-sm font-bold text-[#EEF3FA]">AI insight preview</h4>
+                    </div>
+                    <div className="space-y-2">
+                      {buildVendorInsights(form, score).map((insight, index) => (
+                        <div key={index} className="rounded-xl bg-[#07111F] p-3 text-[12px] leading-relaxed text-[#C8D8EE]">{insight}</div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="rounded-2xl border border-[rgba(46,127,255,0.16)] bg-[#07111F] p-5">
+                    <div className="mb-3 flex items-center gap-2">
+                      <Target size={15} className="text-[#2E7FFF]" />
+                      <h4 className="text-sm font-bold text-[#EEF3FA]">Recommendations generated</h4>
+                    </div>
+                    <div className="space-y-3">
+                      {buildVendorRecommendations(form, score).map((rec, index) => (
+                        <div key={index} className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#0D1E3A] p-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="text-[12px] font-bold text-[#EEF3FA]">{rec.title}</span>
+                            <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold ${actionColor(rec.action)}`}>{rec.action}</span>
+                          </div>
+                          <p className="mt-2 text-[11px] leading-relaxed text-[#8AA6C8]">{rec.detail}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {setupMode === 'manual' && step === 1 && (
               <div className="grid gap-5 lg:grid-cols-[1.35fr_0.9fr]">
                 <div className="rounded-2xl border border-[rgba(46,127,255,0.16)] bg-[#07111F] p-5">
                   <div className="mb-4 flex items-center gap-2">
@@ -4254,7 +4602,7 @@ function AddVendorWizard({
               </div>
             )}
 
-            {step === 2 && (
+            {setupMode === 'manual' && step === 2 && (
               <div className="grid gap-5 lg:grid-cols-[1fr_1fr]">
                 <div className="rounded-2xl border border-[rgba(46,127,255,0.16)] bg-[#07111F] p-5">
                   <div className="mb-4 flex items-center gap-2">
@@ -4299,7 +4647,7 @@ function AddVendorWizard({
               </div>
             )}
 
-            {step === 3 && (
+            {setupMode === 'manual' && step === 3 && (
               <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
                 <div className="rounded-2xl border border-[rgba(46,127,255,0.16)] bg-[#07111F] p-5">
                   <div className="mb-4 flex items-center gap-2">
@@ -4355,7 +4703,7 @@ function AddVendorWizard({
               </div>
             )}
 
-            {step === 4 && (
+            {setupMode === 'manual' && step === 4 && (
               <div className="grid gap-5 lg:grid-cols-[1fr_1fr]">
                 <div className="rounded-2xl border border-purple-500/20 bg-purple-500/8 p-5">
                   <div className="mb-4 flex items-center gap-2">
@@ -4398,14 +4746,45 @@ function AddVendorWizard({
           <div className="flex items-center justify-between border-t border-[rgba(46,127,255,0.14)] px-6 py-4">
             <div className="text-[11px] text-[#7A94B4]">
               {setupMode === 'ai'
-                ? `${aiDocuments.length} document${aiDocuments.length === 1 ? '' : 's'} added${aiExtractions.length ? `, ${aiExtractions.length} fields detected` : ''}. Review fields before adding the vendor.`
+                ? step === 1
+                  ? `${aiDocuments.length} document${aiDocuments.length === 1 ? '' : 's'} added. AI starts from uploaded vendor material or pasted notes.`
+                  : step === 2
+                    ? aiExtractions.length
+                      ? `${aiExtractions.length} fields detected with ${aiConfidence}% confidence. ${needsConfirmation.length} item${needsConfirmation.length === 1 ? '' : 's'} need confirmation.`
+                      : 'Run AI understanding to extract vendor signals before review.'
+                    : step === 3
+                      ? 'Review and correct extracted fields before creating the monitored VendorIQ profile.'
+                      : 'Ready to create the vendor profile from document intake.'
                 : step < 4 ? 'VendorIQ will generate score, risk tier, AI insights, recommendations, and dependency context.' : 'Ready to add this vendor to Vendor Intelligence.'}
             </div>
             <div className="flex gap-2">
               <button type="button" onClick={step === 1 ? onClose : () => setStep(prev => (Math.max(1, prev - 1) as VendorWizardStep))} className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#07111F] px-4 py-2 text-[12px] font-semibold text-[#8AA6C8] transition-all hover:bg-white/5 hover:text-white">
                 {step === 1 ? 'Cancel' : 'Back'}
               </button>
-              {step < 4 ? (
+              {setupMode === 'ai' ? (
+                step === 4 ? (
+                  <button type="button" onClick={submit} className="rounded-xl bg-[#ED1D2E] px-5 py-2 text-[12px] font-bold text-white shadow-lg shadow-[#ED1D2E]/20 transition-all hover:bg-[#ff3040]">
+                    Create Vendor Profile
+                  </button>
+                ) : step === 1 ? (
+                  <button type="button" onClick={populateFromAiDocuments} disabled={!hasAiInput} className="rounded-xl bg-[#2E7FFF] px-5 py-2 text-[12px] font-bold text-white shadow-lg shadow-[#2E7FFF]/20 transition-all hover:bg-[#4B91FF] disabled:cursor-not-allowed disabled:bg-[#1A3356] disabled:text-[#7891B0] disabled:shadow-none">
+                    Run AI understanding
+                  </button>
+                ) : step === 2 ? (
+                  <button
+                    type="button"
+                    onClick={() => (aiExtractions.length ? setStep(3) : populateFromAiDocuments())}
+                    disabled={!hasAiInput}
+                    className="rounded-xl bg-[#2E7FFF] px-5 py-2 text-[12px] font-bold text-white shadow-lg shadow-[#2E7FFF]/20 transition-all hover:bg-[#4B91FF] disabled:cursor-not-allowed disabled:bg-[#1A3356] disabled:text-[#7891B0] disabled:shadow-none"
+                  >
+                    {aiExtractions.length ? 'Review & Correct' : 'Run AI understanding'}
+                  </button>
+                ) : (
+                  <button type="button" onClick={() => setStep(4)} className="rounded-xl bg-[#2E7FFF] px-5 py-2 text-[12px] font-bold text-white shadow-lg shadow-[#2E7FFF]/20 transition-all hover:bg-[#4B91FF]">
+                    Continue to Profile
+                  </button>
+                )
+              ) : step < 4 ? (
                 <button type="button" onClick={() => setStep(prev => (Math.min(4, prev + 1) as VendorWizardStep))} className="rounded-xl bg-[#2E7FFF] px-5 py-2 text-[12px] font-bold text-white shadow-lg shadow-[#2E7FFF]/20 transition-all hover:bg-[#4B91FF]">
                   Continue
                 </button>
@@ -4516,12 +4895,12 @@ export function VendorIntelligence({ onToast }: Props) {
     onToast('RFQ package saved to Procurement Copilot', 'success');
   }
 
-  function createVendor(vendor: VendorIntelData) {
+  function createVendor(vendor: VendorIntelData, source: VendorCreateSource = 'manual') {
     addVendor(vendor);
     setShowAddVendorWizard(false);
     setFilterTab('all');
     setSelectedVendor(vendor);
-    onToast(`${vendor.name} added to Vendor Intelligence`, 'success');
+    onToast(source === 'ai' ? 'Vendor profile created from document intake' : `${vendor.name} added to Vendor Intelligence`, 'success');
   }
 
   if (selectedVendor) {
