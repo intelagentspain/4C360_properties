@@ -490,6 +490,21 @@ export function createProjectControlEvent(projectId: string, type: ProjectEventT
   };
 }
 
+export function getProjectEventPreview(type: ProjectEventType) {
+  const template = eventTemplates[type];
+  return {
+    type: template.type,
+    title: template.title,
+    description: template.description,
+    affectedAreas: [...template.affectedAreas],
+    affectedModule: template.affectedModule,
+    impactLabel: template.impactLabel,
+    cta: template.cta,
+    severity: template.severity,
+    impacts: { ...template.impacts },
+  };
+}
+
 export function getNextProjectEventType(events: ProjectEvent[]): ProjectEventType {
   const sequence: ProjectEventType[] = ['facade-delay', 'crane-loss', 'missing-approval', 'variation-submitted', 'evidence-rejected', 'inspection-failure', 'contractor-underperformance', 'weather-disruption', 'recovery-approved'];
   const simulatedCount = events.filter(event => event.type !== 'baseline-created').length;
@@ -1305,8 +1320,8 @@ export function buildProjectControlContext(dataset: ProjectCommandDataset, event
     ? latestIsBaseline
       ? dataset.aiContent.healthScore.topThreat
       : latestEvent.description
-    : dataset.aiContent.healthScore.topThreat || 'Sobha Pilot Tower baseline is ready. The live demo can now inject delays, variations, evidence gaps, inspections, and recovery actions.';
-  const latestImpact = latestEvent?.impactLabel ?? 'AI baseline generated work packages, programme phases, cost baseline, risks, obligations, evidence requirements, milestones, and manager decisions.';
+    : dataset.aiContent.healthScore.topThreat || 'Sobha Pilot Tower baseline is healthy and ready for progress updates.';
+  const latestImpact = latestEvent?.impactLabel ?? 'Baseline is in place with work packages, programme phases, cost plan, obligations, evidence requirements, milestones, and manager decisions.';
   const forecastScenarios = buildForecastScenarios(dataset, metrics, delayDays);
   const managerActions = buildManagerActions(dataset, events, metrics);
   const controlExceptions = buildExceptions(events, metrics, stageGateSummary, evidenceSummary, vendorSummary);

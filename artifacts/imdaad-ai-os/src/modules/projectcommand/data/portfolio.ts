@@ -496,7 +496,7 @@ function projectVariant(
         score: overrides.healthScore,
         status: overrides.healthScore >= 75 ? 'good' : overrides.healthScore >= 55 ? 'monitor' : 'critical',
         topThreat: `${overrides.name} is controlled separately from the permanent property budget. The main risk is whether package commitments and actuals stay aligned with the approved project baseline.`,
-        recommendedAction: `Review ${overrides.projectType.toLowerCase()} packages, pending variations, vendor claims, and forecast exposure before approving the next project control update.`,
+        recommendedAction: `Review ${overrides.projectType.toLowerCase()} packages, pending variations, vendor claims, and forecast exposure before approving the next project update.`,
       },
     },
   };
