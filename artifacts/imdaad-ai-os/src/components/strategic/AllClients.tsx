@@ -483,6 +483,13 @@ function buildAvoidedPenaltyCases(clients: PortfolioClient[]): AvoidedPenaltyCas
             : client.dataSources.length === 0
               ? 'Create baseline proof'
               : 'Add to value report',
+        outcomeLabel: client.riskLevel === 'critical'
+          ? 'Penalty confirmed'
+          : client.riskLevel === 'high'
+            ? 'Evidence pack sent'
+            : client.dataSources.length === 0
+              ? 'Baseline proof created'
+              : 'Value report updated',
         channel: client.riskLevel === 'critical' ? 'Approval' : client.riskLevel === 'high' ? 'Email' : 'Evidence',
       };
     })
@@ -590,6 +597,7 @@ interface AvoidedPenaltyCase {
   evidence: string;
   owner: string;
   actionLabel: string;
+  outcomeLabel: string;
   channel: string;
 }
 
@@ -1555,7 +1563,7 @@ function ExecutiveImpactActionModal({
 
   const handlePenaltyAction = (item: AvoidedPenaltyCase) => {
     setActedPenaltyIds(prev => prev.includes(item.id) ? prev : [...prev, item.id]);
-    onToast(`${item.client}: ${item.actionLabel} assigned`, 'success');
+    onToast(`${item.client}: ${item.outcomeLabel}`, 'success');
   };
 
   return (
@@ -1639,7 +1647,7 @@ function ExecutiveImpactActionModal({
                         }`}
                       >
                         {acted ? <Check size={11} /> : <ArrowRight size={11} />}
-                        {acted ? 'Action Taken' : item.actionLabel}
+                        {acted ? item.outcomeLabel : item.actionLabel}
                       </button>
                     </div>
                   </div>
