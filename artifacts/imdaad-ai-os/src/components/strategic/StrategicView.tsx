@@ -225,7 +225,7 @@ export function StrategicView({ onToast, page, onNavigateToPage, onClientSelect,
             setDispatchSettings={setDispatchSettings}
           />
         )}
-        {page === 'allclients'  && <AllClients    onToast={onToast} onClientSelect={onClientSelect} onNavigateToIncidents={onNavigateToIncidents} onNavigateToCommand={onNavigateToCommand} onOpenProjectCommand={() => onNavigateToPage('projectcommand')} onOpenVendorIQ={() => onNavigateToPage('vendorintelligence')} />}
+        {page === 'allclients'  && <AllClients    onToast={onToast} onClientSelect={onClientSelect} onNavigateToIncidents={onNavigateToIncidents} onNavigateToCommand={onNavigateToCommand} />}
         {page === 'team'        && <Team          onToast={onToast} />}
         {page === 'projectcommand' && <ProjectCommand onToast={onToast} onOpenVendorIQ={() => onNavigateToPage('vendorintelligence')} />}
         {page === 'residentportal' && <ResidentPortalDashboard onToast={onToast} />}
