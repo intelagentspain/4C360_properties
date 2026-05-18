@@ -10,7 +10,7 @@ import {
   type ProjectEvmSummary,
   type ProjectMilestones,
 } from './portfolio';
-import type { Phase } from './phases';
+import { buildProjectSchedule, type Phase } from './phases';
 import type { Risk } from './risks';
 import { sampleSobhaPilotExtraction, type ExtractedProjectContext } from './projectExtractionDemoData';
 
@@ -524,108 +524,14 @@ function formatSelectorLabel(extracted: ExtractedProjectContext) {
   return `${extracted.property.name.value} - ${extracted.project.name.value}`;
 }
 
-function buildPhases(): Phase[] {
-  return [
-    {
-      id: 'design',
-      name: 'Design & Approvals',
-      startPct: 0,
-      widthPct: 18,
-      completePct: 100,
-      color: '#00B894',
-      isCritical: false,
-      aiAnnotation: 'Authority path detected',
-      subTasks: [
-        { id: 'design-brief', name: 'Design freeze', startPct: 0, widthPct: 8, completePct: 100, isCritical: false },
-        { id: 'design-authority', name: 'Authority pathway', startPct: 8, widthPct: 10, completePct: 72, isCritical: true },
-      ],
-    },
-    {
-      id: 'substructure',
-      name: 'Substructure',
-      startPct: 16,
-      widthPct: 18,
-      completePct: 88,
-      color: '#00B894',
-      isCritical: false,
-      aiAnnotation: 'Near completion',
-      subTasks: [
-        { id: 'sub-basement', name: 'Basement works', startPct: 16, widthPct: 9, completePct: 100, isCritical: false },
-        { id: 'sub-waterproofing', name: 'Waterproofing closeout', startPct: 24, widthPct: 10, completePct: 76, isCritical: false },
-      ],
-    },
-    {
-      id: 'superstructure',
-      name: 'Superstructure',
-      startPct: 30,
-      widthPct: 28,
-      completePct: 28,
-      color: '#FFCD57',
-      isCritical: true,
-      aiAnnotation: 'Crane logistics watch',
-      subTasks: [
-        { id: 'sup-l1-l24', name: 'Levels 1-24', startPct: 30, widthPct: 10, completePct: 62, isCritical: true },
-        { id: 'sup-l25-l50', name: 'Levels 25-50', startPct: 40, widthPct: 11, completePct: 18, isCritical: true },
-        { id: 'sup-high-zone', name: 'High-zone cycle', startPct: 50, widthPct: 8, completePct: 0, isCritical: true },
-      ],
-    },
-    {
-      id: 'facade',
-      name: 'Facade',
-      startPct: 46,
-      widthPct: 22,
-      completePct: 4,
-      color: '#FF9B38',
-      isCritical: true,
-      aiAnnotation: 'Long-lead release needed',
-      subTasks: [
-        { id: 'facade-shopdrawings', name: 'Shop drawings', startPct: 46, widthPct: 8, completePct: 18, isCritical: true },
-        { id: 'facade-procurement', name: 'Long-lead procurement', startPct: 54, widthPct: 14, completePct: 0, isCritical: true },
-      ],
-    },
-    {
-      id: 'mep',
-      name: 'MEP Rough-in',
-      startPct: 52,
-      widthPct: 26,
-      completePct: 12,
-      color: '#7C3AED',
-      isCritical: true,
-      aiAnnotation: 'Coordination model open',
-      subTasks: [
-        { id: 'mep-risers', name: 'Riser coordination', startPct: 52, widthPct: 11, completePct: 18, isCritical: true },
-        { id: 'mep-roughin', name: 'Rough-in readiness', startPct: 62, widthPct: 16, completePct: 6, isCritical: true },
-      ],
-    },
-    {
-      id: 'fitout',
-      name: 'Fit-out',
-      startPct: 70,
-      widthPct: 18,
-      completePct: 0,
-      color: '#243448',
-      isCritical: true,
-      aiAnnotation: 'Dependent on facade release',
-      subTasks: [
-        { id: 'fitout-mockups', name: 'Mockups and materials', startPct: 70, widthPct: 8, completePct: 0, isCritical: true },
-        { id: 'fitout-typical', name: 'Typical floors', startPct: 78, widthPct: 10, completePct: 0, isCritical: true },
-      ],
-    },
-    {
-      id: 'handover',
-      name: 'Testing, Commissioning & Handover',
-      startPct: 86,
-      widthPct: 14,
-      completePct: 0,
-      color: '#243448',
-      isCritical: true,
-      aiAnnotation: 'Evidence-driven gates',
-      subTasks: [
-        { id: 'tc-commissioning', name: 'Commissioning certificates', startPct: 86, widthPct: 6, completePct: 0, isCritical: true },
-        { id: 'handover-pack', name: 'Handover evidence pack', startPct: 92, widthPct: 8, completePct: 0, isCritical: true },
-      ],
-    },
-  ];
+function buildPhases(project: ProjectCommandProject): Phase[] {
+  return buildProjectSchedule({
+    projectType: project.projectType,
+    startDate: project.startDate,
+    targetHandover: project.targetHandover,
+    completion: project.completion,
+    mainContractor: project.mainContractor,
+  });
 }
 
 function buildCostSeries(): ProjectCostSeries {
@@ -853,7 +759,7 @@ export function buildProjectCommandDatasetFromExtraction(
     portfolio,
     property,
     project,
-    phases: buildPhases(),
+    phases: buildPhases(project),
     costSeries: buildCostSeries(),
     evmSummary: buildEvmSummary(),
     risks: buildRisks(extracted),
