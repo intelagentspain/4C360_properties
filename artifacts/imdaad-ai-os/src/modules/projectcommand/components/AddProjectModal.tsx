@@ -31,12 +31,17 @@ import {
   generateProjectControlBaseline,
   type GeneratedProjectControlBaseline,
 } from '../data/projectCreationEngine';
+import { parseProjectDocumentFile } from '../data/projectDocumentParser';
 import { sampleSobhaPilotBrief, type ExtractedProjectContext } from '../data/projectExtractionDemoData';
 
 type CreateProjectStep = 'import' | 'understanding' | 'review' | 'baseline' | 'launch';
 
 type ProjectMaterialState = {
   fileName: string;
+  documentText: string;
+  parserMethod: string;
+  parserWarning: string;
+  fileParseStatus: 'idle' | 'reading' | 'ready' | 'limited' | 'error';
   pastedText: string;
   useSample: boolean;
   manual: boolean;
@@ -340,13 +345,22 @@ function ProjectContextImportStep({
   onContinue,
 }: {
   material: ProjectMaterialState;
-  onFile: (fileName: string) => void;
+  onFile: (file: File) => void;
   onText: (value: string) => void;
   onUseSample: () => void;
   onManual: () => void;
   onContinue: () => void;
 }) {
-  const canContinue = Boolean(material.fileName || material.pastedText.trim() || material.useSample);
+  const canContinue = Boolean(material.fileName || material.pastedText.trim() || material.useSample) && material.fileParseStatus !== 'reading';
+  const parserStatusLabel = material.fileParseStatus === 'reading'
+    ? 'Reading file...'
+    : material.fileParseStatus === 'ready'
+      ? `${material.documentText.length.toLocaleString()} readable characters extracted`
+      : material.fileParseStatus === 'limited'
+        ? 'Limited text extracted - review will require confirmation'
+        : material.fileParseStatus === 'error'
+          ? 'Could not read enough text - paste a brief or use DOCX/XLSX'
+          : '';
   return (
     <StepFrame
       footer={
@@ -414,6 +428,17 @@ function ProjectContextImportStep({
             </span>
             <span className="mt-3 text-[14px] font-black text-white">{material.fileName || 'Drop in a project document'}</span>
             <span className="mt-1 text-[12px] text-[#8FB4E4]">PDF, DOC, DOCX, XLS, XLSX accepted for the demo intake</span>
+            {parserStatusLabel && (
+              <span className={`mt-3 rounded-full border px-3 py-1 text-[11px] font-black ${
+                material.fileParseStatus === 'ready'
+                  ? 'border-emerald-300/30 bg-emerald-500/12 text-emerald-100'
+                  : material.fileParseStatus === 'reading'
+                    ? 'border-blue-300/30 bg-blue-500/12 text-blue-100'
+                    : 'border-amber-300/30 bg-amber-500/12 text-amber-100'
+              }`}>
+                {parserStatusLabel}
+              </span>
+            )}
           </label>
           <input
             id="project-context-file"
@@ -422,9 +447,14 @@ function ProjectContextImportStep({
             className="sr-only"
             onChange={event => {
               const file = event.target.files?.[0];
-              if (file) onFile(file.name);
+              if (file) onFile(file);
             }}
           />
+          {material.parserWarning && (
+            <div className="mt-3 rounded-lg border border-amber-300/25 bg-amber-500/10 p-3 text-[11px] font-bold leading-relaxed text-amber-100">
+              {material.parserWarning}
+            </div>
+          )}
 
           <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-bold text-[#8FA7C5]">
             {['LOA', 'Project brief', 'Contract summary', 'BOQ summary', 'Programme summary', 'Consultant report'].map(item => (
@@ -1072,6 +1102,10 @@ function CreateProjectModal({
   const [step, setStep] = useState<CreateProjectStep>('import');
   const [material, setMaterial] = useState<ProjectMaterialState>({
     fileName: 'Sample Sobha Pilot Tower LOA / Project Summary.pdf',
+    documentText: sampleSobhaPilotBrief,
+    parserMethod: 'sample-document',
+    parserWarning: '',
+    fileParseStatus: 'ready',
     pastedText: sampleSobhaPilotBrief,
     useSample: true,
     manual: false,
@@ -1103,6 +1137,9 @@ function CreateProjectModal({
           window.clearInterval(interval);
           extractProjectContext({
             fileName: material.fileName || undefined,
+            documentText: material.documentText,
+            parserMethod: material.parserMethod,
+            parserWarning: material.parserWarning,
             pastedText: material.pastedText,
             useSample: material.useSample,
             manual: material.manual,
@@ -1122,7 +1159,7 @@ function CreateProjectModal({
       cancelled = true;
       window.clearInterval(interval);
     };
-  }, [material.fileName, material.manual, material.pastedText, material.useSample, step, understandingDone]);
+  }, [material.documentText, material.fileName, material.manual, material.parserMethod, material.parserWarning, material.pastedText, material.useSample, step, understandingDone]);
 
   useEffect(() => {
     if (step !== 'baseline' || baselineDone || !extracted) return;
@@ -1156,6 +1193,57 @@ function CreateProjectModal({
     setBaselineDone(false);
     setBaseline(null);
     setStep('understanding');
+  };
+
+  const handleFileSelection = async (file: File) => {
+    setUnderstandingDone(false);
+    setBaselineDone(false);
+    setBaseline(null);
+    setExtracted(null);
+    setMaterial(current => ({
+      ...current,
+      fileName: file.name,
+      documentText: '',
+      parserMethod: '',
+      parserWarning: '',
+      fileParseStatus: 'reading',
+      useSample: false,
+      manual: false,
+    }));
+
+    try {
+      const parsed = await parseProjectDocumentFile(file);
+      const hasUsefulText = parsed.text.trim().length >= 80;
+      setMaterial(current => ({
+        ...current,
+        fileName: parsed.fileName,
+        documentText: parsed.text,
+        parserMethod: parsed.method,
+        parserWarning: parsed.warning ?? '',
+        fileParseStatus: hasUsefulText && !parsed.warning ? 'ready' : hasUsefulText ? 'limited' : 'error',
+        useSample: false,
+        manual: false,
+      }));
+      onToast?.(
+        hasUsefulText
+          ? `${parsed.fileName}: extracted ${parsed.text.length.toLocaleString()} readable characters`
+          : `${parsed.fileName}: upload received, but readable text is limited`,
+        hasUsefulText ? 'success' : 'warning',
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Document parser failed.';
+      setMaterial(current => ({
+        ...current,
+        fileName: file.name,
+        documentText: '',
+        parserMethod: 'unsupported',
+        parserWarning: message,
+        fileParseStatus: 'error',
+        useSample: false,
+        manual: false,
+      }));
+      onToast?.(`${file.name}: ${message}`, 'warning');
+    }
   };
 
   const confirmAll = () => {
@@ -1216,10 +1304,10 @@ function CreateProjectModal({
               <ProjectContextImportStep
                 key="import"
                 material={material}
-                onFile={fileName => setMaterial(current => ({ ...current, fileName, useSample: false, manual: false }))}
-                onText={pastedText => setMaterial(current => ({ ...current, pastedText, useSample: false, manual: false }))}
-                onUseSample={() => startUnderstanding({ fileName: 'Sample Sobha Pilot Tower LOA / Project Summary.pdf', pastedText: sampleSobhaPilotBrief, useSample: true, manual: false })}
-                onManual={() => startUnderstanding({ manual: true })}
+                onFile={file => void handleFileSelection(file)}
+                onText={pastedText => setMaterial(current => ({ ...current, fileName: '', documentText: '', parserMethod: 'pasted-brief', parserWarning: '', fileParseStatus: 'idle', pastedText, useSample: false, manual: false }))}
+                onUseSample={() => startUnderstanding({ fileName: 'Sample Sobha Pilot Tower LOA / Project Summary.pdf', documentText: sampleSobhaPilotBrief, parserMethod: 'sample-document', parserWarning: '', fileParseStatus: 'ready', pastedText: sampleSobhaPilotBrief, useSample: true, manual: false })}
+                onManual={() => startUnderstanding({ fileName: '', documentText: '', parserMethod: 'manual', parserWarning: '', fileParseStatus: 'idle', pastedText: '', manual: true, useSample: false })}
                 onContinue={() => startUnderstanding()}
               />
             )}
