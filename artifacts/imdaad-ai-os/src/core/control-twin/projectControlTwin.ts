@@ -789,6 +789,27 @@ function buildManagerActions(dataset: ProjectCommandDataset, events: ProjectEven
   const actions: ManagerAction[] = [];
   const triggerFor = (types: ProjectEventType[], fallback: string) => [...events].reverse().find(event => types.includes(event.type))?.title ?? fallback;
   const baselineMode = !latest || latest.type === 'baseline-created';
+  const hasVariation = events.some(event => event.type === 'variation-submitted');
+
+  const pushVariationAction = () => {
+    actions.push({
+      id: `${dataset.id}-action-variation`,
+      projectId: dataset.id,
+      title: 'Review VO-32 cost impact',
+      linkedEvent,
+      triggerLabel: triggerFor(['variation-submitted'], latest?.title ?? 'Commercial variation update'),
+      priority: metrics.pendingVariationExposure > 2_000_000 ? 'high' : 'medium',
+      whyItMatters: 'Pending variation exposure changes EAC and needs a manager cost decision before it becomes locked spend.',
+      expectedImpact: 'Confirms AED 2.9M exposure before EAC drift widens.',
+      costImplication: `${formatProjectCurrency(metrics.pendingVariationExposure || 2_900_000)} pending variation exposure.`,
+      status: 'Recommended',
+      cta: 'Review cost impact',
+    });
+  };
+
+  if (hasVariation && latest?.type === 'variation-submitted') {
+    pushVariationAction();
+  }
 
   if (baselineMode || events.some(event => event.type === 'crane-loss' || event.type === 'weather-disruption')) {
     actions.push({
@@ -836,6 +857,10 @@ function buildManagerActions(dataset: ProjectCommandDataset, events: ProjectEven
       status: 'Draft',
       cta: baselineMode ? 'Confirm approval path' : 'Request corrected evidence',
     });
+  }
+
+  if (hasVariation && latest?.type !== 'variation-submitted') {
+    pushVariationAction();
   }
 
   actions.push({
