@@ -110,7 +110,7 @@ function metricControlCause(metric: ProjectControlContext['controlMetrics'][numb
 
 function managerActionButtonLabel(action: ManagerAction) {
   const value = `${action.title} ${action.whyItMatters} ${action.cta}`.toLowerCase();
-  if (value.includes('vendor') || value.includes('procurement') || value.includes('facade') || value.includes('long-lead')) return 'Open VendorIQ';
+  if (value.includes('vendor') || value.includes('procurement') || value.includes('facade') || value.includes('long-lead')) return 'Review in VendorIQ';
   if (value.includes('evidence') || value.includes('approval') || value.includes('authority') || value.includes('gate')) return 'Request evidence';
   if (value.includes('crane') || value.includes('resequence') || value.includes('workforce') || value.includes('utilization')) return 'Assign owner';
   if (value.includes('cost') || value.includes('variation') || value.includes('commercial')) return 'Review cost impact';
@@ -370,22 +370,6 @@ function ProjectPulse({
 
 function WhatChangedToday({ context, goTo }: { context: ProjectControlContext; goTo: (screen: ProjectCommandScreen) => void }) {
   const liveUpdates = context.changedToday.filter(event => event.type !== 'baseline-created');
-  const feed = liveUpdates.length > 0
-    ? liveUpdates
-    : [{
-        id: 'baseline-created',
-        type: 'recovery-approved' as const,
-        title: 'No control update logged since baseline',
-        affectedModule: 'Project Control Cockpit',
-        impactLabel: 'Add the latest site, procurement, commercial, or approval update to calculate impact and assign owners.',
-        timestamp: new Date().toISOString(),
-        cta: 'Open programme',
-        affectedAreas: [],
-        description: 'ProjectCommand is waiting for the next control signal.',
-        severity: 'positive' as const,
-        impacts: { healthDelta: 0, cpiDelta: 0, spiDelta: 0, floatDelta: 0, eacDelta: 0, riskDelta: 0, evidenceChange: 0 },
-        projectId: context.baseline.projectId,
-      }];
 
   const targetFor = (module: string): ProjectCommandScreen => {
     if (module.includes('Cost') || module.includes('Variation')) return 'cost';
@@ -399,13 +383,39 @@ function WhatChangedToday({ context, goTo }: { context: ProjectControlContext; g
     <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
       <div className="mb-3 flex items-center justify-between gap-3">
         <div>
-          <h3 className="text-base font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>What Changed Today</h3>
-          <p className="mt-0.5 text-[11px] text-[#7A94B4]">Live project updates and their connected control impacts.</p>
+          <h3 className="text-base font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Today's Control Log</h3>
+          <p className="mt-0.5 text-[11px] text-[#7A94B4]">Logged project changes and the impact on forecast, cost, risk, evidence, and owners.</p>
         </div>
-        <span className="rounded-full border border-[rgba(46,127,255,0.18)] bg-[#07111F] px-2.5 py-1 text-[10px] font-black text-[#8EA7C7]">{feed.length} updates</span>
+        <span className="rounded-full border border-[rgba(46,127,255,0.18)] bg-[#07111F] px-2.5 py-1 text-[10px] font-black text-[#8EA7C7]">
+          {liveUpdates.length === 0 ? 'No updates' : `${liveUpdates.length} update${liveUpdates.length === 1 ? '' : 's'}`}
+        </span>
       </div>
-      <div className="space-y-2">
-        {feed.slice(0, 6).map((event, index) => (
+      {liveUpdates.length === 0 ? (
+        <div className="rounded-xl border border-[rgba(46,127,255,0.13)] bg-[#07111F]/72 p-3">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-full border border-[rgba(46,127,255,0.18)] bg-[#0A1628] px-2 py-0.5 text-[9px] font-black uppercase text-[#8EA7C7]">Baseline only</span>
+                <span className="text-[10px] font-bold text-[#7A94B4]">No project control signal logged today</span>
+              </div>
+              <p className="mt-2 text-[12px] font-black text-[#EEF3FA]">Log the next real project change when it happens.</p>
+              <p className="mt-1 max-w-4xl text-[11px] leading-4 text-[#B8C7DB]">
+                Use the Control Action Centre above for a delay, variation, approval blocker, rejected evidence, contractor issue, weather disruption, or approved recovery action. This log will then show the exact impact and owner actions.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => goTo('programme')}
+              className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-[#7C3AED]/30 bg-[#7C3AED]/12 px-3 text-[10px] font-black text-[#DDD6FE] hover:bg-[#7C3AED]/20"
+            >
+              Review programme
+              <ArrowRight size={12} />
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-2">
+        {liveUpdates.slice(0, 6).map((event, index) => (
           <motion.div
             key={event.id}
             layout
@@ -445,7 +455,8 @@ function WhatChangedToday({ context, goTo }: { context: ProjectControlContext; g
             </button>
           </motion.div>
         ))}
-      </div>
+        </div>
+      )}
     </section>
   );
 }
@@ -509,21 +520,21 @@ function ControlExceptions({ context, goTo }: { context: ProjectControlContext; 
 function DecisionQueue({ context, onPrepare }: { context: ProjectControlContext; onPrepare: (action: ManagerAction) => void }) {
   const actions = context.managerActions.slice(0, 3);
   const latest = latestLiveEvent(context);
-  const latestLabel = latest?.title ?? 'No active control signal logged.';
+  const latestLabel = latest?.title ?? 'Waiting for live project data.';
 
   return (
     <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
       <div className="mb-3 flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-base font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Decision Queue</h3>
-          <p className="mt-0.5 text-[11px] text-[#7A94B4]">Operational actions tied to the latest control signal.</p>
+          <h3 className="text-base font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>AI Action Queue</h3>
+          <p className="mt-0.5 text-[11px] text-[#7A94B4]">Suggested actions for project managers to review.</p>
         </div>
-        <span className="rounded-full border border-[#7C3AED]/25 bg-[#7C3AED]/12 px-2.5 py-1 text-[10px] font-black text-[#DDD6FE]">{context.managerActions.length} ready</span>
+        <span className="rounded-full border border-[#7C3AED]/25 bg-[#7C3AED]/12 px-2.5 py-1 text-[10px] font-black text-[#DDD6FE]">{context.managerActions.length} to review</span>
       </div>
 
       <div className="mb-3 rounded-xl border border-[#7C3AED]/18 bg-[#7C3AED]/10 px-3 py-2">
         <div className="flex items-center justify-between gap-3">
-          <p className="shrink-0 text-[8px] font-black uppercase tracking-[0.14em] text-[#C4B5FD]">Current trigger</p>
+          <p className="shrink-0 text-[8px] font-black uppercase tracking-[0.14em] text-[#C4B5FD]">Latest signal</p>
           <p className="min-w-0 truncate text-right text-[10px] font-bold text-[#EDE9FE]">{latestLabel}</p>
         </div>
         {latest && (
@@ -550,7 +561,7 @@ function DecisionQueue({ context, onPrepare }: { context: ProjectControlContext;
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-1.5">
                     <span className={`rounded-full border px-2 py-0.5 text-[8px] font-black uppercase ${severityClass[action.priority === 'critical' ? 'critical' : action.priority === 'high' ? 'high' : action.priority === 'medium' ? 'medium' : 'low']}`}>{action.priority}</span>
-                    <span className="rounded-full border border-cyan-300/14 bg-cyan-300/8 px-2 py-0.5 text-[8px] font-black text-cyan-100">Action</span>
+                    <span className="rounded-full border border-cyan-300/14 bg-cyan-300/8 px-2 py-0.5 text-[8px] font-black text-cyan-100">AI suggestion</span>
                   </div>
                   <h4 className="mt-1 line-clamp-1 text-[12px] font-black leading-4 text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{action.title}</h4>
                 </div>
@@ -1131,7 +1142,7 @@ function ManagementSummaryCard({
             onClick={onOpenVendorIQ}
             className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#7C3AED] px-3 text-[10px] font-black text-white shadow-[0_0_18px_rgba(124,58,237,0.26)] transition-colors hover:bg-[#6D28D9]"
           >
-            Open VendorIQ
+            Review in VendorIQ
             <ArrowRight size={12} />
           </button>
         )}
@@ -1162,7 +1173,7 @@ export function CommandCenter({
 
   const handleQueueAction = (action: ManagerAction) => {
     const actionLabel = managerActionButtonLabel(action);
-    if (actionLabel === 'Open VendorIQ' && onOpenVendorIQ) {
+    if (actionLabel === 'Review in VendorIQ' && onOpenVendorIQ) {
       onToast?.(`${action.title}: VendorIQ procurement action opened`, 'success');
       onOpenVendorIQ();
       return;
