@@ -23,7 +23,7 @@ import {
   useSelectedProjectCommandData,
 } from '@/modules/projectcommand/useProjectCommandData';
 
-type FilterTab = 'all' | 'top' | 'atrisk' | 'cost';
+type FilterTab = 'copilot' | 'all' | 'top' | 'atrisk' | 'cost';
 
 type VendorWizardStep = 1 | 2 | 3 | 4;
 type VendorSetupMode = 'manual' | 'ai';
@@ -4374,7 +4374,7 @@ function AddVendorWizard({
 interface Props { onToast: ToastFn }
 
 export function VendorIntelligence({ onToast }: Props) {
-  const [filterTab, setFilterTab] = useState<FilterTab>('all');
+  const [filterTab, setFilterTab] = useState<FilterTab>('copilot');
   const [selectedVendor, setSelectedVendor] = useState<VendorIntelData | null>(null);
   const [showAddVendorWizard, setShowAddVendorWizard] = useState(false);
   const [showPageCopilotModal, setShowPageCopilotModal] = useState(false);
@@ -4403,6 +4403,7 @@ export function VendorIntelligence({ onToast }: Props) {
   })();
 
   const tabs: { id: FilterTab; label: string }[] = [
+    { id: 'copilot', label: 'Procurement Copilot' },
     { id: 'all', label: 'All Vendors' },
     { id: 'top', label: 'Top Vendors' },
     { id: 'atrisk', label: 'At Risk' },
@@ -4535,7 +4536,8 @@ export function VendorIntelligence({ onToast }: Props) {
       </div>
 
       <div className="flex-1 overflow-y-auto custom-scrollbar px-5 py-4">
-        <div className="mb-4 overflow-hidden rounded-2xl border border-[#2E7FFF]/28 bg-[linear-gradient(135deg,rgba(17,32,64,0.96),rgba(7,17,31,0.98))] shadow-[0_18px_50px_rgba(0,0,0,0.22)]">
+        {filterTab === 'copilot' && (
+        <div className="overflow-hidden rounded-2xl border border-[#2E7FFF]/28 bg-[linear-gradient(135deg,rgba(17,32,64,0.96),rgba(7,17,31,0.98))] shadow-[0_18px_50px_rgba(0,0,0,0.22)]">
           <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[rgba(46,127,255,0.16)] bg-[linear-gradient(90deg,rgba(46,127,255,0.18),rgba(237,29,46,0.10),rgba(7,17,31,0))] px-5 py-4">
             <div>
               <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[#2E7FFF]/30 bg-[#2E7FFF]/12 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-[#8DBDFF]">
@@ -4568,7 +4570,9 @@ export function VendorIntelligence({ onToast }: Props) {
             />
           </div>
         </div>
+        )}
 
+        {filterTab !== 'copilot' && (
         <div className="bg-[rgba(17,32,64,0.85)] border border-[rgba(46,127,255,0.2)] rounded-xl overflow-hidden">
           <div className="grid grid-cols-[2fr_70px_100px_80px_90px_90px_80px_36px] px-4 py-2 text-[9px] text-[#7A94B4] uppercase tracking-wide border-b border-[rgba(46,127,255,0.1)]">
             {['Vendor', 'Score', 'Risk Level', 'Trend', 'SLA %', 'Avg Cost', 'Contracts', ''].map(h => (
@@ -4628,8 +4632,9 @@ export function VendorIntelligence({ onToast }: Props) {
             </motion.div>
           </AnimatePresence>
         </div>
+        )}
 
-        {filteredVendors.length === 0 && (
+        {filterTab !== 'copilot' && filteredVendors.length === 0 && (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <ShieldCheck size={32} className="text-[#7A94B4] mb-3 opacity-40" />
             <p className="text-[12px] text-[#7A94B4]">No vendors match this filter.</p>
