@@ -4025,7 +4025,7 @@ function SobhaPilotPathCard({
     '1. Open ProjectCommand and show the control twin baseline for Sobha Pilot Tower.',
     '2. Inject a live event and show how health, float, EAC, gates, and forecast move together.',
     '3. Use Recommended Actions to show the manager decision and recovery path.',
-    '4. Open VendorIQ and run the sample quote pack to show procurement action.',
+    '4. Open VendorIQ, assign the procurement context, and upload real supplier quotes to show procurement action.',
     '5. Close with the Pilot Summary: one tower, 6-8 weeks, measure float protected, evidence gaps closed, rework avoided, handover confidence improved.',
   ].join('\n');
 

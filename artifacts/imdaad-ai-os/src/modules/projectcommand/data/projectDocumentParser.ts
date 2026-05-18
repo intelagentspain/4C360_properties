@@ -406,7 +406,7 @@ export async function parseProjectDocumentFile(file: File): Promise<ParsedProjec
   } else if (extension === 'pdf') {
     method = 'pdf';
     text = await parsePdf(bytes);
-    if (text.length < 80) warning = 'PDF text layer was limited or scanned. Add pasted text or use the Sobha sample if OCR is needed.';
+    if (text.length < 80) warning = 'PDF text layer was limited or scanned. Add pasted text or upload a text-readable PDF/DOCX if OCR is needed.';
   } else if (extension === 'doc') {
     method = 'legacy-doc';
     text = parseLegacyBinaryText(bytes);
