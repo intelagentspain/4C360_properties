@@ -113,7 +113,7 @@ function sourceTypeLabel(sourceType: ExtractedProjectContext['sourceType']) {
     case 'pasted-brief':
       return 'Pasted brief parsed';
     case 'sample-document':
-      return 'Sample project document';
+      return 'Saved project brief';
     case 'manual':
       return 'Manual context';
     default:
@@ -185,8 +185,8 @@ function SampleDocumentButton({ onClick }: { onClick: () => void }) {
         <FileText className="h-4 w-4" />
       </span>
       <span>
-        <span className="block">Load sample project</span>
-        <span className="block text-[10px] font-bold uppercase tracking-[0.14em] text-blue-200/80">Fallback data</span>
+        <span className="block">Use saved project brief</span>
+        <span className="block text-[10px] font-bold uppercase tracking-[0.14em] text-blue-200/80">Fallback context</span>
       </span>
     </button>
   );
@@ -409,7 +409,7 @@ function ProjectContextImportStep({
       : material.fileParseStatus === 'limited'
         ? 'Limited text extracted - review will require confirmation'
         : material.fileParseStatus === 'error'
-          ? 'Could not read enough text - try a DOCX/XLSX file or use the fallback sample'
+          ? 'Could not read enough text - try a DOCX/XLSX file or paste the project brief'
           : '';
   return (
     <StepFrame
@@ -423,10 +423,10 @@ function ProjectContextImportStep({
               className="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-300/45 bg-blue-500/15 px-4 py-3 text-[12px] font-black text-blue-100 transition hover:border-blue-200/80 hover:bg-blue-500/25"
             >
               <FileText className="h-4 w-4" />
-              Load sample project
+              Use saved project brief
             </button>
             <button type="button" onClick={onManual} className="text-[12px] font-bold text-[#8FB4E4] underline-offset-4 hover:text-white hover:underline">
-              Continue manually
+              Continue without document
             </button>
           </div>
           <PrimaryButton onClick={onContinue} disabled={!canContinue}>
@@ -436,17 +436,6 @@ function ProjectContextImportStep({
         </div>
       }
     >
-      <section className="mb-5 overflow-hidden rounded-lg border border-blue-300/25 bg-[linear-gradient(135deg,rgba(7,25,45,0.98),rgba(6,20,38,0.96))] p-5">
-        <div className="flex items-start gap-4">
-          <IconBox icon={ScanLine} tone="blue" />
-          <div>
-            <h3 className="text-[22px] font-black text-white">Upload project documents</h3>
-            <p className="mt-2 max-w-3xl text-[13px] leading-relaxed text-[#A9C5E8]">
-              Add LOA, BOQ, programme, contract award, or project brief. ProjectCommand will extract the baseline and ask you to confirm before creating controls.
-            </p>
-          </div>
-        </div>
-      </section>
       <div className="mx-auto max-w-5xl">
         <section className="rounded-lg border border-[#24486F] bg-[#07192D] p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
           <div className="flex items-start gap-4">
@@ -1317,7 +1306,7 @@ function CreateProjectModal({
                 key="import"
                 material={material}
                 onFile={file => void handleFileSelection(file)}
-                onUseSample={() => startUnderstanding({ fileName: 'Sample Sobha Pilot Tower LOA / Project Summary.pdf', documentText: sampleSobhaPilotBrief, parserMethod: 'sample-document', parserWarning: '', fileParseStatus: 'ready', pastedText: sampleSobhaPilotBrief, useSample: true, manual: false })}
+                onUseSample={() => startUnderstanding({ fileName: 'Sobha Pilot Tower LOA / Project Summary.pdf', documentText: sampleSobhaPilotBrief, parserMethod: 'sample-document', parserWarning: '', fileParseStatus: 'ready', pastedText: sampleSobhaPilotBrief, useSample: true, manual: false })}
                 onManual={() => startUnderstanding({ fileName: '', documentText: '', parserMethod: 'manual', parserWarning: '', fileParseStatus: 'idle', pastedText: '', manual: true, useSample: false })}
                 onContinue={() => startUnderstanding()}
               />
