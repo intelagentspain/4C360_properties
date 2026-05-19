@@ -1292,7 +1292,7 @@ export function ProjectCommandCopilotButton({
   return (
     <>
       <motion.div
-        className="fixed bottom-6 right-6 z-[2100] flex items-center gap-2"
+        className="fixed bottom-4 right-4 z-[2100] flex items-center gap-2"
         initial={false}
         animate={hasCritical ? { y: [0, -2, 0] } : { y: 0 }}
         transition={{ duration: 2.8, repeat: hasCritical ? Infinity : 0, ease: 'easeInOut' }}
@@ -1300,12 +1300,12 @@ export function ProjectCommandCopilotButton({
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="relative flex h-16 w-16 items-center justify-center rounded-full border border-[#7C3AED]/45 bg-[radial-gradient(circle_at_35%_30%,#60A5FA,#7C3AED_48%,#111827_78%)] text-white shadow-[0_0_34px_rgba(124,58,237,0.45)] transition-transform hover:scale-105"
+          className="relative flex h-12 w-12 items-center justify-center rounded-full border border-[#7C3AED]/45 bg-[radial-gradient(circle_at_35%_30%,#60A5FA,#7C3AED_48%,#111827_78%)] text-white shadow-[0_0_24px_rgba(124,58,237,0.42)] transition-transform hover:scale-105"
           aria-label="Open DevelopmentX Copilot"
         >
-          {hasCritical && <span className="absolute inset-[-8px] rounded-full border border-red-300/25" />}
-          <Sparkles size={24} />
-          <span className="absolute -right-2 -top-2 rounded-full border border-red-300/40 bg-[#D92B1C] px-2 py-1 text-[9px] font-black text-white shadow-lg">{context.badge}</span>
+          {hasCritical && <span className="absolute inset-[-5px] rounded-full border border-red-300/25" />}
+          <Sparkles size={20} />
+          <span className="absolute -right-2 -top-1.5 rounded-full border border-red-300/40 bg-[#D92B1C] px-1.5 py-0.5 text-[8px] font-black text-white shadow-lg">{context.badge}</span>
         </button>
       </motion.div>
       <AnimatePresence>
