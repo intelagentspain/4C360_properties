@@ -173,12 +173,40 @@ function buildStageGateMetricInsight(metricName: StageGateMetricName, stats: Sta
   }
 }
 
-function StageGateMetricInsightPanel({ insight, onClose }: { insight: StageGateMetricInsight; onClose: () => void }) {
+function recommendationActionLabel(metricName: StageGateMetricName) {
+  switch (metricName) {
+    case 'Total Gates':
+      return 'Prepare gate review pack';
+    case 'Approved':
+      return 'Use as evidence benchmark';
+    case 'Blocked':
+      return 'Create recovery action plan';
+    case 'Pending Review':
+      return 'Send approver decision pack';
+    case 'Active Blockers':
+      return 'Assign blocker owner plan';
+    case 'Avg Completion':
+      return 'Target lowest-completion gate';
+  }
+}
+
+function StageGateMetricInsightPanel({
+  insight,
+  actioned,
+  onActionRecommendation,
+  onClose,
+}: {
+  insight: StageGateMetricInsight;
+  actioned?: boolean;
+  onActionRecommendation: (metricName: StageGateMetricName) => void;
+  onClose: () => void;
+}) {
   const toneClasses = {
     positive: 'border-emerald-300/30 bg-emerald-300/10 text-emerald-200',
     monitor: 'border-cyan-300/30 bg-cyan-300/10 text-cyan-200',
     critical: 'border-red-300/30 bg-red-300/10 text-red-200',
   };
+  const actionLabel = recommendationActionLabel(insight.metricName);
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/50 backdrop-blur-sm">
@@ -247,6 +275,26 @@ function StageGateMetricInsightPanel({ insight, onClose }: { insight: StageGateM
             Recommendation
           </div>
           <p className="mt-3 text-[14px] leading-6 text-[#E5D9FF]">{insight.recommendation}</p>
+          <div className="mt-4 rounded-xl border border-violet-200/14 bg-[#07111F]/62 p-3">
+            <div className="flex items-start gap-2 text-[11px] font-black uppercase tracking-[0.14em] text-violet-200">
+              <Send size={14} />
+              Action from here
+            </div>
+            <p className="mt-2 text-[12px] leading-5 text-[#B8C7DB]">
+              Queue the matching local action and focus the relevant gate queue without leaving this workflow.
+            </p>
+            <button
+              type="button"
+              onClick={() => onActionRecommendation(insight.metricName)}
+              className={`mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border px-4 text-[12px] font-black transition-colors ${actioned ? 'border-emerald-300/28 bg-emerald-300/12 text-emerald-100' : 'border-violet-200/24 bg-violet-300/12 text-violet-100 hover:bg-violet-300/18'}`}
+            >
+              {actioned ? <CheckCircle2 size={15} /> : <Send size={15} />}
+              {actioned ? 'Recommendation action queued' : actionLabel}
+            </button>
+            <p className="mt-2 text-[10px] leading-4 text-[#7A94B4]">
+              Demo-safe: no approval, email, or backend workflow is sent.
+            </p>
+          </div>
         </section>
       </aside>
     </div>
@@ -893,6 +941,14 @@ export function StageGates({ onToast }: { onToast?: (message: string, type?: 'su
   const [selectedGate, setSelectedGate] = useState<StageGate | null>(null);
   const [selectedMetricInsight, setSelectedMetricInsight] = useState<StageGateMetricInsight | null>(null);
   const [queuedActions, setQueuedActions] = useState<Record<string, string>>({});
+  const [actionedRecommendations, setActionedRecommendations] = useState<Record<StageGateMetricName, boolean>>({
+    'Total Gates': false,
+    Approved: false,
+    Blocked: false,
+    'Pending Review': false,
+    'Active Blockers': false,
+    'Avg Completion': false,
+  });
 
   const projects = useMemo(() => ['All Projects', ...Array.from(new Set(stageGates.map(item => item.project)))], []);
   const visibleGates = stageGates.filter(gate => {
@@ -934,6 +990,61 @@ export function StageGates({ onToast }: { onToast?: (message: string, type?: 'su
   const queueGateAction = (gate: StageGate, action: GateActionPlan) => {
     setQueuedActions(previous => ({ ...previous, [gate.code]: action.cta }));
     onToast?.(action.toast, action.tone === 'critical' ? 'warning' : 'success');
+  };
+
+  const actionRecommendation = (metricName: StageGateMetricName) => {
+    const blockedGate = stageGates.find(gate => gate.status === 'Blocked' || gate.blockers > 0);
+    const pendingGate = stageGates.find(gate => gate.status === 'Pending Review');
+    const lowestCompletionGate = [...stageGates].sort((a, b) => a.completion - b.completion)[0];
+    const approvedGate = stageGates.find(gate => gate.status === 'Approved');
+    const fallbackGate = priorityGate;
+    let gateToQueue = fallbackGate;
+    let toastMessage = 'Recommendation action queued locally';
+
+    setActionedRecommendations(previous => ({ ...previous, [metricName]: true }));
+    setQuery('');
+
+    switch (metricName) {
+      case 'Active Blockers':
+      case 'Blocked':
+        gateToQueue = blockedGate ?? fallbackGate;
+        setBlockedOnly(true);
+        setStatus('All Status');
+        setProject('All Projects');
+        toastMessage = `Owner recovery plan queued for ${gateToQueue.code}`;
+        break;
+      case 'Pending Review':
+        gateToQueue = pendingGate ?? fallbackGate;
+        setBlockedOnly(false);
+        setStatus('Pending Review');
+        setProject('All Projects');
+        toastMessage = `Approver decision pack queued for ${gateToQueue.approver}`;
+        break;
+      case 'Avg Completion':
+        gateToQueue = lowestCompletionGate;
+        setBlockedOnly(false);
+        setStatus('All Status');
+        setProject(gateToQueue.project);
+        toastMessage = `Evidence closure action queued for ${gateToQueue.code}`;
+        break;
+      case 'Approved':
+        gateToQueue = approvedGate ?? fallbackGate;
+        setBlockedOnly(false);
+        setStatus('Approved');
+        setProject('All Projects');
+        toastMessage = `Benchmark evidence review queued from ${gateToQueue.code}`;
+        break;
+      case 'Total Gates':
+        gateToQueue = fallbackGate;
+        setBlockedOnly(false);
+        setStatus('All Status');
+        setProject('All Projects');
+        toastMessage = 'Gate review pack queued for the active register';
+        break;
+    }
+
+    setQueuedActions(previous => ({ ...previous, [gateToQueue.code]: getGateActionPlan(gateToQueue).cta }));
+    onToast?.(toastMessage, metricName === 'Blocked' || metricName === 'Active Blockers' ? 'warning' : 'success');
   };
 
   return (
@@ -1117,6 +1228,8 @@ export function StageGates({ onToast }: { onToast?: (message: string, type?: 'su
       {selectedMetricInsight && (
         <StageGateMetricInsightPanel
           insight={selectedMetricInsight}
+          actioned={actionedRecommendations[selectedMetricInsight.metricName]}
+          onActionRecommendation={actionRecommendation}
           onClose={() => setSelectedMetricInsight(null)}
         />
       )}
