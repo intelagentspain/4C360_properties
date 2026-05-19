@@ -2287,6 +2287,7 @@ function ActionWorkbench({
   context,
   action,
   status,
+  activity,
   onClose,
   onPrepareBrief,
   onAssignOwner,
@@ -2296,6 +2297,7 @@ function ActionWorkbench({
   context: ProjectControlContext;
   action: ManagerAction;
   status: string;
+  activity: string[];
   onClose: () => void;
   onPrepareBrief: () => void;
   onAssignOwner: () => void;
@@ -2307,6 +2309,21 @@ function ActionWorkbench({
   const due = managerActionDue(action);
   const lower = `${action.title} ${action.cta}`.toLowerCase();
   const canOpenVendor = (lower.includes('vendor') || lower.includes('procurement') || lower.includes('facade') || lower.includes('long-lead')) && Boolean(onOpenVendorIQ);
+  const briefText = [
+    artifact.subject,
+    `Owner: ${owner}`,
+    `Due: ${due}`,
+    `Audience: ${artifact.audience}`,
+    `Expected recovery: ${action.expectedImpact}`,
+    `Cost note: ${action.costImplication}`,
+    '',
+    artifact.content,
+  ].join('\n');
+
+  const prepareBrief = () => {
+    navigator.clipboard?.writeText(briefText).catch(() => undefined);
+    onPrepareBrief();
+  };
 
   return (
     <motion.div
@@ -2395,21 +2412,29 @@ function ActionWorkbench({
             </div>
 
             <div className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#07111F]/78 p-3">
-              <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">Few-click demo controls</p>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-[0.14em] text-cyan-100">Manager response controls</p>
+                  <p className="mt-1 text-[10px] leading-4 text-[#8EA7C7]">Use these to prepare the brief, confirm ownership, and update the control twin.</p>
+                </div>
+                <span className="rounded-full border border-emerald-300/22 bg-emerald-300/10 px-2.5 py-1 text-[9px] font-black text-emerald-100">
+                  {status}
+                </span>
+              </div>
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 <button
                   type="button"
-                  onClick={onPrepareBrief}
+                  onClick={prepareBrief}
                   className="inline-flex h-10 items-center justify-center rounded-lg border border-[#2E7FFF]/24 bg-[#2E7FFF]/12 px-3 text-[10px] font-black text-blue-100 hover:bg-[#2E7FFF]/20"
                 >
-                  Prepare brief
+                  Copy manager brief
                 </button>
                 <button
                   type="button"
                   onClick={onAssignOwner}
                   className="inline-flex h-10 items-center justify-center rounded-lg border border-emerald-300/22 bg-emerald-300/10 px-3 text-[10px] font-black text-emerald-100 hover:bg-emerald-300/16"
                 >
-                  Assign owner
+                  Confirm owner
                 </button>
                 {canOpenVendor && (
                   <button
@@ -2425,10 +2450,23 @@ function ActionWorkbench({
                   onClick={onApproveRecovery}
                   className="inline-flex h-10 items-center justify-center rounded-lg bg-[#7C3AED] px-3 text-[10px] font-black text-white shadow-[0_0_22px_rgba(124,58,237,0.26)] hover:bg-[#6D28D9]"
                 >
-                  Mark recovery approved
+                  Approve recovery in twin
                 </button>
               </div>
-              <p className="mt-3 text-[10px] leading-4 text-[#8EA7C7]">These controls update the local demo state only. They do not email, call, approve spend, or dispatch teams externally.</p>
+              <div className="mt-3 rounded-xl border border-[rgba(46,127,255,0.12)] bg-[#0A1628] p-3">
+                <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">Action trail</p>
+                <div className="mt-2 space-y-1.5">
+                  {activity.length > 0 ? activity.map(item => (
+                    <div key={item} className="flex gap-2 text-[10px] leading-4 text-[#C8D8EE]">
+                      <CheckCircle2 size={12} className="mt-0.5 shrink-0 text-emerald-300" />
+                      <span>{item}</span>
+                    </div>
+                  )) : (
+                    <p className="text-[10px] leading-4 text-[#8EA7C7]">No response step has been activated yet.</p>
+                  )}
+                </div>
+              </div>
+              <p className="mt-3 text-[10px] leading-4 text-[#8EA7C7]">Demo-safe: this prepares artifacts and updates ProjectCommand state only. It does not email, call, approve spend, or dispatch teams externally.</p>
             </div>
           </div>
         </div>
@@ -2534,6 +2572,7 @@ export function CommandCenter({
   const [selectedDecisionChain, setSelectedDecisionChain] = useState<DecisionChainTarget | null>(null);
   const [selectedAction, setSelectedAction] = useState<ManagerAction | null>(null);
   const [actionWorkbenchStatus, setActionWorkbenchStatus] = useState('Draft prepared');
+  const [actionWorkbenchActivity, setActionWorkbenchActivity] = useState<string[]>([]);
   const [activatedLogActions, setActivatedLogActions] = useState<Record<string, string>>({});
   const [isUpdateDrawerOpen, setIsUpdateDrawerOpen] = useState(false);
   const visibleControlMetrics = context.controlMetrics
@@ -2542,9 +2581,18 @@ export function CommandCenter({
   const ledgerStatus = eventLedgerStatusByProjectId[dataset.id] ?? 'local';
   const ledgerSource = eventLedgerSourceByProjectId[dataset.id] ?? 'memory';
 
+  const recordWorkbenchActivity = (message: string) => {
+    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    setActionWorkbenchActivity(previous => [`${time} - ${message}`, ...previous].slice(0, 5));
+  };
+
   const handleQueueAction = (action: ManagerAction) => {
     setSelectedAction(action);
     setActionWorkbenchStatus('Draft prepared');
+    setActionWorkbenchActivity([
+      `Draft opened from ${action.triggerLabel || 'AI recommendation'}.`,
+      `${managerActionOwner(action)} is the suggested owner; due ${managerActionDue(action).toLowerCase()}.`,
+    ]);
     onToast?.(`${action.title}: action workbench opened`, 'info');
   };
 
@@ -2661,17 +2709,22 @@ export function CommandCenter({
             context={context}
             action={selectedAction}
             status={actionWorkbenchStatus}
+            activity={actionWorkbenchActivity}
             onClose={() => setSelectedAction(null)}
             onPrepareBrief={() => {
-              setActionWorkbenchStatus('Brief prepared');
-              onToast?.(`${selectedAction.title}: manager brief prepared`, 'success');
+              setActionWorkbenchStatus('Brief copied');
+              recordWorkbenchActivity('Manager brief copied to clipboard and ready to share.');
+              onToast?.(`${selectedAction.title}: manager brief copied`, 'success');
             }}
             onAssignOwner={() => {
-              setActionWorkbenchStatus(`Assigned to ${managerActionOwner(selectedAction)}`);
-              onToast?.(`${selectedAction.title}: owner assigned`, 'success');
+              const owner = managerActionOwner(selectedAction);
+              setActionWorkbenchStatus(`Owner confirmed: ${owner}`);
+              recordWorkbenchActivity(`${owner} confirmed as accountable owner.`);
+              onToast?.(`${selectedAction.title}: owner confirmed`, 'success');
             }}
             onApproveRecovery={() => {
-              setActionWorkbenchStatus('Recovery approved');
+              setActionWorkbenchStatus('Recovery approved in twin');
+              recordWorkbenchActivity('Recovery approval logged and ProjectCommand recalculated the twin.');
               handleLiveUpdate('recovery-approved');
               onToast?.(`${selectedAction.title}: recovery approved and forecast refreshed`, 'success');
             }}
