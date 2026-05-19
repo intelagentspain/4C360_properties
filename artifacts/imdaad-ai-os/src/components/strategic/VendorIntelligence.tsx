@@ -1287,7 +1287,7 @@ function buildVendorCopilotResult(vendor: VendorIntelData, peers: VendorIntelDat
       action,
       title: 'Assigned RFQ quote intake',
       status: 'Procurement context required',
-      summary: 'Start by assigning the property, project, and procurement package. AI only compares uploaded supplier quotes or manually pasted quote text against that selected package context.',
+      summary: 'Start by assigning the property, project, and procurement package. AI compares uploaded supplier quotes, including price, rate-card, and value signals, against that selected package context.',
       primaryCta: 'Open assigned intake',
       sections: [
         {
@@ -1309,7 +1309,7 @@ function buildVendorCopilotResult(vendor: VendorIntelData, peers: VendorIntelDat
         {
           title: 'Step 3 - compare and act',
           lines: [
-            'Rank submitted supplier quotes against the selected package budget, delivery date, evidence rules, and compliance criteria.',
+            'Rank submitted supplier quotes against price, budget, delivery date, evidence rules, compliance criteria, and value guardrails.',
             'Prepare an award brief, clarification request, negotiation points, or ProjectCommand link.',
             'Only submitted quote data is used in the comparison.',
           ],
@@ -1689,9 +1689,8 @@ function VendorCopilotWorkbench({
 }) {
   const actions: { id: VendorCopilotAction; label: string; detail: string; tone: string; icon: React.ReactNode }[] = [
     { id: 'rfq', label: 'Write RFQ', detail: 'Scope, questions, scoring, and evidence rules', tone: 'border-blue-400/30 bg-blue-400/10 text-blue-200', icon: <FileWarning size={13} /> },
-    { id: 'compare', label: 'Compare Quotes', detail: 'Assign context, upload quotes, rank bids', tone: 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200', icon: <BarChart3 size={13} /> },
+    { id: 'compare', label: 'Compare Quotes', detail: 'Price, value, delivery, and bid ranking', tone: 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200', icon: <BarChart3 size={13} /> },
     { id: 'background', label: 'Background Checks', detail: 'Contracts, evidence, risk, and dependency', tone: 'border-violet-400/30 bg-violet-400/10 text-violet-200', icon: <ShieldCheck size={13} /> },
-    { id: 'price', label: 'Price Analysis', detail: 'Peer average, savings, and rate-card ask', tone: 'border-amber-400/30 bg-amber-400/10 text-amber-200', icon: <DollarSign size={13} /> },
     { id: 'negotiation', label: 'Action Pack', detail: 'Vendor message, approvals, and KPI targets', tone: 'border-red-400/30 bg-red-400/10 text-red-200', icon: <Target size={13} /> },
   ];
 
@@ -1805,7 +1804,7 @@ function inferVendorCopilotAction(prompt: string): VendorCopilotAction {
   const lower = prompt.toLowerCase();
   if (lower.includes('rfq') || lower.includes('scope') || lower.includes('tender')) return 'rfq';
   if (lower.includes('background') || lower.includes('check') || lower.includes('compliance') || lower.includes('documents')) return 'background';
-  if (lower.includes('price') || lower.includes('cost') || lower.includes('saving') || lower.includes('rate')) return 'price';
+  if (lower.includes('price') || lower.includes('cost') || lower.includes('saving') || lower.includes('rate')) return 'compare';
   if (lower.includes('action') || lower.includes('negotiate') || lower.includes('corrective') || lower.includes('email')) return 'negotiation';
   return 'compare';
 }
@@ -1866,9 +1865,8 @@ function PageProcurementCopilotModal({
   );
   const chips: { label: string; detail: string; action: VendorCopilotAction; icon: React.ReactNode }[] = [
     { label: 'Draft RFQ', detail: 'Scope, criteria, evidence, deadlines', action: 'rfq', icon: <FileWarning size={15} /> },
-    { label: 'Compare Quotes', detail: 'Assign context, upload quotes, rank bids', action: 'compare', icon: <BarChart3 size={15} /> },
+    { label: 'Compare Quotes', detail: 'Price, value, delivery, bid ranking', action: 'compare', icon: <BarChart3 size={15} /> },
     { label: 'Run Checks', detail: 'Compliance, documents, dependency', action: 'background', icon: <ShieldCheck size={15} /> },
-    { label: 'Analyse Price', detail: 'Savings, rate card, value guardrails', action: 'price', icon: <DollarSign size={15} /> },
     { label: 'Prepare Action Pack', detail: 'Negotiation brief and KPI targets', action: 'negotiation', icon: <Target size={15} /> },
   ];
 
@@ -3249,7 +3247,7 @@ function PageProcurementCopilotModal({
                   <textarea
                     value={prompt}
                     onChange={event => setPrompt(event.target.value)}
-                    placeholder="Ask for an RFQ, quote comparison, background check, price analysis..."
+                    placeholder="Ask for an RFQ, quote comparison, background check, action pack..."
                     spellCheck={false}
                     className="min-h-[78px] w-full resize-none rounded-xl border border-[rgba(46,127,255,0.22)] bg-[#0D1E3A] px-3 py-2.5 text-[12px] leading-5 text-[#EEF3FA] outline-none transition-all placeholder:text-[#5A7393] focus:border-[#2E7FFF]"
                   />
@@ -3486,7 +3484,7 @@ function VendorDetailPage({ vendor, onBack, onToast }: { vendor: VendorIntelData
   const [copilotModalAction, setCopilotModalAction] = useState<VendorCopilotAction>('rfq');
   const [copilotOverride, setCopilotOverride] = useState<VendorCopilotResult | null>(null);
   const [copilotLog, setCopilotLog] = useState<string[]>([
-    'Ready to draft RFQs, compare quotes, run checks, and prepare price actions.',
+    'Ready to draft RFQs, compare quotes, run checks, and prepare action packs.',
   ]);
   const { vendors: allVendors } = useVendors();
 
