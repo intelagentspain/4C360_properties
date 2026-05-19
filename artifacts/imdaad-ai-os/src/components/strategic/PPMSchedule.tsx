@@ -197,20 +197,6 @@ const tabs: { id: PpmTab; label: string }[] = [
   { id: 'reports', label: 'Reports' },
 ];
 
-const lifecycle = [
-  'Asset',
-  'Maintenance Strategy',
-  'PPM Schedule',
-  'Checklist',
-  'Assignment',
-  'Execution',
-  'Evidence',
-  'Verification',
-  'KPI Impact',
-  'Asset Health',
-  'AI Prediction',
-];
-
 const assetGroups = [
   { category: 'HVAC', health: 82, overdue: 7, risk: 'High', nextDue: 'Today 14:00', trend: '-4 pts' },
   { category: 'Lift', health: 76, overdue: 5, risk: 'Critical', nextDue: 'Overdue 3d', trend: '-8 pts' },
@@ -898,32 +884,6 @@ function KpiCard({
       <p className="mt-2 font-['Syne'] text-3xl font-bold text-white">{value}</p>
       <p className="mt-1 text-xs text-slate-400">{detail}</p>
     </motion.div>
-  );
-}
-
-function LifecycleStrip() {
-  return (
-    <div className="rounded-2xl border border-[#1C3050] bg-[#0B1728] p-4">
-      <div className="mb-3 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.2em] text-blue-300">
-        <Activity className="h-4 w-4 text-red-300" />
-        Connected PPM lifecycle
-      </div>
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
-        {lifecycle.map((step, index) => (
-          <div
-            key={step}
-            className="min-h-[52px] min-w-0 rounded-xl border border-blue-500/25 bg-blue-500/10 px-3 py-2 text-slate-200"
-          >
-            <p className="text-[10px] font-black uppercase tracking-[0.14em] text-blue-300">
-              Step {String(index + 1).padStart(2, '0')}
-            </p>
-            <p className="mt-1 text-[12px] font-bold leading-snug">
-              {step}
-            </p>
-          </div>
-        ))}
-      </div>
-    </div>
   );
 }
 
@@ -1678,17 +1638,7 @@ export function PPMSchedule({ onToast }: Props) {
               <Bot className="mr-2 inline h-4 w-4" />
               Generate PPM Plan
             </button>
-            <button
-              onClick={() => setCopilotOpen(true)}
-              className="rounded-xl bg-violet-600 px-4 py-3 text-sm font-bold text-white shadow-[0_14px_40px_rgba(124,58,237,0.28)] transition hover:bg-violet-500"
-            >
-              <Sparkles className="mr-2 inline h-4 w-4" />
-              Open Copilot
-            </button>
           </div>
-        </div>
-        <div className="mt-5">
-          <LifecycleStrip />
         </div>
       </div>
 
