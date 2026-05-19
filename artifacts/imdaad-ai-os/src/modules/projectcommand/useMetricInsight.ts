@@ -316,7 +316,7 @@ export function useMetricInsight(metricName: MetricName, value: string | number)
           severity: 'monitor',
           summary: 'AI is reviewing this metric against current project context.',
           rationale: ['Metric is compared against programme, cost, and risk signals.'],
-          interpretation: 'Use this as a directional control signal.',
+          interpretation: 'Use this as a directional project health indicator.',
           recommendation: 'Review connected project data before taking action.',
         };
     }

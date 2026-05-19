@@ -261,7 +261,7 @@ function SourceAuditStrip({ extracted }: { extracted: ExtractedProjectContext })
   const parserSignal = extracted.extractionSignals.find(signal => signal.id === 'parser');
   const sourceSignal = extracted.extractionSignals.find(signal => signal.id !== 'parser' && signal.sourceExcerpt);
   const sourceExcerpt = sourceSignal?.sourceExcerpt || parserSignal?.sourceExcerpt || 'No source excerpt was captured for this extraction.';
-  const parserDetail = parserSignal?.value || `${extracted.signalCount} project signals extracted from the selected context.`;
+  const parserDetail = parserSignal?.value || `${extracted.signalCount} useful project details extracted from the selected context.`;
 
   return (
     <div className="sticky top-0 z-20 mb-5 rounded-lg border border-blue-300/30 bg-[#07192D]/96 p-4 shadow-[0_18px_34px_rgba(0,0,0,0.28)] backdrop-blur">
@@ -546,7 +546,7 @@ function AIProjectUnderstandingStep({
             </span>
             <div>
               <h3 className="text-[22px] font-black text-white">AI is understanding the project material</h3>
-              <p className="mt-1 text-[13px] text-[#9DBBE0]">ProjectCommand is extracting control signals from the imported context.</p>
+              <p className="mt-1 text-[13px] text-[#9DBBE0]">ProjectCommand is reading the imported context and building the project baseline.</p>
             </div>
           </div>
           <div className="mb-6 grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
@@ -641,7 +641,7 @@ function AIProjectUnderstandingStep({
           <div className="flex items-start gap-4">
             <IconBox icon={BrainCircuit} tone="blue" />
             <div>
-              <h3 className="text-[22px] font-black text-white">AI extracted {extracted.signalCount} project signals</h3>
+              <h3 className="text-[22px] font-black text-white">AI extracted {extracted.signalCount} useful project details</h3>
               <p className="mt-2 text-[13px] leading-relaxed text-[#9DBBE0]">
                 Document-aware extraction found the property, project scope, budget, vendor responsibilities, milestones, risks, obligations, and evidence requirements.
               </p>

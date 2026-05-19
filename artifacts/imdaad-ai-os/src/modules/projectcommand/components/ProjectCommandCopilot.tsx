@@ -670,7 +670,7 @@ function getBlockerDisplay(insight: CopilotInsight, index: number) {
     why: insight.detail,
     evidence: 'Linked project evidence and owner confirmation.',
     action: 'Prepare action',
-    chain: insight.dependencyChain ?? [insight.signal, 'Manager review', 'Decision action', 'Project control update'],
+    chain: insight.dependencyChain ?? [insight.signal, 'Manager review', 'Decision action', 'Project update'],
   };
 }
 

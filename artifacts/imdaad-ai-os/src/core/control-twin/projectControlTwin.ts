@@ -490,6 +490,21 @@ export function createProjectControlEvent(projectId: string, type: ProjectEventT
   };
 }
 
+export function getProjectEventPreview(type: ProjectEventType) {
+  const template = eventTemplates[type];
+  return {
+    type: template.type,
+    title: template.title,
+    description: template.description,
+    affectedAreas: [...template.affectedAreas],
+    affectedModule: template.affectedModule,
+    impactLabel: template.impactLabel,
+    cta: template.cta,
+    severity: template.severity,
+    impacts: { ...template.impacts },
+  };
+}
+
 export function getNextProjectEventType(events: ProjectEvent[]): ProjectEventType {
   const sequence: ProjectEventType[] = ['facade-delay', 'crane-loss', 'missing-approval', 'variation-submitted', 'evidence-rejected', 'inspection-failure', 'contractor-underperformance', 'weather-disruption', 'recovery-approved'];
   const simulatedCount = events.filter(event => event.type !== 'baseline-created').length;
@@ -774,6 +789,27 @@ function buildManagerActions(dataset: ProjectCommandDataset, events: ProjectEven
   const actions: ManagerAction[] = [];
   const triggerFor = (types: ProjectEventType[], fallback: string) => [...events].reverse().find(event => types.includes(event.type))?.title ?? fallback;
   const baselineMode = !latest || latest.type === 'baseline-created';
+  const hasVariation = events.some(event => event.type === 'variation-submitted');
+
+  const pushVariationAction = () => {
+    actions.push({
+      id: `${dataset.id}-action-variation`,
+      projectId: dataset.id,
+      title: 'Review VO-32 cost impact',
+      linkedEvent,
+      triggerLabel: triggerFor(['variation-submitted'], latest?.title ?? 'Commercial variation update'),
+      priority: metrics.pendingVariationExposure > 2_000_000 ? 'high' : 'medium',
+      whyItMatters: 'Pending variation exposure changes EAC and needs a manager cost decision before it becomes locked spend.',
+      expectedImpact: 'Confirms AED 2.9M exposure before EAC drift widens.',
+      costImplication: `${formatProjectCurrency(metrics.pendingVariationExposure || 2_900_000)} pending variation exposure.`,
+      status: 'Recommended',
+      cta: 'Review cost impact',
+    });
+  };
+
+  if (hasVariation && latest?.type === 'variation-submitted') {
+    pushVariationAction();
+  }
 
   if (baselineMode || events.some(event => event.type === 'crane-loss' || event.type === 'weather-disruption')) {
     actions.push({
@@ -821,6 +857,10 @@ function buildManagerActions(dataset: ProjectCommandDataset, events: ProjectEven
       status: 'Draft',
       cta: baselineMode ? 'Confirm approval path' : 'Request corrected evidence',
     });
+  }
+
+  if (hasVariation && latest?.type !== 'variation-submitted') {
+    pushVariationAction();
   }
 
   actions.push({
@@ -1305,8 +1345,8 @@ export function buildProjectControlContext(dataset: ProjectCommandDataset, event
     ? latestIsBaseline
       ? dataset.aiContent.healthScore.topThreat
       : latestEvent.description
-    : dataset.aiContent.healthScore.topThreat || 'Sobha Pilot Tower baseline is ready. The live demo can now inject delays, variations, evidence gaps, inspections, and recovery actions.';
-  const latestImpact = latestEvent?.impactLabel ?? 'AI baseline generated work packages, programme phases, cost baseline, risks, obligations, evidence requirements, milestones, and manager decisions.';
+    : dataset.aiContent.healthScore.topThreat || 'Sobha Pilot Tower baseline is healthy and ready for progress updates.';
+  const latestImpact = latestEvent?.impactLabel ?? 'Baseline is in place with work packages, programme phases, cost plan, obligations, evidence requirements, milestones, and manager decisions.';
   const forecastScenarios = buildForecastScenarios(dataset, metrics, delayDays);
   const managerActions = buildManagerActions(dataset, events, metrics);
   const controlExceptions = buildExceptions(events, metrics, stageGateSummary, evidenceSummary, vendorSummary);
