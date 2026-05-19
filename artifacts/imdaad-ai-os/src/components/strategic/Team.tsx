@@ -1109,7 +1109,7 @@ function OverviewTab({ onEmployeeSelect, onToast }: { onEmployeeSelect: (employe
             <p className="text-[11px] text-[#8AA6C8]">Reward strong execution without losing the operational context behind each score.</p>
           </div>
           <div className="space-y-3 p-4">
-            {topTeams.map(team => {
+            {topTeams.map((team, index) => {
               const teamMembers = getTeamMembers(team);
               const sentIds = sentMailByTeam[team.id] ?? [];
               const suggestedAward = getSuggestedAwardPoints(team);
@@ -1123,26 +1123,36 @@ function OverviewTab({ onEmployeeSelect, onToast }: { onEmployeeSelect: (employe
                 : team.risk === 'Medium'
                   ? 'Reward wins, then clear the next operational blocker.'
                   : 'Keep recognition focused on recovery outcomes.';
+              const sentProgress = teamMembers.length ? Math.round((sentIds.length / teamMembers.length) * 100) : 0;
+              const scoreTone = scoreColor(teamScore);
 
               return (
                 <div
                   key={team.id}
-                  className={`w-full overflow-hidden rounded-xl border bg-[#071224]/55 text-left transition-colors ${
-                    active ? 'border-[#2E7FFF]/55 shadow-[0_0_0_1px_rgba(46,127,255,0.14)]' : 'border-white/[0.07] hover:border-[#2E7FFF]/45'
+                  className={`group relative w-full overflow-hidden rounded-xl border bg-[linear-gradient(145deg,rgba(7,18,36,0.92),rgba(11,27,51,0.76))] text-left transition-all ${
+                    active ? 'border-[#2E7FFF]/60 shadow-[0_0_0_1px_rgba(46,127,255,0.16),0_18px_40px_rgba(0,0,0,0.18)]' : 'border-white/[0.07] hover:border-[#2E7FFF]/45'
                   }`}
                 >
-                  <div className="flex items-start justify-between gap-3 p-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-[13px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{team.name}</p>
-                      <p className="truncate text-[10px] text-[#7A94B4]">{team.projects[0]} - {team.manager}</p>
+                  <div className="absolute inset-y-0 left-0 w-1" style={{ backgroundColor: scoreTone }} />
+                  <div className="flex items-start justify-between gap-3 px-4 pb-3 pt-4">
+                    <div className="flex min-w-0 items-start gap-3">
+                      <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-white/[0.08] bg-white/[0.045] text-[10px] font-black text-[#8DBDFF]">
+                        {String(index + 1).padStart(2, '0')}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="truncate text-[14px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{team.name}</p>
+                        <p className="mt-0.5 truncate text-[10px] text-[#8AA6C8]">{team.projects[0]} - {team.manager}</p>
+                        <p className="mt-2 line-clamp-2 text-[10px] leading-4 text-[#AFC1D7]">{nextAction}</p>
+                      </div>
                     </div>
                     <div className="shrink-0 text-right">
-                      <p className="text-[21px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{teamScore}</p>
-                      <Pill className={riskClass[team.risk]}>{team.risk}</Pill>
+                      <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-[#7A94B4]">Score</p>
+                      <p className="mt-0.5 text-[24px] font-black leading-none" style={{ color: scoreTone, fontFamily: 'Space Grotesk, sans-serif' }}>{teamScore}</p>
+                      <div className="mt-1"><Pill className={riskClass[team.risk]}>{team.risk}</Pill></div>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-5 gap-1.5 border-y border-white/[0.06] bg-white/[0.025] px-3 py-2 text-center">
+                  <div className="grid grid-cols-5 gap-1.5 border-y border-white/[0.06] bg-[#071224]/80 px-3 py-2.5 text-center">
                     {[
                       ['Prod', team.productivity],
                       ['SLA', team.sla],
@@ -1150,48 +1160,59 @@ function OverviewTab({ onEmployeeSelect, onToast }: { onEmployeeSelect: (employe
                       ['Accuracy', team.inspectionAccuracy],
                       ['CX', team.residentSatisfaction],
                     ].map(([label, value]) => (
-                      <div key={label}>
-                        <p className="text-[13px] font-black" style={{ color: scoreColor(value as number), fontFamily: 'Space Grotesk, sans-serif' }}>{value}</p>
-                        <p className="text-[8px] text-[#7A94B4]">{label}</p>
+                      <div key={label} className="min-w-0 rounded-lg border border-white/[0.055] bg-white/[0.025] px-1.5 py-2">
+                        <p className="text-[13px] font-black leading-none" style={{ color: scoreColor(value as number), fontFamily: 'Space Grotesk, sans-serif' }}>{value}</p>
+                        <p className="mt-1 truncate text-[8px] text-[#7A94B4]">{label}</p>
+                        <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-white/[0.07]">
+                          <div className="h-full rounded-full" style={{ width: `${value}%`, backgroundColor: scoreColor(value as number) }} />
+                        </div>
                       </div>
                     ))}
                   </div>
 
-                  <div className="m-3 rounded-lg border border-[#38D98A]/15 bg-[#38D98A]/[0.045] p-2.5">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold">
-                        <span className="inline-flex items-center gap-1 text-emerald-200"><Trophy size={11} /> {earnedPoints.toLocaleString()} pts</span>
-                        <span className="inline-flex items-center gap-1 text-amber-200"><Flame size={11} /> {streakDays}-day streak</span>
+                  <div className="px-3 py-3">
+                    <div className="rounded-xl border border-white/[0.07] bg-white/[0.035] p-3">
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="min-w-0">
+                          <p className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-[0.14em] text-[#7A94B4]"><Trophy size={10} /> Points</p>
+                          <p className="mt-1 truncate text-[13px] font-black text-emerald-200" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{earnedPoints.toLocaleString()}</p>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-[0.14em] text-[#7A94B4]"><Flame size={10} /> Streak</p>
+                          <p className="mt-1 truncate text-[13px] font-black text-amber-200" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{streakDays} days</p>
+                        </div>
+                        <div className="min-w-0 text-right">
+                          <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-[#7A94B4]">This week</p>
+                          <p className="mt-1 truncate text-[13px] font-black text-[#8DFFCB]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>+{suggestedAward}</p>
+                        </div>
                       </div>
-                      <Pill className="border-emerald-500/25 bg-emerald-500/10 text-emerald-200">+{suggestedAward} this week</Pill>
-                    </div>
-                    <p className="mt-2 text-[10px] leading-4 text-[#C8D6E8]">{nextAction}</p>
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {badges.slice(0, 3).map(badge => (
-                        <Pill key={badge} className="border-[#00C6FF]/20 bg-[#00C6FF]/10 text-cyan-100"><Star size={9} /> {badge}</Pill>
-                      ))}
+                      <div className="mt-3 flex flex-wrap gap-1.5">
+                        {badges.slice(0, 3).map(badge => (
+                          <Pill key={badge} className="border-[#00C6FF]/20 bg-[#00C6FF]/10 text-cyan-100"><Star size={9} /> {badge}</Pill>
+                        ))}
+                      </div>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 px-3 pb-3">
+                  <div className="grid grid-cols-1 gap-2 px-3 pb-3 pr-20 sm:grid-cols-2 2xl:pr-3">
                     <button
                       type="button"
                       onClick={() => handleMailToggle(team, teamMembers.length)}
                       aria-expanded={active}
-                      className={`inline-flex items-center justify-center gap-1.5 rounded-lg border px-2.5 py-2 text-[10px] font-bold transition-colors ${
+                      className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border px-3 py-2 text-[10px] font-bold transition-colors ${
                         active
-                          ? 'border-[#2E7FFF]/50 bg-[#2E7FFF]/18 text-white'
+                          ? 'border-[#2E7FFF]/55 bg-[#2E7FFF]/22 text-white shadow-[0_10px_26px_rgba(46,127,255,0.12)]'
                           : 'border-[#2E7FFF]/25 bg-[#2E7FFF]/10 text-blue-100 hover:border-[#2E7FFF]/55 hover:bg-[#2E7FFF]/18'
                       }`}
                     >
                       <Mail size={12} />
-                      Mail staff
-                      <span className="text-[#8AA6C8]">{sentIds.length}/{teamMembers.length}</span>
+                      <span>Mail staff</span>
+                      <span className="rounded-full bg-white/[0.07] px-1.5 py-0.5 text-[9px] text-[#AFC1D7]">{sentIds.length}/{teamMembers.length}</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => handleAwardPoints(team)}
-                      className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-2 text-[10px] font-bold text-emerald-100 transition-colors hover:border-emerald-400/50 hover:bg-emerald-500/16"
+                      className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-[10px] font-bold text-emerald-100 transition-colors hover:border-emerald-400/50 hover:bg-emerald-500/20"
                     >
                       <Award size={12} />
                       Award points
@@ -1205,22 +1226,31 @@ function OverviewTab({ onEmployeeSelect, onToast }: { onEmployeeSelect: (employe
                         animate={{ opacity: 1, height: 'auto', y: 0 }}
                         exit={{ opacity: 0, height: 0, y: -4 }}
                         transition={{ duration: 0.16 }}
-                        className="overflow-hidden px-3 pb-3"
+                        className="overflow-hidden border-t border-[#2E7FFF]/15 bg-[#06101F]/60 px-3 pb-3 pr-20 pt-3 2xl:pr-3"
                       >
-                        <div className="rounded-lg border border-[#2E7FFF]/20 bg-[#071224] p-2">
-                          <div className="mb-2 flex items-center justify-between gap-2">
-                            <p className="text-[10px] font-bold uppercase text-[#7A94B4]">Demo mail queue</p>
-                            <Pill className="border-white/[0.08] bg-white/[0.035] text-[#8AA6C8]">Queued only</Pill>
+                        <div>
+                          <div className="mb-3 flex items-center justify-between gap-3">
+                            <div>
+                              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#8DBDFF]">Demo mail queue</p>
+                              <p className="mt-1 text-[10px] text-[#7A94B4]">Recognition messages are prepared locally, one staff member at a time.</p>
+                            </div>
+                            <div className="w-24 shrink-0">
+                              <div className="mb-1 flex justify-between text-[9px] font-bold text-[#8AA6C8]">
+                                <span>Sent</span>
+                                <span>{sentProgress}%</span>
+                              </div>
+                              <ProgressBar value={sentProgress} color="#2E7FFF" />
+                            </div>
                           </div>
                           <div className="space-y-2">
                             {teamMembers.map(member => {
                               const sent = sentIds.includes(member.id);
                               return (
-                                <div key={member.id} className="rounded-lg border border-white/[0.07] bg-white/[0.03] p-2">
+                                <div key={member.id} className="rounded-lg border border-white/[0.06] bg-white/[0.028] p-2.5">
                                   <div className="flex items-start justify-between gap-2">
                                     <div className="min-w-0">
                                       <div className="flex items-center gap-2">
-                                        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-white/[0.08] bg-white/[0.06] text-[10px] font-bold text-[#EEF3FA]">{getInitials(member.name)}</span>
+                                        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-[#2E7FFF]/20 bg-[#2E7FFF]/12 text-[10px] font-bold text-[#EEF3FA]">{getInitials(member.name)}</span>
                                         <div className="min-w-0">
                                           <p className="truncate text-[11px] font-bold text-[#EEF3FA]">{member.name}</p>
                                           <p className="truncate text-[9px] text-[#7A94B4]">{member.role} - {member.email}</p>
