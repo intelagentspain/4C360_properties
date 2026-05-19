@@ -53,8 +53,8 @@ export function ProjectCommand({
   const selectedDataset = useSelectedProjectCommandData();
   const { organization, portfolio, property, project } = selectedDataset;
   const propertyOptions = useProjectCommandPropertyOptions();
-  const allProjectOptions = useProjectCommandProjectOptions();
   const projectOptions = useProjectCommandProjectOptions(property.id);
+  const allProjectOptions = useProjectCommandProjectOptions();
 
   const goTo = (next: ProjectCommandScreen) => {
     setScreen(next);
@@ -81,6 +81,7 @@ export function ProjectCommand({
       selectedProjectId: nextProject.id,
       ...resetProjectDetailState,
     });
+    onToast?.(`Switched to ${nextProject.propertyName} - ${nextProject.label}`, 'info');
   };
 
   const handleProjectChange = (projectId: string) => {
@@ -89,9 +90,10 @@ export function ProjectCommand({
 
     setProjectCommandState({
       selectedPropertyId: nextProject.propertyId,
-      selectedProjectId: projectId,
+      selectedProjectId: nextProject.id,
       ...resetProjectDetailState,
     });
+    onToast?.(`Switched to ${nextProject.propertyName} - ${nextProject.label}`, 'info');
   };
 
   useEffect(() => {
@@ -118,31 +120,33 @@ export function ProjectCommand({
             </p>
           </div>
 
-          <div className="flex flex-wrap items-end gap-2">
-            <label className="grid gap-1">
-              <span className="text-[9px] font-black uppercase tracking-[0.16em] text-[#7A94B4]">Property</span>
-              <select
-                value={property.id}
-                onChange={event => handlePropertyChange(event.target.value)}
-                className="h-8 min-w-[190px] rounded-lg border border-[rgba(46,127,255,0.18)] bg-[#07111F] px-2.5 text-[11px] font-bold text-[#DDE6F8] outline-none transition-colors focus:border-cyan-300/70"
-              >
-                {propertyOptions.map(option => (
-                  <option key={option.id} value={option.id}>{option.label}</option>
-                ))}
-              </select>
-            </label>
-            <label className="grid gap-1">
-              <span className="text-[9px] font-black uppercase tracking-[0.16em] text-[#7A94B4]">Project</span>
-              <select
-                value={selectedDataset.id}
-                onChange={event => handleProjectChange(event.target.value)}
-                className="h-8 min-w-[230px] rounded-lg border border-[rgba(46,127,255,0.18)] bg-[#07111F] px-2.5 text-[11px] font-bold text-[#DDE6F8] outline-none transition-colors focus:border-cyan-300/70"
-              >
-                {projectOptions.map(option => (
-                  <option key={option.id} value={option.id}>{option.label}</option>
-                ))}
-              </select>
-            </label>
+          <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+            {screen !== 'stagegates' && (
+              <>
+                <label className="sr-only" htmlFor="projectcommand-property-select">Property</label>
+                <select
+                  id="projectcommand-property-select"
+                  value={property.id}
+                  onChange={event => handlePropertyChange(event.target.value)}
+                  className="h-9 min-w-[220px] rounded-lg border border-[rgba(46,127,255,0.28)] bg-[#07111F] px-3 text-[12px] font-bold text-[#DDE6F8] outline-none transition-colors hover:border-[#2E7FFF]/55 focus:border-[#7C3AED]/70"
+                >
+                  {propertyOptions.map(option => (
+                    <option key={option.id} value={option.id}>{option.label}</option>
+                  ))}
+                </select>
+                <label className="sr-only" htmlFor="projectcommand-project-select">Project</label>
+                <select
+                  id="projectcommand-project-select"
+                  value={project.id}
+                  onChange={event => handleProjectChange(event.target.value)}
+                  className="h-9 min-w-[240px] rounded-lg border border-[rgba(46,127,255,0.28)] bg-[#07111F] px-3 text-[12px] font-bold text-[#DDE6F8] outline-none transition-colors hover:border-[#2E7FFF]/55 focus:border-[#7C3AED]/70"
+                >
+                  {projectOptions.map(option => (
+                    <option key={option.id} value={option.id}>{option.label}</option>
+                  ))}
+                </select>
+              </>
+            )}
             <button onClick={() => setAddProjectOpen(true)} className="flex h-8 items-center gap-1.5 rounded-lg border border-[#7C3AED]/45 bg-[#7C3AED] px-3 text-[11px] font-bold text-white shadow-lg shadow-violet-900/20 transition-colors hover:bg-[#6D28D9]">
               <Plus size={13} />
               Add Project

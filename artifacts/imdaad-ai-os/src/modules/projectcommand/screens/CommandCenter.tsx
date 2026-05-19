@@ -1550,20 +1550,24 @@ function LiveUpdatePanel({
 
   return (
     <>
-      <section id="project-control-action-centre" className="scroll-mt-4 rounded-xl border border-[#7C3AED]/24 bg-[linear-gradient(135deg,rgba(124,58,237,0.14),rgba(46,127,255,0.07),rgba(7,17,31,0.9))] p-4">
-        <div className="grid gap-4 xl:grid-cols-[1fr_310px] xl:items-stretch">
+      <section id="project-control-action-centre" className="scroll-mt-4 rounded-xl border border-[#2E7FFF]/18 bg-[rgba(17,32,64,0.78)] p-3">
+        <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_280px] xl:items-stretch">
           <div>
-            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#C4B5FD]">
-              <Zap size={13} />
-              Demo path
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#7EB8F7]">
+                  <Zap size={13} />
+                  Control update
+                </div>
+                <h3 className="mt-1 text-[16px] font-black leading-6 text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+                  Log a change, check impact, assign recovery.
+                </h3>
+              </div>
+              <span className="rounded-full border border-[#7C3AED]/24 bg-[#7C3AED]/12 px-2.5 py-1 text-[9px] font-black uppercase text-[#DDD6FE]">
+                Demo safe
+              </span>
             </div>
-            <h3 className="mt-1 text-[18px] font-black leading-6 text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-              Log one real update, review the impact, then approve the recovery path.
-            </h3>
-            <p className="mt-1 max-w-3xl text-[11px] leading-5 text-[#9CB1CC]">
-              Use this compact strip during the live demo. The main Add Project Update button above opens the same guided intake with impact preview.
-            </p>
-            <div className="mt-4 grid gap-2 sm:grid-cols-3">
+            <div className="mt-3 grid gap-2 sm:grid-cols-3">
               {guidedUpdateTypes.slice(0, 3).map(type => {
                 const copy = controlSignalCopy(type);
                 const preview = getProjectEventPreview(type);
@@ -1575,13 +1579,37 @@ function LiveUpdatePanel({
                       setSelectedType(type);
                       onOpenUpdateDrawer();
                     }}
-                    className="rounded-xl border border-[#7C3AED]/20 bg-[#07111F]/72 p-3 text-left transition-all hover:-translate-y-0.5 hover:border-[#7C3AED]/42 hover:bg-[#7C3AED]/12"
+                    className="rounded-lg border border-[#2E7FFF]/14 bg-[#07111F]/72 px-3 py-2.5 text-left transition-all hover:-translate-y-0.5 hover:border-[#7C3AED]/42 hover:bg-[#7C3AED]/12"
                   >
                     <span className="block text-[11px] font-black text-[#EEF3FA]">{copy.label}</span>
-                    <span className="mt-1 line-clamp-2 block text-[9px] leading-4 text-[#8EA7C7]">{preview.impactLabel}</span>
+                    <span className="mt-1 line-clamp-1 block text-[9px] leading-4 text-[#8EA7C7]">{preview.impactLabel}</span>
                   </button>
                 );
               })}
+            </div>
+            <div className="mt-3 grid gap-2 sm:grid-cols-3">
+              {[
+                ['Health', `${context.metrics.healthScore}/100`],
+                ['Float', `${context.metrics.floatRemaining}d`],
+                ['Risk exposure', formatProjectCurrency(context.metrics.riskExposure)],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-lg border border-[rgba(46,127,255,0.12)] bg-[#07111F]/58 px-3 py-2">
+                  <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">{label}</p>
+                  <p className="mt-0.5 text-[13px] font-black text-[#EEF3FA]">{value}</p>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 grid gap-2 lg:grid-cols-[minmax(0,1fr)_260px]">
+              <div className="rounded-lg border border-cyan-300/14 bg-cyan-300/8 px-3 py-2.5">
+                <p className="text-[8px] font-black uppercase tracking-[0.14em] text-cyan-100">Selected update</p>
+                <h4 className="mt-1 line-clamp-1 text-[13px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{selectedPreview.title}</h4>
+                <p className="mt-1 line-clamp-2 text-[10px] leading-4 text-[#B8C7DB]">{selectedPreview.description}</p>
+              </div>
+              <div className="rounded-lg border border-[#7C3AED]/18 bg-[#7C3AED]/10 px-3 py-2.5">
+                <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#C4B5FD]">Recovery path</p>
+                <p className="mt-1 line-clamp-2 text-[11px] font-black leading-4 text-[#EEF3FA]">{recoveryAction}</p>
+                <p className="mt-1 text-[9px] font-bold text-[#9CB1CC]">{projectUpdateOwner(selectedType)} / {projectUpdateDeadline(selectedType)}</p>
+              </div>
             </div>
           </div>
           <div className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#07111F]/78 p-3">
@@ -1593,7 +1621,7 @@ function LiveUpdatePanel({
               <button
                 type="button"
                 onClick={onOpenUpdateDrawer}
-                className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-[#7C3AED] px-3 text-[10px] font-black text-white shadow-[0_0_22px_rgba(124,58,237,0.26)] transition-colors hover:bg-[#6D28D9]"
+                className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-[#7C3AED] px-3 text-[10px] font-black text-white shadow-[0_0_18px_rgba(124,58,237,0.22)] transition-colors hover:bg-[#6D28D9]"
               >
                 <Play size={12} />
                 Add Update
@@ -1872,28 +1900,28 @@ function ActionableBlockerWorklist({
   const topDecision = context.managerActions[0];
 
   return (
-    <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
-      <div className="flex items-start justify-between gap-3">
+    <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-2.5">
+      <div className="flex items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100">
             <FileWarning size={13} />
             Blocker Worklist
           </div>
-          <h3 className="mt-1 text-[15px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>What must be owned next?</h3>
+          <h3 className="mt-0.5 text-[14px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Own the next blocker</h3>
         </div>
         <span className={`rounded-full border px-2.5 py-1 text-[9px] font-black uppercase ${context.controlExceptions.length > 0 ? 'border-amber-300/25 bg-amber-300/10 text-amber-100' : 'border-emerald-300/22 bg-emerald-300/10 text-emerald-100'}`}>
           {context.controlExceptions.length > 0 ? `${context.controlExceptions.length} open` : 'watchlist'}
         </span>
       </div>
 
-      <div className="mt-3 space-y-2">
+      <div className="mt-2.5 space-y-1.5">
         {blockers.map(blocker => (
           <button
             key={blocker.id}
             type="button"
             onClick={() => setActiveBlockerId(blocker.id)}
             aria-pressed={activeBlocker?.id === blocker.id}
-            className={`w-full rounded-lg border px-3 py-2 text-left transition-all hover:-translate-y-0.5 ${
+            className={`w-full rounded-lg border px-3 py-1.5 text-left transition-colors ${
               activeBlocker?.id === blocker.id
                 ? 'border-cyan-300/35 bg-cyan-300/12 shadow-[0_0_18px_rgba(0,198,255,0.12)]'
                 : 'border-[rgba(46,127,255,0.12)] bg-[#07111F]/70 hover:border-cyan-300/24 hover:bg-cyan-300/8'
@@ -1902,66 +1930,62 @@ function ActionableBlockerWorklist({
             <span className="flex items-start justify-between gap-2">
               <span className="min-w-0">
                 <span className="line-clamp-1 block text-[11px] font-black text-[#EEF3FA]">{blocker.title}</span>
-                <span className="mt-1 line-clamp-1 block text-[9px] font-bold text-[#8EA7C7]">{blocker.owner} / due {blocker.due}</span>
+                <span className="mt-1 line-clamp-1 block text-[9px] font-bold text-[#8EA7C7]">{blocker.owner} / {blocker.due}</span>
               </span>
               <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[8px] font-black uppercase ${severityClass[blocker.severity]}`}>
                 {blocker.severity}
               </span>
             </span>
-            <span className="mt-1 line-clamp-2 block text-[9px] leading-4 text-[#8EA7C7]">{blocker.impact}</span>
           </button>
         ))}
       </div>
 
       {activeBlocker && (
-        <div className="mt-3 rounded-xl border border-cyan-300/16 bg-[#07111F]/82 p-3">
-          <p className="text-[9px] font-black uppercase tracking-[0.14em] text-cyan-100">Selected blocker</p>
-          <h4 className="mt-1 text-[13px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{activeBlocker.title}</h4>
-          <div className="mt-2 grid gap-2 sm:grid-cols-2">
-            {[
-              ['Owner', activeBlocker.owner],
-              ['Due', activeBlocker.due],
-              ['Linked object', activeBlocker.linkedObject],
-              ['Action', activeBlocker.actionLabel],
-            ].map(([label, value]) => (
-              <div key={label} className="rounded-lg border border-white/8 bg-white/[0.03] px-2.5 py-2">
-                <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">{label}</p>
-                <p className="mt-0.5 line-clamp-2 text-[10px] font-bold text-[#DCE8F8]">{value}</p>
-              </div>
-            ))}
+        <div className="mt-2.5 rounded-xl border border-cyan-300/16 bg-[#07111F]/82 p-2.5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[8px] font-black uppercase tracking-[0.14em] text-cyan-100">Selected</p>
+              <h4 className="mt-0.5 line-clamp-1 text-[13px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{activeBlocker.title}</h4>
+            </div>
+            <span className="shrink-0 rounded-full border border-[#2E7FFF]/18 bg-[#2E7FFF]/10 px-2 py-0.5 text-[8px] font-black uppercase text-[#BFDBFE]">
+              {activeBlocker.linkedObject}
+            </span>
           </div>
-          <div className="mt-2 grid gap-2 sm:grid-cols-2">
-            <div className="rounded-lg border border-red-300/18 bg-red-400/8 px-2.5 py-2">
-              <p className="text-[8px] font-black uppercase tracking-[0.14em] text-red-100">If ignored</p>
-              <p className="mt-0.5 text-[10px] leading-4 text-[#FECACA]">{activeBlocker.ifIgnored}</p>
-            </div>
-            <div className="rounded-lg border border-emerald-300/18 bg-emerald-300/8 px-2.5 py-2">
-              <p className="text-[8px] font-black uppercase tracking-[0.14em] text-emerald-100">If resolved today</p>
-              <p className="mt-0.5 text-[10px] leading-4 text-emerald-100">{activeBlocker.ifResolved}</p>
-            </div>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <span className="rounded-full border border-white/8 bg-white/[0.03] px-2 py-1 text-[9px] font-bold text-[#DCE8F8]">Owner: {activeBlocker.owner}</span>
+            <span className="rounded-full border border-white/8 bg-white/[0.03] px-2 py-1 text-[9px] font-bold text-[#DCE8F8]">Due: {activeBlocker.due}</span>
+          </div>
+          <div className="mt-2 grid gap-1.5">
+            <p className="line-clamp-2 rounded-lg border border-red-300/14 bg-red-400/8 px-2.5 py-1.5 text-[10px] leading-4 text-[#FECACA]">
+              <span className="font-black uppercase text-red-100">Risk:</span> {activeBlocker.ifIgnored}
+            </p>
+            <p className="line-clamp-2 rounded-lg border border-emerald-300/14 bg-emerald-300/8 px-2.5 py-1.5 text-[10px] leading-4 text-emerald-100">
+              <span className="font-black uppercase">Close:</span> {activeBlocker.ifResolved}
+            </p>
           </div>
         </div>
       )}
 
-      {topDecision && (
+      <div className="mt-2.5 grid grid-cols-2 gap-2">
+        {topDecision && (
+          <button
+            type="button"
+            onClick={() => onPrepareAction(topDecision)}
+            className="inline-flex h-8 min-w-0 items-center justify-center gap-1.5 rounded-lg bg-[#7C3AED] px-2 text-[9px] font-black text-white shadow-[0_0_18px_rgba(124,58,237,0.24)] hover:bg-[#6D28D9]"
+          >
+            Workbench
+            <ArrowRight size={12} />
+          </button>
+        )}
         <button
           type="button"
-          onClick={() => onPrepareAction(topDecision)}
-          className="mt-3 inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg bg-[#7C3AED] px-3 text-[10px] font-black text-white shadow-[0_0_18px_rgba(124,58,237,0.24)] hover:bg-[#6D28D9]"
+          onClick={() => activeBlocker && goTo(activeBlocker.screen)}
+          className="inline-flex h-8 min-w-0 items-center justify-center gap-1.5 rounded-lg border border-[#2E7FFF]/24 bg-[#2E7FFF]/12 px-2 text-[9px] font-black text-blue-100 hover:bg-[#2E7FFF]/20"
         >
-          Open action workbench
+          {activeBlocker ? activeBlocker.actionLabel.replace('Review ', '') : 'Open worklist'}
           <ArrowRight size={12} />
         </button>
-      )}
-
-      <button
-        type="button"
-        onClick={() => activeBlocker && goTo(activeBlocker.screen)}
-        className="mt-3 inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-[#2E7FFF]/24 bg-[#2E7FFF]/12 px-3 text-[10px] font-black text-blue-100 hover:bg-[#2E7FFF]/20"
-      >
-        {activeBlocker ? activeBlocker.actionLabel : 'Open worklist'}
-        <ArrowRight size={12} />
-      </button>
+      </div>
     </section>
   );
 }
