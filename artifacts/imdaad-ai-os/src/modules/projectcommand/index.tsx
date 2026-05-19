@@ -113,28 +113,32 @@ export function ProjectCommand({
           </div>
 
           <div className="flex flex-wrap items-center gap-2 xl:justify-end">
-            <label className="sr-only" htmlFor="projectcommand-property-select">Property</label>
-            <select
-              id="projectcommand-property-select"
-              value={property.id}
-              onChange={event => handlePropertyChange(event.target.value)}
-              className="h-9 min-w-[220px] rounded-lg border border-[rgba(46,127,255,0.28)] bg-[#07111F] px-3 text-[12px] font-bold text-[#DDE6F8] outline-none transition-colors hover:border-[#2E7FFF]/55 focus:border-[#7C3AED]/70"
-            >
-              {propertyOptions.map(option => (
-                <option key={option.id} value={option.id}>{option.label}</option>
-              ))}
-            </select>
-            <label className="sr-only" htmlFor="projectcommand-project-select">Project</label>
-            <select
-              id="projectcommand-project-select"
-              value={project.id}
-              onChange={event => handleProjectChange(event.target.value)}
-              className="h-9 min-w-[240px] rounded-lg border border-[rgba(46,127,255,0.28)] bg-[#07111F] px-3 text-[12px] font-bold text-[#DDE6F8] outline-none transition-colors hover:border-[#2E7FFF]/55 focus:border-[#7C3AED]/70"
-            >
-              {projectOptions.map(option => (
-                <option key={option.id} value={option.id}>{option.label}</option>
-              ))}
-            </select>
+            {screen !== 'stagegates' && (
+              <>
+                <label className="sr-only" htmlFor="projectcommand-property-select">Property</label>
+                <select
+                  id="projectcommand-property-select"
+                  value={property.id}
+                  onChange={event => handlePropertyChange(event.target.value)}
+                  className="h-9 min-w-[220px] rounded-lg border border-[rgba(46,127,255,0.28)] bg-[#07111F] px-3 text-[12px] font-bold text-[#DDE6F8] outline-none transition-colors hover:border-[#2E7FFF]/55 focus:border-[#7C3AED]/70"
+                >
+                  {propertyOptions.map(option => (
+                    <option key={option.id} value={option.id}>{option.label}</option>
+                  ))}
+                </select>
+                <label className="sr-only" htmlFor="projectcommand-project-select">Project</label>
+                <select
+                  id="projectcommand-project-select"
+                  value={project.id}
+                  onChange={event => handleProjectChange(event.target.value)}
+                  className="h-9 min-w-[240px] rounded-lg border border-[rgba(46,127,255,0.28)] bg-[#07111F] px-3 text-[12px] font-bold text-[#DDE6F8] outline-none transition-colors hover:border-[#2E7FFF]/55 focus:border-[#7C3AED]/70"
+                >
+                  {projectOptions.map(option => (
+                    <option key={option.id} value={option.id}>{option.label}</option>
+                  ))}
+                </select>
+              </>
+            )}
             <button onClick={() => setAddProjectOpen(true)} className="flex h-8 items-center gap-1.5 rounded-lg border border-[#7C3AED]/45 bg-[#7C3AED] px-3 text-[11px] font-bold text-white shadow-lg shadow-violet-900/20 transition-colors hover:bg-[#6D28D9]">
               <Plus size={13} />
               Add Project
