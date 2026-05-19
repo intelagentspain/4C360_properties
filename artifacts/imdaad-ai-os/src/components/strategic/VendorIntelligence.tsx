@@ -571,6 +571,225 @@ function formatRfqPackageText(rfqPackage: RfqGeneratedPackage): string {
   ].join('\n');
 }
 
+const vendorResearchCheckCategories: { id: VendorResearchCheckCategory; label: string; detail: string }[] = [
+  { id: 'identity', label: 'Company identity', detail: 'Legal name, registration, website, country, and service fit' },
+  { id: 'compliance', label: 'Compliance documents', detail: 'Trade licence, insurance, certificates, and missing evidence' },
+  { id: 'ownership', label: 'Ownership / registration', detail: 'Parent company, UBO, shareholders, and registration notes' },
+  { id: 'financial', label: 'Financial / commercial risk', detail: 'Commercial warning signals, payment stress, and pricing exposure' },
+  { id: 'operational', label: 'Operational capacity', detail: 'SLA behavior, response capability, dependency, and resourcing risk' },
+  { id: 'reputation', label: 'Public-source reputation', detail: 'Website URLs, public references, notes, disputes, and complaint signals' },
+  { id: 'hse', label: 'HSE readiness', detail: 'Safety plan, method statements, training, incident controls, and certifications' },
+  { id: 'esg', label: 'ESG / labour', detail: 'Environmental, labour, sustainability, and workforce governance signals' },
+  { id: 'cyber', label: 'Cyber / data handling', detail: 'Privacy, data access, remote monitoring, and information security controls' },
+  { id: 'references', label: 'References', detail: 'Client references, comparable contracts, and scope similarity' },
+  { id: 'contract', label: 'Contract risk', detail: 'Expiry, flags, dependency, exclusions, and renewal controls' },
+];
+
+function splitVendorResearchLines(value: string): string[] {
+  return value
+    .split(/\n|;|\|/)
+    .map(line => line.trim())
+    .filter(Boolean)
+    .slice(0, 12);
+}
+
+function buildInitialVendorResearchState(vendor: VendorIntelData): VendorResearchWizardState {
+  return {
+    step: 'vendor',
+    vendorName: vendor.name,
+    legalName: vendor.name,
+    website: '',
+    country: vendor.address.country || 'UAE',
+    registrationNumber: '',
+    serviceCategory: vendor.category,
+    contactName: vendor.poc.name || '',
+    contactEmail: vendor.poc.email || '',
+    currentScope: `${vendor.category} across ${vendor.sites.join(', ')}`,
+    targetScope: `Validate ${vendor.name} before expansion, renewal, or shortlist decision.`,
+    publicUrls: '',
+    references: '',
+    notes: '',
+    documents: [],
+    selectedChecks: vendorResearchCheckCategories.map(category => category.id),
+  };
+}
+
+function extractVendorResearchSignals(documents: VendorSetupDocument[], notes: string, urls: string, vendor: VendorIntelData) {
+  const providedCombined = [
+    notes,
+    urls,
+    ...documents.map(doc => `${doc.name}\n${doc.content}`),
+  ].filter(Boolean).join('\n').toLowerCase();
+  const combined = [
+    notes,
+    urls,
+    vendor.contractFlags.map(flag => flag.description).join('\n'),
+    vendor.insights.join('\n'),
+    ...documents.map(doc => `${doc.name}\n${doc.content}`),
+  ].filter(Boolean).join('\n').toLowerCase();
+  const hasAny = (terms: string[]) => terms.some(term => combined.includes(term.toLowerCase()));
+  const hasProvided = (terms: string[]) => terms.some(term => providedCombined.includes(term.toLowerCase()));
+  return {
+    combined,
+    urlLines: splitVendorResearchLines(urls),
+    noteLines: splitVendorResearchLines(notes),
+    referenceLines: splitVendorResearchLines(notes).filter(line => /client|reference|project|contract|tower|community|mall|hospital|school/i.test(line)),
+    hasLicense: hasAny(['trade license', 'trade licence', 'commercial license', 'registration', 'registered']),
+    hasInsurance: hasAny(['insurance', 'public liability', 'workmen', 'workers compensation', 'professional indemnity']),
+    hasHse: hasAny(['hse', 'health and safety', 'method statement', 'risk assessment', 'iso 45001', 'safety plan']),
+    hasOwnership: hasAny(['owner', 'ownership', 'shareholder', 'parent company', 'ubo', 'ultimate beneficial']),
+    hasFinancialWarning: hasProvided(['bankrupt', 'insolvent', 'overdue payment', 'unpaid invoice', 'liquidation', 'court filing', 'legal claim', 'litigation']),
+    hasReputationWarning: hasProvided(['complaint', 'negative review', 'blacklist', 'termination notice', 'dispute', 'penalty notice', 'fraud']),
+    hasEsg: hasAny(['esg', 'sustainability', 'environment', 'iso 14001', 'labour', 'worker welfare']),
+    hasCyber: hasAny(['cyber', 'privacy', 'data protection', 'iso 27001', 'remote monitoring', 'portal access']),
+    hasReferences: hasAny(['reference', 'client', 'similar project', 'case study', 'completion certificate']),
+  };
+}
+
+function buildResearchFinding(category: VendorResearchCheckCategory, state: VendorResearchWizardState, vendor: VendorIntelData, peers: VendorIntelData[], signals: ReturnType<typeof extractVendorResearchSignals>): VendorResearchFinding {
+  const peerAvgCost = Math.round(peers.reduce((sum, peer) => sum + peer.avgCostPerJob, 0) / Math.max(1, peers.length));
+  const contractFlagText = vendor.contractFlags.map(flag => flag.description).join(' ');
+  switch (category) {
+    case 'identity':
+      return state.legalName && (state.website || signals.urlLines.length) && state.registrationNumber
+        ? { category: 'Company identity', status: 'Clear', finding: 'Identity fields are sufficiently anchored for a procurement review.', evidence: `${state.legalName}, ${state.country}, registration ${state.registrationNumber}.`, action: 'Confirm legal name against trade licence before award.' }
+        : { category: 'Company identity', status: 'Watch', finding: 'Identity is incomplete until legal, registration, and website evidence are confirmed.', evidence: 'One or more identity fields are blank in the intake.', action: 'Request trade licence, company profile, and official website confirmation.' };
+    case 'compliance':
+      if (vendor.contractFlags.length > 0) return { category: 'Compliance documents', status: 'Critical', finding: 'Existing VendorIQ flags must be closed before a low-risk decision.', evidence: contractFlagText, action: 'Request missing documents and attach them to the vendor record.' };
+      return signals.hasLicense && signals.hasInsurance
+        ? { category: 'Compliance documents', status: 'Clear', finding: 'Licence and insurance signals were found in provided material.', evidence: 'Provided documents or notes mention licence and insurance coverage.', action: 'Verify expiry dates and coverage limits before contract execution.' }
+        : { category: 'Compliance documents', status: 'Watch', finding: 'Core compliance documents are not fully evidenced yet.', evidence: 'Licence or insurance signal is missing from the provided material.', action: 'Request trade licence, insurance certificates, and relevant authority approvals.' };
+    case 'ownership':
+      return signals.hasOwnership
+        ? { category: 'Ownership / registration', status: 'Clear', finding: 'Ownership or registration context is present in the provided material.', evidence: 'Notes or documents reference ownership, shareholders, UBO, or parent company.', action: 'Confirm ownership details against official registration documents.' }
+        : { category: 'Ownership / registration', status: 'Watch', finding: 'Ownership and UBO information is not visible yet.', evidence: 'No ownership or shareholder signal found in the provided material.', action: 'Request company registry extract or UBO declaration for due diligence.' };
+    case 'financial':
+      if (signals.hasFinancialWarning) return { category: 'Financial / commercial risk', status: 'Critical', finding: 'Financial or legal warning language appears in provided material.', evidence: 'Notes or documents include insolvency, overdue, litigation, or claim-related terms.', action: 'Escalate to procurement leadership and request finance/legal clearance.' };
+      return vendor.avgCostPerJob > peerAvgCost * 1.12
+        ? { category: 'Financial / commercial risk', status: 'Watch', finding: 'Commercial pricing sits above peer average and needs negotiation guardrails.', evidence: `${vendor.name}: AED ${vendor.avgCostPerJob}/job vs peer average AED ${peerAvgCost}/job.`, action: 'Request rate-card breakdown and benchmark against comparable vendors.' }
+        : { category: 'Financial / commercial risk', status: 'Clear', finding: 'No financial warning signal was detected from provided material or VendorIQ pricing.', evidence: `Average cost is AED ${vendor.avgCostPerJob}/job against peer average AED ${peerAvgCost}/job.`, action: 'Keep commercial validation in the award pack.' };
+    case 'operational':
+      if (vendor.dependencyRisk === 'Critical' || vendor.predictedRisk30d >= 35) return { category: 'Operational capacity', status: 'Critical', finding: 'Operational dependency or predicted risk is too high for uncontrolled expansion.', evidence: `${vendor.dependencyRisk} dependency risk and ${vendor.predictedRisk30d}% predicted 30-day risk.`, action: 'Require capacity plan and backup vendor before scope expansion.' };
+      return vendor.slaCompliance >= 85 && vendor.evidenceCompliance >= 85
+        ? { category: 'Operational capacity', status: 'Clear', finding: 'Operational performance supports controlled use.', evidence: `${vendor.slaCompliance}% SLA and ${vendor.evidenceCompliance}% evidence compliance.`, action: 'Keep KPI monitoring and monthly review cadence.' }
+        : { category: 'Operational capacity', status: 'Watch', finding: 'Performance signals need controls before award or expansion.', evidence: `${vendor.slaCompliance}% SLA, ${vendor.evidenceCompliance}% evidence compliance, ${vendor.repeatFailureRate}% repeat failures.`, action: 'Set improvement targets and supervisor sign-off for first month.' };
+    case 'reputation':
+      if (signals.hasReputationWarning) return { category: 'Public-source reputation', status: 'Critical', finding: 'Reputation warning terms appear in supplied sources.', evidence: 'Provided URLs, notes, or documents mention complaint, dispute, termination, penalty, or fraud.', action: 'Review source details and obtain leadership approval before award.' };
+      return signals.urlLines.length > 0
+        ? { category: 'Public-source reputation', status: 'Clear', finding: 'Public-source URLs were supplied for review context.', evidence: `${signals.urlLines.length} URL${signals.urlLines.length === 1 ? '' : 's'} provided.`, action: 'Validate official website and references manually before final award.' }
+        : { category: 'Public-source reputation', status: 'Watch', finding: 'No public-source URLs were provided for reputation review.', evidence: 'The wizard has no website or public-source URL input beyond VendorIQ data.', action: 'Add official website, registry profile, and relevant public references.' };
+    case 'hse':
+      return signals.hasHse
+        ? { category: 'HSE readiness', status: 'Clear', finding: 'Safety governance appears in the provided material.', evidence: 'HSE, method statement, risk assessment, or ISO 45001 signal detected.', action: 'Request project-specific RAMS before mobilisation.' }
+        : { category: 'HSE readiness', status: 'Watch', finding: 'HSE readiness is not evidenced strongly enough yet.', evidence: 'No HSE plan, RAMS, or safety certification signal found.', action: 'Request HSE plan, RAMS, training records, and incident escalation process.' };
+    case 'esg':
+      return signals.hasEsg
+        ? { category: 'ESG / labour', status: 'Clear', finding: 'ESG or labour-governance signals are present.', evidence: 'Provided material references sustainability, ISO 14001, labour, or worker welfare.', action: 'Confirm ESG commitments are contractually captured where relevant.' }
+        : { category: 'ESG / labour', status: 'Watch', finding: 'ESG and labour governance are not yet evidenced.', evidence: 'No sustainability, environment, or workforce welfare signal found.', action: 'Request ESG/labour declaration for higher-value or resident-facing contracts.' };
+    case 'cyber':
+      return signals.hasCyber
+        ? { category: 'Cyber / data handling', status: 'Clear', finding: 'Data-handling or cyber controls are visible in the provided material.', evidence: 'Cyber, privacy, ISO 27001, remote monitoring, or portal access signal detected.', action: 'Confirm data access roles and security obligations in the contract.' }
+        : { category: 'Cyber / data handling', status: 'Watch', finding: 'Cyber and data controls are not documented yet.', evidence: 'No privacy, security, or data access signal found.', action: 'Request data-handling declaration if the vendor accesses systems, resident data, or IoT platforms.' };
+    case 'references':
+      return signals.hasReferences || state.references.trim()
+        ? { category: 'References', status: 'Clear', finding: 'Reference or comparable-work context is available.', evidence: state.references.trim() || 'Provided material references clients, comparable work, or completion certificates.', action: 'Call at least two references for critical or high-value scopes.' }
+        : { category: 'References', status: 'Watch', finding: 'References are still missing from the due-diligence pack.', evidence: 'No comparable client or project reference signal found.', action: 'Request three comparable references with contact details and scope descriptions.' };
+    case 'contract':
+      if (vendor.contractFlags.length > 0) return { category: 'Contract risk', status: 'Critical', finding: 'Contract flags are active and must be closed before reliance.', evidence: contractFlagText, action: 'Close contract flags or add compensating controls before renewal/award.' };
+      return vendor.contractExpiry.toLowerCase().includes('2026') || vendor.contractExpiry.toLowerCase().includes('2027')
+        ? { category: 'Contract risk', status: 'Clear', finding: 'Contract timing is visible and can be managed through the renewal workflow.', evidence: `Current expiry: ${vendor.contractExpiry}. Active contracts: ${vendor.activeContracts}.`, action: 'Keep renewal reminders and evidence requirements attached.' }
+        : { category: 'Contract risk', status: 'Watch', finding: 'Contract expiry or renewal position needs confirmation.', evidence: `Current expiry field: ${vendor.contractExpiry}.`, action: 'Confirm expiry, renewal rights, termination, and liability caps.' };
+  }
+}
+
+function buildVendorResearchReport(vendor: VendorIntelData, peers: VendorIntelData[], state: VendorResearchWizardState): VendorResearchReport {
+  const signals = extractVendorResearchSignals(state.documents, state.notes, [state.website, state.publicUrls].filter(Boolean).join('\n'), vendor);
+  const findings = state.selectedChecks.map(category => buildResearchFinding(category, state, vendor, peers, signals));
+  const criticalCount = findings.filter(finding => finding.status === 'Critical').length;
+  const watchCount = findings.filter(finding => finding.status === 'Watch').length;
+  const missingDocuments = [
+    state.registrationNumber || signals.hasLicense ? null : 'Trade licence / registration extract',
+    signals.hasInsurance ? null : 'Insurance certificates',
+    signals.hasHse ? null : 'HSE plan / RAMS',
+    signals.hasOwnership ? null : 'Ownership / UBO declaration',
+    signals.hasReferences || state.references.trim() ? null : 'Comparable client references',
+    signals.hasCyber ? null : 'Cyber / data handling declaration if system access is required',
+  ].filter((item): item is string => Boolean(item));
+  const riskScore = Math.max(0, Math.min(100,
+    92
+    - criticalCount * 10
+    - watchCount * 4
+    - Math.min(12, missingDocuments.length * 2)
+    - (vendor.dependencyRisk === 'Critical' ? 8 : vendor.dependencyRisk === 'High' ? 5 : 0)
+    - (vendor.predictedRisk30d >= 35 ? 5 : 0)
+    + (vendor.slaCompliance >= 90 ? 4 : 0)
+    + (vendor.evidenceCompliance >= 90 ? 4 : 0),
+  ));
+  const riskLevel: VendorResearchReport['riskLevel'] = riskScore >= 76 ? 'Low' : riskScore >= 55 ? 'Medium' : 'High';
+  const decision: VendorResearchReport['decision'] = riskScore >= 76 && criticalCount === 0 ? 'Proceed' : riskScore >= 55 && criticalCount <= 1 ? 'Proceed with controls' : 'Do not proceed yet';
+  const sourceBasis: VendorResearchSource[] = [
+    { id: 'vendoriq', type: 'VendorIQ', label: 'VendorIQ performance data', detail: `${vendor.slaCompliance}% SLA, ${vendor.evidenceCompliance}% evidence, ${vendor.dependencyRisk} dependency risk.` },
+    ...signals.urlLines.map((url, index) => ({ id: `url-${index}`, type: 'URL' as const, label: `Public source ${index + 1}`, detail: url })),
+    ...state.documents.map(doc => ({ id: doc.id, type: 'Document' as const, label: doc.name, detail: doc.warning ? `${doc.sizeLabel}; ${doc.warning}` : doc.sizeLabel })),
+    ...(state.notes.trim() ? [{ id: 'notes', type: 'Notes' as const, label: 'Pasted research notes', detail: `${state.notes.trim().length.toLocaleString()} characters provided.` }] : []),
+  ];
+  const requiredActions = [
+    ...findings.filter(finding => finding.status !== 'Clear').map(finding => finding.action),
+    ...missingDocuments.slice(0, 4).map(doc => `Collect ${doc}.`),
+  ].filter((item, index, arr) => arr.indexOf(item) === index).slice(0, 8);
+
+  return {
+    title: `${state.vendorName || vendor.name} due diligence report`,
+    status: `${decision} / ${riskLevel} risk`,
+    decision,
+    riskScore,
+    riskLevel,
+    summary: `Based on entered vendor details, provided URLs, uploaded documents, and VendorIQ performance data, ${state.vendorName || vendor.name} is rated ${riskLevel.toLowerCase()} risk with a ${riskScore}/100 due-diligence score.`,
+    sourceBasis,
+    findings,
+    requiredActions,
+    missingDocuments,
+    nextActions: ['Copy report', 'Save to workbench', 'Request missing documents', 'Prepare review checklist', 'Open vendor profile'],
+  };
+}
+
+function formatVendorResearchReportText(report: VendorResearchReport): string {
+  return [
+    report.title,
+    report.summary,
+    '',
+    `Executive decision: ${report.decision}`,
+    `Risk score: ${report.riskScore}/100 (${report.riskLevel})`,
+    '',
+    'Source basis',
+    ...report.sourceBasis.map(source => `${source.type}: ${source.label} - ${source.detail}`),
+    '',
+    'Findings',
+    ...report.findings.map(finding => `${finding.category} [${finding.status}]: ${finding.finding} Evidence: ${finding.evidence} Action: ${finding.action}`),
+    '',
+    'Missing documents',
+    ...(report.missingDocuments.length ? report.missingDocuments : ['No critical missing document identified from selected checks.']),
+    '',
+    'Required follow-up actions',
+    ...(report.requiredActions.length ? report.requiredActions : ['Proceed with normal procurement controls.']),
+  ].join('\n');
+}
+
+function buildBackgroundCopilotResult(report: VendorResearchReport): VendorCopilotResult {
+  return {
+    action: 'background',
+    title: report.title,
+    status: report.status,
+    summary: report.summary,
+    primaryCta: report.decision === 'Proceed' ? 'Attach report to award file' : 'Close due diligence actions',
+    sections: [
+      { title: 'Executive decision', lines: [`${report.decision}`, `Risk score: ${report.riskScore}/100`, `Risk level: ${report.riskLevel}`] },
+      { title: 'Highest priority findings', lines: report.findings.filter(finding => finding.status !== 'Clear').slice(0, 5).map(finding => `${finding.category}: ${finding.finding}`) },
+      { title: 'Required follow-up', lines: report.requiredActions.length ? report.requiredActions.slice(0, 5) : ['Proceed with normal procurement controls.'] },
+    ],
+  };
+}
+
 const initialVendorWizardForm: VendorWizardForm = {
   name: 'Nexus Facilities Services',
   category: 'FM & HVAC',
@@ -1229,11 +1448,74 @@ type VendorCopilotResult = {
   sections: { title: string; lines: string[] }[];
 };
 
+type VendorResearchStep = 'vendor' | 'sources' | 'checks' | 'report';
+
+type VendorResearchCheckCategory =
+  | 'identity'
+  | 'compliance'
+  | 'ownership'
+  | 'financial'
+  | 'operational'
+  | 'reputation'
+  | 'hse'
+  | 'esg'
+  | 'cyber'
+  | 'references'
+  | 'contract';
+
+type VendorResearchWizardState = {
+  step: VendorResearchStep;
+  vendorName: string;
+  legalName: string;
+  website: string;
+  country: string;
+  registrationNumber: string;
+  serviceCategory: string;
+  contactName: string;
+  contactEmail: string;
+  currentScope: string;
+  targetScope: string;
+  publicUrls: string;
+  references: string;
+  notes: string;
+  documents: VendorSetupDocument[];
+  selectedChecks: VendorResearchCheckCategory[];
+};
+
+type VendorResearchSource = {
+  id: string;
+  type: 'VendorIQ' | 'URL' | 'Document' | 'Notes';
+  label: string;
+  detail: string;
+};
+
+type VendorResearchFinding = {
+  category: string;
+  status: 'Clear' | 'Watch' | 'Critical';
+  finding: string;
+  evidence: string;
+  action: string;
+};
+
+type VendorResearchReport = {
+  title: string;
+  status: string;
+  decision: 'Proceed' | 'Proceed with controls' | 'Do not proceed yet';
+  riskScore: number;
+  riskLevel: 'Low' | 'Medium' | 'High';
+  summary: string;
+  sourceBasis: VendorResearchSource[];
+  findings: VendorResearchFinding[];
+  requiredActions: string[];
+  missingDocuments: string[];
+  nextActions: string[];
+};
+
 function formatVendorAction(action: VendorCopilotAction): string {
   return {
     rfq: 'RFQ builder opened',
     compare: 'Quote comparison intake opened',
-    background: 'Background check completed',
+    background: 'Background check wizard opened',
     price: 'Price analysis completed',
     negotiation: 'Action pack prepared',
   }[action];
@@ -1287,7 +1569,7 @@ function buildVendorCopilotResult(vendor: VendorIntelData, peers: VendorIntelDat
       action,
       title: 'Assigned RFQ quote intake',
       status: 'Procurement context required',
-      summary: 'Start by assigning the property, project, and procurement package. AI only compares uploaded supplier quotes or manually pasted quote text against that selected package context.',
+      summary: 'Start by assigning the property, project, and procurement package. AI compares uploaded supplier quotes, including price, rate-card, and value signals, against that selected package context.',
       primaryCta: 'Open assigned intake',
       sections: [
         {
@@ -1309,7 +1591,7 @@ function buildVendorCopilotResult(vendor: VendorIntelData, peers: VendorIntelDat
         {
           title: 'Step 3 - compare and act',
           lines: [
-            'Rank submitted supplier quotes against the selected package budget, delivery date, evidence rules, and compliance criteria.',
+            'Rank submitted supplier quotes against price, budget, delivery date, evidence rules, compliance criteria, and value guardrails.',
             'Prepare an award brief, clarification request, negotiation points, or ProjectCommand link.',
             'Only submitted quote data is used in the comparison.',
           ],
@@ -1321,33 +1603,33 @@ function buildVendorCopilotResult(vendor: VendorIntelData, peers: VendorIntelDat
   if (action === 'background') {
     return {
       action,
-      title: 'Vendor background check',
-      status: vendor.contractFlags.length === 0 && vendor.evidenceCompliance >= 88 ? 'No blocking issues found' : 'Review required before expansion',
-      summary: `Checked contract flags, documentation quality, dependency risk, and operational behavior for ${vendor.name}.`,
-      primaryCta: vendor.contractFlags.length === 0 ? 'Approve controlled sourcing' : 'Request missing documents',
+      title: 'Vendor due diligence intake',
+      status: 'Research inputs required',
+      summary: `Start a structured background check for ${vendor.name}. Add vendor details, public-source URLs, documents, notes, and check categories before generating the due diligence report.`,
+      primaryCta: 'Open background check wizard',
       sections: [
         {
-          title: 'Checks completed',
+          title: 'Vendor inputs',
           lines: [
-            `Contract flags found: ${vendor.contractFlags.length}.`,
-            `Evidence compliance: ${vendor.evidenceCompliance}%.`,
-            `Dependency risk: ${vendor.dependencyRisk}.`,
+            'Confirm legal name, website, country, registration, service category, contact, and target scope.',
+            'Add source URLs, uploaded documents, pasted notes, and known references.',
+            'Choose the due-diligence categories to include in the report.',
           ],
         },
         {
-          title: 'Findings',
+          title: 'Report coverage',
           lines: [
-            vendor.contractFlags.length > 0 ? vendor.contractFlags.map(flag => flag.description).join(' ') : 'No active breach, missing evidence, or warning flags are recorded.',
-            vendor.repeatFailureRate > 10 ? `Repeat failure is elevated at ${vendor.repeatFailureRate}%.` : `Repeat failure is within control at ${vendor.repeatFailureRate}%.`,
-            `30-day predicted risk is ${vendor.predictedRisk30d}%.`,
+            'Executive decision, risk score, identity, compliance, ownership, financial, operational, reputation, HSE, ESG, cyber, references, and contract risk.',
+            'Findings are based on user-provided sources, uploaded readable text, and VendorIQ performance data.',
+            'No live web scraping or backend research is triggered in this version.',
           ],
         },
         {
-          title: 'Action required',
+          title: 'Output actions',
           lines: [
-            vendor.evidenceCompliance < 88 ? 'Request a complete close-out evidence pack for the next 10 jobs.' : 'Keep standard evidence sampling in place.',
-            vendor.dependencyRisk === 'High' || vendor.dependencyRisk === 'Critical' ? 'Prepare a backup vendor before adding scope.' : 'Dependency is manageable for the current site footprint.',
-            'Store checked documents against the vendor record before contract renewal.',
+            'Copy report, save to workbench, request missing documents, prepare review checklist, or open vendor profile.',
+            'Saved reports update the Procurement Copilot workbench.',
+            'Follow-up actions remain visible before award or renewal.',
           ],
         },
       ],
@@ -1680,18 +1962,19 @@ function VendorCopilotWorkbench({
   onRun,
   onOpenQuoteIntake,
   onOpenRfqWizard,
+  onOpenBackgroundCheck,
 }: {
   result: VendorCopilotResult;
   log: string[];
   onRun: (action: VendorCopilotAction) => void;
   onOpenQuoteIntake?: () => void;
   onOpenRfqWizard?: () => void;
+  onOpenBackgroundCheck?: () => void;
 }) {
   const actions: { id: VendorCopilotAction; label: string; detail: string; tone: string; icon: React.ReactNode }[] = [
     { id: 'rfq', label: 'Write RFQ', detail: 'Scope, questions, scoring, and evidence rules', tone: 'border-blue-400/30 bg-blue-400/10 text-blue-200', icon: <FileWarning size={13} /> },
-    { id: 'compare', label: 'Compare Quotes', detail: 'Assign context, upload quotes, rank bids', tone: 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200', icon: <BarChart3 size={13} /> },
+    { id: 'compare', label: 'Compare Quotes', detail: 'Price, value, delivery, and bid ranking', tone: 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200', icon: <BarChart3 size={13} /> },
     { id: 'background', label: 'Background Checks', detail: 'Contracts, evidence, risk, and dependency', tone: 'border-violet-400/30 bg-violet-400/10 text-violet-200', icon: <ShieldCheck size={13} /> },
-    { id: 'price', label: 'Price Analysis', detail: 'Peer average, savings, and rate-card ask', tone: 'border-amber-400/30 bg-amber-400/10 text-amber-200', icon: <DollarSign size={13} /> },
     { id: 'negotiation', label: 'Action Pack', detail: 'Vendor message, approvals, and KPI targets', tone: 'border-red-400/30 bg-red-400/10 text-red-200', icon: <Target size={13} /> },
   ];
 
@@ -1706,6 +1989,10 @@ function VendorCopilotWorkbench({
               onClick={() => {
                 if (action.id === 'rfq' && onOpenRfqWizard) {
                   onOpenRfqWizard();
+                  return;
+                }
+                if (action.id === 'background' && onOpenBackgroundCheck) {
+                  onOpenBackgroundCheck();
                   return;
                 }
                 onRun(action.id);
@@ -1766,11 +2053,15 @@ function VendorCopilotWorkbench({
                 onOpenRfqWizard();
                 return;
               }
+              if (result.action === 'background' && onOpenBackgroundCheck) {
+                onOpenBackgroundCheck();
+                return;
+              }
               onRun(result.action);
             }}
             className="rounded-lg bg-[#2E7FFF] px-3 py-2 text-[11px] font-black text-white transition-all hover:bg-[#4B91FF]"
           >
-            {result.action === 'rfq' ? 'Open RFQ Wizard' : 'Refresh artifact'}
+            {result.action === 'rfq' ? 'Open RFQ Wizard' : result.action === 'background' ? 'Open Background Wizard' : 'Refresh artifact'}
           </button>
         </div>
 
@@ -1805,7 +2096,7 @@ function inferVendorCopilotAction(prompt: string): VendorCopilotAction {
   const lower = prompt.toLowerCase();
   if (lower.includes('rfq') || lower.includes('scope') || lower.includes('tender')) return 'rfq';
   if (lower.includes('background') || lower.includes('check') || lower.includes('compliance') || lower.includes('documents')) return 'background';
-  if (lower.includes('price') || lower.includes('cost') || lower.includes('saving') || lower.includes('rate')) return 'price';
+  if (lower.includes('price') || lower.includes('cost') || lower.includes('saving') || lower.includes('rate')) return 'compare';
   if (lower.includes('action') || lower.includes('negotiate') || lower.includes('corrective') || lower.includes('email')) return 'negotiation';
   return 'compare';
 }
@@ -1818,6 +2109,7 @@ function PageProcurementCopilotModal({
   onRun,
   onOpenProfile,
   onRfqGenerated,
+  onBackgroundGenerated,
 }: {
   focusVendor: VendorIntelData;
   vendors: VendorIntelData[];
@@ -1826,6 +2118,7 @@ function PageProcurementCopilotModal({
   onRun: (action: VendorCopilotAction) => void;
   onOpenProfile: () => void;
   onRfqGenerated?: (result: VendorCopilotResult) => void;
+  onBackgroundGenerated?: (result: VendorCopilotResult) => void;
 }) {
   const selectedProjectData = useSelectedProjectCommandData();
   const propertyOptions = useProjectCommandPropertyOptions();
@@ -1842,6 +2135,10 @@ function PageProcurementCopilotModal({
   const [rfqPackage, setRfqPackage] = useState<RfqGeneratedPackage | null>(null);
   const [rfqFeedback, setRfqFeedback] = useState('');
   const rfqReviewRef = useRef<HTMLDivElement | null>(null);
+  const [researchState, setResearchState] = useState<VendorResearchWizardState>(() => buildInitialVendorResearchState(focusVendor));
+  const [researchReport, setResearchReport] = useState<VendorResearchReport | null>(null);
+  const [researchFeedback, setResearchFeedback] = useState('');
+  const researchReportRef = useRef<HTMLDivElement | null>(null);
   const allProjectOptions = useProjectCommandProjectOptions();
   const projectOptions = useProjectCommandProjectOptions(rfqState.anchor.propertyId);
   const defaultQuotePackage = procurementPackageTemplates[0];
@@ -1866,9 +2163,8 @@ function PageProcurementCopilotModal({
   );
   const chips: { label: string; detail: string; action: VendorCopilotAction; icon: React.ReactNode }[] = [
     { label: 'Draft RFQ', detail: 'Scope, criteria, evidence, deadlines', action: 'rfq', icon: <FileWarning size={15} /> },
-    { label: 'Compare Quotes', detail: 'Assign context, upload quotes, rank bids', action: 'compare', icon: <BarChart3 size={15} /> },
+    { label: 'Compare Quotes', detail: 'Price, value, delivery, bid ranking', action: 'compare', icon: <BarChart3 size={15} /> },
     { label: 'Run Checks', detail: 'Compliance, documents, dependency', action: 'background', icon: <ShieldCheck size={15} /> },
-    { label: 'Analyse Price', detail: 'Savings, rate card, value guardrails', action: 'price', icon: <DollarSign size={15} /> },
     { label: 'Prepare Action Pack', detail: 'Negotiation brief and KPI targets', action: 'negotiation', icon: <Target size={15} /> },
   ];
 
@@ -1876,6 +2172,8 @@ function PageProcurementCopilotModal({
     onRun(action);
     setAssistantNote(action === 'compare'
       ? 'Upload or paste vendor quotes, then run the comparison to get ranked findings and a recommended winner.'
+      : action === 'background'
+        ? 'Add vendor details, URLs, documents, and selected checks, then generate the due diligence report.'
       : `${formatVendorAction(action)}. The live work product is updated on the right and on the page workbench behind this modal.`);
     setPrompt('');
   }
@@ -1969,6 +2267,80 @@ function PageProcurementCopilotModal({
     setQuoteActionArtifact(null);
     setQuoteStep(quoteAssignmentComplete ? 'upload' : 'context');
     setAssistantNote('Quote comparison reset. Upload or paste new quotes to analyse again.');
+  }
+
+  function patchResearch(patch: Partial<VendorResearchWizardState>) {
+    const isStepOnly = Object.keys(patch).length === 1 && patch.step;
+    setResearchState(prev => ({ ...prev, ...patch }));
+    if (!isStepOnly) {
+      setResearchReport(null);
+      setResearchFeedback('');
+    }
+  }
+
+  function toggleResearchCheck(category: VendorResearchCheckCategory) {
+    setResearchState(prev => ({
+      ...prev,
+      selectedChecks: prev.selectedChecks.includes(category)
+        ? prev.selectedChecks.filter(item => item !== category)
+        : [...prev.selectedChecks, category],
+    }));
+    setResearchReport(null);
+    setResearchFeedback('');
+  }
+
+  async function addResearchDocuments(event: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? []);
+    if (!files.length) return;
+    const docs = await Promise.all(files.map(async file => {
+      const parsed = await parseProjectDocumentFile(file).catch(() => null);
+      return {
+        id: `${file.name}-${file.size}-${Date.now()}`,
+        name: file.name,
+        type: file.type || 'Research document',
+        sizeLabel: formatDocumentSize(file.size),
+        content: parsed?.text ?? '',
+        warning: parsed?.warning,
+      };
+    }));
+    setResearchState(prev => ({ ...prev, documents: [...docs, ...prev.documents].slice(0, 10) }));
+    setResearchReport(null);
+    setResearchFeedback('');
+    event.target.value = '';
+  }
+
+  function generateVendorResearchReport() {
+    const report = buildVendorResearchReport(focusVendor, vendors, researchState);
+    setResearchReport(report);
+    setResearchState(prev => ({ ...prev, step: 'report' }));
+    onBackgroundGenerated?.(buildBackgroundCopilotResult(report));
+    onRun('background');
+    setAssistantNote('Due diligence report generated. Review the decision, findings, source basis, and required follow-up actions.');
+    setResearchFeedback('Report generated. Review the decision, findings, source basis, and follow-up actions.');
+    window.setTimeout(() => {
+      researchReportRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 0);
+  }
+
+  function runResearchAction(action: string) {
+    if (!researchReport) return;
+    if (action === 'Copy report') {
+      void navigator.clipboard?.writeText(formatVendorResearchReportText(researchReport));
+      setResearchFeedback('Background report copied for review.');
+      return;
+    }
+    if (action === 'Save to workbench') {
+      onBackgroundGenerated?.(buildBackgroundCopilotResult(researchReport));
+      setResearchFeedback('Background report saved to the Procurement Copilot workbench.');
+      return;
+    }
+    if (action === 'Open vendor profile') {
+      onOpenProfile();
+      return;
+    }
+    setResearchFeedback(action === 'Request missing documents'
+      ? 'Missing document request prepared from due diligence findings.'
+      : 'Review checklist prepared from selected due diligence categories.');
   }
 
   function prepareQuoteAction(action: string) {
@@ -2172,6 +2544,7 @@ function PageProcurementCopilotModal({
 
   const isCompareMode = result.action === 'compare';
   const isRfqMode = result.action === 'rfq';
+  const isBackgroundMode = result.action === 'background';
   const rfqCurrentStepIndex = rfqStepOrder.indexOf(rfqState.step);
   const visibleRfqTemplates = relevantRfqTemplates(rfqTemplates, rfqState.anchor.serviceCategory);
   const selectedRfqTemplate = rfqTemplates.find(item => item.id === rfqState.templateId);
@@ -2217,6 +2590,22 @@ function PageProcurementCopilotModal({
     { id: 'comparison', label: '3 AI Comparison', value: quoteAnalysis ? `${readableQuoteCount}/${quoteAnalysis.items.length} quotes readable` : 'run after upload', enabled: Boolean(quoteAnalysis), complete: Boolean(quoteAnalysis) },
   ];
   const quoteItemForDocument = (doc: VendorSetupDocument) => quoteAnalysis?.items.find(item => item.id === doc.id);
+  const researchStepOrder: VendorResearchStep[] = ['vendor', 'sources', 'checks', 'report'];
+  const researchCurrentStepIndex = researchStepOrder.indexOf(researchState.step);
+  const canGenerateResearchReport = Boolean(
+    researchState.vendorName.trim()
+      && researchState.legalName.trim()
+      && researchState.serviceCategory.trim()
+      && researchState.targetScope.trim()
+      && researchState.selectedChecks.length > 0,
+  );
+  const researchSourceCount = [
+    researchState.website.trim(),
+    ...splitVendorResearchLines(researchState.publicUrls),
+    ...researchState.documents,
+    researchState.notes.trim(),
+    researchState.references.trim(),
+  ].filter(Boolean).length;
   const quoteStatusTone = (status?: QuoteExtractionStatus) => {
     if (status === 'Read') return 'border-emerald-400/25 bg-emerald-400/10 text-emerald-200';
     if (status === 'Missing price' || status === 'Missing SLA' || status === 'Missing delivery') return 'border-amber-400/25 bg-amber-400/10 text-amber-200';
@@ -2243,22 +2632,24 @@ function PageProcurementCopilotModal({
         initial={{ opacity: 0, y: 18, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 12, scale: 0.98 }}
-        className={`flex max-h-[90vh] w-full ${isCompareMode || isRfqMode ? 'max-w-6xl' : 'max-w-5xl'} flex-col overflow-hidden rounded-2xl border border-[#2E7FFF]/30 bg-[#081528] shadow-2xl`}
+        className={`flex max-h-[90vh] w-full ${isCompareMode || isRfqMode || isBackgroundMode ? 'max-w-6xl' : 'max-w-5xl'} flex-col overflow-hidden rounded-2xl border border-[#2E7FFF]/30 bg-[#081528] shadow-2xl`}
       >
         <div className="flex items-start justify-between gap-4 border-b border-[rgba(46,127,255,0.16)] bg-[linear-gradient(135deg,rgba(46,127,255,0.18),rgba(124,58,237,0.12))] px-5 py-4">
           <div>
             <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-violet-300/25 bg-violet-400/10 px-3 py-1 text-[10px] font-black tracking-[0.18em] text-violet-100">
               <MessageSquare size={12} />
-              {isCompareMode ? 'Quote Comparison Workbench' : isRfqMode ? 'RFQ Builder' : 'Procurement assistant'}
+              {isCompareMode ? 'Quote Comparison Workbench' : isRfqMode ? 'RFQ Builder' : isBackgroundMode ? 'Background Check Wizard' : 'Procurement assistant'}
             </div>
             <h3 className="text-xl font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-              {isCompareMode ? 'Compare supplier quotes' : isRfqMode ? 'Build a project-anchored RFQ' : 'How can I help?'}
+              {isCompareMode ? 'Compare supplier quotes' : isRfqMode ? 'Build a project-anchored RFQ' : isBackgroundMode ? 'Build a vendor due diligence report' : 'How can I help?'}
             </h3>
             <p className="mt-1 max-w-2xl text-[12px] leading-5 text-[#9CB1CC]">
               {isCompareMode
                 ? 'Assign the property, project, and package first, then compare uploaded supplier quotes against that context.'
                 : isRfqMode
                   ? <>Anchor the property and project first, then choose whether to tell AI, use a template, or upload scope documents.</>
+                : isBackgroundMode
+                  ? 'Enter vendor details, public-source URLs, documents, notes, and check categories. The report is based on provided inputs and VendorIQ performance data.'
                 : <>Tell me the procurement outcome. I will generate the artifact and keep the vendor context anchored to <span className="font-bold text-[#EEF3FA]">{focusVendor.name}</span>.</>}
             </p>
           </div>
@@ -3196,6 +3587,282 @@ function PageProcurementCopilotModal({
               </div>
             </div>
           </div>
+        ) : isBackgroundMode ? (
+          <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto p-5">
+            <div className="grid gap-3 md:grid-cols-4">
+              {[
+                { id: 'vendor' as const, label: '1 Vendor', value: researchState.vendorName || 'required' },
+                { id: 'sources' as const, label: '2 Sources', value: `${researchSourceCount} source${researchSourceCount === 1 ? '' : 's'}` },
+                { id: 'checks' as const, label: '3 Checks', value: `${researchState.selectedChecks.length} selected` },
+                { id: 'report' as const, label: '4 Report', value: researchReport ? `${researchReport.riskScore}/100` : 'generate' },
+              ].map(step => (
+                <button
+                  key={step.id}
+                  type="button"
+                  onClick={() => patchResearch({ step: step.id })}
+                  className={`rounded-xl border p-3 text-left transition-all ${
+                    researchState.step === step.id
+                      ? 'border-[#2E7FFF]/48 bg-[#2E7FFF]/16 shadow-[0_0_22px_rgba(46,127,255,0.10)]'
+                      : 'border-[rgba(46,127,255,0.14)] bg-[#07111F] hover:border-[#2E7FFF]/32'
+                  }`}
+                >
+                  <div className={`text-[10px] font-black uppercase tracking-[0.16em] ${researchState.step === step.id ? 'text-[#8DBDFF]' : 'text-[#7A94B4]'}`}>{step.label}</div>
+                  <div className="mt-1 text-[11px] leading-4 text-[#C8D8EE]">{step.value}</div>
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-4 grid gap-4 lg:grid-cols-[0.72fr_0.28fr]">
+              <div className="rounded-2xl border border-[rgba(46,127,255,0.18)] bg-[#07111F] p-4">
+                {researchState.step === 'vendor' && (
+                  <div>
+                    <div className="mb-4">
+                      <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[#8DBDFF]">Vendor details</div>
+                      <h4 className="mt-1 text-lg font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Anchor the company being checked</h4>
+                      <p className="mt-1 text-[12px] leading-5 text-[#9CB1CC]">Confirm the identity, scope, and contact details before the report is generated.</p>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <VendorWizardField label="Vendor name">
+                        <VendorWizardInput value={researchState.vendorName} onChange={event => patchResearch({ vendorName: event.target.value })} />
+                      </VendorWizardField>
+                      <VendorWizardField label="Legal name">
+                        <VendorWizardInput value={researchState.legalName} onChange={event => patchResearch({ legalName: event.target.value })} />
+                      </VendorWizardField>
+                      <VendorWizardField label="Website">
+                        <VendorWizardInput value={researchState.website} onChange={event => patchResearch({ website: event.target.value })} placeholder="https://vendor.com" />
+                      </VendorWizardField>
+                      <VendorWizardField label="Country">
+                        <VendorWizardInput value={researchState.country} onChange={event => patchResearch({ country: event.target.value })} />
+                      </VendorWizardField>
+                      <VendorWizardField label="Registration / trade licence">
+                        <VendorWizardInput value={researchState.registrationNumber} onChange={event => patchResearch({ registrationNumber: event.target.value })} placeholder="Licence or registry number" />
+                      </VendorWizardField>
+                      <VendorWizardField label="Service category">
+                        <VendorWizardSelect value={researchState.serviceCategory} onChange={event => patchResearch({ serviceCategory: event.target.value })}>
+                          {['FM & HVAC', 'FM & Electrical', 'MEP & Systems', 'Cleaning & Soft FM', 'Security', 'Landscaping', 'Fire & Safety', 'Elevators & Lifts', 'Engineering & Civil', 'General FM'].map(category => (
+                            <option key={category} value={category}>{category}</option>
+                          ))}
+                        </VendorWizardSelect>
+                      </VendorWizardField>
+                      <VendorWizardField label="Contact name">
+                        <VendorWizardInput value={researchState.contactName} onChange={event => patchResearch({ contactName: event.target.value })} />
+                      </VendorWizardField>
+                      <VendorWizardField label="Contact email">
+                        <VendorWizardInput value={researchState.contactEmail} onChange={event => patchResearch({ contactEmail: event.target.value })} />
+                      </VendorWizardField>
+                      <VendorWizardField label="Current / known scope">
+                        <textarea value={researchState.currentScope} onChange={event => patchResearch({ currentScope: event.target.value })} className="min-h-[92px] w-full resize-none rounded-xl border border-[rgba(46,127,255,0.22)] bg-[#07111F] px-3 py-2.5 text-[12px] leading-5 text-[#EEF3FA] outline-none focus:border-[#2E7FFF]" />
+                      </VendorWizardField>
+                      <VendorWizardField label="Target decision / scope">
+                        <textarea value={researchState.targetScope} onChange={event => patchResearch({ targetScope: event.target.value })} className="min-h-[92px] w-full resize-none rounded-xl border border-[rgba(46,127,255,0.22)] bg-[#07111F] px-3 py-2.5 text-[12px] leading-5 text-[#EEF3FA] outline-none focus:border-[#2E7FFF]" />
+                      </VendorWizardField>
+                    </div>
+                  </div>
+                )}
+
+                {researchState.step === 'sources' && (
+                  <div>
+                    <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[#8DBDFF]">Source intake</div>
+                        <h4 className="mt-1 text-lg font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Add evidence for the research report</h4>
+                        <p className="mt-1 text-[12px] leading-5 text-[#9CB1CC]">Provide URLs, documents, notes, and references. The app does not fetch URLs in this version.</p>
+                      </div>
+                      <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-[#2E7FFF]/30 bg-[#2E7FFF]/14 px-4 py-2.5 text-[12px] font-black text-[#BFD8FF] transition-all hover:bg-[#2E7FFF]/22 hover:text-white">
+                        <UploadCloud size={14} />
+                        Upload documents
+                        <input type="file" multiple accept=".pdf,.doc,.docx,.txt,.csv,.md,.json,.png,.jpg,.jpeg" onChange={addResearchDocuments} className="hidden" />
+                      </label>
+                    </div>
+                    <div className="grid gap-3">
+                      <VendorWizardField label="Public-source URLs">
+                        <textarea value={researchState.publicUrls} onChange={event => patchResearch({ publicUrls: event.target.value })} placeholder="One URL per line: website, registry profile, LinkedIn, authority listing, news, references..." className="min-h-[96px] w-full resize-none rounded-xl border border-[rgba(46,127,255,0.22)] bg-[#050C17] px-3 py-2.5 text-[12px] leading-5 text-[#EEF3FA] outline-none placeholder:text-[#4A6480] focus:border-[#2E7FFF]" />
+                      </VendorWizardField>
+                      <VendorWizardField label="Known references / clients">
+                        <textarea value={researchState.references} onChange={event => patchResearch({ references: event.target.value })} placeholder="Paste known reference clients, comparable projects, contact names, or completion evidence." className="min-h-[76px] w-full resize-none rounded-xl border border-[rgba(46,127,255,0.22)] bg-[#050C17] px-3 py-2.5 text-[12px] leading-5 text-[#EEF3FA] outline-none placeholder:text-[#4A6480] focus:border-[#2E7FFF]" />
+                      </VendorWizardField>
+                      <VendorWizardField label="Research notes">
+                        <textarea value={researchState.notes} onChange={event => patchResearch({ notes: event.target.value })} placeholder="Paste website text, registry notes, ownership notes, compliance details, incidents, complaints, financial warnings, HSE, ESG, cyber, or reference feedback." className="min-h-[128px] w-full resize-none rounded-xl border border-[rgba(46,127,255,0.22)] bg-[#050C17] px-3 py-2.5 text-[12px] leading-5 text-[#EEF3FA] outline-none placeholder:text-[#4A6480] focus:border-[#2E7FFF]" />
+                      </VendorWizardField>
+                    </div>
+                    <div className="mt-4 grid gap-2">
+                      {researchState.documents.length === 0 ? (
+                        <div className="rounded-xl border border-dashed border-[#2E7FFF]/25 px-3 py-3 text-[11px] text-[#8AA6C8]">No documents uploaded yet.</div>
+                      ) : researchState.documents.map(doc => (
+                        <div key={doc.id} className="flex flex-wrap items-center gap-2 rounded-xl border border-[#2E7FFF]/18 bg-[#102544] px-3 py-2 text-[11px] text-[#C8D8EE]">
+                          <FileText size={13} className="text-[#8DBDFF]" />
+                          <span className="min-w-0 flex-1 truncate font-bold">{doc.name}</span>
+                          <span className="text-[#6F89AA]">{doc.sizeLabel}</span>
+                          {doc.warning && <span className="text-amber-200">{doc.warning}</span>}
+                          <button type="button" onClick={() => patchResearch({ documents: researchState.documents.filter(item => item.id !== doc.id) })} className="text-[#7A94B4] hover:text-red-300" aria-label={`Remove ${doc.name}`}>
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {researchState.step === 'checks' && (
+                  <div>
+                    <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[#8DBDFF]">Due diligence checks</div>
+                        <h4 className="mt-1 text-lg font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Select what the report should cover</h4>
+                        <p className="mt-1 text-[12px] leading-5 text-[#9CB1CC]">Full due diligence is selected by default. Turn off categories only if they are not relevant to this vendor decision.</p>
+                      </div>
+                      <button type="button" onClick={() => patchResearch({ selectedChecks: vendorResearchCheckCategories.map(category => category.id) })} className="rounded-xl border border-[#2E7FFF]/24 bg-[#2E7FFF]/10 px-3 py-2 text-[11px] font-black text-[#8DBDFF] transition-colors hover:bg-[#2E7FFF]/18">
+                        Select all
+                      </button>
+                    </div>
+                    <div className="grid gap-2 md:grid-cols-2">
+                      {vendorResearchCheckCategories.map(category => {
+                        const active = researchState.selectedChecks.includes(category.id);
+                        return (
+                          <button key={category.id} type="button" onClick={() => toggleResearchCheck(category.id)} className={`rounded-xl border p-3 text-left transition-all ${active ? 'border-emerald-400/28 bg-emerald-400/10' : 'border-[rgba(46,127,255,0.14)] bg-[#07111F] hover:border-[#2E7FFF]/35'}`}>
+                            <div className="flex items-start gap-3">
+                              {active ? <CheckCircle size={16} className="mt-0.5 text-emerald-300" /> : <XCircle size={16} className="mt-0.5 text-[#5A7393]" />}
+                              <div>
+                                <div className="text-[12px] font-black text-[#EEF3FA]">{category.label}</div>
+                                <div className="mt-1 text-[11px] leading-5 text-[#8AA6C8]">{category.detail}</div>
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {researchState.step === 'report' && (
+                  <div ref={researchReportRef}>
+                    {researchReport ? (
+                      <div className="space-y-4">
+                        <div className="rounded-2xl border border-emerald-400/25 bg-emerald-500/10 p-4">
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                              <div className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-200">Generated report</div>
+                              <h4 className="mt-1 text-xl font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{researchReport.title}</h4>
+                              <p className="mt-2 text-[12px] leading-5 text-[#C8D8EE]">{researchReport.summary}</p>
+                            </div>
+                            <div className="rounded-2xl border border-white/10 bg-[#07111F]/80 px-4 py-3 text-right">
+                              <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#8AA6C8]">Decision</div>
+                              <div className="mt-1 text-[15px] font-black text-white">{researchReport.decision}</div>
+                              <div className="mt-1 text-[11px] text-[#8DBDFF]">{researchReport.riskScore}/100 / {researchReport.riskLevel} risk</div>
+                            </div>
+                          </div>
+                          <div className="mt-4 flex flex-wrap gap-2">
+                            {researchReport.nextActions.map(action => (
+                              <button key={action} type="button" onClick={() => runResearchAction(action)} className="rounded-xl border border-[#2E7FFF]/24 bg-[#2E7FFF]/12 px-3 py-2 text-[11px] font-black text-[#BFD8FF] transition-colors hover:bg-[#2E7FFF]/20 hover:text-white">
+                                {action}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="grid gap-3 md:grid-cols-3">
+                          <VendorWizardSummaryPill label="Risk score" value={`${researchReport.riskScore}/100`} tone={researchReport.riskLevel === 'Low' ? 'green' : researchReport.riskLevel === 'Medium' ? 'amber' : 'red'} />
+                          <VendorWizardSummaryPill label="Findings" value={`${researchReport.findings.length} checks`} tone="blue" />
+                          <VendorWizardSummaryPill label="Missing docs" value={`${researchReport.missingDocuments.length}`} tone={researchReport.missingDocuments.length ? 'amber' : 'green'} />
+                        </div>
+
+                        <section className="rounded-2xl border border-[rgba(46,127,255,0.18)] bg-[#0D1E3A] p-4">
+                          <div className="mb-3 text-[10px] font-black uppercase tracking-[0.16em] text-[#8DBDFF]">Findings</div>
+                          <div className="grid gap-2">
+                            {researchReport.findings.map(finding => (
+                              <div key={finding.category} className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#07111F] p-3">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className={`rounded-full border px-2.5 py-1 text-[9px] font-black ${finding.status === 'Clear' ? 'border-emerald-400/25 bg-emerald-400/10 text-emerald-200' : finding.status === 'Watch' ? 'border-amber-400/25 bg-amber-400/10 text-amber-200' : 'border-red-400/25 bg-red-400/10 text-red-200'}`}>{finding.status}</span>
+                                  <div className="text-[12px] font-black text-[#EEF3FA]">{finding.category}</div>
+                                </div>
+                                <p className="mt-2 text-[12px] leading-5 text-[#C8D8EE]">{finding.finding}</p>
+                                <p className="mt-2 text-[11px] leading-5 text-[#8AA6C8]"><span className="font-black text-[#BFD8FF]">Evidence:</span> {finding.evidence}</p>
+                                <p className="mt-1 text-[11px] leading-5 text-[#8AA6C8]"><span className="font-black text-[#BFD8FF]">Action:</span> {finding.action}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </section>
+
+                        <section className="grid gap-3 md:grid-cols-2">
+                          <div className="rounded-2xl border border-[rgba(46,127,255,0.18)] bg-[#0D1E3A] p-4">
+                            <div className="mb-3 text-[10px] font-black uppercase tracking-[0.16em] text-[#8DBDFF]">Source basis</div>
+                            <div className="space-y-2">
+                              {researchReport.sourceBasis.map(source => (
+                                <div key={source.id} className="rounded-xl border border-[rgba(46,127,255,0.12)] bg-[#07111F] p-3">
+                                  <div className="text-[10px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">{source.type}</div>
+                                  <div className="mt-1 text-[12px] font-bold text-[#EEF3FA]">{source.label}</div>
+                                  <div className="mt-1 break-words text-[11px] leading-5 text-[#8AA6C8]">{source.detail}</div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="rounded-2xl border border-[rgba(46,127,255,0.18)] bg-[#0D1E3A] p-4">
+                            <div className="mb-3 text-[10px] font-black uppercase tracking-[0.16em] text-[#8DBDFF]">Required follow-up</div>
+                            <ul className="space-y-2">
+                              {(researchReport.requiredActions.length ? researchReport.requiredActions : ['Proceed with normal procurement controls.']).map(action => (
+                                <li key={action} className="flex gap-2 text-[12px] leading-5 text-[#C8D8EE]">
+                                  <CheckCircle size={12} className="mt-1 shrink-0 text-emerald-300" />
+                                  {action}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        </section>
+                      </div>
+                    ) : (
+                      <div className="rounded-2xl border border-dashed border-[#2E7FFF]/24 bg-[#07111F] p-8 text-center">
+                        <ShieldCheck size={28} className="mx-auto text-[#8DBDFF]" />
+                        <h4 className="mt-3 text-lg font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Ready to generate the report</h4>
+                        <p className="mx-auto mt-2 max-w-2xl text-[12px] leading-5 text-[#9CB1CC]">The report will use entered vendor details, provided URLs, uploaded documents, pasted notes, selected checks, and VendorIQ performance data.</p>
+                        <button type="button" onClick={generateVendorResearchReport} disabled={!canGenerateResearchReport} className="mt-4 rounded-xl bg-[#2E7FFF] px-5 py-2.5 text-[12px] font-bold text-white shadow-lg shadow-[#2E7FFF]/20 transition-all hover:bg-[#4B91FF] disabled:cursor-not-allowed disabled:bg-[#1A3356] disabled:text-[#7891B0] disabled:shadow-none">
+                          Generate background report
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <aside className="rounded-2xl border border-[#2E7FFF]/18 bg-[#0D1E3A] p-4">
+                <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#8DBDFF]">Review context</div>
+                <div className="mt-3 grid gap-2">
+                  <VendorWizardSummaryPill label="Vendor" value={researchState.vendorName || 'Not set'} tone="blue" />
+                  <VendorWizardSummaryPill label="Sources" value={`${researchSourceCount}`} tone={researchSourceCount ? 'green' : 'amber'} />
+                  <VendorWizardSummaryPill label="Checks" value={`${researchState.selectedChecks.length}`} tone={researchState.selectedChecks.length ? 'green' : 'red'} />
+                  <VendorWizardSummaryPill label="VendorIQ risk" value={`${focusVendor.predictedRisk30d}% / ${focusVendor.dependencyRisk}`} tone={focusVendor.predictedRisk30d >= 35 || focusVendor.dependencyRisk === 'Critical' ? 'red' : 'amber'} />
+                </div>
+                <div className="mt-4 rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#07111F] p-3">
+                  <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#7A94B4]">Source basis</div>
+                  <p className="mt-2 text-[11px] leading-5 text-[#C8D8EE]">Based on entered vendor details, provided URLs, uploaded documents, pasted notes, and VendorIQ performance data.</p>
+                </div>
+                {researchFeedback && (
+                  <div className="mt-4 rounded-xl border border-emerald-400/22 bg-emerald-500/10 p-3 text-[11px] leading-5 text-emerald-100">
+                    {researchFeedback}
+                  </div>
+                )}
+              </aside>
+            </div>
+
+            <div className="sticky bottom-0 mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-[rgba(46,127,255,0.14)] bg-[#081528]/95 pt-4 backdrop-blur">
+              <div className="text-[11px] text-[#8AA6C8]">
+                {researchReport ? 'Background report generated and ready to review.' : canGenerateResearchReport ? 'Ready to generate once you reach Report.' : 'Complete vendor details and select at least one check.'}
+              </div>
+              <div className="flex gap-2">
+                <button type="button" onClick={researchCurrentStepIndex === 0 ? onClose : () => patchResearch({ step: researchStepOrder[Math.max(0, researchCurrentStepIndex - 1)] })} className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#07111F] px-4 py-2 text-[12px] font-semibold text-[#8AA6C8] transition-all hover:bg-white/5 hover:text-white">
+                  {researchCurrentStepIndex === 0 ? 'Cancel' : 'Back'}
+                </button>
+                {researchState.step === 'report' ? (
+                  <button type="button" onClick={generateVendorResearchReport} disabled={!canGenerateResearchReport} className="rounded-xl bg-[#2E7FFF] px-5 py-2 text-[12px] font-bold text-white shadow-lg shadow-[#2E7FFF]/20 transition-all hover:bg-[#4B91FF] disabled:cursor-not-allowed disabled:bg-[#1A3356] disabled:text-[#7891B0] disabled:shadow-none">
+                    {researchReport ? 'Regenerate report' : 'Generate report'}
+                  </button>
+                ) : (
+                  <button type="button" onClick={() => patchResearch({ step: researchStepOrder[Math.min(researchStepOrder.length - 1, researchCurrentStepIndex + 1)] })} className="rounded-xl bg-[#2E7FFF] px-5 py-2 text-[12px] font-bold text-white shadow-lg shadow-[#2E7FFF]/20 transition-all hover:bg-[#4B91FF]">
+                    Continue
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
         ) : (
         <div className="grid min-h-0 flex-1 lg:grid-cols-[0.9fr_1.1fr]">
           <div className="custom-scrollbar min-h-0 overflow-y-auto border-b border-[rgba(46,127,255,0.14)] p-5 lg:border-b-0 lg:border-r">
@@ -3249,7 +3916,7 @@ function PageProcurementCopilotModal({
                   <textarea
                     value={prompt}
                     onChange={event => setPrompt(event.target.value)}
-                    placeholder="Ask for an RFQ, quote comparison, background check, price analysis..."
+                    placeholder="Ask for an RFQ, quote comparison, background check, action pack..."
                     spellCheck={false}
                     className="min-h-[78px] w-full resize-none rounded-xl border border-[rgba(46,127,255,0.22)] bg-[#0D1E3A] px-3 py-2.5 text-[12px] leading-5 text-[#EEF3FA] outline-none transition-all placeholder:text-[#5A7393] focus:border-[#2E7FFF]"
                   />
@@ -3520,6 +4187,12 @@ function VendorDetailPage({ vendor, onBack, onToast }: { vendor: VendorIntelData
     setCopilotModalAction('compare');
     setShowCopilotModal(true);
   };
+  const openBackgroundCheck = () => {
+    setCopilotAction('background');
+    setCopilotOverride(null);
+    setCopilotModalAction('background');
+    setShowCopilotModal(true);
+  };
   const runCopilotModalAction = (action: VendorCopilotAction) => {
     setCopilotModalAction(action);
     runCopilotAction(action);
@@ -3532,6 +4205,15 @@ function VendorDetailPage({ vendor, onBack, onToast }: { vendor: VendorIntelData
       ...prev.filter(item => item !== `${rfqResult.title} saved for ${vendor.name}`),
     ]);
     onToast('RFQ package saved to VendorIQ workbench', 'success');
+  };
+  const updateBackgroundWorkbench = (backgroundResult: VendorCopilotResult) => {
+    setCopilotAction('background');
+    setCopilotOverride(backgroundResult);
+    setCopilotLog(prev => [
+      `${backgroundResult.title} saved for ${vendor.name}`,
+      ...prev.filter(item => item !== `${backgroundResult.title} saved for ${vendor.name}`),
+    ]);
+    onToast('Background report saved to VendorIQ workbench', 'success');
   };
 
   return (
@@ -3645,6 +4327,7 @@ function VendorDetailPage({ vendor, onBack, onToast }: { vendor: VendorIntelData
               onRun={runCopilotAction}
               onOpenQuoteIntake={openQuoteIntake}
               onOpenRfqWizard={openRfqWizard}
+              onOpenBackgroundCheck={openBackgroundCheck}
             />
           </DetailSection>
         </div>
@@ -3922,6 +4605,7 @@ function VendorDetailPage({ vendor, onBack, onToast }: { vendor: VendorIntelData
             onRun={runCopilotModalAction}
             onOpenProfile={() => setShowCopilotModal(false)}
             onRfqGenerated={updateRfqWorkbench}
+            onBackgroundGenerated={updateBackgroundWorkbench}
           />
         )}
         {showReassignModal && (
@@ -4875,6 +5559,13 @@ export function VendorIntelligence({ onToast }: Props) {
     setShowPageCopilotModal(true);
   }
 
+  function openPageBackgroundCheck() {
+    setPageCopilotAction('background');
+    setPageCopilotModalAction('background');
+    setPageCopilotOverride(null);
+    setShowPageCopilotModal(true);
+  }
+
   function openPageCopilotModal() {
     setPageCopilotModalAction(pageCopilotAction);
     setShowPageCopilotModal(true);
@@ -4893,6 +5584,16 @@ export function VendorIntelligence({ onToast }: Props) {
       ...prev.filter(item => item !== `${rfqResult.title} saved to Procurement Copilot`),
     ]);
     onToast('RFQ package saved to Procurement Copilot', 'success');
+  }
+
+  function updatePageBackgroundWorkbench(backgroundResult: VendorCopilotResult) {
+    setPageCopilotAction('background');
+    setPageCopilotOverride(backgroundResult);
+    setPageCopilotLog(prev => [
+      `${backgroundResult.title} saved to Procurement Copilot`,
+      ...prev.filter(item => item !== `${backgroundResult.title} saved to Procurement Copilot`),
+    ]);
+    onToast('Background report saved to Procurement Copilot', 'success');
   }
 
   function createVendor(vendor: VendorIntelData, source: VendorCreateSource = 'manual') {
@@ -4997,6 +5698,7 @@ export function VendorIntelligence({ onToast }: Props) {
               onRun={runPageCopilotAction}
               onOpenQuoteIntake={openPageQuoteIntake}
               onOpenRfqWizard={openPageRfqWizard}
+              onOpenBackgroundCheck={openPageBackgroundCheck}
             />
           </div>
         </div>
@@ -5085,6 +5787,7 @@ export function VendorIntelligence({ onToast }: Props) {
               setSelectedVendor(procurementFocus);
             }}
             onRfqGenerated={updatePageRfqWorkbench}
+            onBackgroundGenerated={updatePageBackgroundWorkbench}
           />
         )}
         {showAddVendorWizard && (
