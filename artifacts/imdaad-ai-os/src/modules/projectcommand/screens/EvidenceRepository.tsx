@@ -583,7 +583,7 @@ export function EvidenceRepository({ onToast }: { onToast?: (message: string, ty
           <EvidenceDecisionCard
             icon={AlertTriangle}
             label="Blocker"
-            value={criticalDocument ? '1 evidence gap' : 'No blockers'}
+            value={criticalDocument ? `${metrics.expired} evidence gap${metrics.expired === 1 ? '' : 's'}` : 'No blockers'}
             detail={criticalDocument ? `${criticalDocument.title.replace(' (Expired)', '')} needs renewal.` : 'All current evidence can support controls.'}
             accent={criticalDocument ? '#EF4444' : '#22C55E'}
           />
