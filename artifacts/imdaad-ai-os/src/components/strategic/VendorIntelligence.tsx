@@ -5,7 +5,7 @@ import {
   AlertTriangle, Brain, Target, DollarSign, BarChart3,
   CheckCircle, XCircle, FileWarning, Zap, ChevronRight,
   Users, Building2, Star, Sparkles, Lightbulb, ListChecks, Activity, X,
-  Plus, Mic, Send, MessageSquare, UploadCloud, FileText, Wand2, Trash2,
+  Plus, Mic, Send, MessageSquare, UploadCloud, FileText, Wand2, Trash2, Download,
 } from 'lucide-react';
 import {
   computeVendorScore,
@@ -1360,6 +1360,77 @@ function buildQuoteActionArtifact(action: string, analysis: QuoteAnalysis): Quot
   };
 }
 
+function safeDownloadName(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 72) || 'quote-comparison';
+}
+
+function formatQuoteComparisonReportText(analysis: QuoteAnalysis): string {
+  const { assignment, winner } = analysis;
+  return [
+    `Quote Comparison Report - ${assignment.packageName}`,
+    `Property: ${assignment.propertyName}`,
+    `Project: ${assignment.projectName}`,
+    `Budget guardrail: ${formatProcurementMoney(assignment.budgetAllowance)}`,
+    `Required delivery / award deadline: ${assignment.requiredDeliveryDate}`,
+    '',
+    'Executive recommendation',
+    `Recommended bidder: ${winner.vendorName}`,
+    `Score: ${winner.score}/100`,
+    `Risk: ${winner.risk}`,
+    winner.amount === null ? 'Commercial offer: requires confirmation' : `Commercial offer: ${formatProcurementMoney(winner.amount)}`,
+    winner.commercialDelta === null ? 'Budget variance: not available' : `Budget variance: ${winner.commercialDelta >= 0 ? '+' : '-'}${formatProcurementMoney(Math.abs(winner.commercialDelta))}`,
+    winner.sla === null ? 'SLA: requires confirmation' : `SLA: ${winner.sla}%`,
+    winner.deliveryDate === null ? 'Delivery: requires confirmation' : `Delivery: ${winner.deliveryDate}`,
+    `Warranty: ${winner.warranty}`,
+    '',
+    'Decision summary',
+    analysis.summary,
+    '',
+    'Key findings',
+    ...analysis.findings.map(finding => `- ${finding}`),
+    '',
+    'Risk and clarification conditions',
+    ...(analysis.riskConditions.length ? analysis.riskConditions : ['No blocking clarification conditions detected.']).map(condition => `- ${condition}`),
+    '',
+    'Supplier ranking detail',
+    ...analysis.items.flatMap((item, index) => [
+      `${index + 1}. ${item.vendorName}`,
+      `   Score: ${item.score}/100 (${item.risk} risk)`,
+      `   Commercial: ${item.amount === null ? 'Price missing' : formatProcurementMoney(item.amount)}`,
+      `   SLA / delivery: ${item.sla === null ? 'SLA missing' : `${item.sla}% SLA`} / ${item.deliveryDate ?? 'Delivery missing'}`,
+      `   Warranty: ${item.warranty}`,
+      `   Exclusions: ${item.exclusions}`,
+      `   Status: ${item.extractionStatus}`,
+      `   Recommendation: ${item.recommendationReason}`,
+      `   Finding: ${item.finding}`,
+      ...(item.clarificationQuestions.length
+        ? ['   Clarifications:', ...item.clarificationQuestions.map(question => `   - ${question}`)]
+        : ['   Clarifications: none detected.']),
+      '',
+    ]),
+    'Recommended next actions',
+    ...analysis.nextActions.map(action => `- ${action}`),
+    '',
+    'Demo note: generated locally from uploaded quote files and pasted quote text only. No award, approval, email, or external workflow was triggered.',
+  ].join('\n');
+}
+
+function downloadTextFile(filename: string, content: string) {
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 function numeric(value: string, fallback: number): number {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
@@ -2320,6 +2391,7 @@ function PageProcurementCopilotModal({
   const [quoteNotes, setQuoteNotes] = useState('');
   const [quoteAnalysis, setQuoteAnalysis] = useState<QuoteAnalysis | null>(null);
   const [quoteActionArtifact, setQuoteActionArtifact] = useState<QuoteActionArtifact | null>(null);
+  const [quoteReportFeedback, setQuoteReportFeedback] = useState('');
   const [quoteStep, setQuoteStep] = useState<QuoteWorkbenchStep>('context');
   const [rfqState, setRfqState] = useState<RfqWizardState>(() => buildInitialRfqState(focusVendor, selectedProjectData));
   const [rfqPackage, setRfqPackage] = useState<RfqGeneratedPackage | null>(null);
@@ -2389,6 +2461,7 @@ function PageProcurementCopilotModal({
     setQuoteAssignment(prev => ({ ...prev, ...patch }));
     setQuoteAnalysis(null);
     setQuoteActionArtifact(null);
+    setQuoteReportFeedback('');
     setQuoteStep('context');
   }
 
@@ -2447,6 +2520,7 @@ function PageProcurementCopilotModal({
     setQuoteDocuments(nextDocuments);
     setQuoteAnalysis(buildQuoteAnalysis(nextDocuments, quoteNotes, quoteAssignment));
     setQuoteActionArtifact(null);
+    setQuoteReportFeedback('');
     setQuoteStep('upload');
     onRun('compare');
     event.target.value = '';
@@ -2457,6 +2531,7 @@ function PageProcurementCopilotModal({
     const analysis = buildQuoteAnalysis(quoteDocuments, quoteNotes, quoteAssignment);
     setQuoteAnalysis(analysis);
     setQuoteActionArtifact(null);
+    setQuoteReportFeedback('');
     setQuoteStep('comparison');
     onRun('compare');
     setAssistantNote(`${analysis.winner.vendorName} is currently recommended. Review the findings, exclusions, and next action before award.`);
@@ -2467,6 +2542,7 @@ function PageProcurementCopilotModal({
     setQuoteNotes('');
     setQuoteAnalysis(null);
     setQuoteActionArtifact(null);
+    setQuoteReportFeedback('');
     setQuoteStep(quoteAssignmentComplete ? 'upload' : 'context');
     setAssistantNote('Quote comparison reset. Upload or paste new quotes to analyse again.');
   }
@@ -2604,6 +2680,21 @@ function PageProcurementCopilotModal({
     }
     if (!quoteAnalysis) return;
     setQuoteActionArtifact(buildQuoteActionArtifact(action, quoteAnalysis));
+  }
+
+  function downloadQuoteReport() {
+    if (!quoteAnalysis) return;
+    const filename = `${safeDownloadName(quoteAnalysis.assignment.packageName)}-quote-comparison-${new Date().toISOString().slice(0, 10)}.txt`;
+    downloadTextFile(filename, formatQuoteComparisonReportText(quoteAnalysis));
+    setQuoteReportFeedback('Full report prepared for download. If the browser blocks downloads, use Copy report as the backup.');
+    setAssistantNote('Full quote comparison report downloaded. The on-screen view stays as the executive preview.');
+  }
+
+  function copyQuoteReport() {
+    if (!quoteAnalysis) return;
+    void navigator.clipboard?.writeText(formatQuoteComparisonReportText(quoteAnalysis));
+    setQuoteReportFeedback('Full report copied for manager review.');
+    setAssistantNote('Full quote comparison report copied for manager review.');
   }
 
   function patchRfq(patch: Partial<RfqWizardState>) {
@@ -2943,7 +3034,7 @@ function PageProcurementCopilotModal({
               ))}
             </div>
 
-            <div className="mt-4 grid gap-4 lg:grid-cols-[0.92fr_1.08fr]">
+            <div className={`mt-4 grid gap-4 ${visibleQuoteStep === 'comparison' ? '' : 'lg:grid-cols-[0.92fr_1.08fr]'}`}>
               <div className="space-y-4">
                 {visibleQuoteStep === 'context' && (
                 <section className="rounded-2xl border border-[rgba(46,127,255,0.18)] bg-[#07111F] p-4">
@@ -3077,6 +3168,7 @@ function PageProcurementCopilotModal({
                       setQuoteNotes(event.target.value);
                       setQuoteAnalysis(null);
                       setQuoteActionArtifact(null);
+                      setQuoteReportFeedback('');
                     }}
                     disabled={!quoteAssignmentComplete}
                     placeholder={quoteAssignmentComplete ? 'Paste quote text manually. Separate multiple quotes with --- so AI can compare them cleanly.' : 'Assign property, project, and package before pasting quote text.'}
@@ -3126,6 +3218,7 @@ function PageProcurementCopilotModal({
                                   setQuoteDocuments(prev => prev.filter(entry => entry.id !== doc.id));
                                   setQuoteAnalysis(null);
                                   setQuoteActionArtifact(null);
+                                  setQuoteReportFeedback('');
                                 }}
                                 className="text-[#7A94B4] hover:text-red-300"
                                 aria-label={`Remove ${doc.name}`}
@@ -3260,101 +3353,140 @@ function PageProcurementCopilotModal({
                     </section>
 
                     <section className="rounded-2xl border border-[rgba(46,127,255,0.18)] bg-[#07111F] p-4">
-                      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-                        <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-[#8DBDFF]">
-                          <ListChecks size={13} />
-                          Supplier ranking
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-[#8DBDFF]">
+                            <ListChecks size={13} />
+                            Quote comparison preview
+                          </div>
+                          <p className="mt-1 max-w-2xl text-[11px] leading-5 text-[#9CB1CC]">
+                            Keep the screen readable for the meeting. The full supplier notes, exclusions, and clarification trail are packaged in the downloadable report.
+                          </p>
                         </div>
-                        <div className="rounded-full border border-[#2E7FFF]/18 bg-[#0A1628] px-2.5 py-1 text-[9px] font-black text-[#8DBDFF]">
-                          {quoteAnalysis.items.length} quote{quoteAnalysis.items.length === 1 ? '' : 's'} analysed
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={copyQuoteReport}
+                            className="inline-flex items-center gap-2 rounded-xl border border-[#2E7FFF]/24 bg-[#2E7FFF]/10 px-3 py-2 text-[10px] font-bold text-[#BFD8FF] transition-all hover:bg-[#2E7FFF]/16"
+                          >
+                            <FileText size={12} />
+                            Copy report
+                          </button>
+                          <button
+                            type="button"
+                            onClick={downloadQuoteReport}
+                            className="inline-flex items-center gap-2 rounded-xl bg-[#2E7FFF] px-3 py-2 text-[10px] font-bold text-white shadow-lg shadow-[#2E7FFF]/20 transition-all hover:bg-[#4B91FF]"
+                          >
+                            <Download size={12} />
+                            Download full report
+                          </button>
                         </div>
                       </div>
-                      <div className="space-y-2">
-                        {quoteAnalysis.items.map((item, index) => (
-                          <div key={item.id} className={`rounded-xl border p-3 ${index === 0 ? 'border-emerald-400/28 bg-emerald-400/8' : 'border-[rgba(46,127,255,0.14)] bg-[#0D1E3A]'}`}>
-                            <div className="grid gap-3 xl:grid-cols-[46px_1fr_130px_120px_120px_120px] xl:items-center">
-                              <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#2E7FFF]/18 bg-[#07111F] text-[13px] font-black text-[#8DBDFF]">
-                                #{index + 1}
-                              </div>
+
+                      {quoteReportFeedback && (
+                        <div className="mt-3 rounded-xl border border-emerald-400/22 bg-emerald-500/10 px-3 py-2 text-[11px] font-bold leading-5 text-emerald-100">
+                          {quoteReportFeedback}
+                        </div>
+                      )}
+
+                      <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                        {[
+                          ['Quotes read', `${quoteAnalysis.items.length}`, 'Submitted supplier offers'],
+                          ['Commercial spread', quoteAnalysis.commercialSpread === null ? 'Incomplete' : formatProcurementMoney(quoteAnalysis.commercialSpread), 'Between readable prices'],
+                          ['Clarifications', `${quoteAnalysis.clarificationQuestions.length}`, 'Questions before award'],
+                          ['High-risk quotes', `${quoteAnalysis.items.filter(item => item.risk === 'High').length}`, 'Need manager attention'],
+                        ].map(([label, value, detail]) => (
+                          <div key={label} className="rounded-xl border border-[#2E7FFF]/14 bg-[#0D1E3A] p-3">
+                            <div className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">{label}</div>
+                            <div className="mt-1 text-[17px] font-black text-[#EEF3FA]">{value}</div>
+                            <div className="mt-1 text-[10px] leading-4 text-[#8AA6C8]">{detail}</div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="mt-4 grid gap-3 xl:grid-cols-3">
+                        {quoteAnalysis.items.slice(0, 3).map((item, index) => (
+                          <div key={item.id} className={`rounded-xl border p-3 ${index === 0 ? 'border-emerald-400/28 bg-emerald-400/8' : 'border-[#2E7FFF]/14 bg-[#0D1E3A]'}`}>
+                            <div className="flex items-start justify-between gap-3">
                               <div className="min-w-0">
                                 <div className="flex flex-wrap items-center gap-2">
-                                  <div className="truncate text-[13px] font-black text-[#EEF3FA]">{item.vendorName}</div>
+                                  <span className="flex h-7 w-7 items-center justify-center rounded-lg border border-[#2E7FFF]/18 bg-[#07111F] text-[11px] font-black text-[#8DBDFF]">#{index + 1}</span>
                                   {index === 0 && <span className="rounded-full border border-emerald-400/24 bg-emerald-400/10 px-2 py-0.5 text-[8px] font-black uppercase text-emerald-200">Recommended</span>}
                                 </div>
-                                <div className="mt-1 line-clamp-1 text-[10px] leading-4 text-[#8AA6C8]">{item.recommendationReason}</div>
+                                <div className="mt-2 truncate text-[13px] font-black text-[#EEF3FA]">{item.vendorName}</div>
+                                <div className="mt-1 text-[10px] leading-4 text-[#8AA6C8]">{compactQuoteText(item.recommendationReason, 92)}</div>
                               </div>
-                              <div>
+                              <div className="text-right">
+                                <div className="text-[18px] font-black text-[#8DBDFF]">{item.score}</div>
                                 <div className="text-[8px] font-black uppercase tracking-[0.12em] text-[#6F89AA]">Score</div>
-                                <div className="mt-1 flex items-center gap-2">
-                                  <div className="h-1.5 flex-1 rounded-full bg-[#07111F]">
-                                    <div className="h-full rounded-full bg-[#2E7FFF]" style={{ width: `${item.score}%` }} />
-                                  </div>
-                                  <span className="text-[11px] font-black text-[#8DBDFF]">{item.score}</span>
-                                </div>
                               </div>
-                              <div>
+                            </div>
+                            <div className="mt-3 grid grid-cols-2 gap-2">
+                              <div className="rounded-lg border border-[#2E7FFF]/10 bg-[#07111F]/72 px-2.5 py-2">
                                 <div className="text-[8px] font-black uppercase tracking-[0.12em] text-[#6F89AA]">Commercial</div>
                                 <div className="mt-1 text-[11px] font-black text-[#EEF3FA]">{item.amount === null ? 'Not found' : formatProcurementMoney(item.amount)}</div>
                               </div>
-                              <div>
-                                <div className="text-[8px] font-black uppercase tracking-[0.12em] text-[#6F89AA]">SLA / Delivery</div>
+                              <div className="rounded-lg border border-[#2E7FFF]/10 bg-[#07111F]/72 px-2.5 py-2">
+                                <div className="text-[8px] font-black uppercase tracking-[0.12em] text-[#6F89AA]">SLA / delivery</div>
                                 <div className="mt-1 text-[11px] font-black text-[#EEF3FA]">{item.sla === null ? 'SLA ?' : `${item.sla}%`} / {item.deliveryDate ?? 'Date ?'}</div>
                               </div>
-                              <div className="flex flex-wrap gap-1.5 xl:justify-end">
-                                <span className={`rounded-full border px-2 py-1 text-[8px] font-black ${quoteStatusTone(item.extractionStatus)}`}>
-                                  {item.extractionStatus}
-                                </span>
-                                <span className={`rounded-full border px-2 py-1 text-[8px] font-black ${quoteRiskTone(item.risk)}`}>
-                                  {item.risk}
-                                </span>
-                              </div>
                             </div>
-                            <div className="mt-3 grid gap-2 lg:grid-cols-[1fr_1fr]">
-                              <div className="rounded-lg border border-[rgba(46,127,255,0.10)] bg-[#07111F]/72 px-3 py-2 text-[10px] leading-4 text-[#8AA6C8]">
-                                <span className="font-black text-[#BFD8FF]">Exclusions: </span>{compactQuoteText(item.exclusions, 150)}
-                              </div>
-                              <div className={`rounded-lg border px-3 py-2 text-[10px] leading-4 ${item.clarificationQuestions.length ? 'border-amber-400/18 bg-amber-400/8 text-amber-100' : 'border-emerald-400/18 bg-emerald-400/8 text-emerald-100'}`}>
-                                {item.clarificationQuestions[0] ?? 'No immediate clarification blocker detected.'}
-                              </div>
+                            <div className="mt-3 flex flex-wrap gap-1.5">
+                              <span className={`rounded-full border px-2 py-1 text-[8px] font-black ${quoteStatusTone(item.extractionStatus)}`}>
+                                {item.extractionStatus}
+                              </span>
+                              <span className={`rounded-full border px-2 py-1 text-[8px] font-black ${quoteRiskTone(item.risk)}`}>
+                                {item.risk}
+                              </span>
+                              {item.clarificationQuestions.length > 0 && (
+                                <span className="rounded-full border border-amber-400/22 bg-amber-400/10 px-2 py-1 text-[8px] font-black text-amber-100">
+                                  Clarification needed
+                                </span>
+                              )}
                             </div>
                           </div>
                         ))}
                       </div>
-                    </section>
 
-                    <section className="rounded-2xl border border-[rgba(46,127,255,0.18)] bg-[#07111F] p-4">
-                      <div className="mb-3 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-[#8DBDFF]">
-                        <Sparkles size={13} />
-                        Recommendation and actions
-                      </div>
-                      <div className="grid gap-3 lg:grid-cols-[1fr_0.9fr]">
-                        <div className="space-y-2">
-                          {quoteAnalysis.findings.map(finding => (
-                            <div key={finding} className="flex gap-2 rounded-xl border border-[rgba(46,127,255,0.12)] bg-[#0D1E3A] p-3 text-[11px] leading-5 text-[#C8D8EE]">
-                              <CheckCircle size={12} className="mt-1 shrink-0 text-emerald-400" />
-                              {finding}
-                            </div>
-                          ))}
-                          {quoteAnalysis.riskConditions.map(condition => (
-                            <div key={condition} className="flex gap-2 rounded-xl border border-amber-400/18 bg-amber-400/8 p-3 text-[11px] leading-5 text-amber-100">
-                              <AlertTriangle size={12} className="mt-1 shrink-0" />
+                      <div className="mt-4 rounded-xl border border-amber-400/18 bg-amber-400/8 p-3">
+                        <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.14em] text-amber-100">
+                          <AlertTriangle size={12} />
+                          Key conditions before award
+                        </div>
+                        <div className="mt-2 grid gap-2 lg:grid-cols-2">
+                          {(quoteAnalysis.riskConditions.length ? quoteAnalysis.riskConditions.slice(0, 4) : ['No blocking clarification conditions detected.']).map(condition => (
+                            <div key={condition} className="rounded-lg border border-amber-400/12 bg-[#07111F]/68 px-3 py-2 text-[10px] leading-4 text-amber-50">
                               {condition}
                             </div>
                           ))}
                         </div>
-                        <div className="space-y-2">
-                          {quoteAnalysis.nextActions.map(action => (
-                            <button
-                              key={action}
-                              type="button"
-                              onClick={() => prepareQuoteAction(action)}
-                              className="flex w-full items-center justify-between gap-3 rounded-xl border border-[#2E7FFF]/20 bg-[#2E7FFF]/10 px-3 py-2.5 text-left text-[11px] font-bold text-[#DDE6F8] transition-all hover:-translate-y-0.5 hover:border-[#2E7FFF]/45 hover:bg-[#2E7FFF]/16"
-                            >
-                              <span>{action}</span>
-                              <ChevronRight size={13} className="text-[#8DBDFF]" />
-                            </button>
-                          ))}
+                      </div>
+                    </section>
+
+                    <section className="rounded-2xl border border-[rgba(46,127,255,0.18)] bg-[#07111F] p-4">
+                      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                        <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-[#8DBDFF]">
+                          <Sparkles size={13} />
+                          Manager decision actions
                         </div>
+                        <span className="rounded-full border border-[#2E7FFF]/18 bg-[#0A1628] px-2.5 py-1 text-[9px] font-black text-[#8DBDFF]">
+                          Demo-safe local drafts
+                        </span>
+                      </div>
+                      <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+                        {quoteAnalysis.nextActions.map(action => (
+                          <button
+                            key={action}
+                            type="button"
+                            onClick={() => prepareQuoteAction(action)}
+                            className="flex min-h-[82px] flex-col justify-between rounded-xl border border-[#2E7FFF]/20 bg-[#2E7FFF]/10 px-3 py-3 text-left transition-all hover:-translate-y-0.5 hover:border-[#2E7FFF]/45 hover:bg-[#2E7FFF]/16"
+                          >
+                            <span className="text-[11px] font-black leading-4 text-[#DDE6F8]">{action}</span>
+                            <span className="mt-3 inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.12em] text-[#8DBDFF]">
+                              Prepare draft <ChevronRight size={12} />
+                            </span>
+                          </button>
+                        ))}
                       </div>
                     </section>
 
