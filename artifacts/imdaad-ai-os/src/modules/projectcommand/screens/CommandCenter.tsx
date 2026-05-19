@@ -29,7 +29,6 @@ import {
   formatProjectDate,
   formatProjectEventTime,
   getProjectEventPreview,
-  projectEventOptions,
   projectStatusColor,
   projectStatusLabel,
   type ForecastScenario,
@@ -143,31 +142,6 @@ function formatSignedCurrency(value: number) {
 function formatRiskDelta(value: number) {
   if (value === 0) return 'AED 0M';
   return `${value > 0 ? '+' : '-'}AED ${Number(Math.abs(value).toFixed(1)).toString().replace('.0', '')}M`;
-}
-
-function queuePreviewLabel(type: ProjectEventType) {
-  if (type === 'variation-submitted') return 'queues cost review';
-  if (type === 'facade-delay') return 'queues procurement release';
-  if (type === 'evidence-rejected' || type === 'missing-approval' || type === 'inspection-failure') return 'queues evidence action';
-  if (type === 'crane-loss' || type === 'contractor-underperformance') return 'queues owner assignment';
-  if (type === 'weather-disruption') return 'queues recovery window';
-  if (type === 'recovery-approved') return 'queues recovery monitoring';
-  return 'queues manager review';
-}
-
-function eventPreviewValue(type: ProjectEventType) {
-  const preview = getProjectEventPreview(type);
-  const impact = preview.impacts;
-  const pieces = [
-    impact.healthDelta !== 0 ? `Health ${formatSignedNumber(impact.healthDelta)}` : null,
-    impact.eacDelta !== 0 ? `EAC ${formatSignedCurrency(impact.eacDelta)}` : null,
-    impact.riskDelta !== 0 ? `Risk ${formatRiskDelta(impact.riskDelta)}` : null,
-    impact.floatDelta !== 0 ? `Float ${formatSignedNumber(impact.floatDelta, 'd')}` : null,
-    impact.evidenceChange !== 0 ? `Evidence ${formatSignedNumber(impact.evidenceChange, ' pts')}` : null,
-    impact.vendorScoreDelta ? `Vendor ${formatSignedNumber(impact.vendorScoreDelta, ' pts')}` : null,
-  ].filter((piece): piece is string => Boolean(piece));
-
-  return `Will update ${pieces.slice(0, 3).join(' / ')} / ${queuePreviewLabel(type)}`;
 }
 
 function EventImpactChips({ event, compact = false }: { event: ProjectControlContext['events'][number]; compact?: boolean }) {
@@ -373,7 +347,7 @@ function ProjectPulse({
     ? `Nothing needs attention right now. Forecast handover remains ${formatProjectDate(context.metrics.forecastHandover)}.`
     : `Forecast handover is ${formatProjectDate(context.metrics.forecastHandover)} with ${formatProjectCurrency(context.metrics.riskExposure)} exposure to review.`;
   const movement = latest && context.healthMovement.from !== context.healthMovement.to
-    ? `Because "${latest.title}" was activated, health moved ${context.healthMovement.from} -> ${context.healthMovement.to}. Forecast, EAC, risk, and actions now reflect that update.`
+    ? `Because "${latest.title}" was activated, health is now ${context.metrics.healthScore}/100. Latest impact ${formatSignedNumber(latest.impacts.healthDelta)} health; forecast, EAC, risk, and actions now reflect the event ledger.`
     : baselineMovement;
 
   return (
@@ -430,13 +404,23 @@ function ProjectPulse({
   );
 }
 
-function DecisionStoryStrip({ context, onPrepare }: { context: ProjectControlContext; onPrepare: (action: ManagerAction) => void }) {
+function ProjectPositionBrief({
+  context,
+  onPrepare,
+  onAddUpdate,
+}: {
+  context: ProjectControlContext;
+  onPrepare: (action: ManagerAction) => void;
+  onAddUpdate: () => void;
+}) {
   const latest = latestLiveEvent(context);
   const topAction = context.managerActions[0];
-  const updateTitle = latest?.title ?? 'No activated update yet';
-  const updateDetail = latest
-    ? `${latest.affectedModule} update logged into the local project ledger.`
-    : 'ProjectCommand is still showing the approved baseline until a useful update is activated.';
+  const positionTitle = latest
+    ? `${latest.title} changed the project position.`
+    : `${context.baseline.project.name} is holding the approved baseline.`;
+  const positionDetail = latest
+    ? `${latest.impactLabel} ProjectCommand recalculated health, cost, programme, evidence, and manager actions from this update.`
+    : 'No live disruption has been logged yet. The useful watch items are facade release, crane utilization, approval path, and evidence readiness.';
   const impactSummary = latest
     ? [
         `Health ${formatSignedNumber(latest.impacts.healthDelta)}`,
@@ -446,10 +430,12 @@ function DecisionStoryStrip({ context, onPrepare }: { context: ProjectControlCon
         `Confidence ${context.metrics.handoverConfidence}%`,
       ].filter(Boolean).join(' / ')
     : `Baseline health ${context.metrics.healthScore}/100 / Float ${context.metrics.floatRemaining}d / EAC ${formatProjectCurrency(context.metrics.eac)}`;
-  const actionTitle = topAction?.title ?? 'Waiting for next manager action';
-  const actionDetail = topAction
-    ? `${managerActionButtonLabel(topAction)}: ${topAction.expectedImpact}`
-    : 'Activate a project update to generate a reviewed action.';
+  const nextDecision = topAction
+    ? `${topAction.title} - ${topAction.expectedImpact}`
+    : 'Log a useful project update to generate a manager action.';
+  const watchItems = latest
+    ? latest.affectedAreas.slice(0, 4)
+    : ['Facade release', 'Tower crane utilization', 'Authority approvals', 'Evidence pack'];
 
   return (
     <section className="rounded-xl border border-cyan-300/18 bg-[linear-gradient(135deg,rgba(0,198,255,0.10),rgba(124,58,237,0.10),rgba(7,17,31,0.84))] p-4">
@@ -457,44 +443,58 @@ function DecisionStoryStrip({ context, onPrepare }: { context: ProjectControlCon
         <div>
           <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100">
             <GitBranch size={13} />
-            Decision Story
+            Today's Project Position
           </div>
           <h3 className="mt-1 text-[17px] font-black leading-6 text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-            {'Update logged, impact calculated, manager action queued.'}
+            {positionTitle}
           </h3>
+          <p className="mt-1 max-w-4xl text-[11px] leading-5 text-[#AFC2DC]">{positionDetail}</p>
         </div>
-        <span className={`w-fit rounded-full border px-2.5 py-1 text-[9px] font-black uppercase ${latest ? severityClass[latest.severity] : 'border-[#2E7FFF]/25 bg-[#2E7FFF]/10 text-[#BFD8FF]'}`}>
-          {latest ? 'Live decision chain' : 'Baseline chain'}
-        </span>
+        <button
+          type="button"
+          onClick={onAddUpdate}
+          className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-[#7C3AED] px-3 text-[10px] font-black text-white shadow-[0_0_22px_rgba(124,58,237,0.24)] transition-colors hover:bg-[#6D28D9]"
+        >
+          <Zap size={12} />
+          Add Project Update
+        </button>
       </div>
 
-      <div className="mt-3 grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1.18fr)_auto_minmax(0,1fr)] lg:items-stretch">
+      <div className="mt-3 grid gap-3 xl:grid-cols-[1fr_1fr_1fr]">
         <div className="rounded-xl border border-white/8 bg-[#07111F]/72 p-3">
-          <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">1. Update logged</p>
-          <p className="mt-1 line-clamp-2 text-[12px] font-black leading-4 text-[#EEF3FA]">{updateTitle}</p>
-          <p className="mt-1 line-clamp-2 text-[10px] leading-4 text-[#8EA7C7]">{updateDetail}</p>
-        </div>
-
-        <div className="hidden items-center text-[#7A94B4] lg:flex">
-          <ArrowRight size={16} />
-        </div>
-
-        <div className="rounded-xl border border-white/8 bg-[#07111F]/72 p-3">
-          <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">2. Impact calculated</p>
-          <p className="mt-1 line-clamp-2 text-[12px] font-black leading-4 text-[#EEF3FA]">{impactSummary}</p>
-          <p className="mt-1 line-clamp-2 text-[10px] leading-4 text-[#8EA7C7]">
-            Project Health, forecast, cost, risk, and handover confidence now use the same latest update.
+          <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">Current position</p>
+          <p className="mt-1 text-[12px] font-black leading-4 text-[#EEF3FA]">
+            {latest ? 'Live update applied' : 'Approved baseline active'}
           </p>
-        </div>
-
-        <div className="hidden items-center text-[#7A94B4] lg:flex">
-          <ArrowRight size={16} />
+          <p className="mt-1 text-[10px] leading-4 text-[#8EA7C7]">
+            {latest ? `${latest.affectedModule} is now driving the forecast.` : 'Ready to log the next real site condition.'}
+          </p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {watchItems.map(item => (
+              <span key={item} className="rounded-full bg-white/[0.04] px-2 py-0.5 text-[9px] font-bold text-[#AFC2DC]">{item}</span>
+            ))}
+          </div>
         </div>
 
         <div className="rounded-xl border border-white/8 bg-[#07111F]/72 p-3">
-          <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">3. Action queued</p>
-          <p className="mt-1 line-clamp-2 text-[12px] font-black leading-4 text-[#EEF3FA]">{actionTitle}</p>
-          <p className="mt-1 line-clamp-2 text-[10px] leading-4 text-[#8EA7C7]">{actionDetail}</p>
+          <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">Impact now</p>
+          <p className="mt-1 text-[12px] font-black leading-4 text-[#EEF3FA]">{impactSummary}</p>
+          <p className="mt-1 text-[10px] leading-4 text-[#8EA7C7]">
+            One ledger drives programme, cost, evidence, vendor score, and handover confidence.
+          </p>
+          {latest && (
+            <div className="mt-2">
+              <EventImpactChips event={latest} compact />
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-xl border border-white/8 bg-[#07111F]/72 p-3">
+          <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">Next manager decision</p>
+          <p className="mt-1 line-clamp-2 text-[12px] font-black leading-4 text-[#EEF3FA]">{nextDecision}</p>
+          <p className="mt-1 text-[10px] leading-4 text-[#8EA7C7]">
+            {topAction ? `Priority ${topAction.priority}. ${topAction.costImplication}` : 'No action is ready until a project condition is logged.'}
+          </p>
           {topAction && (
             <button
               type="button"
@@ -1249,124 +1249,312 @@ function controlSignalCopy(type: ProjectEventType) {
   return copy[type];
 }
 
+const guidedUpdateTypes: ProjectEventType[] = [
+  'facade-delay',
+  'variation-submitted',
+  'evidence-rejected',
+  'missing-approval',
+  'contractor-underperformance',
+  'recovery-approved',
+];
+
+function projectUpdateOwner(type: ProjectEventType) {
+  const owners: Partial<Record<ProjectEventType, string>> = {
+    'facade-delay': 'Procurement Lead',
+    'variation-submitted': 'Commercial Manager',
+    'evidence-rejected': 'QA / Evidence Lead',
+    'missing-approval': 'Authority Coordinator',
+    'contractor-underperformance': 'Project Director',
+    'crane-loss': 'Planning Manager',
+    'inspection-failure': 'Inspection Lead',
+    'weather-disruption': 'Construction Manager',
+    'recovery-approved': 'Project Controls Lead',
+  };
+  return owners[type] ?? 'Project Controls Lead';
+}
+
+function projectUpdateDeadline(type: ProjectEventType) {
+  if (type === 'recovery-approved') return 'Monitor next 24h';
+  if (type === 'variation-submitted') return 'Decision by tomorrow';
+  if (type === 'missing-approval' || type === 'evidence-rejected' || type === 'inspection-failure') return 'Resolve today';
+  return 'Owner response today';
+}
+
+function projectUpdateRoute(type: ProjectEventType): ProjectCommandScreen {
+  if (type === 'variation-submitted') return 'cost';
+  if (type === 'missing-approval' || type === 'evidence-rejected' || type === 'inspection-failure') return 'evidence';
+  if (type === 'contractor-underperformance') return 'risk';
+  if (type === 'recovery-approved') return 'forecast';
+  return 'programme';
+}
+
+function projectUpdateImpactRows(type: ProjectEventType) {
+  const preview = getProjectEventPreview(type);
+  const impact = preview.impacts;
+  return [
+    { label: 'Health', value: formatSignedNumber(impact.healthDelta), detail: 'Project health movement' },
+    { label: 'Schedule', value: impact.delayDays ? formatSignedNumber(impact.delayDays, 'd') : formatSignedNumber(impact.floatDelta, 'd'), detail: impact.floatDelta ? `Float ${formatSignedNumber(impact.floatDelta, 'd')}` : 'No float change' },
+    { label: 'Cost', value: formatSignedCurrency(impact.eacDelta), detail: 'EAC movement' },
+    { label: 'Risk', value: formatRiskDelta(impact.riskDelta), detail: 'Exposure movement' },
+    { label: 'Evidence', value: formatSignedNumber(impact.evidenceChange, ' pts'), detail: impact.gateStatusChange ?? 'Evidence readiness' },
+    { label: 'Vendor', value: impact.vendorScoreDelta ? formatSignedNumber(impact.vendorScoreDelta, ' pts') : 'No change', detail: preview.affectedModule },
+  ];
+}
+
 function LiveUpdatePanel({
   context,
   ledgerSource,
   ledgerStatus,
   onSimulate,
   onReset,
+  isUpdateDrawerOpen,
+  onOpenUpdateDrawer,
+  onCloseUpdateDrawer,
 }: {
   context: ProjectControlContext;
   ledgerSource: string;
   ledgerStatus: string;
   onSimulate: (type?: ProjectEventType) => void;
   onReset: () => void;
+  isUpdateDrawerOpen: boolean;
+  onOpenUpdateDrawer: () => void;
+  onCloseUpdateDrawer: () => void;
 }) {
   const latest = latestLiveEvent(context);
-  const liveOptions = projectEventOptions.filter(option => option.type !== 'baseline-created');
   const [selectedType, setSelectedType] = useState<ProjectEventType>('facade-delay');
-  const selectedCopy = controlSignalCopy(selectedType);
+  const selectedPreview = getProjectEventPreview(selectedType);
+  const selectedRows = projectUpdateImpactRows(selectedType);
+  const latestLabel = latest?.title ?? 'No live update logged yet';
+  const primaryMetric = latest
+    ? `${context.metrics.healthScore}/100 health after ${latest.affectedModule}`
+    : `${context.metrics.healthScore}/100 health at baseline`;
+  const recoveryAction = selectedPreview.cta;
 
-  const activateControlSignal = (type: ProjectEventType) => {
-    setSelectedType(type);
-    onSimulate(type);
+  const commitSelectedUpdate = () => {
+    onSimulate(selectedType);
+    onCloseUpdateDrawer();
   };
 
   return (
-    <section id="project-control-action-centre" className="scroll-mt-4 rounded-xl border border-[#7C3AED]/24 bg-[linear-gradient(135deg,rgba(124,58,237,0.16),rgba(46,127,255,0.08),rgba(7,17,31,0.88))] p-4">
-      <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
-        <div className="max-w-3xl">
-          <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#C4B5FD]">
-            <Zap size={13} />
-            Control Action Centre
+    <>
+      <section id="project-control-action-centre" className="scroll-mt-4 rounded-xl border border-[#7C3AED]/24 bg-[linear-gradient(135deg,rgba(124,58,237,0.14),rgba(46,127,255,0.07),rgba(7,17,31,0.9))] p-4">
+        <div className="grid gap-4 xl:grid-cols-[1fr_310px] xl:items-stretch">
+          <div>
+            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#C4B5FD]">
+              <Zap size={13} />
+              Add Project Update
+            </div>
+            <h3 className="mt-1 text-[18px] font-black leading-6 text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+              Log a real project condition, preview the impact, then refresh the action plan.
+            </h3>
+            <p className="mt-1 max-w-3xl text-[11px] leading-5 text-[#9CB1CC]">
+              The presenter path is now one button: choose the condition, see the impact before committing, then ProjectCommand updates health, forecast, EAC, evidence, vendors, and decisions together.
+            </p>
+            <div className="mt-4 grid gap-2 sm:grid-cols-3">
+              {guidedUpdateTypes.slice(0, 3).map(type => {
+                const copy = controlSignalCopy(type);
+                const preview = getProjectEventPreview(type);
+                return (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => {
+                      setSelectedType(type);
+                      onOpenUpdateDrawer();
+                    }}
+                    className="rounded-xl border border-[#7C3AED]/20 bg-[#07111F]/72 p-3 text-left transition-all hover:-translate-y-0.5 hover:border-[#7C3AED]/42 hover:bg-[#7C3AED]/12"
+                  >
+                    <span className="block text-[11px] font-black text-[#EEF3FA]">{copy.label}</span>
+                    <span className="mt-1 line-clamp-2 block text-[9px] leading-4 text-[#8EA7C7]">{preview.impactLabel}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
-          <h3 className="mt-1 text-[18px] font-black leading-6 text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-            Log one project condition and see the decision chain update.
-          </h3>
-          <p className="mt-1 text-[11px] leading-5 text-[#9CB1CC]">
-            Each action logs the update, recalculates health/forecast/cost/risk, and refreshes the AI Action Queue.
-          </p>
+          <div className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#07111F]/78 p-3">
+            <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">Latest project position</p>
+            <p className="mt-1 line-clamp-2 text-[12px] font-black leading-5 text-[#DCE8F8]">{latestLabel}</p>
+            <p className="mt-2 text-[10px] font-bold text-[#8EA7C7]">{primaryMetric}</p>
+            <p className="mt-2 text-[9px] font-bold uppercase tracking-[0.12em] text-[#A78BFA]">Ledger: {ledgerStatus} / {ledgerSource}</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={onOpenUpdateDrawer}
+                className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-[#7C3AED] px-3 text-[10px] font-black text-white shadow-[0_0_22px_rgba(124,58,237,0.26)] transition-colors hover:bg-[#6D28D9]"
+              >
+                <Play size={12} />
+                Add Update
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedType('facade-delay');
+                  onReset();
+                }}
+                className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-[rgba(46,127,255,0.18)] bg-[#07111F] px-3 text-[10px] font-black text-[#DCE8F8] transition-colors hover:bg-white/5"
+              >
+                <RefreshCw size={12} />
+                Reset
+              </button>
+            </div>
+          </div>
         </div>
-        <div className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#07111F]/78 px-3 py-2 xl:min-w-[240px]">
-          <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">Latest activated update</p>
-          <p className="mt-1 line-clamp-2 text-[11px] font-bold leading-4 text-[#DCE8F8]">{latest?.title ?? 'No update selected'}</p>
-          <p className="mt-2 text-[9px] font-bold uppercase tracking-[0.12em] text-[#A78BFA]">Update log: {ledgerStatus} / {ledgerSource}</p>
-        </div>
-      </div>
+      </section>
 
-      <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-        {liveOptions.map(option => {
-          const optionCopy = controlSignalCopy(option.type);
-          const preview = getProjectEventPreview(option.type);
-          const previewValue = eventPreviewValue(option.type);
-          const active = latest?.type === option.type;
-          const selected = selectedType === option.type;
-          return (
-            <button
-              key={option.type}
-              type="button"
-              onClick={() => activateControlSignal(option.type)}
-              aria-pressed={active}
-              aria-label={`Activate ${optionCopy.label}. ${previewValue}`}
-              className={`min-h-[112px] rounded-xl border px-3 py-2 text-left transition-all hover:-translate-y-0.5 ${
-                active
-                  ? 'border-[#7C3AED]/60 bg-[#7C3AED]/24 text-white shadow-[0_0_22px_rgba(124,58,237,0.22)]'
-                  : selected
-                    ? 'border-[#2E7FFF]/45 bg-[#2E7FFF]/12 text-[#EAF3FF] shadow-[0_0_18px_rgba(46,127,255,0.14)]'
-                    : 'border-[#7C3AED]/20 bg-[#07111F]/78 text-[#DCE8F8] hover:border-[#7C3AED]/42 hover:bg-[#7C3AED]/12'
-              }`}
+      <AnimatePresence>
+        {isUpdateDrawerOpen && (
+          <motion.div
+            className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              role="dialog"
+              aria-modal="true"
+              aria-label="Add project update"
+              initial={{ opacity: 0, y: 18, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 12, scale: 0.98 }}
+              className="custom-scrollbar max-h-[calc(100vh-48px)] w-full max-w-5xl overflow-y-auto rounded-2xl border border-[#2E7FFF]/24 bg-[#081525] shadow-[0_24px_80px_rgba(0,0,0,0.55)]"
             >
-              <span className="flex items-start justify-between gap-2">
-                <span className="min-w-0 text-[11px] font-black">{optionCopy.label}</span>
-                <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[8px] font-black uppercase ${
-                  active
-                    ? 'border-emerald-300/25 bg-emerald-300/12 text-emerald-100'
-                    : 'border-[#7C3AED]/22 bg-[#7C3AED]/12 text-[#C4B5FD]'
-                }`}>
-                  {active ? 'Active' : 'Activate'}
-                </span>
-              </span>
-              <span className="mt-0.5 block text-[9px] font-semibold leading-4 text-[#8EA7C7]">{optionCopy.detail}</span>
-              <span className="mt-2 block rounded-lg border border-[rgba(46,127,255,0.12)] bg-[#0A1628]/80 px-2 py-1.5">
-                <span className="block truncate text-[8px] font-black uppercase tracking-[0.12em] text-[#5A6E88]">{preview.affectedModule}</span>
-                <span className="mt-0.5 line-clamp-2 block text-[9px] font-bold leading-4 text-[#DCE8F8]">{previewValue}</span>
-              </span>
-            </button>
-          );
-        })}
-      </div>
+              <div className="sticky top-0 z-10 border-b border-[#2E7FFF]/18 bg-[#112040]/95 p-4 backdrop-blur">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#C4B5FD]">
+                      <Zap size={13} />
+                      Project update intake
+                    </div>
+                    <h3 className="mt-1 text-[22px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>What changed on site?</h3>
+                    <p className="mt-1 text-[12px] leading-5 text-[#9CB1CC]">Pick one condition. ProjectCommand previews the consequence before it updates the live twin.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={onCloseUpdateDrawer}
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#07111F] text-[#AFC2DC] hover:bg-white/5"
+                    aria-label="Close project update intake"
+                  >
+                    x
+                  </button>
+                </div>
+              </div>
 
-      <div className="mt-3 flex flex-wrap justify-between gap-2 border-t border-[#7C3AED]/18 pt-3">
-        <button
-          type="button"
-          onClick={() => {
-            setSelectedType('facade-delay');
-            onReset();
-          }}
-          className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[rgba(46,127,255,0.18)] bg-[#07111F] px-3 text-[10px] font-black text-[#DCE8F8] transition-colors hover:bg-white/5"
-        >
-          <RefreshCw size={12} />
-          Reset to baseline
-        </button>
-        <button
-          type="button"
-          onClick={() => activateControlSignal(selectedType)}
-          className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#7C3AED] px-3 text-[10px] font-black text-white shadow-[0_0_22px_rgba(124,58,237,0.26)] transition-colors hover:bg-[#6D28D9]"
-        >
-          <Play size={12} />
-          Activate selected action: {selectedCopy.label}
-        </button>
-      </div>
-    </section>
+              <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+                <div className="space-y-2">
+                  {guidedUpdateTypes.map(type => {
+                    const copy = controlSignalCopy(type);
+                    const preview = getProjectEventPreview(type);
+                    const selected = selectedType === type;
+                    return (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => setSelectedType(type)}
+                        aria-pressed={selected}
+                        className={`w-full rounded-xl border p-3 text-left transition-all hover:-translate-y-0.5 ${
+                          selected
+                            ? 'border-[#7C3AED]/60 bg-[#7C3AED]/22 shadow-[0_0_22px_rgba(124,58,237,0.20)]'
+                            : 'border-[#2E7FFF]/14 bg-[#07111F]/78 hover:border-[#7C3AED]/32 hover:bg-[#7C3AED]/10'
+                        }`}
+                      >
+                        <span className="flex items-start justify-between gap-3">
+                          <span>
+                            <span className="block text-[12px] font-black text-[#EEF3FA]">{copy.label}</span>
+                            <span className="mt-1 block text-[10px] leading-4 text-[#8EA7C7]">{copy.detail}</span>
+                          </span>
+                          <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[8px] font-black uppercase ${severityClass[preview.severity]}`}>
+                            {preview.severity}
+                          </span>
+                        </span>
+                        <span className="mt-2 block rounded-lg border border-[rgba(46,127,255,0.12)] bg-[#0A1628] px-2.5 py-2 text-[10px] font-bold leading-4 text-[#C8D8EE]">
+                          {preview.impactLabel}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="space-y-3">
+                  <div className="rounded-xl border border-cyan-300/18 bg-cyan-300/8 p-3">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-[9px] font-black uppercase tracking-[0.14em] text-cyan-100">Impact preview</p>
+                        <h4 className="mt-1 text-[16px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{selectedPreview.title}</h4>
+                        <p className="mt-1 text-[11px] leading-5 text-[#B8C7DB]">{selectedPreview.description}</p>
+                      </div>
+                      <span className={`rounded-full border px-2.5 py-1 text-[9px] font-black uppercase ${severityClass[selectedPreview.severity]}`}>
+                        {selectedPreview.affectedModule}
+                      </span>
+                    </div>
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                      {selectedRows.map(row => (
+                        <div key={row.label} className="rounded-lg border border-[rgba(46,127,255,0.12)] bg-[#07111F]/72 px-3 py-2">
+                          <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">{row.label}</p>
+                          <p className="mt-1 text-[13px] font-black text-[#EEF3FA]">{row.value}</p>
+                          <p className="mt-0.5 line-clamp-1 text-[9px] text-[#8EA7C7]">{row.detail}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-[#7C3AED]/20 bg-[#7C3AED]/10 p-3">
+                    <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#C4B5FD]">Manager action plan</p>
+                    <h4 className="mt-1 text-[15px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{recoveryAction}</h4>
+                    <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                      {[
+                        ['Owner', projectUpdateOwner(selectedType)],
+                        ['Deadline', projectUpdateDeadline(selectedType)],
+                        ['Where it opens', projectUpdateRoute(selectedType)],
+                      ].map(([label, value]) => (
+                        <div key={label} className="rounded-lg border border-white/8 bg-[#07111F]/72 px-3 py-2">
+                          <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">{label}</p>
+                          <p className="mt-1 text-[11px] font-black text-[#DCE8F8]">{value}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="mt-3 text-[11px] leading-5 text-[#C8D8EE]">
+                      Once logged, the event appears in Today's Progress, updates the KPI cards, refreshes blockers, and changes the AI Action Queue.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="sticky bottom-0 flex flex-wrap items-center justify-between gap-3 border-t border-[#2E7FFF]/18 bg-[#081525]/95 p-4 backdrop-blur">
+                <p className="text-[10px] font-bold text-[#8EA7C7]">
+                  This is demo-safe: it logs a local project-control event and does not send external notices.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={onCloseUpdateDrawer}
+                    className="inline-flex h-10 items-center justify-center rounded-lg border border-[rgba(46,127,255,0.18)] bg-[#07111F] px-4 text-[11px] font-black text-[#DCE8F8] hover:bg-white/5"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={commitSelectedUpdate}
+                    className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg bg-[#7C3AED] px-4 text-[11px] font-black text-white shadow-[0_0_22px_rgba(124,58,237,0.26)] transition-colors hover:bg-[#6D28D9]"
+                  >
+                    <Play size={13} />
+                    Log Update and Refresh Actions
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 }
 
-type SourceConfidenceAction =
-  | 'source-coverage'
-  | 'evidence-readiness'
-  | 'confidence'
-  | 'health-kpi'
-  | 'top-decision';
+type ReadinessFocus =
+  | 'evidence'
+  | 'gates'
+  | 'approvals'
+  | 'risks'
+  | 'decision';
 
 function SourceConfidenceCard({
   context,
@@ -1377,43 +1565,59 @@ function SourceConfidenceCard({
   goTo: (screen: ProjectCommandScreen) => void;
   onPrepareAction: (action: ManagerAction) => void;
 }) {
-  const [activeAction, setActiveAction] = useState<SourceConfidenceAction>('source-coverage');
+  const [activeAction, setActiveAction] = useState<ReadinessFocus>('evidence');
   const requiredEvidence = context.baseline.evidenceRequirements.length;
-  const completeEvidence = context.baseline.evidenceRequirements.filter(item => item.status === 'Complete').length;
-  const averageConfidence = Math.round(context.sourceTraces.reduce((sum, trace) => sum + trace.confidence, 0) / Math.max(1, context.sourceTraces.length));
+  const evidenceGaps = context.evidenceSummary.filter(item => item.status !== 'Complete');
+  const completeEvidence = requiredEvidence - evidenceGaps.length;
+  const gateWatch = context.stageGateSummary.filter(gate => gate.status !== 'on-track');
+  const approvalItems = context.evidenceSummary.filter(item => /approval|sign-off|certificate/i.test(`${item.title} ${item.gate}`) && item.status !== 'Complete');
+  const riskItems = context.controlExceptions.slice(0, 4);
   const topDecision = context.managerActions[0];
-  const sourceRows = [
+  const focusRows = [
     {
-      id: 'source-coverage' as SourceConfidenceAction,
-      label: 'Source coverage',
-      value: `${context.sourceTraces.length} verified sources`,
-      detail: 'Show the programme, cost, risk, event, and decision inputs behind the evidence score.',
+      id: 'evidence' as ReadinessFocus,
+      label: 'Evidence pack',
+      value: evidenceGaps.length > 0 ? `${evidenceGaps.length} items need proof` : 'Evidence pack clear',
+      detail: `${completeEvidence}/${requiredEvidence} complete. Show exactly what is missing and who should close it.`,
+      screen: 'evidence' as ProjectCommandScreen,
     },
     {
-      id: 'evidence-readiness' as SourceConfidenceAction,
-      label: 'Evidence readiness',
-      value: `${completeEvidence}/${requiredEvidence} items complete`,
-      detail: 'Review complete and pending evidence requirements.',
+      id: 'gates' as ReadinessFocus,
+      label: 'Stage gates',
+      value: gateWatch.length > 0 ? `${gateWatch.length} gates need attention` : 'No blocked gates',
+      detail: 'Focus on gates that can block commissioning, handover, or authority readiness.',
+      screen: 'stagegates' as ProjectCommandScreen,
     },
     {
-      id: 'confidence' as SourceConfidenceAction,
-      label: 'Confidence',
-      value: `${averageConfidence}% avg`,
-      detail: 'Explain why the project twin trusts the current baseline and forecast.',
+      id: 'approvals' as ReadinessFocus,
+      label: 'Approvals',
+      value: approvalItems.length > 0 ? `${approvalItems.length} approvals to confirm` : 'Approval path clear',
+      detail: 'Authority, fire, lift, and commissioning proof that needs owner follow-up.',
+      screen: 'obligations' as ProjectCommandScreen,
+    },
+    {
+      id: 'risks' as ReadinessFocus,
+      label: 'Risks and cost',
+      value: `${context.controlExceptions.length} exceptions open`,
+      detail: `Risk exposure is ${formatProjectCurrency(context.metrics.riskExposure)} and EAC is ${formatProjectCurrency(context.metrics.eac)}.`,
+      screen: 'risk' as ProjectCommandScreen,
+    },
+    {
+      id: 'decision' as ReadinessFocus,
+      label: 'Next decision',
+      value: topDecision ? topDecision.title : 'No decision queued',
+      detail: topDecision ? topDecision.expectedImpact : 'Log a project update to generate a manager action.',
+      screen: 'forecast' as ProjectCommandScreen,
     },
   ];
-  const traceActions = [
-    {
-      id: 'health-kpi' as SourceConfidenceAction,
-      title: 'Health and KPI movement',
-      subtitle: `Health ${context.healthMovement.from} -> ${context.healthMovement.to}; CPI ${context.metrics.cpi}; SPI ${context.metrics.spi}`,
-    },
-    {
-      id: 'top-decision' as SourceConfidenceAction,
-      title: 'AI top decision',
-      subtitle: topDecision ? `${topDecision.title} / ${topDecision.expectedImpact}` : 'No manager action generated yet.',
-    },
-  ];
+  const activeRow = focusRows.find(row => row.id === activeAction) ?? focusRows[0];
+  const goToActive = () => {
+    if (activeAction === 'decision' && topDecision) {
+      onPrepareAction(topDecision);
+      return;
+    }
+    goTo(activeRow.screen);
+  };
 
   return (
     <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
@@ -1421,20 +1625,16 @@ function SourceConfidenceCard({
         <div>
           <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100">
             <FileWarning size={13} />
-            Evidence Confidence
+            Readiness and Blockers
           </div>
-          <h3 className="mt-1 text-[15px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Baseline evidence coverage</h3>
+          <h3 className="mt-1 text-[15px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>What can block handover?</h3>
         </div>
-        <button
-          type="button"
-          onClick={() => setActiveAction('source-coverage')}
-          className="rounded-full border border-emerald-300/22 bg-emerald-300/10 px-2.5 py-1 text-[9px] font-black text-emerald-100 transition-colors hover:border-emerald-200/45 hover:bg-emerald-300/16"
-        >
-          Traceable
-        </button>
+        <span className={`rounded-full border px-2.5 py-1 text-[9px] font-black uppercase ${context.controlExceptions.length > 0 ? 'border-amber-300/25 bg-amber-300/10 text-amber-100' : 'border-emerald-300/22 bg-emerald-300/10 text-emerald-100'}`}>
+          {context.controlExceptions.length > 0 ? `${context.controlExceptions.length} open` : 'clear'}
+        </span>
       </div>
-      <div className="mt-3 grid gap-2 sm:grid-cols-3 xl:grid-cols-1">
-        {sourceRows.map(row => (
+      <div className="mt-3 grid gap-2">
+        {focusRows.map(row => (
           <button
             key={row.id}
             type="button"
@@ -1449,7 +1649,7 @@ function SourceConfidenceCard({
             <span className="flex items-start justify-between gap-2">
               <span>
                 <span className="block text-[8px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">{row.label}</span>
-                <span className="mt-1 block text-[11px] font-bold text-[#DCE8F8]">{row.value}</span>
+                <span className="mt-1 line-clamp-1 block text-[11px] font-bold text-[#DCE8F8]">{row.value}</span>
               </span>
               <ArrowRight size={12} className={activeAction === row.id ? 'text-cyan-100' : 'text-[#5A6E88]'} />
             </span>
@@ -1457,56 +1657,14 @@ function SourceConfidenceCard({
           </button>
         ))}
       </div>
-      <div className="mt-3 space-y-1.5">
-        {traceActions.map(action => (
-          <button
-            key={action.id}
-            type="button"
-            onClick={() => setActiveAction(action.id)}
-            aria-pressed={activeAction === action.id}
-            className={`w-full rounded-lg px-3 py-2 text-left transition-colors ${
-              activeAction === action.id
-                ? 'bg-[#2E7FFF]/16 ring-1 ring-[#2E7FFF]/35'
-                : 'bg-[#07111F]/70 hover:bg-[#2E7FFF]/10'
-            }`}
-          >
-            <span className="flex items-start justify-between gap-2">
-              <span className="min-w-0">
-                <span className="line-clamp-1 block text-[10px] font-black text-[#EEF3FA]">{action.title}</span>
-                <span className="mt-0.5 line-clamp-1 block text-[9px] font-semibold text-[#8EA7C7]">{action.subtitle}</span>
-              </span>
-              <span className="shrink-0 rounded-full border border-[#2E7FFF]/22 bg-[#2E7FFF]/10 px-2 py-0.5 text-[8px] font-black text-blue-100">
-                Open
-              </span>
-            </span>
-          </button>
-        ))}
-      </div>
 
       <div className="mt-3 rounded-xl border border-cyan-300/16 bg-[#07111F]/82 p-3">
-        {activeAction === 'source-coverage' && (
-          <div>
-            <p className="text-[9px] font-black uppercase tracking-[0.14em] text-cyan-100">Source trace</p>
-            <div className="mt-2 space-y-2">
-              {context.sourceTraces.map(trace => (
-                <div key={trace.insight} className="rounded-lg border border-white/8 bg-white/[0.03] px-2.5 py-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="text-[10px] font-black text-[#EEF3FA]">{trace.insight}</p>
-                    <span className="shrink-0 text-[9px] font-black text-emerald-200">{trace.confidence}%</span>
-                  </div>
-                  <p className="mt-1 text-[9px] leading-4 text-[#8EA7C7]">{trace.basedOn.join(' / ')}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {activeAction === 'evidence-readiness' && (
+        {activeAction === 'evidence' && (
           <div>
             <div className="flex items-start justify-between gap-2">
               <div>
-                <p className="text-[9px] font-black uppercase tracking-[0.14em] text-cyan-100">Evidence readiness</p>
-                <p className="mt-1 text-[11px] font-bold text-[#DCE8F8]">{completeEvidence} complete, {requiredEvidence - completeEvidence} pending.</p>
+                <p className="text-[9px] font-black uppercase tracking-[0.14em] text-cyan-100">Evidence worklist</p>
+                <p className="mt-1 text-[11px] font-bold text-[#DCE8F8]">{evidenceGaps.length} items still need accepted proof.</p>
               </div>
               <button
                 type="button"
@@ -1517,19 +1675,17 @@ function SourceConfidenceCard({
                 <ArrowRight size={11} />
               </button>
             </div>
-            <div className="mt-2 space-y-1.5">
-              {context.evidenceSummary.slice(0, 4).map(item => (
+            <div className="mt-2 space-y-2">
+              {evidenceGaps.slice(0, 4).map(item => (
                 <div key={`${item.title}-${item.gate}`} className="flex items-start justify-between gap-2 rounded-lg border border-white/8 bg-white/[0.03] px-2.5 py-2">
                   <div className="min-w-0">
                     <p className="line-clamp-1 text-[10px] font-black text-[#EEF3FA]">{item.title}</p>
                     <p className="mt-0.5 line-clamp-1 text-[9px] text-[#8EA7C7]">{item.gate}</p>
                   </div>
                   <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[8px] font-black ${
-                    item.status === 'Complete'
-                      ? 'border-emerald-300/25 bg-emerald-300/10 text-emerald-100'
-                      : item.status === 'Rejected'
-                        ? 'border-red-300/25 bg-red-400/10 text-red-100'
-                        : 'border-amber-300/25 bg-amber-300/10 text-amber-100'
+                    item.status === 'Rejected'
+                      ? 'border-red-300/25 bg-red-400/10 text-red-100'
+                      : 'border-amber-300/25 bg-amber-300/10 text-amber-100'
                   }`}>{item.status}</span>
                 </div>
               ))}
@@ -1537,47 +1693,81 @@ function SourceConfidenceCard({
           </div>
         )}
 
-        {activeAction === 'confidence' && (
+        {activeAction === 'gates' && (
           <div>
-            <p className="text-[9px] font-black uppercase tracking-[0.14em] text-cyan-100">Confidence model</p>
-            <p className="mt-1 text-[11px] leading-4 text-[#C8D8EE]">
-              Confidence is based on source coverage, evidence completeness, forecast stability, and whether the latest project update has a clear owner and impact chain.
-            </p>
-            <div className="mt-2 grid grid-cols-3 gap-1.5">
-              {[
-                ['Sources', `${context.sourceTraces.length}`],
-                ['Evidence', `${context.metrics.evidenceCompleteness}%`],
-                ['Handover', `${context.metrics.handoverConfidence}%`],
-              ].map(([label, value]) => (
-                <div key={label} className="rounded-lg border border-white/8 bg-white/[0.03] px-2 py-1.5">
-                  <p className="text-[8px] font-black uppercase text-[#7A94B4]">{label}</p>
-                  <p className="mt-0.5 text-[12px] font-black text-[#EEF3FA]">{value}</p>
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <p className="text-[9px] font-black uppercase tracking-[0.14em] text-cyan-100">Gate readiness</p>
+                <p className="mt-1 text-[11px] font-bold text-[#DCE8F8]">{gateWatch.length} gates are watch, at-risk, or critical.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => goTo('stagegates')}
+                className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg border border-[#2E7FFF]/24 bg-[#2E7FFF]/12 px-2.5 text-[9px] font-black text-blue-100 hover:bg-[#2E7FFF]/20"
+              >
+                Open Gates
+                <ArrowRight size={11} />
+              </button>
+            </div>
+            <div className="mt-2 space-y-1.5">
+              {gateWatch.slice(0, 4).map(gate => (
+                <div key={gate.name} className="flex items-start justify-between gap-2 rounded-lg border border-white/8 bg-white/[0.03] px-2.5 py-2">
+                  <div className="min-w-0">
+                    <p className="line-clamp-1 text-[10px] font-black text-[#EEF3FA]">{gate.name}</p>
+                    <p className="mt-0.5 line-clamp-1 text-[9px] text-[#8EA7C7]">{gate.reason}</p>
+                  </div>
+                  <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[8px] font-black uppercase ${statusClass(gate.status)}`}>{projectStatusLabel(gate.status)}</span>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {activeAction === 'health-kpi' && (
+        {activeAction === 'approvals' && (
           <div>
-            <p className="text-[9px] font-black uppercase tracking-[0.14em] text-cyan-100">KPI movement</p>
-            <p className="mt-1 text-[11px] leading-4 text-[#C8D8EE]">
-              Health moved from {context.healthMovement.from} to {context.healthMovement.to}. CPI is {context.metrics.cpi}, SPI is {context.metrics.spi}, float is {context.metrics.floatRemaining}d, and EAC is {formatProjectCurrency(context.metrics.eac)}.
-            </p>
-            <button
-              type="button"
-              onClick={() => goTo('forecast')}
-              className="mt-2 inline-flex h-8 items-center gap-1 rounded-lg border border-[#2E7FFF]/24 bg-[#2E7FFF]/12 px-2.5 text-[9px] font-black text-blue-100 hover:bg-[#2E7FFF]/20"
-            >
-              Review Forecast
-              <ArrowRight size={11} />
-            </button>
+            <p className="text-[9px] font-black uppercase tracking-[0.14em] text-cyan-100">Approval path</p>
+            <p className="mt-1 text-[11px] leading-4 text-[#C8D8EE]">Authority and statutory evidence should have named owners before commissioning readiness is claimed.</p>
+            <div className="mt-2 space-y-1.5">
+              {(approvalItems.length > 0 ? approvalItems : context.evidenceSummary.slice(0, 3)).slice(0, 4).map(item => (
+                <div key={`${item.title}-${item.gate}`} className="rounded-lg border border-white/8 bg-white/[0.03] px-2.5 py-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-[10px] font-black text-[#EEF3FA]">{item.title}</p>
+                    <span className="shrink-0 rounded-full border border-[#2E7FFF]/20 bg-[#2E7FFF]/10 px-2 py-0.5 text-[8px] font-black text-blue-100">Owner needed</span>
+                  </div>
+                  <p className="mt-0.5 text-[9px] text-[#8EA7C7]">{item.gate}</p>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
-        {activeAction === 'top-decision' && (
+        {activeAction === 'risks' && (
           <div>
-            <p className="text-[9px] font-black uppercase tracking-[0.14em] text-cyan-100">AI top decision</p>
+            <p className="text-[9px] font-black uppercase tracking-[0.14em] text-cyan-100">Risk and cost blockers</p>
+            <div className="mt-2 space-y-1.5">
+              {(riskItems.length > 0 ? riskItems : [{
+                id: 'baseline-risk',
+                title: context.topThreat,
+                severity: 'medium' as const,
+                linkedObject: 'Baseline risk model',
+                impact: `Current risk exposure is ${formatProjectCurrency(context.metrics.riskExposure)}.`,
+                cta: 'Review risk',
+              }]).map(item => (
+                <div key={item.id} className="rounded-lg border border-white/8 bg-white/[0.03] px-2.5 py-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-[10px] font-black text-[#EEF3FA]">{item.title}</p>
+                    <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[8px] font-black uppercase ${severityClass[item.severity]}`}>{item.severity}</span>
+                  </div>
+                  <p className="mt-1 text-[9px] leading-4 text-[#8EA7C7]">{item.impact}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {activeAction === 'decision' && (
+          <div>
+            <p className="text-[9px] font-black uppercase tracking-[0.14em] text-cyan-100">Manager decision</p>
             {topDecision ? (
               <>
                 <p className="mt-1 text-[12px] font-black text-[#EEF3FA]">{topDecision.title}</p>
@@ -1601,6 +1791,15 @@ function SourceConfidenceCard({
           </div>
         )}
       </div>
+
+      <button
+        type="button"
+        onClick={goToActive}
+        className="mt-3 inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-[#2E7FFF]/24 bg-[#2E7FFF]/12 px-3 text-[10px] font-black text-blue-100 hover:bg-[#2E7FFF]/20"
+      >
+        {activeAction === 'decision' ? (topDecision ? managerActionButtonLabel(topDecision) : 'Review decisions') : `Open ${activeRow.label}`}
+        <ArrowRight size={12} />
+      </button>
     </section>
   );
 }
@@ -1700,6 +1899,7 @@ export function CommandCenter({
   const context = useMemo(() => buildProjectControlContext(dataset, events), [dataset, events]);
   const [selectedInsight, setSelectedInsight] = useState<{ metricName: MetricName; value: string | number } | null>(null);
   const [activatedLogActions, setActivatedLogActions] = useState<Record<string, string>>({});
+  const [isUpdateDrawerOpen, setIsUpdateDrawerOpen] = useState(false);
   const visibleControlMetrics = context.controlMetrics
     .filter(metric => ['CPI', 'SPI', 'Float Remaining', 'EAC'].includes(metric.label))
     .map(metric => ({ ...metric, cause: metricControlCause(metric, context) }));
@@ -1742,7 +1942,11 @@ export function CommandCenter({
     <div className="custom-scrollbar h-full overflow-x-hidden overflow-y-auto px-5 py-4 text-[#EEF3FA]">
       <div className="space-y-4">
         <ProjectPulse context={context} onExplain={() => setSelectedInsight({ metricName: 'Float Remaining', value: `${context.metrics.floatRemaining}d` })} />
-        <DecisionStoryStrip context={context} onPrepare={handleQueueAction} />
+        <ProjectPositionBrief
+          context={context}
+          onPrepare={handleQueueAction}
+          onAddUpdate={() => setIsUpdateDrawerOpen(true)}
+        />
 
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-start">
           <LiveUpdatePanel
@@ -1751,6 +1955,9 @@ export function CommandCenter({
             ledgerStatus={ledgerStatus}
             onSimulate={handleLiveUpdate}
             onReset={handleResetBaseline}
+            isUpdateDrawerOpen={isUpdateDrawerOpen}
+            onOpenUpdateDrawer={() => setIsUpdateDrawerOpen(true)}
+            onCloseUpdateDrawer={() => setIsUpdateDrawerOpen(false)}
           />
           <SourceConfidenceCard context={context} goTo={goTo} onPrepareAction={handleQueueAction} />
         </div>
