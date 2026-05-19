@@ -2,8 +2,10 @@ import { useMemo, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import {
   AlertTriangle,
+  ArrowRight,
   BrainCircuit,
   ChevronRight,
+  CircleDollarSign,
   ClipboardList,
   Database,
   FileText,
@@ -13,6 +15,7 @@ import {
   RefreshCw,
   ShieldAlert,
   Sparkles,
+  Target,
   WalletCards,
   X,
 } from 'lucide-react';
@@ -21,11 +24,12 @@ import { Bar, BarChart, CartesianGrid, Cell, ComposedChart, Line, ResponsiveCont
 import { AIInsightBadge } from '../components/AIInsightBadge';
 import { AIInsightPanel } from '../components/AIInsightPanel';
 import { CostIntelligenceFrame } from '../components/CostIntelligenceFrame';
-import { getBudgetControlData, type ActualCost, type BudgetPackage, type Commitment, type CostRisk, type VariationOrder } from '../data/budgetControl';
+import { getBudgetControlData, type ActualCost, type BudgetControlData, type BudgetPackage, type Commitment, type CostRisk, type VariationOrder } from '../data/budgetControl';
 import { useSelectedProjectCommandData } from '../useProjectCommandData';
 import type { MetricName } from '../useMetricInsight';
 
 type SectionId = 'summary' | 'packages' | 'commitments' | 'variations' | 'cashflow' | 'risks' | 'ai';
+type ActionTone = 'good' | 'watch' | 'risk' | 'info';
 
 const sections: { id: SectionId; label: string }[] = [
   { id: 'summary', label: 'Summary' },
@@ -55,6 +59,25 @@ function money(value: number) {
   const abs = Math.abs(value);
   const amount = abs >= 1_000_000 ? `${Math.round(abs / 1_000_000)}M` : `${Math.round(abs / 1_000)}K`;
   return `${value < 0 ? '-' : ''}AED ${amount}`;
+}
+
+function percent(value: number, total: number) {
+  if (total <= 0) return 0;
+  return Math.round((value / total) * 100);
+}
+
+function toneClass(tone: ActionTone) {
+  if (tone === 'good') return 'border-emerald-300/22 bg-emerald-300/10 text-emerald-100';
+  if (tone === 'watch') return 'border-amber-300/24 bg-amber-300/10 text-amber-100';
+  if (tone === 'risk') return 'border-red-300/24 bg-red-400/10 text-red-100';
+  return 'border-cyan-300/22 bg-cyan-300/10 text-cyan-100';
+}
+
+function progressClass(tone: ActionTone) {
+  if (tone === 'good') return 'bg-emerald-300';
+  if (tone === 'watch') return 'bg-amber-300';
+  if (tone === 'risk') return 'bg-red-300';
+  return 'bg-cyan-300';
 }
 
 function SourceChip({ label }: { label: string }) {
@@ -184,13 +207,170 @@ function KpiCard({
   onAi: () => void;
 }) {
   return (
-    <button className="group relative rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-3 text-left transition-colors hover:border-[rgba(46,127,255,0.35)]">
+    <div className="group relative rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-3 text-left transition-colors hover:border-[rgba(46,127,255,0.35)]">
       <AIInsightBadge onClick={onAi} />
       <div className="pr-14 text-[10px] font-black uppercase tracking-[0.16em] text-[#7A94B4]">{label}</div>
       <div className="mt-2 font-mono text-[19px] font-black" style={{ color: tone }}>{value}</div>
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <SourceChip label={source} />
         <span className="text-[10px] text-[#5A6E88]">{updated}</span>
+      </div>
+    </div>
+  );
+}
+
+type CostAction = {
+  title: string;
+  value: string;
+  detail: string;
+  cta: string;
+  section: SectionId;
+  tone: ActionTone;
+  icon: LucideIcon;
+};
+
+function CostActionCard({ action, onClick }: { action: CostAction; onClick: () => void }) {
+  const Icon = action.icon;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`group min-h-[132px] rounded-xl border p-3 text-left transition-all hover:-translate-y-0.5 ${toneClass(action.tone)}`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-white/10 bg-[#07111F]/72">
+          <Icon size={17} />
+        </span>
+        <ArrowRight size={15} className="mt-1 shrink-0 opacity-55 transition-transform group-hover:translate-x-0.5 group-hover:opacity-100" />
+      </div>
+      <p className="mt-3 text-[10px] font-black uppercase tracking-[0.16em] opacity-75">{action.title}</p>
+      <p className="mt-1 font-mono text-[19px] font-black text-[#EEF3FA]">{action.value}</p>
+      <p className="mt-2 line-clamp-2 text-[11px] leading-4 text-[#B8C7DB]">{action.detail}</p>
+      <p className="mt-2 text-[10px] font-black uppercase tracking-wide">{action.cta}</p>
+    </button>
+  );
+}
+
+function CostPositionPanel({
+  approvedBudget,
+  revisedBudget,
+  eac,
+  costVariance,
+  contingencyRemaining,
+  contingencyUsedPct,
+  committedPct,
+  actualPct,
+  lastSync,
+  sourceHealth,
+  actions,
+  onNavigate,
+}: {
+  approvedBudget: number;
+  revisedBudget: number;
+  eac: number;
+  costVariance: number;
+  contingencyRemaining: number;
+  contingencyUsedPct: number;
+  committedPct: number;
+  actualPct: number;
+  lastSync: string;
+  sourceHealth: BudgetControlData['sourceHealth'];
+  actions: CostAction[];
+  onNavigate: (section: SectionId) => void;
+}) {
+  const varianceTone: ActionTone = costVariance < 0 ? 'risk' : 'good';
+  const contingencyTone: ActionTone = contingencyRemaining < 0 ? 'risk' : contingencyUsedPct > 70 ? 'watch' : 'good';
+  const forecastDelta = eac - approvedBudget;
+
+  return (
+    <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[linear-gradient(135deg,rgba(17,32,64,0.92),rgba(7,17,31,0.88))] p-4">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase ${toneClass(varianceTone)}`}>
+              <CircleDollarSign size={13} />
+              {costVariance < 0 ? 'Cost pressure' : 'Within budget'}
+            </span>
+            <span className="rounded-full border border-[rgba(46,127,255,0.18)] bg-[#07111F] px-2.5 py-1 text-[10px] font-bold text-[#8EA7C7]">Synced {lastSync}</span>
+          </div>
+          <h2 className="mt-3 text-[24px] font-black leading-7 text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+            Commercial position: {money(eac)} forecast against {money(approvedBudget)} approved.
+          </h2>
+          <p className="mt-2 max-w-3xl text-[13px] leading-6 text-[#B8C7DB]">
+            {forecastDelta > 0
+              ? `${money(forecastDelta)} sits above the approved budget. The next decisions are variations, package drivers, contingency, and cashflow.`
+              : `Forecast is aligned with the approved budget. The next decisions are variations, package drivers, contingency, and cashflow.`}
+          </p>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {[
+              { label: 'Revised budget', value: money(revisedBudget), sub: 'Approved budget + approved changes', tone: 'info' as ActionTone },
+              { label: 'Cost variance', value: money(costVariance), sub: costVariance < 0 ? 'Earned value pressure' : 'Earned value surplus', tone: varianceTone },
+              { label: 'Contingency left', value: money(contingencyRemaining), sub: `${contingencyUsedPct}% of reserve used`, tone: contingencyTone },
+              { label: 'Commitment cover', value: `${committedPct}%`, sub: `${actualPct}% actualized`, tone: committedPct > 90 ? 'watch' as ActionTone : 'good' as ActionTone },
+            ].map(item => (
+              <div key={item.label} className={`rounded-xl border p-3 ${toneClass(item.tone)}`}>
+                <p className="text-[9px] font-black uppercase tracking-[0.14em] opacity-70">{item.label}</p>
+                <p className="mt-1 font-mono text-[18px] font-black text-[#EEF3FA]">{item.value}</p>
+                <p className="mt-1 text-[10px] leading-4 text-[#B8C7DB]">{item.sub}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-4 rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#07111F]/78 p-3">
+            <div className="mb-2 flex items-center justify-between gap-3 text-[10px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">
+              <span>Budget usage</span>
+              <span>{actualPct}% actual / {committedPct}% committed</span>
+            </div>
+            <div className="relative h-3 overflow-hidden rounded-full bg-[#122240]">
+              <div className="absolute inset-y-0 left-0 rounded-full bg-[#7EB8F7]" style={{ width: `${Math.min(actualPct, 100)}%` }} />
+              <div className="absolute inset-y-0 left-0 rounded-full bg-[#00B894]/45" style={{ width: `${Math.min(committedPct, 100)}%` }} />
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
+          {actions.map(action => (
+            <CostActionCard key={action.title} action={action} onClick={() => onNavigate(action.section)} />
+          ))}
+          <div className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#07111F]/78 p-3">
+            <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">Source health</p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {sourceHealth.map(source => (
+                <StatusPill key={source.label} tone={source.status === 'healthy' ? 'green' : source.status === 'warning' ? 'amber' : 'red'}>{source.label}</StatusPill>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function PackageDriverCard({ pkg, onOpen }: { pkg: BudgetPackage; onOpen: () => void }) {
+  const pressure = Math.max(pkg.variance, pkg.programmeCostExposure, pkg.openClaims);
+  const tone: ActionTone = pkg.riskLevel === 'critical' ? 'risk' : pkg.riskLevel === 'high' ? 'watch' : 'good';
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className={`rounded-xl border p-3 text-left transition-all hover:-translate-y-0.5 ${toneClass(tone)}`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="font-mono text-[10px] font-black uppercase tracking-[0.12em] opacity-75">{pkg.code}</p>
+          <h3 className="mt-1 text-[13px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{pkg.name}</h3>
+        </div>
+        <StatusPill tone={tone === 'risk' ? 'red' : tone === 'watch' ? 'amber' : 'green'}>{pkg.riskLevel}</StatusPill>
+      </div>
+      <p className="mt-3 font-mono text-[17px] font-black text-[#EEF3FA]">{money(pressure)}</p>
+      <div className="mt-2 grid gap-1 text-[10px] leading-4 text-[#B8C7DB]">
+        <span>Variance {money(pkg.variance)}</span>
+        <span>Claims {money(pkg.openClaims)} / disputed {money(pkg.disputedAmount)}</span>
+        <span>{pkg.programmeDelayDays}d programme delay exposure</span>
+      </div>
+      <div className="mt-3 h-1.5 rounded-full bg-[#07111F]">
+        <div className={`h-full rounded-full ${progressClass(tone)}`} style={{ width: `${Math.min(100, Math.max(8, percent(pressure, pkg.revisedBudget)))}%` }} />
       </div>
     </button>
   );
@@ -361,6 +541,53 @@ export function CostIntelligence() {
     variance: Math.round(pkg.variance / 1_000_000),
   }));
 
+  const openVariations = data.variations.filter(item => !['Approved', 'Rejected'].includes(item.status));
+  const riskPackages = [...data.packages]
+    .filter(pkg => ['high', 'critical'].includes(pkg.riskLevel))
+    .sort((a, b) => (b.variance + b.programmeCostExposure + b.openClaims) - (a.variance + a.programmeCostExposure + a.openClaims));
+  const topExposurePackages = [...data.packages]
+    .sort((a, b) => Math.max(b.variance, b.programmeCostExposure, b.openClaims) - Math.max(a.variance, a.programmeCostExposure, a.openClaims))
+    .slice(0, 3);
+  const riskExposure = data.risks.reduce((sum, risk) => sum + risk.exposure, 0);
+  const contingencyUsedPct = percent(data.budget.contingency - totals.contingencyRemaining, data.budget.contingency);
+  const committedPct = percent(totals.committed, totals.revisedBudget);
+  const actualPct = percent(totals.actual, totals.revisedBudget);
+
+  const goToSection = (section: SectionId) => {
+    setActiveSection(section);
+    document.getElementById(section)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const actionCards: CostAction[] = [
+    {
+      title: 'Decide variations',
+      value: money(totals.pendingVariations),
+      detail: `${openVariations.length} open changes need a commercial decision before they reshape forecast.`,
+      cta: 'Open VO queue',
+      section: 'variations',
+      tone: openVariations.length > 2 ? 'risk' : 'watch',
+      icon: RefreshCw,
+    },
+    {
+      title: 'Challenge drivers',
+      value: `${riskPackages.length} packages`,
+      detail: `${riskPackages[0]?.name ?? 'Package'} is the top package to review for variance, claims, or delay exposure.`,
+      cta: 'Review packages',
+      section: 'packages',
+      tone: riskPackages.some(pkg => pkg.riskLevel === 'critical') ? 'risk' : 'watch',
+      icon: ShieldAlert,
+    },
+    {
+      title: 'Protect cash',
+      value: money(totals.contingencyRemaining),
+      detail: `${money(riskExposure)} risk exposure is being monitored against contingency and cashflow.`,
+      cta: 'Open cashflow',
+      section: 'cashflow',
+      tone: totals.contingencyRemaining < 0 ? 'risk' : contingencyUsedPct > 70 ? 'watch' : 'good',
+      icon: Target,
+    },
+  ];
+
   return (
     <div className="custom-scrollbar h-full overflow-x-hidden overflow-y-auto px-5 py-4 text-[#EEF3FA]">
       <div className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
@@ -379,20 +606,31 @@ export function CostIntelligence() {
             ))}
           </div>
         </div>
-        <div className="mt-4 rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#07111F] px-3 py-2 text-[12px] text-[#B8C7DB]">
-          Project budget data synced from: Project baseline, package budgets, vendor contracts, invoice actuals, variation orders, and AI forecast. Last sync: <span className="font-bold text-[#DDE6F8]">{data.lastSync}</span>
-        </div>
-        <MoneyFlow steps={costFlowSteps} />
+      </div>
+
+      <div className="mt-4">
+        <CostPositionPanel
+          approvedBudget={data.budget.approvedBudget}
+          revisedBudget={totals.revisedBudget}
+          eac={data.evm.eac}
+          costVariance={data.evm.costVariance}
+          contingencyRemaining={totals.contingencyRemaining}
+          contingencyUsedPct={contingencyUsedPct}
+          committedPct={committedPct}
+          actualPct={actualPct}
+          lastSync={data.lastSync}
+          sourceHealth={data.sourceHealth}
+          actions={actionCards}
+          onNavigate={goToSection}
+        />
       </div>
 
       <div className="sticky top-0 z-20 mt-4 flex flex-wrap gap-2 border-b border-[rgba(46,127,255,0.12)] bg-[#0A1628]/95 py-2 backdrop-blur">
         {sections.map(section => (
           <button
             key={section.id}
-            onClick={() => {
-              setActiveSection(section.id);
-              document.getElementById(section.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }}
+            type="button"
+            onClick={() => goToSection(section.id)}
             className={`rounded-xl border px-3 py-2 text-[11px] font-black transition-colors ${activeSection === section.id ? 'border-[#7C3AED]/55 bg-[#7C3AED]/18 text-[#E9D5FF]' : 'border-[rgba(46,127,255,0.14)] bg-[#07111F] text-[#7A94B4] hover:text-[#EEF3FA]'}`}
           >
             {section.label}
@@ -410,6 +648,7 @@ export function CostIntelligence() {
             />
           ))}
         </div>
+        <MoneyFlow steps={costFlowSteps} />
         <div className="mt-3 grid gap-3 xl:grid-cols-[1fr_1fr_1.2fr]">
           <div className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#07111F] p-4">
             <div className="mb-2 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.16em] text-[#7EB8F7]"><Database size={14} /> Source clarity</div>
@@ -442,6 +681,11 @@ export function CostIntelligence() {
         <div className="space-y-4">
           <section id="packages" className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
             <SectionHeader icon={ClipboardList} title="Cost Breakdown by Package" subtitle="Every row links baseline budget, approved changes, commitments, actual cost, forecast, programme phase, vendor, and risk. Click a package to drill into its source trail." badge={`${data.packages.length} cost codes`} />
+            <div className="mb-4 grid gap-3 md:grid-cols-3">
+              {topExposurePackages.map(pkg => (
+                <PackageDriverCard key={pkg.id} pkg={pkg} onOpen={() => setSelectedPackage(pkg)} />
+              ))}
+            </div>
             <div className="mb-4 h-[230px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={breakdownChart} margin={{ left: -20, right: 12 }}>

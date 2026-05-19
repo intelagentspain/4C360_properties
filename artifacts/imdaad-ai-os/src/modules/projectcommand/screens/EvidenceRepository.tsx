@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import {
   AlertTriangle,
-  BarChart3,
   CheckCircle2,
   Clock3,
   Download,
@@ -45,33 +44,6 @@ function StatusBadge({ status }: { status: EvidenceStatus }) {
       <Icon size={12} />
       {status}
     </span>
-  );
-}
-
-function KpiCard({
-  icon: Icon,
-  label,
-  value,
-  accent,
-  delta,
-}: {
-  icon: typeof FolderOpen;
-  label: string;
-  value: string | number;
-  accent: string;
-  delta?: string;
-}) {
-  return (
-    <div className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
-      <div className="flex items-start justify-between gap-3">
-        <span className="grid h-8 w-8 place-items-center rounded-lg border" style={{ borderColor: `${accent}55`, background: `${accent}18`, color: accent }}>
-          <Icon size={17} />
-        </span>
-        {delta && <span className="font-mono text-[11px] font-black text-emerald-300">{delta}</span>}
-      </div>
-      <p className="mt-4 text-2xl font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{value}</p>
-      <p className="mt-1 text-[13px] text-[#7A94B4]">{label}</p>
-    </div>
   );
 }
 
@@ -175,6 +147,66 @@ function ActionButton({
   );
 }
 
+function evidenceActionFor(document: EvidenceDocument) {
+  if (document.status === 'Expired') {
+    return {
+      label: 'Request renewal',
+      doneLabel: 'Renewal requested',
+      toast: `Renewal request queued for ${document.code}.`,
+      owner: document.uploader,
+      impact: 'Blocks obligation closure until a current certificate is uploaded.',
+      tone: 'critical',
+    };
+  }
+
+  if (document.type === 'Report') {
+    return {
+      label: 'Link to handover gate',
+      doneLabel: 'Gate evidence linked',
+      toast: `${document.code} linked to the handover evidence pack.`,
+      owner: document.uploader,
+      impact: 'Supports commissioning and handover readiness.',
+      tone: 'ready',
+    };
+  }
+
+  return {
+    label: 'Attach to obligation',
+    doneLabel: 'Obligation linked',
+    toast: `${document.code} attached to ${document.linkedObligation}.`,
+    owner: document.uploader,
+    impact: 'Keeps the compliance pack traceable for review.',
+    tone: 'ready',
+  };
+}
+
+function EvidenceDecisionCard({
+  icon: Icon,
+  label,
+  value,
+  detail,
+  accent,
+}: {
+  icon: typeof FolderOpen;
+  label: string;
+  value: string;
+  detail: string;
+  accent: string;
+}) {
+  return (
+    <div className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
+      <div className="flex items-start justify-between gap-3">
+        <span className="grid h-9 w-9 place-items-center rounded-xl border" style={{ borderColor: `${accent}55`, background: `${accent}18`, color: accent }}>
+          <Icon size={18} />
+        </span>
+        <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-[#8FA6C3]">{label}</span>
+      </div>
+      <p className="mt-4 text-2xl font-black leading-7 text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{value}</p>
+      <p className="mt-2 text-[13px] leading-5 text-[#8FA6C3]">{detail}</p>
+    </div>
+  );
+}
+
 function DetailCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#0A1628] p-4">
@@ -224,7 +256,7 @@ function EvidenceAiSummaryModal({ document, onClose }: { document: EvidenceDocum
               AI Summary
             </span>
             <h3 className="mt-4 text-xl font-black leading-6 text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{document.title}</h3>
-            <p className="mt-2 font-mono text-[12px] text-cyan-300">{document.code} · {document.version}</p>
+            <p className="mt-2 font-mono text-[12px] text-cyan-300">{document.code} - {document.version}</p>
           </div>
           <button
             type="button"
@@ -458,6 +490,8 @@ export function EvidenceRepository({ onToast }: { onToast?: (message: string, ty
   const [status, setStatus] = useState<'All Status' | EvidenceStatus>('All Status');
   const [project, setProject] = useState('All Projects');
   const [selectedDocument, setSelectedDocument] = useState<EvidenceDocument | null>(null);
+  const [completedActions, setCompletedActions] = useState<Record<string, string>>({});
+  const [exportPrepared, setExportPrepared] = useState(false);
 
   const projects = useMemo(() => ['All Projects', ...Array.from(new Set(evidenceDocuments.map(item => item.project)))], []);
   const evidenceTypes = useMemo(() => ['All Types', ...Array.from(new Set(evidenceDocuments.map(item => item.type)))] as Array<'All Types' | EvidenceType>, []);
@@ -474,10 +508,30 @@ export function EvidenceRepository({ onToast }: { onToast?: (message: string, ty
   const metrics = {
     total: evidenceDocuments.length,
     current: evidenceDocuments.filter(item => item.status === 'Current').length,
-    superseded: evidenceDocuments.filter(item => item.status === 'Superseded').length,
     expired: evidenceDocuments.filter(item => item.status === 'Expired').length,
     types: new Set(evidenceDocuments.map(item => item.type)).size,
-    compliance: Math.round((evidenceDocuments.filter(item => item.status === 'Current').length / evidenceDocuments.length) * 100),
+  };
+
+  const expiredDocuments = evidenceDocuments.filter(item => item.status === 'Expired');
+  const currentDocuments = evidenceDocuments.filter(item => item.status === 'Current');
+  const criticalDocument = expiredDocuments[0];
+  const workQueue = [
+    ...expiredDocuments,
+    ...currentDocuments.filter(item => item.type === 'Report'),
+    ...currentDocuments.filter(item => item.type !== 'Report'),
+  ];
+  const completedCount = Object.keys(completedActions).length;
+  const readinessPercent = Math.round((currentDocuments.length / Math.max(evidenceDocuments.length, 1)) * 100);
+
+  const runEvidenceAction = (document: EvidenceDocument) => {
+    const action = evidenceActionFor(document);
+    setCompletedActions(previous => ({ ...previous, [document.code]: action.doneLabel }));
+    onToast?.(action.toast, document.status === 'Expired' ? 'warning' : 'success');
+  };
+
+  const prepareExport = () => {
+    setExportPrepared(true);
+    onToast?.(`Evidence pack prepared with ${evidenceDocuments.length} documents and ${expiredDocuments.length} blocker${expiredDocuments.length === 1 ? '' : 's'}.`, 'success');
   };
 
   const typeCounts = evidenceTypes
@@ -495,37 +549,117 @@ export function EvidenceRepository({ onToast }: { onToast?: (message: string, ty
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-3">
             <FolderOpen size={28} className="text-cyan-300" />
-            <h1 className="text-2xl font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Evidence Repository</h1>
+            <div>
+              <h1 className="text-2xl font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Evidence Control Centre</h1>
+              <p className="mt-1 text-[13px] leading-5 text-[#8FA6C3]">Track what is usable, what blocks compliance, and what action closes the evidence gap.</p>
+            </div>
           </div>
           <button
             type="button"
-            onClick={() => onToast?.('Bulk export package is ready to connect', 'info')}
+            onClick={prepareExport}
             className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-cyan-300/25 bg-cyan-300/10 px-4 text-[12px] font-black text-cyan-300 transition-colors hover:bg-cyan-300/15"
           >
             <Download size={14} />
-            Bulk Export
+            {exportPrepared ? 'Export Prepared' : 'Prepare Evidence Pack'}
           </button>
         </div>
       </div>
 
       <div className="mt-4">
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
-          <KpiCard icon={FolderOpen} label="Total Documents" value={metrics.total} accent="#06B6D4" />
-          <KpiCard icon={CheckCircle2} label="Current" value={metrics.current} accent="#22C55E" delta="+8%" />
-          <KpiCard icon={Clock3} label="Superseded" value={metrics.superseded} accent="#F59E0B" />
-          <KpiCard icon={AlertTriangle} label="Expired" value={metrics.expired} accent="#EF4444" />
-          <KpiCard icon={BarChart3} label="Evidence Types" value={metrics.types} accent="#8B5CF6" />
-          <KpiCard icon={ShieldCheck} label="Compliance Rate" value={`${metrics.compliance}%`} accent="#60A5FA" delta="+5%" />
+        <div className="grid gap-3 lg:grid-cols-4">
+          <EvidenceDecisionCard
+            icon={AlertTriangle}
+            label="Blocker"
+            value={criticalDocument ? `${metrics.expired} evidence gap${metrics.expired === 1 ? '' : 's'}` : 'No blockers'}
+            detail={criticalDocument ? `${criticalDocument.title.replace(' (Expired)', '')} needs renewal.` : 'All current evidence can support controls.'}
+            accent={criticalDocument ? '#EF4444' : '#22C55E'}
+          />
+          <EvidenceDecisionCard
+            icon={ShieldCheck}
+            label="Readiness"
+            value={`${readinessPercent}% usable`}
+            detail={`${metrics.current} current document${metrics.current === 1 ? '' : 's'} available for gates and obligations.`}
+            accent="#60A5FA"
+          />
+          <EvidenceDecisionCard
+            icon={ListChecks}
+            label="Queue"
+            value={`${workQueue.length - completedCount} actions open`}
+            detail={`${completedCount} action${completedCount === 1 ? '' : 's'} completed in this session.`}
+            accent="#8B5CF6"
+          />
+          <EvidenceDecisionCard
+            icon={FolderOpen}
+            label="Pack"
+            value={`${metrics.total} documents`}
+            detail={`${metrics.types} evidence types across ${projects.length - 1} project records.`}
+            accent="#06B6D4"
+          />
         </div>
       </div>
 
-      <div className="mt-4 grid gap-3 xl:grid-cols-[1fr_1fr_1fr]">
-        <MiniDonut title="By Document Type" segments={typeCounts} legend={typeCounts} />
-        <MiniDonut title="By Status" segments={statusCounts} legend={statusCounts} />
-        <ProjectBars documents={evidenceDocuments} />
+      <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(320px,0.75fr)]">
+        <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="text-lg font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Evidence Work Queue</h2>
+              <p className="mt-1 text-[13px] text-[#8FA6C3]">Take action against the files that affect gates, obligations, and handover readiness.</p>
+            </div>
+            <span className="rounded-full border border-cyan-300/25 bg-cyan-300/10 px-3 py-1 text-[11px] font-black text-cyan-200">{completedCount} of {workQueue.length} done</span>
+          </div>
+          <div className="mt-4 grid gap-3">
+            {workQueue.map(document => {
+              const action = evidenceActionFor(document);
+              const completedLabel = completedActions[document.code];
+              return (
+                <div key={document.code} className={`rounded-xl border p-4 ${action.tone === 'critical' ? 'border-red-300/25 bg-red-400/10' : 'border-[rgba(46,127,255,0.16)] bg-[#0A1628]'}`}>
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <StatusBadge status={document.status} />
+                        <span className="font-mono text-[11px] font-black text-cyan-300">{document.linkedObligation}</span>
+                        <span className="text-[11px] text-[#7A94B4]">{document.project}</span>
+                      </div>
+                      <p className="mt-3 text-[15px] font-black leading-5 text-[#EEF3FA]">{document.title}</p>
+                      <p className="mt-2 text-[13px] leading-5 text-[#9FB2CC]">{action.impact}</p>
+                    </div>
+                    <div className="flex shrink-0 flex-wrap items-center gap-2">
+                      <span className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-[#9FB2CC]">Owner: <b className="text-[#DDE6F8]">{action.owner}</b></span>
+                      <button
+                        type="button"
+                        onClick={() => runEvidenceAction(document)}
+                        className={`inline-flex h-10 items-center justify-center rounded-lg px-4 text-[12px] font-black transition-colors ${
+                          completedLabel
+                            ? 'border border-emerald-300/25 bg-emerald-300/10 text-emerald-200'
+                            : 'border border-cyan-300/25 bg-cyan-300/10 text-cyan-200 hover:bg-cyan-300/15'
+                        }`}
+                      >
+                        {completedLabel ?? action.label}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
+          <h2 className="text-lg font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Control Readiness</h2>
+          <p className="mt-1 text-[13px] text-[#8FA6C3]">Evidence coverage by status, type, and project.</p>
+          <div className="mt-4 grid gap-3">
+            <MiniDonut title="Status" segments={statusCounts} legend={statusCounts} />
+            <MiniDonut title="Document Types" segments={typeCounts} legend={typeCounts} />
+            <ProjectBars documents={evidenceDocuments} />
+          </div>
+        </section>
       </div>
 
       <div className="mt-4 rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
+        <div className="mb-3 flex flex-col gap-1">
+          <h2 className="text-[15px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Find and Action Evidence</h2>
+          <p className="text-[12px] text-[#7A94B4]">Search by file, obligation, project, owner, or stage.</p>
+        </div>
         <div className="grid gap-3 xl:grid-cols-[minmax(280px,1fr)_140px_140px_190px]">
           <label className="relative">
             <Search size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#7A94B4]" />
@@ -554,57 +688,80 @@ export function EvidenceRepository({ onToast }: { onToast?: (message: string, ty
             <thead className="bg-[#0A1628]/85">
               <tr className="text-[11px] font-black text-[#5A6E88]">
                 <th className="px-4 py-4">Code</th>
-                <th className="px-4 py-4">Document Title</th>
-                <th className="px-4 py-4">Type</th>
-                <th className="px-4 py-4">Project</th>
-                <th className="px-4 py-4">Stage</th>
+                <th className="px-4 py-4">Evidence</th>
+                <th className="px-4 py-4">Project / Stage</th>
                 <th className="px-4 py-4">Status</th>
-                <th className="px-4 py-4">Upload Date</th>
-                <th className="px-4 py-4">Uploader</th>
+                <th className="px-4 py-4">Linked Control</th>
+                <th className="px-4 py-4">Owner</th>
                 <th className="px-4 py-4">Version</th>
-                <th className="px-4 py-4 text-right">Actions</th>
+                <th className="px-4 py-4 text-right">Next Action</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map(document => (
-                <tr
-                  key={document.code}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => setSelectedDocument(document)}
-                  onKeyDown={event => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault();
-                      setSelectedDocument(document);
-                    }
-                  }}
-                  className="cursor-pointer border-t border-[rgba(46,127,255,0.08)] bg-[#0A1628]/70 transition-colors hover:bg-white/[0.045] focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300/70"
-                >
-                  <td className="px-4 py-4 align-top font-mono text-[13px] font-black text-cyan-300">{document.code}</td>
-                  <td className="px-4 py-4 align-top">
-                    <div className="flex items-center gap-3">
-                      <FileText size={15} className="text-[#7A94B4]" />
-                      <p className="max-w-[330px] text-[14px] font-black leading-5 text-[#DDE6F8]">{document.title}</p>
-                    </div>
-                  </td>
-                  <td className="px-4 py-4 align-top text-[14px] text-[#A8B3C7]">{document.type}</td>
-                  <td className="px-4 py-4 align-top text-[14px] text-[#A8B3C7]">{document.project}</td>
-                  <td className="px-4 py-4 align-top text-[12px] leading-5 text-[#7A94B4]">{document.stage}</td>
-                  <td className="px-4 py-4 align-top"><StatusBadge status={document.status} /></td>
-                  <td className="px-4 py-4 align-top font-mono text-[13px] text-[#A8B3C7]">{document.uploadDate}</td>
-                  <td className="px-4 py-4 align-top text-[14px] text-[#A8B3C7]">{document.uploader}</td>
-                  <td className="px-4 py-4 align-top font-mono text-[12px] text-[#7A94B4]">{document.version}</td>
-                  <td className="px-4 py-4 align-top">
-                    <div className="flex justify-end gap-1">
-                      <ActionButton label={`View ${document.title}`} icon={Eye} onClick={() => setSelectedDocument(document)} />
-                      <ActionButton label={`Download ${document.title}`} icon={Download} onClick={() => onToast?.(`Download queued for ${document.code}`, 'success')} />
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {filtered.map(document => {
+                const action = evidenceActionFor(document);
+                const completedLabel = completedActions[document.code];
+                return (
+                  <tr
+                    key={document.code}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setSelectedDocument(document)}
+                    onKeyDown={event => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        setSelectedDocument(document);
+                      }
+                    }}
+                    className="cursor-pointer border-t border-[rgba(46,127,255,0.08)] bg-[#0A1628]/70 transition-colors hover:bg-white/[0.045] focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300/70"
+                  >
+                    <td className="px-4 py-4 align-top font-mono text-[13px] font-black text-cyan-300">{document.code}</td>
+                    <td className="px-4 py-4 align-top">
+                      <div className="flex items-start gap-3">
+                        <FileText size={15} className="mt-0.5 text-[#7A94B4]" />
+                        <div>
+                          <p className="max-w-[360px] text-[14px] font-black leading-5 text-[#DDE6F8]">{document.title}</p>
+                          <p className="mt-1 text-[12px] text-[#7A94B4]">{document.type} - uploaded {document.uploadDate}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 align-top">
+                      <p className="text-[14px] text-[#A8B3C7]">{document.project}</p>
+                      <p className="mt-1 max-w-[230px] text-[12px] leading-5 text-[#7A94B4]">{document.stage}</p>
+                    </td>
+                    <td className="px-4 py-4 align-top"><StatusBadge status={document.status} /></td>
+                    <td className="px-4 py-4 align-top">
+                      <p className="font-mono text-[12px] font-black text-violet-200">{document.linkedObligation}</p>
+                      <p className="mt-1 max-w-[210px] text-[12px] leading-5 text-[#7A94B4]">{action.impact}</p>
+                    </td>
+                    <td className="px-4 py-4 align-top text-[14px] text-[#A8B3C7]">{document.uploader}</td>
+                    <td className="px-4 py-4 align-top font-mono text-[12px] text-[#7A94B4]">{document.version}</td>
+                    <td className="px-4 py-4 align-top">
+                      <div className="flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={event => {
+                            event.stopPropagation();
+                            runEvidenceAction(document);
+                          }}
+                          className={`inline-flex h-9 items-center justify-center rounded-lg px-3 text-[12px] font-black transition-colors ${
+                            completedLabel
+                              ? 'border border-emerald-300/25 bg-emerald-300/10 text-emerald-200'
+                              : 'border border-cyan-300/25 bg-cyan-300/10 text-cyan-200 hover:bg-cyan-300/15'
+                          }`}
+                        >
+                          {completedLabel ?? action.label}
+                        </button>
+                        <ActionButton label={`View ${document.title}`} icon={Eye} onClick={() => setSelectedDocument(document)} />
+                        <ActionButton label={`Download ${document.title}`} icon={Download} onClick={() => onToast?.(`Download queued for ${document.code}`, 'success')} />
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="px-4 py-12 text-center text-[13px] text-[#7A94B4]">
+                  <td colSpan={8} className="px-4 py-12 text-center text-[13px] text-[#7A94B4]">
                     No evidence documents match the selected filters.
                   </td>
                 </tr>
