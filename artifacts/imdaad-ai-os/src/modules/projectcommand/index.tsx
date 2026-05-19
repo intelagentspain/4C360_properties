@@ -12,9 +12,9 @@ import { RiskCommand } from './screens/RiskCommand';
 import { ObligationsRegister } from './screens/ObligationsRegister';
 import { EvidenceRepository } from './screens/EvidenceRepository';
 import { AIForecast } from './screens/AIForecast';
-import { addProjectCommandDataset, hydrateProjectCommandEvents } from './state/projectCommandStore';
+import { addProjectCommandDataset, hydrateProjectCommandEvents, setProjectCommandState } from './state/projectCommandStore';
 import type { ProjectCommandScreen } from './types';
-import { useSelectedProjectCommandData } from './useProjectCommandData';
+import { useProjectCommandProjectOptions, useProjectCommandPropertyOptions, useSelectedProjectCommandData } from './useProjectCommandData';
 
 const tabs: { id: ProjectCommandScreen; label: string; icon: ComponentType<{ size?: number }> }[] = [
   { id: 'overview', label: 'Overview', icon: Building2 },
@@ -48,6 +48,9 @@ export function ProjectCommand({
   const [addProjectOpen, setAddProjectOpen] = useState(false);
   const selectedDataset = useSelectedProjectCommandData();
   const { organization, portfolio, property, project } = selectedDataset;
+  const propertyOptions = useProjectCommandPropertyOptions();
+  const projectOptions = useProjectCommandProjectOptions(property.id);
+  const allProjectOptions = useProjectCommandProjectOptions();
 
   const goTo = (next: ProjectCommandScreen) => {
     setScreen(next);
@@ -58,6 +61,32 @@ export function ProjectCommand({
   };
 
   const activeTitle = useMemo(() => tabs.find(tab => tab.id === screen)?.label ?? 'Overview', [screen]);
+
+  const handlePropertyChange = (propertyId: string) => {
+    const nextProject = allProjectOptions.find(option => option.propertyId === propertyId);
+    if (!nextProject) return;
+    setProjectCommandState({
+      selectedPropertyId: propertyId,
+      selectedProjectId: nextProject.id,
+      activeScenario: 'base',
+      selectedPhaseId: null,
+      selectedRisk: null,
+    });
+    onToast?.(`Switched to ${nextProject.propertyName} - ${nextProject.label}`, 'info');
+  };
+
+  const handleProjectChange = (projectId: string) => {
+    const nextProject = allProjectOptions.find(option => option.id === projectId);
+    if (!nextProject) return;
+    setProjectCommandState({
+      selectedPropertyId: nextProject.propertyId,
+      selectedProjectId: nextProject.id,
+      activeScenario: 'base',
+      selectedPhaseId: null,
+      selectedRisk: null,
+    });
+    onToast?.(`Switched to ${nextProject.propertyName} - ${nextProject.label}`, 'info');
+  };
 
   useEffect(() => {
     void hydrateProjectCommandEvents(selectedDataset.id);
@@ -83,7 +112,29 @@ export function ProjectCommand({
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+            <label className="sr-only" htmlFor="projectcommand-property-select">Property</label>
+            <select
+              id="projectcommand-property-select"
+              value={property.id}
+              onChange={event => handlePropertyChange(event.target.value)}
+              className="h-9 min-w-[220px] rounded-lg border border-[rgba(46,127,255,0.28)] bg-[#07111F] px-3 text-[12px] font-bold text-[#DDE6F8] outline-none transition-colors hover:border-[#2E7FFF]/55 focus:border-[#7C3AED]/70"
+            >
+              {propertyOptions.map(option => (
+                <option key={option.id} value={option.id}>{option.label}</option>
+              ))}
+            </select>
+            <label className="sr-only" htmlFor="projectcommand-project-select">Project</label>
+            <select
+              id="projectcommand-project-select"
+              value={project.id}
+              onChange={event => handleProjectChange(event.target.value)}
+              className="h-9 min-w-[240px] rounded-lg border border-[rgba(46,127,255,0.28)] bg-[#07111F] px-3 text-[12px] font-bold text-[#DDE6F8] outline-none transition-colors hover:border-[#2E7FFF]/55 focus:border-[#7C3AED]/70"
+            >
+              {projectOptions.map(option => (
+                <option key={option.id} value={option.id}>{option.label}</option>
+              ))}
+            </select>
             <button onClick={() => setAddProjectOpen(true)} className="flex h-8 items-center gap-1.5 rounded-lg border border-[#7C3AED]/45 bg-[#7C3AED] px-3 text-[11px] font-bold text-white shadow-lg shadow-violet-900/20 transition-colors hover:bg-[#6D28D9]">
               <Plus size={13} />
               Add Project
