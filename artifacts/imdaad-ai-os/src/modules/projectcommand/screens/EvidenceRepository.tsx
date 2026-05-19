@@ -545,28 +545,6 @@ export function EvidenceRepository({ onToast }: { onToast?: (message: string, ty
     onToast?.(`Evidence pack prepared with ${evidenceDocuments.length} documents and ${expiredDocuments.length} blocker${expiredDocuments.length === 1 ? '' : 's'}.`, 'success');
   };
 
-  const expiredDocuments = evidenceDocuments.filter(item => item.status === 'Expired');
-  const currentDocuments = evidenceDocuments.filter(item => item.status === 'Current');
-  const criticalDocument = expiredDocuments[0];
-  const workQueue = [
-    ...expiredDocuments,
-    ...currentDocuments.filter(item => item.type === 'Report'),
-    ...currentDocuments.filter(item => item.type !== 'Report'),
-  ];
-  const completedCount = Object.keys(completedActions).length;
-  const readinessPercent = Math.round((currentDocuments.length / Math.max(evidenceDocuments.length, 1)) * 100);
-
-  const runEvidenceAction = (document: EvidenceDocument) => {
-    const action = evidenceActionFor(document);
-    setCompletedActions(previous => ({ ...previous, [document.code]: action.doneLabel }));
-    onToast?.(action.toast, document.status === 'Expired' ? 'warning' : 'success');
-  };
-
-  const prepareExport = () => {
-    setExportPrepared(true);
-    onToast?.(`Evidence pack prepared with ${evidenceDocuments.length} documents and ${expiredDocuments.length} blocker${expiredDocuments.length === 1 ? '' : 's'}.`, 'success');
-  };
-
   const typeCounts = evidenceTypes
     .filter(item => item !== 'All Types')
     .map(item => ({ label: item, value: evidenceDocuments.filter(document => document.type === item).length, color: item === 'Certificate' ? '#06B6D4' : '#8B5CF6' }));
