@@ -14,7 +14,11 @@ import { EvidenceRepository } from './screens/EvidenceRepository';
 import { AIForecast } from './screens/AIForecast';
 import { addProjectCommandDataset, hydrateProjectCommandEvents, setProjectCommandState } from './state/projectCommandStore';
 import type { ProjectCommandScreen } from './types';
-import { useProjectCommandProjectOptions, useProjectCommandPropertyOptions, useSelectedProjectCommandData } from './useProjectCommandData';
+import {
+  useProjectCommandProjectOptions,
+  useProjectCommandPropertyOptions,
+  useSelectedProjectCommandData,
+} from './useProjectCommandData';
 
 const tabs: { id: ProjectCommandScreen; label: string; icon: ComponentType<{ size?: number }> }[] = [
   { id: 'overview', label: 'Overview', icon: Building2 },
@@ -62,15 +66,20 @@ export function ProjectCommand({
 
   const activeTitle = useMemo(() => tabs.find(tab => tab.id === screen)?.label ?? 'Overview', [screen]);
 
+  const resetProjectDetailState = {
+    activeScenario: 'base' as const,
+    selectedRisk: null,
+    selectedPhaseId: null,
+  };
+
   const handlePropertyChange = (propertyId: string) => {
     const nextProject = allProjectOptions.find(option => option.propertyId === propertyId);
     if (!nextProject) return;
+
     setProjectCommandState({
       selectedPropertyId: propertyId,
       selectedProjectId: nextProject.id,
-      activeScenario: 'base',
-      selectedPhaseId: null,
-      selectedRisk: null,
+      ...resetProjectDetailState,
     });
     onToast?.(`Switched to ${nextProject.propertyName} - ${nextProject.label}`, 'info');
   };
@@ -78,12 +87,11 @@ export function ProjectCommand({
   const handleProjectChange = (projectId: string) => {
     const nextProject = allProjectOptions.find(option => option.id === projectId);
     if (!nextProject) return;
+
     setProjectCommandState({
       selectedPropertyId: nextProject.propertyId,
       selectedProjectId: nextProject.id,
-      activeScenario: 'base',
-      selectedPhaseId: null,
-      selectedRisk: null,
+      ...resetProjectDetailState,
     });
     onToast?.(`Switched to ${nextProject.propertyName} - ${nextProject.label}`, 'info');
   };

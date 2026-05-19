@@ -1511,6 +1511,38 @@ type VendorResearchReport = {
   nextActions: string[];
 };
 
+type ActionPackStep = 'queue-message' | 'prepare-approvals' | 'create-kpi-tracker' | 'copy-pack' | 'mark-ready';
+
+type ActionPackProgress = {
+  messageQueued: boolean;
+  approvalsPrepared: boolean;
+  kpiTrackerCreated: boolean;
+  packCopied: boolean;
+  packReady: boolean;
+};
+
+type VendorActionPack = {
+  score: number;
+  risk: VendorRiskLevel;
+  responseTarget: string;
+  recipient: string;
+  subject: string;
+  messageSummary: string;
+  requiredCommitments: string[];
+  evidence: string[];
+  approvals: { owner: string; action: string; status: string }[];
+  kpiTargets: { label: string; current: string; target: string; why: string }[];
+  copyText: string;
+};
+
+const initialActionPackProgress: ActionPackProgress = {
+  messageQueued: false,
+  approvalsPrepared: false,
+  kpiTrackerCreated: false,
+  packCopied: false,
+  packReady: false,
+};
+
 function formatVendorAction(action: VendorCopilotAction): string {
   return {
     rfq: 'RFQ builder opened',
@@ -1519,6 +1551,89 @@ function formatVendorAction(action: VendorCopilotAction): string {
     price: 'Price analysis completed',
     negotiation: 'Action pack prepared',
   }[action];
+}
+
+function buildVendorActionPack(vendor: VendorIntelData, peers: VendorIntelData[]): VendorActionPack {
+  const score = computeVendorScore(vendor);
+  const risk = classifyVendorRisk(score);
+  const peerAvgCost = Math.round(peers.reduce((sum, peer) => sum + peer.avgCostPerJob, 0) / Math.max(1, peers.length));
+  const responseTarget = '7 working days';
+  const currentCostGuardrail = Math.min(vendor.avgCostPerJob, peerAvgCost);
+  const slaTarget = risk === 'At Risk' ? Math.max(88, Math.min(96, vendor.slaCompliance + 15)) : risk === 'Watchlist' ? Math.max(88, Math.min(94, vendor.slaCompliance + 6)) : Math.max(90, vendor.slaCompliance);
+  const evidenceTarget = Math.max(90, Math.min(98, vendor.evidenceCompliance + (risk === 'Preferred' ? 2 : 8)));
+  const firstFixTarget = Math.max(86, Math.min(96, vendor.firstTimeFixRate + (risk === 'At Risk' ? 12 : 6)));
+  const repeatTarget = Math.max(4, Math.min(8, vendor.repeatFailureRate - (risk === 'At Risk' ? 5 : 2)));
+  const primaryRecommendation = vendor.recommendations[0]?.title ?? 'Confirm the next performance review action';
+  const flagsLabel = vendor.contractFlags.length === 1 ? '1 open contract flag' : `${vendor.contractFlags.length} open contract flags`;
+  const recipient = vendor.poc.email
+    ? `${vendor.poc.name} (${vendor.poc.email})`
+    : `${vendor.poc.name || 'Vendor contact'} (email to confirm)`;
+  const subject = risk === 'Preferred'
+    ? `Performance guardrails and next review - ${vendor.name}`
+    : `Corrective action pack required - ${vendor.name}`;
+  const messageSummary = risk === 'Preferred'
+    ? `${vendor.name} is currently ${risk} with a ${score}/100 score. Confirm the next review, evidence quality, and rate-card guardrails so allocation remains controlled.`
+    : `${vendor.name} is ${risk} with a ${score}/100 score. Current SLA, evidence, repeat failure, and contract signals require a dated corrective action response before further critical allocation.`;
+  const requiredCommitments = [
+    `Respond within ${responseTarget} with a named owner and dated action plan.`,
+    `Confirm recovery to ${slaTarget}% SLA and ${evidenceTarget}% evidence compliance.`,
+    `Keep repeat failures at or below ${repeatTarget}% and first-time fix at ${firstFixTarget}% or above.`,
+  ];
+  const evidence = [
+    `Vendor score: ${score}/100 (${risk}).`,
+    `SLA ${vendor.slaCompliance}%, first-time fix ${vendor.firstTimeFixRate}%, evidence ${vendor.evidenceCompliance}%.`,
+    `Repeat failure ${vendor.repeatFailureRate}%, 30-day predicted risk ${vendor.predictedRisk30d}%.`,
+    `Average job cost AED ${vendor.avgCostPerJob} vs peer average AED ${peerAvgCost}.`,
+    vendor.contractFlags.length > 0 ? flagsLabel : 'No active contract flags recorded.',
+  ];
+  const approvals = [
+    { owner: 'Procurement', action: `Validate clause path and rate-card position against AED ${peerAvgCost}/job peer average.`, status: 'Approval pack prepared' },
+    { owner: 'Operations', action: `Confirm site impact, backup coverage, and allocation limits for ${vendor.sites.join(', ') || 'active sites'}.`, status: 'Site review ready' },
+    { owner: 'Compliance', action: vendor.contractFlags.length > 0 ? `Close or evidence ${flagsLabel.toLowerCase()} before scope expansion.` : 'Confirm licenses, insurance, and evidence records remain current.', status: 'Evidence check ready' },
+    { owner: 'Commercial', action: `Hold average job cost at or below AED ${currentCostGuardrail}/job unless service quality improves.`, status: 'Guardrail ready' },
+  ];
+  const kpiTargets = [
+    { label: 'SLA compliance', current: `${vendor.slaCompliance}%`, target: `${slaTarget}%`, why: 'Protects service delivery and reduces breach exposure.' },
+    { label: 'Evidence compliance', current: `${vendor.evidenceCompliance}%`, target: `${evidenceTarget}%`, why: 'Keeps approvals and audit trails defensible.' },
+    { label: 'Repeat failure', current: `${vendor.repeatFailureRate}%`, target: `<= ${repeatTarget}%`, why: 'Reduces repeat visits and avoidable client friction.' },
+    { label: 'First-time fix', current: `${vendor.firstTimeFixRate}%`, target: `${firstFixTarget}%`, why: 'Improves productivity without adding more follow-up jobs.' },
+    { label: 'Cost guardrail', current: `AED ${vendor.avgCostPerJob}`, target: `<= AED ${currentCostGuardrail}`, why: 'Prevents cost drift while the action plan is open.' },
+  ];
+  const copyText = [
+    subject,
+    `To: ${recipient}`,
+    '',
+    messageSummary,
+    '',
+    'Required commitments:',
+    ...requiredCommitments.map(item => `- ${item}`),
+    '',
+    'Evidence:',
+    ...evidence.map(item => `- ${item}`),
+    '',
+    'Approval path:',
+    ...approvals.map(item => `- ${item.owner}: ${item.action}`),
+    '',
+    'KPI recovery plan:',
+    ...kpiTargets.map(item => `- ${item.label}: ${item.current} -> ${item.target}`),
+    '',
+    `Primary recommendation: ${primaryRecommendation}`,
+    'Demo note: prepared locally only; no external message, approval, or tracker was sent.',
+  ].join('\n');
+
+  return {
+    score,
+    risk,
+    responseTarget,
+    recipient,
+    subject,
+    messageSummary,
+    requiredCommitments,
+    evidence,
+    approvals,
+    kpiTargets,
+    copyText,
+  };
 }
 
 function buildVendorCopilotResult(vendor: VendorIntelData, peers: VendorIntelData[], action: VendorCopilotAction): VendorCopilotResult {
@@ -1956,17 +2071,297 @@ function VendorMetricInsightPanel({ insight, onClose }: { insight: VendorMetricI
   );
 }
 
+function actionPackDone(progress: ActionPackProgress, step: ActionPackStep) {
+  return {
+    'queue-message': progress.messageQueued,
+    'prepare-approvals': progress.approvalsPrepared,
+    'create-kpi-tracker': progress.kpiTrackerCreated,
+    'copy-pack': progress.packCopied,
+    'mark-ready': progress.packReady,
+  }[step];
+}
+
+function updateActionPackProgress(progress: ActionPackProgress, step: ActionPackStep): ActionPackProgress {
+  return {
+    ...progress,
+    messageQueued: progress.messageQueued || step === 'queue-message',
+    approvalsPrepared: progress.approvalsPrepared || step === 'prepare-approvals',
+    kpiTrackerCreated: progress.kpiTrackerCreated || step === 'create-kpi-tracker',
+    packCopied: progress.packCopied || step === 'copy-pack',
+    packReady: progress.packReady || step === 'mark-ready',
+  };
+}
+
+function actionPackStepCopy(step: ActionPackStep, vendorName: string) {
+  return {
+    'queue-message': {
+      log: `Vendor message queued locally for ${vendorName}`,
+      toast: `Vendor message queued for ${vendorName} (demo only)`,
+    },
+    'prepare-approvals': {
+      log: `Internal approval pack prepared for ${vendorName}`,
+      toast: `Approval checklist prepared for ${vendorName}`,
+    },
+    'create-kpi-tracker': {
+      log: `KPI recovery tracker created locally for ${vendorName}`,
+      toast: `KPI tracker created for ${vendorName}`,
+    },
+    'copy-pack': {
+      log: `Action pack copied for ${vendorName}`,
+      toast: `Action pack copied for ${vendorName}`,
+    },
+    'mark-ready': {
+      log: `Action pack marked ready for ${vendorName}`,
+      toast: `Action pack marked ready for ${vendorName}`,
+    },
+  }[step];
+}
+
+function ActionPackStatusChip({ done, label }: { done: boolean; label: string }) {
+  return (
+    <span className={`rounded-full border px-2.5 py-1 text-[9px] font-black uppercase tracking-wide ${
+      done ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200' : 'border-[#2E7FFF]/25 bg-[#2E7FFF]/10 text-[#8DBDFF]'
+    }`}>
+      {done ? label : 'Ready'}
+    </span>
+  );
+}
+
+function ActionPackButton({
+  step,
+  label,
+  doneLabel,
+  icon,
+  progress,
+  onClick,
+}: {
+  step: ActionPackStep;
+  label: string;
+  doneLabel: string;
+  icon: React.ReactNode;
+  progress: ActionPackProgress;
+  onClick: (step: ActionPackStep) => void;
+}) {
+  const done = actionPackDone(progress, step);
+  return (
+    <button
+      type="button"
+      onClick={() => onClick(step)}
+      className={`inline-flex min-h-9 items-center justify-center gap-2 rounded-lg border px-3 py-2 text-[11px] font-black transition-all ${
+        done
+          ? 'border-emerald-400/25 bg-emerald-400/12 text-emerald-100 hover:bg-emerald-400/18'
+          : 'border-[#7C3AED]/35 bg-[#7C3AED]/20 text-[#E9D5FF] hover:border-[#A78BFA]/55 hover:bg-[#7C3AED]/30'
+      }`}
+    >
+      {icon}
+      {done ? doneLabel : label}
+    </button>
+  );
+}
+
+function VendorActionPackWorkbench({
+  vendor,
+  peers,
+  progress,
+  log,
+  onStep,
+}: {
+  vendor: VendorIntelData;
+  peers: VendorIntelData[];
+  progress: ActionPackProgress;
+  log: string[];
+  onStep: (step: ActionPackStep, pack: VendorActionPack) => void;
+}) {
+  const pack = buildVendorActionPack(vendor, peers);
+  const completedCount = [
+    progress.messageQueued,
+    progress.approvalsPrepared,
+    progress.kpiTrackerCreated,
+    progress.packCopied,
+    progress.packReady,
+  ].filter(Boolean).length;
+
+  function handleStep(step: ActionPackStep) {
+    if (step === 'copy-pack' && typeof navigator !== 'undefined' && navigator.clipboard) {
+      void navigator.clipboard.writeText(pack.copyText).catch(() => undefined);
+    }
+    onStep(step, pack);
+  }
+
+  return (
+    <div className="rounded-xl border border-red-300/20 bg-[linear-gradient(150deg,rgba(45,30,65,0.95),rgba(7,17,31,0.98))] p-4 shadow-[0_18px_44px_rgba(0,0,0,0.22)]">
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-white/10 pb-3">
+        <div>
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-red-300/25 bg-red-400/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-red-100">
+            <Target size={12} />
+            Action Pack Workbench
+          </div>
+          <h4 className="text-sm font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+            Manager-ready response for {vendor.name}
+          </h4>
+          <p className="mt-1 max-w-2xl text-[11px] leading-5 text-[#AFC1D7]">
+            AI prepared the vendor notice, internal approval route, KPI targets, and local action queue from the live scorecard.
+          </p>
+        </div>
+        <div className="flex flex-col items-start gap-2 sm:items-end">
+          <span className={`rounded-full border px-3 py-1 text-[10px] font-black ${riskBg(pack.risk)}`}>{pack.risk}</span>
+          <span className="text-[10px] font-bold text-[#9CB1CC]">{completedCount}/5 local actions complete</span>
+        </div>
+      </div>
+
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        {[
+          { label: 'Efficiency', value: '45 min saved', detail: 'Drafting, routing, and KPI setup' },
+          { label: 'Artifacts', value: '3 artifacts prepared', detail: 'Message, approvals, tracker' },
+          { label: 'Response target', value: pack.responseTarget, detail: 'Vendor commitment window' },
+          { label: 'Score signal', value: `${pack.score}/100`, detail: `${pack.risk} vendor status` },
+        ].map(item => (
+          <div key={item.label} className="rounded-xl border border-white/10 bg-[#07111F]/80 p-3">
+            <div className="text-[9px] font-black uppercase tracking-[0.16em] text-[#7A94B4]">{item.label}</div>
+            <div className="mt-1 text-[13px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{item.value}</div>
+            <div className="mt-1 text-[10px] leading-4 text-[#8AA6C8]">{item.detail}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-3 grid gap-3 xl:grid-cols-[1.1fr_0.9fr]">
+        <div className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#07111F]/90 p-3">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#8DBDFF]">
+              <MessageSquare size={12} />
+              Vendor Message
+            </div>
+            <ActionPackStatusChip done={progress.messageQueued} label="Queued" />
+          </div>
+          <div className="rounded-lg border border-white/10 bg-[#0D1E3A]/75 p-3">
+            <div className="text-[9px] font-black uppercase tracking-[0.16em] text-[#7A94B4]">To</div>
+            <div className="mt-1 text-[12px] font-bold text-[#EEF3FA]">{pack.recipient}</div>
+            <div className="mt-3 text-[9px] font-black uppercase tracking-[0.16em] text-[#7A94B4]">Subject</div>
+            <div className="mt-1 text-[12px] font-bold text-[#E9D5FF]">{pack.subject}</div>
+            <p className="mt-3 text-[11px] leading-5 text-[#C8D8EE]">{pack.messageSummary}</p>
+          </div>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+              <div className="mb-2 text-[9px] font-black uppercase tracking-[0.16em] text-[#8DBDFF]">Required response</div>
+              <ul className="space-y-2">
+                {pack.requiredCommitments.map(item => (
+                  <li key={item} className="flex gap-2 text-[10px] leading-4 text-[#B8C7DB]">
+                    <CheckCircle size={10} className="mt-0.5 shrink-0 text-emerald-400" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+              <div className="mb-2 text-[9px] font-black uppercase tracking-[0.16em] text-[#8DBDFF]">Evidence used</div>
+              <ul className="space-y-2">
+                {pack.evidence.slice(0, 4).map(item => (
+                  <li key={item} className="flex gap-2 text-[10px] leading-4 text-[#B8C7DB]">
+                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#7C3AED]" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <div className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#07111F]/90 p-3">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#8DBDFF]">
+                <ShieldCheck size={12} />
+                Internal Approvals
+              </div>
+              <ActionPackStatusChip done={progress.approvalsPrepared} label="Prepared" />
+            </div>
+            <div className="space-y-2">
+              {pack.approvals.map(item => (
+                <div key={item.owner} className="rounded-lg border border-white/10 bg-white/[0.03] p-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[11px] font-black text-[#EEF3FA]">{item.owner}</span>
+                    <span className="rounded-full border border-[#2E7FFF]/20 bg-[#2E7FFF]/10 px-2 py-0.5 text-[8px] font-black uppercase text-[#8DBDFF]">{item.status}</span>
+                  </div>
+                  <p className="mt-1 text-[10px] leading-4 text-[#9CB1CC]">{item.action}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#07111F]/90 p-3">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#8DBDFF]">
+                <BarChart3 size={12} />
+                KPI Recovery Plan
+              </div>
+              <ActionPackStatusChip done={progress.kpiTrackerCreated} label="Tracker Created" />
+            </div>
+            <div className="space-y-2">
+              {pack.kpiTargets.map(item => (
+                <div key={item.label} className="rounded-lg border border-white/10 bg-white/[0.03] p-2.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-[10px] font-black text-[#EEF3FA]">{item.label}</span>
+                    <span className="text-[10px] font-black text-emerald-200">{item.current}{' -> '}{item.target}</span>
+                  </div>
+                  <p className="mt-1 text-[9px] leading-4 text-[#7A94B4]">{item.why}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-3 rounded-xl border border-[#7C3AED]/20 bg-[#7C3AED]/10 p-3">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#C4B5FD]">Local Action Queue</div>
+            <div className="mt-1 text-[11px] text-[#B8C7DB]">Demo-safe only: no external email, approval, tracker, or backend update is sent.</div>
+          </div>
+          <ActionPackStatusChip done={progress.packReady} label="Ready" />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <ActionPackButton step="queue-message" label="Queue vendor message" doneLabel="Message queued" icon={<Send size={12} />} progress={progress} onClick={handleStep} />
+          <ActionPackButton step="prepare-approvals" label="Prepare approvals" doneLabel="Approvals prepared" icon={<ShieldCheck size={12} />} progress={progress} onClick={handleStep} />
+          <ActionPackButton step="create-kpi-tracker" label="Create KPI tracker" doneLabel="Tracker created" icon={<BarChart3 size={12} />} progress={progress} onClick={handleStep} />
+          <ActionPackButton step="copy-pack" label="Copy action pack" doneLabel="Copied" icon={<FileText size={12} />} progress={progress} onClick={handleStep} />
+          <ActionPackButton step="mark-ready" label="Mark pack ready" doneLabel="Pack ready" icon={<CheckCircle size={12} />} progress={progress} onClick={handleStep} />
+        </div>
+      </div>
+
+      <div className="mt-3 rounded-xl border border-[rgba(46,127,255,0.12)] bg-[#07111F] p-3">
+        <div className="mb-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#7A94B4]">Copilot activity</div>
+        <div className="space-y-1.5">
+          {log.slice(0, 4).map(item => (
+            <div key={item} className="flex items-center gap-2 text-[10px] text-[#9CB1CC]">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#2E7FFF]" />
+              {item}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function VendorCopilotWorkbench({
   result,
   log,
+  vendor,
+  peers,
+  actionPackProgress,
   onRun,
+  onActionPackStep,
   onOpenQuoteIntake,
   onOpenRfqWizard,
   onOpenBackgroundCheck,
 }: {
   result: VendorCopilotResult;
   log: string[];
+  vendor: VendorIntelData;
+  peers: VendorIntelData[];
+  actionPackProgress: ActionPackProgress;
   onRun: (action: VendorCopilotAction) => void;
+  onActionPackStep: (step: ActionPackStep, pack: VendorActionPack) => void;
   onOpenQuoteIntake?: () => void;
   onOpenRfqWizard?: () => void;
   onOpenBackgroundCheck?: () => void;
@@ -2011,6 +2406,15 @@ function VendorCopilotWorkbench({
         </div>
       </div>
 
+      {result.action === 'negotiation' ? (
+        <VendorActionPackWorkbench
+          vendor={vendor}
+          peers={peers}
+          progress={actionPackProgress}
+          log={log}
+          onStep={onActionPackStep}
+        />
+      ) : (
       <div className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#0D1E3A] p-4">
         <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[rgba(46,127,255,0.12)] pb-3">
           <div>
@@ -2088,6 +2492,7 @@ function VendorCopilotWorkbench({
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }
@@ -4153,8 +4558,9 @@ function VendorDetailPage({ vendor, onBack, onToast }: { vendor: VendorIntelData
   const [copilotModalAction, setCopilotModalAction] = useState<VendorCopilotAction>('rfq');
   const [copilotOverride, setCopilotOverride] = useState<VendorCopilotResult | null>(null);
   const [copilotLog, setCopilotLog] = useState<string[]>([
-    'Ready to draft RFQs, compare quotes, run checks, and prepare price actions.',
+    'Ready to draft RFQs, compare quotes, run checks, and prepare action packs.',
   ]);
+  const [actionPackProgress, setActionPackProgress] = useState<ActionPackProgress>(initialActionPackProgress);
   const { vendors: allVendors } = useVendors();
 
   const score = computeVendorScore(vendor);
@@ -4176,6 +4582,16 @@ function VendorDetailPage({ vendor, onBack, onToast }: { vendor: VendorIntelData
       ...prev.filter(item => item !== `${formatVendorAction(action)} for ${vendor.name}`),
     ]);
     onToast(`${formatVendorAction(action)} for ${vendor.name}`, action === 'background' ? 'warning' : 'success');
+  };
+  const updateActionPack = (step: ActionPackStep, pack: VendorActionPack) => {
+    const copy = actionPackStepCopy(step, vendor.name);
+    const logLine = step === 'queue-message' ? `${copy.log}: ${pack.subject}` : copy.log;
+    setActionPackProgress(prev => updateActionPackProgress(prev, step));
+    setCopilotLog(prev => [
+      logLine,
+      ...prev.filter(item => item !== logLine),
+    ]);
+    onToast(copy.toast, 'success');
   };
   const openRfqWizard = () => {
     setCopilotModalAction('rfq');
@@ -4324,7 +4740,11 @@ function VendorDetailPage({ vendor, onBack, onToast }: { vendor: VendorIntelData
             <VendorCopilotWorkbench
               result={copilotResult}
               log={copilotLog}
+              vendor={vendor}
+              peers={allVendors}
+              actionPackProgress={actionPackProgress}
               onRun={runCopilotAction}
+              onActionPackStep={updateActionPack}
               onOpenQuoteIntake={openQuoteIntake}
               onOpenRfqWizard={openRfqWizard}
               onOpenBackgroundCheck={openBackgroundCheck}
@@ -5498,6 +5918,7 @@ export function VendorIntelligence({ onToast }: Props) {
   const [pageCopilotLog, setPageCopilotLog] = useState<string[]>([
     'Portfolio procurement copilot ready on the Vendor Intelligence page.',
   ]);
+  const [pageActionPackProgress, setPageActionPackProgress] = useState<ActionPackProgress>(initialActionPackProgress);
   const { vendors: allVendors, addVendor } = useVendors();
 
   const vendorsWithScores = allVendors.map(v => ({
@@ -5545,6 +5966,17 @@ export function VendorIntelligence({ onToast }: Props) {
       ...prev.filter(item => item !== `${formatVendorAction(action)} from page copilot for ${procurementFocus.name}`),
     ]);
     onToast(`${formatVendorAction(action)} from Procurement Copilot`, action === 'background' ? 'warning' : 'success');
+  }
+
+  function updatePageActionPack(step: ActionPackStep, pack: VendorActionPack) {
+    const copy = actionPackStepCopy(step, procurementFocus.name);
+    const logLine = step === 'queue-message' ? `${copy.log}: ${pack.subject}` : copy.log;
+    setPageActionPackProgress(prev => updateActionPackProgress(prev, step));
+    setPageCopilotLog(prev => [
+      logLine,
+      ...prev.filter(item => item !== logLine),
+    ]);
+    onToast(copy.toast, 'success');
   }
 
   function openPageRfqWizard() {
@@ -5695,7 +6127,11 @@ export function VendorIntelligence({ onToast }: Props) {
             <VendorCopilotWorkbench
               result={pageCopilotResult}
               log={pageCopilotLog}
+              vendor={procurementFocus}
+              peers={allVendors}
+              actionPackProgress={pageActionPackProgress}
               onRun={runPageCopilotAction}
+              onActionPackStep={updatePageActionPack}
               onOpenQuoteIntake={openPageQuoteIntake}
               onOpenRfqWizard={openPageRfqWizard}
               onOpenBackgroundCheck={openPageBackgroundCheck}

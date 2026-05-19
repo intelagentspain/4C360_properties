@@ -783,6 +783,107 @@ function buildVendors(events: ProjectEvent[]) {
   return vendors.map(vendor => ({ ...vendor, status: statusFromScore(vendor.score) }));
 }
 
+function projectTypeLabel(dataset: ProjectCommandDataset) {
+  return dataset.project.projectType.toLowerCase();
+}
+
+function baselinePriority(dataset: ProjectCommandDataset, metrics: ProjectControlContext['metrics']): ManagerAction['priority'] {
+  if (metrics.healthScore < 58 || metrics.floatRemaining < 10 || metrics.eac > dataset.project.contractValue * 1.08) return 'critical';
+  if (metrics.healthScore < 72 || metrics.floatRemaining < 24 || metrics.eac > dataset.project.contractValue) return 'high';
+  return 'medium';
+}
+
+function milestonePriority(daysRemaining: number): ManagerAction['priority'] {
+  if (daysRemaining <= 7) return 'critical';
+  if (daysRemaining <= 21) return 'high';
+  return 'medium';
+}
+
+function riskPriority(score: number): ManagerAction['priority'] {
+  if (score >= 12) return 'critical';
+  if (score >= 8) return 'high';
+  return 'medium';
+}
+
+function buildBaselineManagerActions(dataset: ProjectCommandDataset, linkedEvent: string, metrics: ProjectControlContext['metrics']): ManagerAction[] {
+  const projectType = projectTypeLabel(dataset);
+  const nextMilestone = dataset.milestones.length
+    ? dataset.milestones.reduce((soonest, milestone) => (
+        milestone.daysRemaining < soonest.daysRemaining ? milestone : soonest
+      ))
+    : undefined;
+  const topRisk = dataset.risks.length
+    ? dataset.risks.reduce((highest, risk) => (
+        risk.score > highest.score ? risk : highest
+      ))
+    : undefined;
+  const forecastGap = metrics.eac - dataset.project.contractValue;
+  const baselineCostImplication = forecastGap === 0
+    ? `Forecast ${formatProjectCurrency(metrics.eac)} matches the approved budget.`
+    : `Forecast ${formatProjectCurrency(metrics.eac)} is ${formatProjectCurrency(Math.abs(forecastGap))} ${forecastGap > 0 ? 'above' : 'below'} approved budget.`;
+
+  return [
+    {
+      id: `${dataset.id}-action-baseline-control`,
+      projectId: dataset.id,
+      title: `Protect ${dataset.project.projectType} baseline`,
+      linkedEvent,
+      triggerLabel: `${dataset.property.name} / ${dataset.project.name} baseline`,
+      priority: baselinePriority(dataset, metrics),
+      whyItMatters: `Health is ${metrics.healthScore}/100 with ${metrics.floatRemaining}d float and ${metrics.handoverConfidence}% handover confidence.`,
+      expectedImpact: `Keeps ${projectType} scope, float, and manager decisions tied to the approved baseline.`,
+      costImplication: baselineCostImplication,
+      status: 'Recommended',
+      cta: 'Review baseline controls',
+    },
+    {
+      id: `${dataset.id}-action-milestone`,
+      projectId: dataset.id,
+      title: nextMilestone ? `Confirm ${nextMilestone.name} readiness` : `Confirm ${dataset.project.projectType} milestone readiness`,
+      linkedEvent,
+      triggerLabel: nextMilestone ? `${nextMilestone.daysRemaining} days to next milestone` : 'Project milestone baseline',
+      priority: nextMilestone ? milestonePriority(nextMilestone.daysRemaining) : 'medium',
+      whyItMatters: nextMilestone
+        ? `${nextMilestone.name} is the next visible control point for this selected project.`
+        : `The selected ${projectType} project needs its next milestone readiness confirmed.`,
+      expectedImpact: nextMilestone
+        ? `Protects the next ${nextMilestone.daysRemaining}d milestone window.`
+        : 'Keeps the next project milestone from drifting.',
+      costImplication: `Prevents avoidable recovery spend against ${formatProjectCurrency(metrics.eac)} EAC.`,
+      status: 'Recommended',
+      cta: 'Confirm milestone readiness',
+    },
+    {
+      id: `${dataset.id}-action-risk`,
+      projectId: dataset.id,
+      title: topRisk ? `Review ${topRisk.title}` : `Review ${dataset.project.projectType} risk exposure`,
+      linkedEvent,
+      triggerLabel: topRisk ? `Top risk score ${topRisk.score}` : 'Baseline risk model',
+      priority: topRisk ? riskPriority(topRisk.score) : 'medium',
+      whyItMatters: topRisk
+        ? `${topRisk.title} is the highest scored risk currently tied to this project.`
+        : `Risk exposure is active across the selected ${projectType} baseline.`,
+      expectedImpact: `Reduces active exposure before it changes health, float, or EAC.`,
+      costImplication: `${formatProjectCurrency(metrics.riskExposure)} risk exposure is visible in the selected project baseline.`,
+      status: 'Draft',
+      cta: 'Assign risk owner',
+    },
+    {
+      id: `${dataset.id}-action-forecast`,
+      projectId: dataset.id,
+      title: `Check ${dataset.project.projectType} forecast exposure`,
+      linkedEvent,
+      triggerLabel: `EAC ${formatProjectCurrency(metrics.eac)}`,
+      priority: forecastGap > 0 ? 'high' : 'medium',
+      whyItMatters: `EAC, CPI, SPI, and float are the fastest indicators that the selected project is leaving plan.`,
+      expectedImpact: `Keeps forecast cost, schedule, and confidence aligned before the next project update is logged.`,
+      costImplication: `${formatProjectCurrency(Math.abs(forecastGap))} ${forecastGap > 0 ? 'forecast overrun' : 'forecast headroom'} against approved budget.`,
+      status: 'Recommended',
+      cta: 'Review forecast exposure',
+    },
+  ];
+}
+
 function buildManagerActions(dataset: ProjectCommandDataset, events: ProjectEvent[], metrics: ProjectControlContext['metrics']): ManagerAction[] {
   const latest = events[events.length - 1];
   const linkedEvent = latest?.id ?? 'baseline';
@@ -790,6 +891,10 @@ function buildManagerActions(dataset: ProjectCommandDataset, events: ProjectEven
   const triggerFor = (types: ProjectEventType[], fallback: string) => [...events].reverse().find(event => types.includes(event.type))?.title ?? fallback;
   const baselineMode = !latest || latest.type === 'baseline-created';
   const hasVariation = events.some(event => event.type === 'variation-submitted');
+
+  if (baselineMode) {
+    return buildBaselineManagerActions(dataset, linkedEvent, metrics);
+  }
 
   const pushVariationAction = () => {
     actions.push({
