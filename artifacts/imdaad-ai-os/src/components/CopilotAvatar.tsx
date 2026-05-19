@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Send, Mic, MicOff, Loader2, Trash2 } from 'lucide-react';
+import { X, Send, Mic, MicOff, Loader2, Trash2, Sparkles } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
 
 const ELEVENLABS_AGENT_ID = import.meta.env.VITE_ELEVENLABS_AGENT_ID as string | undefined;
@@ -73,17 +73,15 @@ function AvatarOrb({ size = 32, voiceStatus }: { size?: number; voiceStatus: Voi
       <div
         className="absolute inset-0 rounded-full"
         style={{
-          background: 'radial-gradient(circle at 35% 28%, rgba(255,255,255,0.16) 0%, rgba(46,127,255,0.16) 28%, #0B1220 58%, #050A14 100%)',
-          border: '1px solid rgba(225,29,46,0.5)',
+          background: 'radial-gradient(circle at 35% 30%, #60A5FA 0%, #7C3AED 48%, #111827 78%)',
+          border: '1px solid rgba(124,58,237,0.5)',
           boxShadow: isActive
-            ? '0 0 16px 4px rgba(225,29,46,0.38), 0 0 24px rgba(46,127,255,0.24), inset 0 1px 2px rgba(255,255,255,0.28)'
-            : '0 0 10px 1px rgba(225,29,46,0.22), inset 0 1px 2px rgba(255,255,255,0.18)',
+            ? '0 0 18px 4px rgba(124,58,237,0.42), 0 0 24px rgba(96,165,250,0.26), inset 0 1px 2px rgba(255,255,255,0.28)'
+            : '0 0 12px 1px rgba(124,58,237,0.28), inset 0 1px 2px rgba(255,255,255,0.18)',
         }}
       />
-      <div className="absolute left-1/2 top-1/2 z-10 h-[62%] w-[62%] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/12 bg-[#07111F] shadow-[inset_0_0_12px_rgba(46,127,255,0.28)]">
-        <div className="absolute left-[16%] top-[18%] h-[54%] w-[54%] rounded-full border-[3px] border-[#E11D2E] border-r-transparent border-b-transparent" />
-        <div className="absolute right-[18%] bottom-[18%] h-[36%] w-[36%] rounded-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.45)]" />
-        <div className="absolute right-[10%] top-[18%] h-1.5 w-1.5 rounded-full bg-[#2E7FFF] shadow-[0_0_8px_rgba(46,127,255,0.75)]" />
+      <div className="absolute left-1/2 top-1/2 z-10 flex h-[68%] w-[68%] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/14 bg-white/8 shadow-[inset_0_0_14px_rgba(255,255,255,0.12)]">
+        <Sparkles size={Math.max(14, size * 0.46)} className="text-white drop-shadow" strokeWidth={2.2} />
       </div>
       <div
         className="absolute rounded-full pointer-events-none"
@@ -113,7 +111,7 @@ function AvatarOrb({ size = 32, voiceStatus }: { size?: number; voiceStatus: Voi
       {isActive && (
         <motion.div
           className="absolute inset-0 rounded-full"
-          style={{ border: '1.5px solid rgba(225,29,46,0.52)' }}
+          style={{ border: '1.5px solid rgba(124,58,237,0.56)' }}
           animate={{ scale: [1, 1.35], opacity: [0.7, 0] }}
           transition={{ duration: 1.8, repeat: Infinity, ease: 'easeOut' }}
         />
@@ -132,7 +130,7 @@ function FloatingOrb({ open, voiceStatus }: { open: boolean; voiceStatus: VoiceS
       {!isActive && (
         <motion.span
           className="absolute inset-0 rounded-full"
-          style={{ background: 'radial-gradient(circle, rgba(225,29,46,0.3) 0%, rgba(46,127,255,0.14) 42%, transparent 72%)' }}
+          style={{ background: 'radial-gradient(circle, rgba(124,58,237,0.34) 0%, rgba(96,165,250,0.18) 42%, transparent 72%)' }}
           animate={{ scale: [1, 1.55], opacity: [open ? 0.55 : 0.3, 0] }}
           transition={{ duration: 5.2, repeat: Infinity, ease: 'easeOut' }}
         />
@@ -141,13 +139,13 @@ function FloatingOrb({ open, voiceStatus }: { open: boolean; voiceStatus: VoiceS
         <>
           <motion.span
             className="absolute inset-0 rounded-full"
-            style={{ border: '2px solid rgba(225,29,46,0.68)' }}
+            style={{ border: '2px solid rgba(124,58,237,0.7)' }}
             animate={{ scale: [1, 1.55], opacity: [0.8, 0] }}
             transition={{ duration: 1.8, repeat: Infinity, ease: 'easeOut' }}
           />
           <motion.span
             className="absolute inset-0 rounded-full"
-            style={{ border: '1.5px solid rgba(46,127,255,0.42)' }}
+            style={{ border: '1.5px solid rgba(96,165,250,0.42)' }}
             animate={{ scale: [1, 1.85], opacity: [0.5, 0] }}
             transition={{ duration: 1.8, repeat: Infinity, ease: 'easeOut', delay: 0.6 }}
           />
@@ -164,12 +162,12 @@ function FloatingOrb({ open, voiceStatus }: { open: boolean; voiceStatus: VoiceS
         className="relative w-14 h-14 rounded-full flex items-center justify-center overflow-hidden"
         style={{
           background: open
-            ? 'radial-gradient(circle at 36% 26%, rgba(255,255,255,0.2) 0%, rgba(46,127,255,0.18) 30%, #0B1220 62%, #050A14 100%)'
-            : 'radial-gradient(circle at 32% 24%, rgba(255,255,255,0.18) 0%, rgba(46,127,255,0.2) 28%, #0B1220 60%, #050A14 100%)',
-          border: '1px solid rgba(225,29,46,0.62)',
+            ? 'radial-gradient(circle at 35% 30%, #60A5FA 0%, #7C3AED 48%, #111827 78%)'
+            : 'radial-gradient(circle at 35% 30%, #60A5FA 0%, #7C3AED 48%, #111827 78%)',
+          border: '1px solid rgba(124,58,237,0.58)',
           boxShadow: isActive
-            ? '0 0 28px 7px rgba(225,29,46,0.42), 0 0 32px rgba(46,127,255,0.28), 0 4px 20px rgba(0,0,0,0.42)'
-            : '0 0 18px 3px rgba(225,29,46,0.22), 0 0 20px rgba(46,127,255,0.16), 0 4px 16px rgba(0,0,0,0.35)',
+            ? '0 0 30px 7px rgba(124,58,237,0.48), 0 0 32px rgba(96,165,250,0.28), 0 4px 20px rgba(0,0,0,0.42)'
+            : '0 0 34px rgba(124,58,237,0.45), 0 4px 16px rgba(0,0,0,0.35)',
           transition: 'box-shadow 0.4s',
         }}
       >
@@ -205,18 +203,14 @@ function FloatingOrb({ open, voiceStatus }: { open: boolean; voiceStatus: VoiceS
             </motion.div>
           ) : (
             <motion.div
-              key="orb-inner"
+              key="star"
               initial={{ opacity: 0, scale: 0.7 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.7 }}
               transition={{ duration: 0.18 }}
-              className="relative z-10 flex h-9 w-9 items-center justify-center rounded-xl"
+              className="relative z-10 flex h-9 w-9 items-center justify-center rounded-full"
             >
-              <span className="relative h-8 w-8 rounded-xl border border-white/10 bg-[#07111F] shadow-[inset_0_0_14px_rgba(46,127,255,0.28),0_0_10px_rgba(225,29,46,0.28)]">
-                <span className="absolute left-[17%] top-[17%] h-[56%] w-[56%] rounded-full border-[4px] border-[#E11D2E] border-r-transparent border-b-transparent" />
-                <span className="absolute right-[16%] bottom-[16%] h-[34%] w-[34%] rounded-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.5)]" />
-                <span className="absolute right-[8%] top-[18%] h-1.5 w-1.5 rounded-full bg-[#2E7FFF] shadow-[0_0_8px_rgba(46,127,255,0.75)]" />
-              </span>
+              <Sparkles size={24} className="text-white drop-shadow" strokeWidth={2.2} />
             </motion.div>
           )}
         </AnimatePresence>
