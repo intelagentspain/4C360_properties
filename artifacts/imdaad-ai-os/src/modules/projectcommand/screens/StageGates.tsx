@@ -193,11 +193,13 @@ function recommendationActionLabel(metricName: StageGateMetricName) {
 function StageGateMetricInsightPanel({
   insight,
   actioned,
+  actionAvailable,
   onActionRecommendation,
   onClose,
 }: {
   insight: StageGateMetricInsight;
   actioned?: boolean;
+  actionAvailable: boolean;
   onActionRecommendation: (metricName: StageGateMetricName) => void;
   onClose: () => void;
 }) {
@@ -285,14 +287,15 @@ function StageGateMetricInsightPanel({
             </p>
             <button
               type="button"
+              disabled={!actionAvailable}
               onClick={() => onActionRecommendation(insight.metricName)}
-              className={`mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border px-4 text-[12px] font-black transition-colors ${actioned ? 'border-emerald-300/28 bg-emerald-300/12 text-emerald-100' : 'border-violet-200/24 bg-violet-300/12 text-violet-100 hover:bg-violet-300/18'}`}
+              className={`mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border px-4 text-[12px] font-black transition-colors ${!actionAvailable ? 'cursor-not-allowed border-slate-400/16 bg-slate-400/8 text-slate-400' : actioned ? 'border-emerald-300/28 bg-emerald-300/12 text-emerald-100' : 'border-violet-200/24 bg-violet-300/12 text-violet-100 hover:bg-violet-300/18'}`}
             >
               {actioned ? <CheckCircle2 size={15} /> : <Send size={15} />}
-              {actioned ? 'Recommendation action queued' : actionLabel}
+              {!actionAvailable ? 'No matching gate in current filters' : actioned ? 'Recommendation action queued' : actionLabel}
             </button>
             <p className="mt-2 text-[10px] leading-4 text-[#7A94B4]">
-              Demo-safe: no approval, email, or backend workflow is sent.
+              {actionAvailable ? 'Demo-safe: no approval, email, or backend workflow is sent.' : 'Clear or change the Gate Filters to action this recommendation.'}
             </p>
           </div>
         </section>
@@ -531,6 +534,22 @@ function getGateActionPlan(gate: StageGate): GateActionPlan {
   };
 }
 
+function getRecommendationTarget(metricName: StageGateMetricName, gates: StageGate[]) {
+  switch (metricName) {
+    case 'Active Blockers':
+    case 'Blocked':
+      return gates.find(gate => gate.status === 'Blocked' || gate.blockers > 0);
+    case 'Pending Review':
+      return gates.find(gate => gate.status === 'Pending Review');
+    case 'Avg Completion':
+      return [...gates].sort((a, b) => a.completion - b.completion)[0];
+    case 'Approved':
+      return gates.find(gate => gate.status === 'Approved');
+    case 'Total Gates':
+      return [...gates].sort((a, b) => getGatePriorityScore(b) - getGatePriorityScore(a))[0];
+  }
+}
+
 function GateActionButton({
   gate,
   queuedAction,
@@ -577,7 +596,7 @@ function GateFocusPanel({
           <div className="flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-2 rounded-full border border-red-300/22 bg-red-400/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-red-100">
               <Flag size={13} />
-              Next Gate To Unblock
+              Priority Gate In View
             </span>
             <StatusBadge status={gate.status} />
           </div>
@@ -635,6 +654,26 @@ function GateFocusPanel({
             </span>
           )}
         </div>
+      </div>
+    </section>
+  );
+}
+
+function GateFocusEmptyPanel() {
+  return (
+    <section className="rounded-xl border border-dashed border-[rgba(46,127,255,0.22)] bg-[rgba(17,32,64,0.66)] p-5">
+      <span className="inline-flex items-center gap-2 rounded-full border border-cyan-300/22 bg-cyan-300/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100">
+        <Flag size={13} />
+        Priority Gate In View
+      </span>
+      <h2 className="mt-4 text-xl font-black leading-6 text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+        No gate matches the current filters
+      </h2>
+      <p className="mt-2 max-w-2xl text-[13px] leading-5 text-[#9DB2CE]">
+        Adjust the Gate Filters to bring a gate back into the control board.
+      </p>
+      <div className="mt-4 rounded-lg border border-[rgba(46,127,255,0.12)] bg-[#07111F]/72 p-3 text-[12px] leading-5 text-[#7A94B4]">
+        Filtered views never fall back to unrelated gates, so the focus panel stays aligned with the selected view.
       </div>
     </section>
   );
@@ -983,6 +1022,7 @@ export function StageGates({ onToast }: { onToast?: (message: string, type?: 'su
   const gatesNeedingAction = filteredGates.filter(gate => gate.status === 'Blocked' || gate.status === 'Pending Review' || gate.blockers > 0).length;
   const blockedToggleCount = baseFilteredGates.filter(gate => gate.blockers > 0).length;
   const filteredQueuedActionCount = filteredGates.filter(gate => queuedActions[gate.code]).length;
+  const filtersActive = Boolean(query.trim()) || status !== 'All Status' || project !== 'All Projects' || blockedOnly;
   const metricStats = useMemo<StageGateMetricStats>(() => ({
     total: filteredGates.length,
     approved,
@@ -1005,17 +1045,13 @@ export function StageGates({ onToast }: { onToast?: (message: string, type?: 'su
   };
 
   const actionRecommendation = (metricName: StageGateMetricName) => {
-    if (!filteredGates.length) {
-      onToast?.('No gates match the current filters.', 'warning');
+    const gateToQueue = getRecommendationTarget(metricName, filteredGates);
+
+    if (!gateToQueue) {
+      onToast?.('No matching gate in current filters', 'warning');
       return;
     }
 
-    const blockedGate = filteredGates.find(gate => gate.status === 'Blocked' || gate.blockers > 0);
-    const pendingGate = filteredGates.find(gate => gate.status === 'Pending Review');
-    const lowestCompletionGate = [...filteredGates].sort((a, b) => a.completion - b.completion)[0];
-    const approvedGate = filteredGates.find(gate => gate.status === 'Approved');
-    const fallbackGate = priorityGate ?? filteredGates[0];
-    let gateToQueue = fallbackGate;
     let toastMessage = 'Recommendation action queued locally';
 
     setActionedRecommendations(previous => ({ ...previous, [metricName]: true }));
@@ -1024,38 +1060,23 @@ export function StageGates({ onToast }: { onToast?: (message: string, type?: 'su
     switch (metricName) {
       case 'Active Blockers':
       case 'Blocked':
-        gateToQueue = blockedGate ?? fallbackGate;
         setBlockedOnly(true);
-        setStatus('All Status');
-        setProject('All Projects');
         toastMessage = `Owner recovery plan queued for ${gateToQueue.code}`;
         break;
       case 'Pending Review':
-        gateToQueue = pendingGate ?? fallbackGate;
         setBlockedOnly(false);
-        setStatus('Pending Review');
-        setProject('All Projects');
         toastMessage = `Approver decision pack queued for ${gateToQueue.approver}`;
         break;
       case 'Avg Completion':
-        gateToQueue = lowestCompletionGate;
         setBlockedOnly(false);
-        setStatus('All Status');
-        setProject(gateToQueue.project);
         toastMessage = `Evidence closure action queued for ${gateToQueue.code}`;
         break;
       case 'Approved':
-        gateToQueue = approvedGate ?? fallbackGate;
         setBlockedOnly(false);
-        setStatus('Approved');
-        setProject('All Projects');
         toastMessage = `Benchmark evidence review queued from ${gateToQueue.code}`;
         break;
       case 'Total Gates':
-        gateToQueue = fallbackGate;
         setBlockedOnly(false);
-        setStatus('All Status');
-        setProject('All Projects');
         toastMessage = 'Gate review pack queued for the active register';
         break;
     }
@@ -1063,6 +1084,16 @@ export function StageGates({ onToast }: { onToast?: (message: string, type?: 'su
     setQueuedActions(previous => ({ ...previous, [gateToQueue.code]: getGateActionPlan(gateToQueue).cta }));
     onToast?.(toastMessage, metricName === 'Blocked' || metricName === 'Active Blockers' ? 'warning' : 'success');
   };
+
+  const selectedRecommendationTarget = selectedMetricInsight
+    ? getRecommendationTarget(selectedMetricInsight.metricName, filteredGates)
+    : undefined;
+  const selectedRecommendationActioned = Boolean(
+    selectedMetricInsight &&
+    selectedRecommendationTarget &&
+    actionedRecommendations[selectedMetricInsight.metricName] &&
+    queuedActions[selectedRecommendationTarget.code] === getGateActionPlan(selectedRecommendationTarget).cta
+  );
 
   return (
     <div className="custom-scrollbar h-full min-h-0 overflow-x-hidden overflow-y-auto px-5 py-4 text-[#EEF3FA]">
@@ -1090,8 +1121,7 @@ export function StageGates({ onToast }: { onToast?: (message: string, type?: 'su
               type="button"
               onClick={() => {
                 setBlockedOnly(true);
-                setStatus('All Status');
-                setProject('All Projects');
+                setQuery('');
               }}
               className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-red-300/24 bg-red-400/10 px-4 text-[12px] font-black text-red-100 transition-colors hover:bg-red-400/15"
             >
@@ -1135,6 +1165,19 @@ export function StageGates({ onToast }: { onToast?: (message: string, type?: 'su
               className={`rounded-lg border px-4 py-2 text-[12px] font-black transition-colors ${blockedOnly ? 'border-red-300/30 bg-red-300/10 text-red-300' : 'border-transparent text-[#7A94B4] hover:bg-white/5'}`}
             >
               Blocked Gates ({blockedToggleCount})
+            </button>
+            <button
+              type="button"
+              disabled={!filtersActive}
+              onClick={() => {
+                setQuery('');
+                setStatus('All Status');
+                setProject('All Projects');
+                setBlockedOnly(false);
+              }}
+              className={`rounded-lg border px-4 py-2 text-[12px] font-black transition-colors ${filtersActive ? 'border-cyan-300/24 bg-cyan-300/10 text-cyan-100 hover:bg-cyan-300/15' : 'cursor-not-allowed border-slate-400/12 bg-slate-400/6 text-slate-500'}`}
+            >
+              Clear filters
             </button>
           </div>
         </div>
@@ -1180,106 +1223,88 @@ export function StageGates({ onToast }: { onToast?: (message: string, type?: 'su
         </section>
       ) : (
         <>
-      <div className="mt-4 grid gap-4 xl:grid-cols-[1.35fr_0.9fr]">
-        {priorityGate ? (
-          <GateFocusPanel
-            gate={priorityGate}
-            queuedAction={queuedActions[priorityGate.code]}
-            onAction={queueGateAction}
-            onOpen={setSelectedGate}
-          />
-        ) : (
-          <section className="rounded-xl border border-dashed border-[rgba(46,127,255,0.24)] bg-[rgba(17,32,64,0.58)] p-6">
-            <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/24 bg-cyan-300/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100">
-              <Flag size={13} />
-              No Gate Matches
-            </div>
-            <h2 className="mt-4 text-xl font-black leading-6 text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-              No gate matches the current filters.
-            </h2>
-            <p className="mt-2 max-w-2xl text-[13px] leading-5 text-[#9DB2CE]">
-              Adjust the search, status, project, or blocker filter to bring a gate back into the action queue.
-            </p>
-          </section>
-        )}
-        <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
-          <div className="flex items-center justify-between gap-3">
+          <div className="mt-4 grid gap-4 xl:grid-cols-[1.35fr_0.9fr]">
+            {priorityGate ? (
+              <GateFocusPanel
+                gate={priorityGate}
+                queuedAction={queuedActions[priorityGate.code]}
+                onAction={queueGateAction}
+                onOpen={setSelectedGate}
+              />
+            ) : (
+              <GateFocusEmptyPanel />
+            )}
+            <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-[15px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Decision Lane</h2>
+                  <p className="mt-1 text-[11px] leading-4 text-[#8EA7C7]">A fast read of what is released, blocked, waiting for approval, or still being prepared.</p>
+                </div>
+                <ShieldCheck size={22} className="text-cyan-300" />
+              </div>
+              <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+                <DecisionLane status="Blocked" gates={filteredGates} />
+                <DecisionLane status="Pending Review" gates={filteredGates} />
+                <DecisionLane status="Open" gates={filteredGates} />
+                <DecisionLane status="Approved" gates={filteredGates} />
+              </div>
+              <div className="mt-4 rounded-lg border border-violet-300/18 bg-violet-300/10 p-3 text-[12px] leading-5 text-violet-100">
+                <span className="font-black">Suggested meeting focus: </span>
+                clear {activeBlockers} blocker{activeBlockers === 1 ? '' : 's'}, then move {pending} pending review gate{pending === 1 ? '' : 's'} to decision.
+              </div>
+            </section>
+          </div>
+
+          <div className="mt-4 rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
             <div>
-              <h2 className="text-[15px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Decision Lane</h2>
-              <p className="mt-1 text-[11px] leading-4 text-[#8EA7C7]">A fast read of what is released, blocked, waiting for approval, or still being prepared.</p>
+              <h2 className="flex items-center gap-2 text-[15px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+                <ListChecks size={17} className="text-cyan-300" />
+                Gate Action Queue
+              </h2>
+              <p className="mt-1 text-[11px] leading-4 text-[#8EA7C7]">
+                Sorted by urgency from the active Gate Filters. Showing {sortedFilteredGates.length} gate{sortedFilteredGates.length === 1 ? '' : 's'}.
+              </p>
             </div>
-            <ShieldCheck size={22} className="text-cyan-300" />
-          </div>
-          <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
-            <DecisionLane status="Blocked" gates={filteredGates} />
-            <DecisionLane status="Pending Review" gates={filteredGates} />
-            <DecisionLane status="Open" gates={filteredGates} />
-            <DecisionLane status="Approved" gates={filteredGates} />
-          </div>
-          <div className="mt-4 rounded-lg border border-violet-300/18 bg-violet-300/10 p-3 text-[12px] leading-5 text-violet-100">
-            <span className="font-black">Suggested meeting focus: </span>
-            clear {activeBlockers} blocker{activeBlockers === 1 ? '' : 's'}, then move {pending} pending review gate{pending === 1 ? '' : 's'} to decision.
-          </div>
-        </section>
-      </div>
 
-      <div className="mt-4 rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
-        <div>
-          <div>
-            <h2 className="flex items-center gap-2 text-[15px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-              <ListChecks size={17} className="text-cyan-300" />
-              Gate Action Queue
-            </h2>
-            <p className="mt-1 text-[11px] leading-4 text-[#8EA7C7]">
-              Sorted by urgency from the active Gate Filters. Showing {sortedFilteredGates.length} gate{sortedFilteredGates.length === 1 ? '' : 's'}.
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-4 grid gap-3 2xl:grid-cols-2">
-          {sortedFilteredGates.map(gate => (
-            <GateActionCard
-              key={gate.code}
-              gate={gate}
-              queuedAction={queuedActions[gate.code]}
-              onAction={queueGateAction}
-              onOpen={setSelectedGate}
-            />
-          ))}
-          {sortedFilteredGates.length === 0 && (
-            <div className="rounded-xl border border-dashed border-[rgba(46,127,255,0.22)] bg-[#07111F]/72 p-6 text-center text-[13px] text-[#7A94B4]">
-              No stage gates match the selected filters.
+            <div className="mt-4 grid gap-3 2xl:grid-cols-2">
+              {sortedFilteredGates.map(gate => (
+                <GateActionCard
+                  key={gate.code}
+                  gate={gate}
+                  queuedAction={queuedActions[gate.code]}
+                  onAction={queueGateAction}
+                  onOpen={setSelectedGate}
+                />
+              ))}
             </div>
-          )}
-        </div>
-      </div>
+          </div>
 
-      <section className="mt-4 grid gap-3 xl:grid-cols-3">
-        <div className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#0A1628]/78 p-4">
-          <div className="flex items-center gap-2 text-[13px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-            <CheckCircle2 size={16} className="text-emerald-300" />
-            Released
-          </div>
-          <p className="mt-2 text-[24px] font-black text-[#EEF3FA]">{approved}</p>
-          <p className="mt-1 text-[11px] leading-4 text-[#8EA7C7]">Approved gates can be used as the evidence standard for blocked gates.</p>
-        </div>
-        <div className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#0A1628]/78 p-4">
-          <div className="flex items-center gap-2 text-[13px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-            <CircleDot size={16} className="text-cyan-300" />
-            Being Prepared
-          </div>
-          <p className="mt-2 text-[24px] font-black text-[#EEF3FA]">{open}</p>
-          <p className="mt-1 text-[11px] leading-4 text-[#8EA7C7]">Open gates need evidence closure before they become approver decisions.</p>
-        </div>
-        <div className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#0A1628]/78 p-4">
-          <div className="flex items-center gap-2 text-[13px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-            <Sparkles size={16} className="text-violet-300" />
-            Local Actions
-          </div>
-          <p className="mt-2 text-[24px] font-black text-[#EEF3FA]">{filteredQueuedActionCount}</p>
-          <p className="mt-1 text-[11px] leading-4 text-[#8EA7C7]">Queued actions matching the active gate filters.</p>
-        </div>
-      </section>
+          <section className="mt-4 grid gap-3 xl:grid-cols-3">
+            <div className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#0A1628]/78 p-4">
+              <div className="flex items-center gap-2 text-[13px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+                <CheckCircle2 size={16} className="text-emerald-300" />
+                Released
+              </div>
+              <p className="mt-2 text-[24px] font-black text-[#EEF3FA]">{approved}</p>
+              <p className="mt-1 text-[11px] leading-4 text-[#8EA7C7]">Approved gates can be used as the evidence standard for blocked gates.</p>
+            </div>
+            <div className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#0A1628]/78 p-4">
+              <div className="flex items-center gap-2 text-[13px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+                <CircleDot size={16} className="text-cyan-300" />
+                Being Prepared
+              </div>
+              <p className="mt-2 text-[24px] font-black text-[#EEF3FA]">{open}</p>
+              <p className="mt-1 text-[11px] leading-4 text-[#8EA7C7]">Open gates need evidence closure before they become approver decisions.</p>
+            </div>
+            <div className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#0A1628]/78 p-4">
+              <div className="flex items-center gap-2 text-[13px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+                <Sparkles size={16} className="text-violet-300" />
+                Local Actions
+              </div>
+              <p className="mt-2 text-[24px] font-black text-[#EEF3FA]">{filteredQueuedActionCount}</p>
+              <p className="mt-1 text-[11px] leading-4 text-[#8EA7C7]">Queued actions matching the active gate filters.</p>
+            </div>
+          </section>
         </>
       )}
 
@@ -1293,7 +1318,8 @@ export function StageGates({ onToast }: { onToast?: (message: string, type?: 'su
       {selectedMetricInsight && (
         <StageGateMetricInsightPanel
           insight={selectedMetricInsight}
-          actioned={actionedRecommendations[selectedMetricInsight.metricName]}
+          actioned={selectedRecommendationActioned}
+          actionAvailable={Boolean(selectedRecommendationTarget)}
           onActionRecommendation={actionRecommendation}
           onClose={() => setSelectedMetricInsight(null)}
         />
