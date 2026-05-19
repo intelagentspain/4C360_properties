@@ -111,6 +111,23 @@ function metricControlCause(metric: ProjectControlContext['controlMetrics'][numb
   return metric.cause;
 }
 
+function baselineWatchItems(context: ProjectControlContext) {
+  const values = [
+    context.baseline.project.type,
+    `Progress ${context.baseline.project.currentCompletion}%`,
+    `Float ${context.metrics.floatRemaining}d`,
+    `EAC ${formatProjectCurrency(context.metrics.eac)}`,
+  ];
+  return Array.from(new Set(values)).slice(0, 4);
+}
+
+function baselinePositionTitle(context: ProjectControlContext) {
+  if (context.projectControlStatus === 'on-track') {
+    return `${context.baseline.project.name} is holding the approved baseline.`;
+  }
+  return `${context.baseline.project.name} is in ${projectStatusLabel(context.projectControlStatus).toLowerCase()} mode against the approved baseline.`;
+}
+
 function managerActionButtonLabel(action: ManagerAction) {
   const value = `${action.title} ${action.whyItMatters} ${action.cta}`.toLowerCase();
   if (value.includes('vendor') || value.includes('procurement') || value.includes('facade') || value.includes('long-lead')) return 'Prepare release brief';
@@ -596,12 +613,13 @@ function ProjectPositionBrief({
 }) {
   const latest = latestLiveEvent(context);
   const topAction = context.managerActions[0];
+  const watchItems = latest ? latest.affectedAreas.slice(0, 4) : baselineWatchItems(context);
   const positionTitle = latest
     ? `${latest.title} changed the project position.`
-    : `${context.baseline.project.name} is holding the approved baseline.`;
+    : baselinePositionTitle(context);
   const positionDetail = latest
     ? `${latest.impactLabel} ProjectCommand recalculated health, cost, programme, evidence, and manager actions from this update.`
-    : 'No live disruption has been logged yet. The useful watch items are facade release, crane utilization, approval path, and evidence readiness.';
+    : `No live update has been logged for this ${context.baseline.project.type.toLowerCase()} project yet. Watch ${watchItems.slice(0, 3).join(', ')} before the next manager update.`;
   const impactSummary = latest
     ? [
         `Health ${formatSignedNumber(latest.impacts.healthDelta)}`,
@@ -614,9 +632,13 @@ function ProjectPositionBrief({
   const nextDecision = topAction
     ? `${topAction.title} - ${topAction.expectedImpact}`
     : 'Log a useful project update to generate a manager action.';
-  const watchItems = latest
-    ? latest.affectedAreas.slice(0, 4)
-    : ['Facade release', 'Tower crane utilization', 'Authority approvals', 'Evidence pack'];
+  const currentPositionLabel = latest
+    ? 'Live update applied'
+    : context.projectControlStatus === 'on-track'
+      ? 'Approved baseline active'
+      : context.projectControlStatus === 'watch'
+        ? 'Baseline under watch'
+        : `${projectStatusLabel(context.projectControlStatus)} baseline`;
 
   return (
     <section className="rounded-xl border border-cyan-300/18 bg-[linear-gradient(135deg,rgba(0,198,255,0.10),rgba(124,58,237,0.10),rgba(7,17,31,0.84))] p-4">
@@ -645,10 +667,10 @@ function ProjectPositionBrief({
         <div className="rounded-xl border border-white/8 bg-[#07111F]/72 p-3">
           <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">Current position</p>
           <p className="mt-1 text-[12px] font-black leading-4 text-[#EEF3FA]">
-            {latest ? 'Live update applied' : 'Approved baseline active'}
+            {currentPositionLabel}
           </p>
           <p className="mt-1 text-[10px] leading-4 text-[#8EA7C7]">
-            {latest ? `${latest.affectedModule} is now driving the forecast.` : 'Ready to log the next real site condition.'}
+            {latest ? `${latest.affectedModule} is now driving the forecast.` : `Ready to log the next real ${context.baseline.project.type.toLowerCase()} condition.`}
           </p>
           <div className="mt-2 flex flex-wrap gap-1.5">
             {watchItems.map(item => (
@@ -661,7 +683,7 @@ function ProjectPositionBrief({
           <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">Impact now</p>
           <p className="mt-1 text-[12px] font-black leading-4 text-[#EEF3FA]">{impactSummary}</p>
           <p className="mt-1 text-[10px] leading-4 text-[#8EA7C7]">
-            One ledger drives programme, cost, evidence, vendor score, and handover confidence.
+            Selected project context drives programme, cost, evidence, vendor score, and handover confidence.
           </p>
           {latest && (
             <div className="mt-2">
@@ -2584,7 +2606,7 @@ export function CommandCenter({
         <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           {visibleControlMetrics.map(metric => (
             <MetricCard
-              key={metric.label}
+              key={`${dataset.id}-${metric.label}`}
               metric={metric}
               onExplain={() => setSelectedDecisionChain({ kind: 'metric', title: `${metric.label} decision chain`, value: metric.value, metric })}
             />
