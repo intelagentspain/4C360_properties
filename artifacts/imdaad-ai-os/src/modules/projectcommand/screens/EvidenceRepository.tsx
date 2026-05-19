@@ -519,10 +519,30 @@ export function EvidenceRepository({ onToast }: { onToast?: (message: string, ty
   const metrics = {
     total: evidenceDocuments.length,
     current: evidenceDocuments.filter(item => item.status === 'Current').length,
-    superseded: evidenceDocuments.filter(item => item.status === 'Superseded').length,
     expired: evidenceDocuments.filter(item => item.status === 'Expired').length,
     types: new Set(evidenceDocuments.map(item => item.type)).size,
-    compliance: Math.round((evidenceDocuments.filter(item => item.status === 'Current').length / evidenceDocuments.length) * 100),
+  };
+
+  const expiredDocuments = evidenceDocuments.filter(item => item.status === 'Expired');
+  const currentDocuments = evidenceDocuments.filter(item => item.status === 'Current');
+  const criticalDocument = expiredDocuments[0];
+  const workQueue = [
+    ...expiredDocuments,
+    ...currentDocuments.filter(item => item.type === 'Report'),
+    ...currentDocuments.filter(item => item.type !== 'Report'),
+  ];
+  const completedCount = Object.keys(completedActions).length;
+  const readinessPercent = Math.round((currentDocuments.length / Math.max(evidenceDocuments.length, 1)) * 100);
+
+  const runEvidenceAction = (document: EvidenceDocument) => {
+    const action = evidenceActionFor(document);
+    setCompletedActions(previous => ({ ...previous, [document.code]: action.doneLabel }));
+    onToast?.(action.toast, document.status === 'Expired' ? 'warning' : 'success');
+  };
+
+  const prepareExport = () => {
+    setExportPrepared(true);
+    onToast?.(`Evidence pack prepared with ${evidenceDocuments.length} documents and ${expiredDocuments.length} blocker${expiredDocuments.length === 1 ? '' : 's'}.`, 'success');
   };
 
   const expiredDocuments = evidenceDocuments.filter(item => item.status === 'Expired');

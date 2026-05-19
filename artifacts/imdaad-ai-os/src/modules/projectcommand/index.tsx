@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import type { ComponentType } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { BarChart3, BrainCircuit, Building2, CalendarRange, FileText, FolderOpen, Plus, ShieldAlert, Target } from 'lucide-react';
-import type { ProjectCommandProjectId, ProjectCommandPropertyId } from './data/portfolio';
 import { AddProjectModal } from './components/AddProjectModal';
 import { ProjectCommandCopilotButton } from './components/ProjectCommandCopilot';
 import { CommandCenter } from './screens/CommandCenter';
@@ -13,9 +12,9 @@ import { RiskCommand } from './screens/RiskCommand';
 import { ObligationsRegister } from './screens/ObligationsRegister';
 import { EvidenceRepository } from './screens/EvidenceRepository';
 import { AIForecast } from './screens/AIForecast';
-import { addProjectCommandDataset, hydrateProjectCommandEvents, setProjectCommandState } from './state/projectCommandStore';
+import { addProjectCommandDataset, hydrateProjectCommandEvents } from './state/projectCommandStore';
 import type { ProjectCommandScreen } from './types';
-import { useProjectCommandProjectOptions, useProjectCommandPropertyOptions, useSelectedProjectCommandData } from './useProjectCommandData';
+import { useSelectedProjectCommandData } from './useProjectCommandData';
 
 const tabs: { id: ProjectCommandScreen; label: string; icon: ComponentType<{ size?: number }> }[] = [
   { id: 'overview', label: 'Overview', icon: Building2 },
@@ -49,9 +48,6 @@ export function ProjectCommand({
   const [addProjectOpen, setAddProjectOpen] = useState(false);
   const selectedDataset = useSelectedProjectCommandData();
   const { organization, portfolio, property, project } = selectedDataset;
-  const propertyOptions = useProjectCommandPropertyOptions();
-  const allProjectOptions = useProjectCommandProjectOptions();
-  const projectOptions = useProjectCommandProjectOptions(property.id);
 
   const goTo = (next: ProjectCommandScreen) => {
     setScreen(next);
@@ -66,28 +62,6 @@ export function ProjectCommand({
   useEffect(() => {
     void hydrateProjectCommandEvents(selectedDataset.id);
   }, [selectedDataset.id]);
-
-  const switchProject = (projectId: ProjectCommandProjectId) => {
-    const nextProject = allProjectOptions.find(option => option.id === projectId);
-    setProjectCommandState({
-      selectedProjectId: projectId,
-      selectedPropertyId: nextProject?.propertyId ?? property.id,
-      activeScenario: 'base',
-      selectedRisk: null,
-      selectedPhaseId: null,
-    });
-  };
-
-  const switchProperty = (propertyId: ProjectCommandPropertyId) => {
-    const nextProject = allProjectOptions.find(option => option.propertyId === propertyId);
-    setProjectCommandState({
-      selectedPropertyId: propertyId,
-      selectedProjectId: nextProject?.id ?? project.id,
-      activeScenario: 'base',
-      selectedRisk: null,
-      selectedPhaseId: null,
-    });
-  };
 
   return (
     <div className="flex h-full flex-col overflow-hidden text-[#EEF3FA]">
@@ -110,20 +84,6 @@ export function ProjectCommand({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <select
-              value={property.id}
-              onChange={event => switchProperty(event.target.value as ProjectCommandPropertyId)}
-              className="h-8 min-w-[230px] rounded-lg border border-[rgba(46,127,255,0.22)] bg-[#0A1628] px-3 text-[11px] font-semibold text-[#B8C7DB] outline-none transition-colors focus:border-[#7C3AED]"
-            >
-              {propertyOptions.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
-            </select>
-            <select
-              value={selectedDataset.id}
-              onChange={event => switchProject(event.target.value as ProjectCommandProjectId)}
-              className="h-8 min-w-[230px] rounded-lg border border-[rgba(46,127,255,0.22)] bg-[#0A1628] px-3 text-[11px] font-semibold text-[#B8C7DB] outline-none transition-colors focus:border-[#7C3AED]"
-            >
-              {projectOptions.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
-            </select>
             <button onClick={() => setAddProjectOpen(true)} className="flex h-8 items-center gap-1.5 rounded-lg border border-[#7C3AED]/45 bg-[#7C3AED] px-3 text-[11px] font-bold text-white shadow-lg shadow-violet-900/20 transition-colors hover:bg-[#6D28D9]">
               <Plus size={13} />
               Add Project
