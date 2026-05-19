@@ -9,7 +9,6 @@ import {
   Calendar,
   Camera,
   CheckCircle,
-  ChevronRight,
   ClipboardCheck,
   ClipboardList,
   Clock,
@@ -909,13 +908,18 @@ function LifecycleStrip() {
         <Activity className="h-4 w-4 text-red-300" />
         Connected PPM lifecycle
       </div>
-      <div className="flex gap-2 overflow-x-auto pb-1">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
         {lifecycle.map((step, index) => (
-          <div key={step} className="flex shrink-0 items-center gap-2">
-            <div className="rounded-xl border border-blue-500/25 bg-blue-500/10 px-3 py-2 text-xs font-bold text-slate-200">
-              {index + 1}. {step}
-            </div>
-            {index < lifecycle.length - 1 && <ChevronRight className="h-4 w-4 text-slate-600" />}
+          <div
+            key={step}
+            className="min-h-[52px] min-w-0 rounded-xl border border-blue-500/25 bg-blue-500/10 px-3 py-2 text-slate-200"
+          >
+            <p className="text-[10px] font-black uppercase tracking-[0.14em] text-blue-300">
+              Step {String(index + 1).padStart(2, '0')}
+            </p>
+            <p className="mt-1 text-[12px] font-bold leading-snug">
+              {step}
+            </p>
           </div>
         ))}
       </div>
@@ -1689,12 +1693,12 @@ export function PPMSchedule({ onToast }: Props) {
       </div>
 
       <div className="border-b border-[#1C3050] bg-[#09152A] px-6">
-        <div className="flex gap-2 overflow-x-auto py-3">
+        <div className="flex flex-wrap gap-2 py-3">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`shrink-0 rounded-xl px-4 py-3 text-sm font-bold transition ${
+              className={`rounded-xl px-4 py-3 text-sm font-bold transition ${
                 activeTab === tab.id
                   ? 'bg-red-500/18 text-white ring-1 ring-red-400/45'
                   : 'text-blue-200 hover:bg-[#0E1E35] hover:text-white'
