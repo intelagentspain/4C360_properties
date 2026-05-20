@@ -195,7 +195,7 @@ export function ProjectCommand({
         {screen === 'forecast' && <AIForecast />}
       </div>
 
-      {!addProjectOpen && <ProjectCommandCopilotButton screen={screen} onNavigate={goTo} />}
+      {!demoMode && !addProjectOpen && <ProjectCommandCopilotButton screen={screen} onNavigate={goTo} />}
 
       <AnimatePresence>
         {addProjectOpen && (
