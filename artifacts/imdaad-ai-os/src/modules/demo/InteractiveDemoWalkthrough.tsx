@@ -762,8 +762,8 @@ const DEMO_FRAMES: Record<string, DemoFrame[]> = {
     {
       id: 'intake',
       label: 'Resident Intake',
-      anchor: 'resident-experience',
-      fallback: { left: 10, top: 13, width: 38, height: 35 },
+      anchor: 'resident-report-options',
+      fallback: { left: 4, top: 36, width: 60, height: 30 },
       headline: 'Show the client-facing service layer',
       story: 'Residents can report issues by camera, upload, voice, or AI chat from one simple front door.',
       clientValue: 'The client sees the resident experience connected to operations.',
@@ -774,7 +774,8 @@ const DEMO_FRAMES: Record<string, DemoFrame[]> = {
     {
       id: 'timeline',
       label: 'Timeline',
-      fallback: { left: 8, top: 44, width: 44, height: 28 },
+      anchor: 'resident-service-sla',
+      fallback: { left: 4, top: 66, width: 60, height: 14 },
       headline: 'Show the resident-facing service timeline',
       story: 'The timeline makes progress, updates, and next steps visible to the resident.',
       clientValue: 'Residents get clarity without calling for status.',
@@ -785,7 +786,8 @@ const DEMO_FRAMES: Record<string, DemoFrame[]> = {
     {
       id: 'handoff',
       label: 'Ops Handoff',
-      fallback: { left: 52, top: 44, width: 38, height: 28 },
+      anchor: 'resident-action-links',
+      fallback: { left: 4, top: 80, width: 60, height: 16 },
       headline: 'Connect resident requests to operations',
       story: 'Resident intake becomes structured work for field and property teams.',
       clientValue: 'The front-office experience is connected to back-office execution.',
@@ -933,7 +935,8 @@ function useAnchorBox(stageRef: RefObject<HTMLDivElement | null>, target: Hotspo
         const relativeTop = rect.top - rootRect.top;
         const startsNearSurfaceOrigin = relativeLeft < rootRect.width * 0.12 && relativeTop < rootRect.height * 0.12;
         const isFullSurface = startsNearSurfaceOrigin && rect.width > rootRect.width * 0.82 && rect.height > rootRect.height * 0.66;
-        if (isFullSurface) {
+        const isOversizedAnchor = rect.width > rootRect.width * 0.76 && rect.height > rootRect.height * 0.38;
+        if (isFullSurface || isOversizedAnchor) {
           setBox(fallbackBox());
           return;
         }
@@ -947,15 +950,15 @@ function useAnchorBox(stageRef: RefObject<HTMLDivElement | null>, target: Hotspo
     };
 
     measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(stage);
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
+    observer?.observe(stage);
     const interval = window.setInterval(measure, 900);
     stage.addEventListener('scroll', measure, true);
     window.addEventListener('resize', measure);
 
     return () => {
       window.cancelAnimationFrame(frame);
-      observer.disconnect();
+      observer?.disconnect();
       window.clearInterval(interval);
       stage.removeEventListener('scroll', measure, true);
       window.removeEventListener('resize', measure);
@@ -965,18 +968,23 @@ function useAnchorBox(stageRef: RefObject<HTMLDivElement | null>, target: Hotspo
   return box;
 }
 
-function StageHotspot({ box }: { box: AnchorBox | null }) {
-  if (!box) return null;
-
-  const highlightStyle: CSSProperties = { left: box.left, top: box.top, width: box.width, height: box.height };
+function StageHotspot({ box, fallback }: { box: AnchorBox | null; fallback: FallbackHotspot }) {
+  const highlightStyle: CSSProperties = box
+    ? { left: box.left, top: box.top, width: box.width, height: box.height }
+    : { left: `${fallback.left}%`, top: `${fallback.top}%`, width: `${fallback.width}%`, height: `${fallback.height}%` };
 
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none absolute z-30 rounded-2xl border border-cyan-300/80 bg-cyan-300/[0.055] shadow-[0_0_0_9999px_rgba(3,10,21,0.16),0_0_32px_rgba(34,211,238,0.34)]"
+      data-demo-hotspot="true"
+      className="pointer-events-none absolute z-30 rounded-2xl border border-cyan-200/85 bg-transparent shadow-[0_0_22px_rgba(34,211,238,0.22)]"
       style={highlightStyle}
     >
-      <div className="absolute -right-2 -top-2 h-5 w-5 rounded-full border border-cyan-200 bg-cyan-300 shadow-[0_0_22px_rgba(34,211,238,0.8)]" />
+      <span className="absolute left-0 top-0 h-4 w-4 -translate-x-px -translate-y-px rounded-tl-2xl border-l-2 border-t-2 border-cyan-200" />
+      <span className="absolute right-0 top-0 h-4 w-4 translate-x-px -translate-y-px rounded-tr-2xl border-r-2 border-t-2 border-cyan-200" />
+      <span className="absolute bottom-0 left-0 h-4 w-4 -translate-x-px translate-y-px rounded-bl-2xl border-b-2 border-l-2 border-cyan-200" />
+      <span className="absolute bottom-0 right-0 h-4 w-4 translate-x-px translate-y-px rounded-br-2xl border-b-2 border-r-2 border-cyan-200" />
+      <div className="absolute right-2 top-2 h-3 w-3 rounded-full bg-cyan-300 shadow-[0_0_14px_rgba(34,211,238,0.7)]" />
     </div>
   );
 }
@@ -1370,7 +1378,7 @@ export function InteractiveDemoWalkthrough() {
             </div>
             <div ref={stageRef} className="relative min-h-0 flex-1 overflow-hidden">
               <DemoStage key={chapter.id} chapter={chapter} onToast={onToast} onOpenChapter={selectChapter} />
-              <StageHotspot box={anchorBox} />
+              <StageHotspot box={anchorBox} fallback={hotspotTarget.fallback} />
             </div>
           </div>
         </main>

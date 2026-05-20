@@ -177,7 +177,7 @@ export function HospitalityClientView({ onToast, guestName = 'Resident', propert
             >
               {propertyName}
             </div>
-            <div className="text-[10px] opacity-45" style={{ color: '#fff' }}>Resident Services · Powered by DevelopmentX</div>
+            <div className="text-[10px] opacity-45" style={{ color: '#fff' }}>Resident Services - Powered by DevelopmentX</div>
           </div>
         </div>
 
@@ -200,7 +200,7 @@ export function HospitalityClientView({ onToast, guestName = 'Resident', propert
           How would you like to report?
         </p>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3" data-demo-anchor="resident-report-options">
           {MODES.map((mode, i) => {
             const Icon = mode.icon;
             return (
@@ -234,6 +234,7 @@ export function HospitalityClientView({ onToast, guestName = 'Resident', propert
 
         <div
           className="mt-5 p-4 rounded-2xl"
+          data-demo-anchor="resident-service-sla"
           style={{ background: '#F5EFE0', border: '1px solid #EDE5D4' }}
         >
           <div className="flex items-center gap-2 mb-1">
@@ -245,7 +246,7 @@ export function HospitalityClientView({ onToast, guestName = 'Resident', propert
           </p>
         </div>
 
-        <div className="mt-4 space-y-2">
+        <div className="mt-4 space-y-2" data-demo-anchor="resident-action-links">
           <a
             href={reportUrl}
             className="flex items-center justify-center gap-2 w-full py-3.5 rounded-2xl font-semibold text-sm transition-all duration-200 active:scale-[0.97]"
