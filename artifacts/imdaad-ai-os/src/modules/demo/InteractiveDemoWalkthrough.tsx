@@ -14,6 +14,7 @@ import {
   FolderOpen,
   Pause,
   Play,
+  RotateCcw,
   ShieldAlert,
   ShieldCheck,
   Smartphone,
@@ -50,6 +51,50 @@ type DemoFrame = {
   tryLabel: string;
   anchor?: string;
   fallback?: FallbackHotspot;
+  features?: string[];
+  mission?: DemoMission;
+  artifact?: DemoArtifact;
+  outcome?: DemoOutcome;
+};
+
+type DemoMissionTrigger =
+  | { type: 'cta' }
+  | { type: 'frameVisit' }
+  | { type: 'toastIncludes'; value: string }
+  | { type: 'demoAction'; action: string };
+
+type DemoMission = {
+  id: string;
+  prompt: string;
+  actionLabel: string;
+  completionToast: string;
+  talkingPoint: string;
+  trigger: DemoMissionTrigger;
+};
+
+type DemoArtifact = {
+  id: string;
+  label: string;
+  detail: string;
+};
+
+type DemoOutcome = {
+  timeSavedMinutes: number;
+  riskReduction: number;
+  readinessGain: number;
+};
+
+type DemoProgressState = {
+  completedMissionIds: string[];
+  completedAtByMissionId: Record<string, string>;
+};
+
+type EnrichedDemoFrame = DemoFrame & {
+  features: string[];
+  mission: DemoMission;
+  artifact: DemoArtifact;
+  outcome: DemoOutcome;
+  chapterId: string;
 };
 
 type DemoChapter = {
@@ -139,6 +184,62 @@ function buildShareUrl(chapterId: string, frameId?: string) {
   if (frameId) url.searchParams.set('frame', frameId);
   return url.toString();
 }
+
+const DEMO_PROGRESS_STORAGE_KEY = '4c360-properties-demo-progress-v1';
+const DEMO_SCENARIO = 'Sobha Pilot Tower handover risk: recover readiness, control cost exposure, close evidence gaps, and prepare owner decisions.';
+
+const EMPTY_PROGRESS_STATE: DemoProgressState = {
+  completedMissionIds: [],
+  completedAtByMissionId: {},
+};
+
+const CHAPTER_FEATURES: Record<string, string[]> = {
+  portfolio: ['Portfolio health signals', 'Asset prioritization', 'Command routing'],
+  projectcommand: ['Project twin context', 'Control module navigation', 'Owner action queue'],
+  programme: ['Critical path view', 'Contractor accountability', 'Recovery planning'],
+  stagegates: ['Gate status board', 'Evidence dependencies', 'Recovery ownership'],
+  cost: ['Forecast exposure', 'Variation queue', 'Package drivers'],
+  risk: ['Risk register', 'Mitigation ownership', 'Scenario impact'],
+  forecast: ['Outcome scenarios', 'Forecast confidence', 'Decision cards'],
+  obligations: ['Obligation register', 'Deadline exposure', 'Evidence linkage'],
+  evidence: ['Readiness status', 'Expired documents', 'Pack preparation'],
+  vendoriq: ['Vendor scorecard', 'Quote context', 'Action pack'],
+  fieldops: ['Field KPI strip', 'Survey work queue', 'Mobile capture'],
+  resident: ['Resident intake', 'Service SLA', 'Operations handoff'],
+  value: ['Operating model', 'Pilot pathway', 'Expansion roadmap'],
+};
+
+const CHAPTER_ARTIFACTS: Record<string, DemoArtifact> = {
+  portfolio: { id: 'owner-action-plan', label: 'Owner action plan', detail: 'Priority property, control route, and first owner decision captured.' },
+  projectcommand: { id: 'project-control-note', label: 'Project control note', detail: 'Project twin context and review path prepared for the owner.' },
+  programme: { id: 'recovery-path-note', label: 'Programme recovery note', detail: 'Critical path risk and recovery owner summarized.' },
+  stagegates: { id: 'gate-blocker-note', label: 'Gate blocker note', detail: 'Blocked gate, evidence gap, and next unblock owner documented.' },
+  cost: { id: 'cost-exposure-summary', label: 'Cost exposure summary', detail: 'Variation/package pressure and forecast action captured.' },
+  risk: { id: 'risk-mitigation-brief', label: 'Risk mitigation brief', detail: 'Top risk, mitigation owner, and scenario consequence prepared.' },
+  forecast: { id: 'forecast-decision-brief', label: 'Forecast decision brief', detail: 'Base/pessimistic outcome and decision lever summarized.' },
+  obligations: { id: 'obligation-proof-note', label: 'Obligation proof note', detail: 'Obligation, due exposure, and evidence requirement connected.' },
+  evidence: { id: 'evidence-pack-summary', label: 'Evidence pack summary', detail: 'Readiness pack, expired proof, and handover blocker summarized.' },
+  vendoriq: { id: 'vendor-corrective-notice', label: 'Vendor corrective action notice', detail: 'Vendor score signal and corrective action route prepared.' },
+  fieldops: { id: 'field-survey-instruction', label: 'Field survey instruction', detail: 'Survey capture task and field proof route prepared.' },
+  resident: { id: 'resident-request-handoff', label: 'Resident request handoff', detail: 'Resident intake and operations ownership path captured.' },
+  value: { id: 'final-pilot-recommendation', label: 'Final pilot recommendation', detail: 'Pilot workflow, success proof, and expansion path summarized.' },
+};
+
+const CHAPTER_OUTCOMES: Record<string, DemoOutcome> = {
+  portfolio: { timeSavedMinutes: 12, riskReduction: 3, readinessGain: 2 },
+  projectcommand: { timeSavedMinutes: 18, riskReduction: 4, readinessGain: 3 },
+  programme: { timeSavedMinutes: 20, riskReduction: 5, readinessGain: 4 },
+  stagegates: { timeSavedMinutes: 22, riskReduction: 7, readinessGain: 7 },
+  cost: { timeSavedMinutes: 18, riskReduction: 5, readinessGain: 2 },
+  risk: { timeSavedMinutes: 16, riskReduction: 6, readinessGain: 3 },
+  forecast: { timeSavedMinutes: 14, riskReduction: 5, readinessGain: 3 },
+  obligations: { timeSavedMinutes: 15, riskReduction: 4, readinessGain: 5 },
+  evidence: { timeSavedMinutes: 20, riskReduction: 5, readinessGain: 8 },
+  vendoriq: { timeSavedMinutes: 18, riskReduction: 4, readinessGain: 2 },
+  fieldops: { timeSavedMinutes: 16, riskReduction: 3, readinessGain: 5 },
+  resident: { timeSavedMinutes: 12, riskReduction: 2, readinessGain: 4 },
+  value: { timeSavedMinutes: 10, riskReduction: 2, readinessGain: 3 },
+};
 
 const DEMO_CHAPTERS: DemoChapter[] = [
   {
@@ -860,6 +961,128 @@ function resolveFrameId(chapter: DemoChapter, requested?: string | null) {
   return frames.some(frame => frame.id === requested) ? requested! : frames[0].id;
 }
 
+function missionTriggerForFrame(chapterId: string, frameId: string): DemoMissionTrigger {
+  if (chapterId === 'portfolio' && frameId === 'command-path') return { type: 'demoAction', action: 'portfolio-open-command' };
+  if (chapterId === 'projectcommand' && frameId === 'control-tabs') return { type: 'demoAction', action: 'projectcommand-tab-cost' };
+  if (chapterId === 'fieldops' && frameId === 'capture-methods') return { type: 'demoAction', action: 'fieldops-apply-survey' };
+  if (chapterId === 'resident' && frameId === 'intake') return { type: 'demoAction', action: 'resident-mode-camera' };
+  if (chapterId === 'resident' && frameId === 'handoff') return { type: 'demoAction', action: 'resident-copy-link' };
+  if (chapterId === 'value') return { type: 'frameVisit' };
+  return { type: 'cta' };
+}
+
+function enrichDemoFrame(chapter: DemoChapter, frame: DemoFrame, frameIndex: number): EnrichedDemoFrame {
+  const missionId = `${chapter.id}:${frame.id}`;
+  const chapterFeatures = CHAPTER_FEATURES[chapter.id] ?? [chapter.shortLabel, frame.label, 'Owner decision support'];
+  const artifact = frame.artifact ?? CHAPTER_ARTIFACTS[chapter.id] ?? {
+    id: `${chapter.id}-demo-artifact`,
+    label: `${chapter.shortLabel} artifact`,
+    detail: frame.nextAction,
+  };
+  const baseOutcome = frame.outcome ?? CHAPTER_OUTCOMES[chapter.id] ?? { timeSavedMinutes: 10, riskReduction: 2, readinessGain: 2 };
+  const outcome = {
+    timeSavedMinutes: Math.max(4, Math.round(baseOutcome.timeSavedMinutes / 3)),
+    riskReduction: Math.max(1, Math.round(baseOutcome.riskReduction / 3)),
+    readinessGain: Math.max(1, Math.round(baseOutcome.readinessGain / 3)),
+  };
+
+  return {
+    ...frame,
+    chapterId: chapter.id,
+    features: frame.features ?? [
+      chapterFeatures[frameIndex % chapterFeatures.length],
+      chapterFeatures[(frameIndex + 1) % chapterFeatures.length],
+      chapterFeatures[(frameIndex + 2) % chapterFeatures.length],
+    ],
+    artifact,
+    outcome,
+    mission: frame.mission ?? {
+      id: missionId,
+      prompt: `Complete this client demo step: ${frame.nextAction}`,
+      actionLabel: frame.tryLabel,
+      completionToast: `${artifact.label} prepared`,
+      talkingPoint: frame.clientValue,
+      trigger: missionTriggerForFrame(chapter.id, frame.id),
+    },
+  };
+}
+
+function getEnrichedFrames(chapter: DemoChapter) {
+  return getChapterFrames(chapter).map((frame, index) => enrichDemoFrame(chapter, frame, index));
+}
+
+function getAllEnrichedFrames() {
+  return DEMO_CHAPTERS.flatMap(chapter => getEnrichedFrames(chapter));
+}
+
+function normalizeProgressState(value: Partial<DemoProgressState> | null | undefined): DemoProgressState {
+  const completedMissionIds = Array.from(new Set(value?.completedMissionIds?.filter(Boolean) ?? []));
+  const completedAtByMissionId = value?.completedAtByMissionId ?? {};
+  return {
+    completedMissionIds,
+    completedAtByMissionId: completedMissionIds.reduce<Record<string, string>>((acc, missionId) => {
+      acc[missionId] = completedAtByMissionId[missionId] ?? new Date().toISOString();
+      return acc;
+    }, {}),
+  };
+}
+
+function loadDemoProgressState(): DemoProgressState {
+  if (typeof window === 'undefined') return EMPTY_PROGRESS_STATE;
+  try {
+    const raw = window.sessionStorage.getItem(DEMO_PROGRESS_STORAGE_KEY);
+    if (!raw) return EMPTY_PROGRESS_STATE;
+    return normalizeProgressState(JSON.parse(raw) as DemoProgressState);
+  } catch {
+    return EMPTY_PROGRESS_STATE;
+  }
+}
+
+function saveDemoProgressState(state: DemoProgressState) {
+  try {
+    window.sessionStorage.setItem(DEMO_PROGRESS_STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    // Demo progress is helpful, but never worth blocking the walkthrough.
+  }
+}
+
+function getOutcomeTotals(progressState: DemoProgressState) {
+  const completedSet = new Set(progressState.completedMissionIds);
+  const allFrames = getAllEnrichedFrames();
+  const completedFrames = allFrames.filter(frame => completedSet.has(frame.mission.id));
+  const artifacts = new Map<string, DemoArtifact>();
+  const features = new Set<string>();
+
+  completedFrames.forEach(frame => {
+    artifacts.set(frame.artifact.id, frame.artifact);
+    frame.features.forEach(feature => features.add(feature));
+  });
+
+  return {
+    totalMissions: allFrames.length,
+    completedMissions: completedFrames.length,
+    artifacts: Array.from(artifacts.values()),
+    artifactCount: artifacts.size,
+    featureCount: features.size,
+    timeSavedMinutes: completedFrames.reduce((sum, frame) => sum + frame.outcome.timeSavedMinutes, 0),
+    riskReduction: completedFrames.reduce((sum, frame) => sum + frame.outcome.riskReduction, 0),
+    readinessGain: completedFrames.reduce((sum, frame) => sum + frame.outcome.readinessGain, 0),
+  };
+}
+
+function buildOutcomeSummary(totals: ReturnType<typeof getOutcomeTotals>) {
+  return [
+    `4C360 Properties demo outcome`,
+    `Missions completed: ${totals.completedMissions}/${totals.totalMissions}`,
+    `Artifacts prepared: ${totals.artifactCount}`,
+    `Feature signals covered: ${totals.featureCount}`,
+    `Estimated time saved: ${totals.timeSavedMinutes} minutes`,
+    `Risk reduced: ${totals.riskReduction} points`,
+    `Readiness gained: ${totals.readinessGain} points`,
+    `Recommended pilot: ProjectCommand on one active handover project, then expand into evidence, VendorIQ, FieldOps, and resident intake.`,
+  ].join('\n');
+}
+
 function readDemoLocationFromUrl() {
   const params = new URLSearchParams(window.location.search);
   const requested = params.get('chapter');
@@ -988,7 +1211,7 @@ function StageHotspot({ box, fallback }: { box: AnchorBox | null; fallback: Fall
   );
 }
 
-function ValueRecap() {
+function ValueRecap({ totals, onCopySummary }: { totals: ReturnType<typeof getOutcomeTotals>; onCopySummary: () => void }) {
   const outcomes = [
     ['Portfolio', 'One view of property health, risk, and next actions.'],
     ['ProjectCommand', 'Programme, cost, risk, obligations, evidence, and forecast in one control model.'],
@@ -1012,6 +1235,46 @@ function ValueRecap() {
             The walkthrough shows how a property owner can discover portfolio risk, open a project twin, trace cost and evidence blockers, act on vendor performance, and see field or resident activity flow back into the same system.
           </p>
         </div>
+
+        <section className="rounded-2xl border border-emerald-300/18 bg-emerald-300/8 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-200">Outcome scorecard</div>
+              <h3 className="mt-1 text-xl font-black text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Client-ready proof from this walkthrough.</h3>
+            </div>
+            <button
+              type="button"
+              onClick={onCopySummary}
+              className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#2E7FFF] px-4 text-[12px] font-black text-white transition-colors hover:bg-[#4B91FF]"
+            >
+              <Copy size={15} />
+              Copy summary
+            </button>
+          </div>
+          <div className="mt-4 grid gap-2 md:grid-cols-6">
+            {[
+              [`${totals.completedMissions}/${totals.totalMissions}`, 'missions'],
+              [`${totals.artifactCount}`, 'artifacts'],
+              [`${totals.featureCount}`, 'features'],
+              [`${totals.timeSavedMinutes}m`, 'time saved'],
+              [`-${totals.riskReduction}`, 'risk points'],
+              [`+${totals.readinessGain}`, 'readiness'],
+            ].map(([value, label]) => (
+              <div key={label} className="rounded-xl border border-emerald-300/14 bg-[#07111F] p-3">
+                <div className="text-[18px] font-black text-white">{value}</div>
+                <div className="mt-1 text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">{label}</div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-3 grid gap-2 md:grid-cols-2">
+            {totals.artifacts.slice(0, 6).map(artifact => (
+              <div key={artifact.id} className="rounded-xl border border-[#2E7FFF]/14 bg-[#0A1628] p-3">
+                <div className="text-[12px] font-black text-white">{artifact.label}</div>
+                <p className="mt-1 text-[11px] leading-4 text-[#8EA7C7]">{artifact.detail}</p>
+              </div>
+            ))}
+          </div>
+        </section>
 
         <div className="grid gap-3 lg:grid-cols-5">
           {outcomes.map(([label, detail]) => (
@@ -1046,10 +1309,14 @@ function DemoStage({
   chapter,
   onToast,
   onOpenChapter,
+  totals,
+  onCopySummary,
 }: {
   chapter: DemoChapter;
   onToast: ToastFn;
   onOpenChapter: (chapterId: string) => void;
+  totals: ReturnType<typeof getOutcomeTotals>;
+  onCopySummary: () => void;
 }) {
   if (chapter.screen === 'portfolio') {
     return (
@@ -1095,7 +1362,7 @@ function DemoStage({
     );
   }
 
-  return <ValueRecap />;
+  return <ValueRecap totals={totals} onCopySummary={onCopySummary} />;
 }
 
 export function InteractiveDemoWalkthrough() {
@@ -1106,14 +1373,19 @@ export function InteractiveDemoWalkthrough() {
   const [statusMessage, setStatusMessage] = useState('Guided demo ready');
   const [shareCopied, setShareCopied] = useState(false);
   const [sharePanelOpen, setSharePanelOpen] = useState(false);
+  const [progressState, setProgressState] = useState<DemoProgressState>(loadDemoProgressState);
   const shareInputRef = useRef<HTMLInputElement>(null);
 
   const activeIndex = Math.max(0, DEMO_CHAPTERS.findIndex(chapter => chapter.id === activeId));
   const chapter = DEMO_CHAPTERS[activeIndex] ?? DEMO_CHAPTERS[0];
-  const frames = useMemo(() => getChapterFrames(chapter), [chapter]);
+  const frames = useMemo(() => getEnrichedFrames(chapter), [chapter]);
   const activeFrameIndex = Math.max(0, frames.findIndex(frame => frame.id === activeFrameId));
   const activeFrame = frames[activeFrameIndex] ?? frames[0];
   const nextFrame = frames[activeFrameIndex + 1] ?? null;
+  const allMissionFrames = useMemo(getAllEnrichedFrames, []);
+  const completedMissionSet = useMemo(() => new Set(progressState.completedMissionIds), [progressState.completedMissionIds]);
+  const activeMissionComplete = completedMissionSet.has(activeFrame.mission.id);
+  const outcomeTotals = useMemo(() => getOutcomeTotals(progressState), [progressState]);
   const hotspotTarget = useMemo<HotspotTarget>(() => ({
     anchor: activeFrame.anchor ?? chapter.anchor,
     fallback: activeFrame.fallback ?? chapter.fallback,
@@ -1122,7 +1394,9 @@ export function InteractiveDemoWalkthrough() {
   const progress = Math.round(((activeIndex + ((activeFrameIndex + 1) / frames.length)) / DEMO_CHAPTERS.length) * 100);
   const shareUrl = useMemo(() => buildShareUrl(chapter.id, activeFrame.id), [activeFrame.id, chapter.id]);
   const nextChapter = DEMO_CHAPTERS[(activeIndex + 1) % DEMO_CHAPTERS.length];
-  const primaryActionLabel = nextFrame ? `Next: ${nextFrame.label}` : `Next page: ${nextChapter.shortLabel}`;
+  const primaryActionLabel = activeMissionComplete
+    ? nextFrame ? `Next: ${nextFrame.label}` : `Next page: ${nextChapter.shortLabel}`
+    : activeFrame.mission.actionLabel;
 
   const selectChapter = useCallback((chapterId: string, frameId?: string) => {
     const nextChapter = getChapterById(chapterId);
@@ -1157,7 +1431,7 @@ export function InteractiveDemoWalkthrough() {
 
     const previousIndex = (activeIndex - 1 + DEMO_CHAPTERS.length) % DEMO_CHAPTERS.length;
     const previousChapter = DEMO_CHAPTERS[previousIndex];
-    const previousFrames = getChapterFrames(previousChapter);
+    const previousFrames = getEnrichedFrames(previousChapter);
     selectChapter(previousChapter.id, previousFrames[previousFrames.length - 1]?.id);
   }, [activeFrameIndex, activeIndex, frames, selectChapter, selectFrame]);
 
@@ -1166,10 +1440,58 @@ export function InteractiveDemoWalkthrough() {
     selectChapter(DEMO_CHAPTERS[nextIndex].id);
   }, [activeIndex, selectChapter]);
 
+  const completeMission = useCallback((missionId: string) => {
+    let completedNow = false;
+    setProgressState(current => {
+      if (current.completedMissionIds.includes(missionId)) return current;
+      completedNow = true;
+      return {
+        completedMissionIds: [...current.completedMissionIds, missionId],
+        completedAtByMissionId: {
+          ...current.completedAtByMissionId,
+          [missionId]: new Date().toISOString(),
+        },
+      };
+    });
+    return completedNow;
+  }, []);
+
+  const resetDemoProgress = useCallback(() => {
+    setProgressState(EMPTY_PROGRESS_STATE);
+    try {
+      window.sessionStorage.removeItem(DEMO_PROGRESS_STORAGE_KEY);
+    } catch {
+      // Ignore blocked storage during demo reset.
+    }
+    setStatusMessage('INFO: Demo progress reset');
+    window.setTimeout(() => setStatusMessage('Guided demo ready'), 2400);
+  }, []);
+
+  const isMissionComplete = useCallback((missionId: string) => completedMissionSet.has(missionId), [completedMissionSet]);
+
   const onToast: ToastFn = useCallback((message, type = 'info') => {
+    const matchedFrame = allMissionFrames.find(frame => (
+      frame.mission.trigger.type === 'toastIncludes' && message.includes(frame.mission.trigger.value)
+    ));
+    if (matchedFrame) completeMission(matchedFrame.mission.id);
     setStatusMessage(`${type.toUpperCase()}: ${message}`);
     window.setTimeout(() => setStatusMessage('Guided demo ready'), 3200);
-  }, []);
+  }, [allMissionFrames, completeMission]);
+
+  const completeActiveMission = useCallback(() => {
+    const completedNow = completeMission(activeFrame.mission.id);
+    const message = completedNow ? activeFrame.mission.completionToast : `${activeFrame.artifact.label} already prepared`;
+    setStatusMessage(`${completedNow ? 'SUCCESS' : 'INFO'}: ${message}`);
+    window.setTimeout(() => setStatusMessage('Guided demo ready'), 2600);
+  }, [activeFrame, completeMission]);
+
+  const advanceMissionOrFrame = useCallback(() => {
+    if (!isMissionComplete(activeFrame.mission.id)) {
+      completeActiveMission();
+      return;
+    }
+    advanceFrame();
+  }, [activeFrame.mission.id, advanceFrame, completeActiveMission, isMissionComplete]);
 
   const copyLink = useCallback(async () => {
     setSharePanelOpen(true);
@@ -1185,9 +1507,48 @@ export function InteractiveDemoWalkthrough() {
     onToast('Share link ready to copy below', 'info');
   }, [onToast, shareUrl]);
 
+  const copyOutcomeSummary = useCallback(async () => {
+    const copied = await copyText(buildOutcomeSummary(outcomeTotals));
+    onToast(copied ? 'Outcome scorecard copied' : 'Outcome scorecard is ready to copy from the page', copied ? 'success' : 'info');
+  }, [onToast, outcomeTotals]);
+
   useEffect(() => {
     setShareCopied(false);
   }, [activeFrame.id, chapter.id]);
+
+  useEffect(() => {
+    saveDemoProgressState(progressState);
+  }, [progressState]);
+
+  useEffect(() => {
+    if (activeFrame.mission.trigger.type !== 'frameVisit') return;
+    completeMission(activeFrame.mission.id);
+  }, [activeFrame.mission.id, activeFrame.mission.trigger.type, completeMission]);
+
+  useEffect(() => {
+    const root = stageRef.current;
+    if (!root) return undefined;
+
+    const handleDemoAction = (event: MouseEvent) => {
+      const target = event.target instanceof HTMLElement
+        ? event.target.closest('[data-demo-action]') as HTMLElement | null
+        : null;
+      const action = target?.dataset.demoAction;
+      if (!action) return;
+
+      const matchedFrame = allMissionFrames.find(frame => (
+        frame.mission.trigger.type === 'demoAction' && frame.mission.trigger.action === action
+      ));
+      if (!matchedFrame) return;
+
+      const completedNow = completeMission(matchedFrame.mission.id);
+      setStatusMessage(`${completedNow ? 'SUCCESS' : 'INFO'}: ${matchedFrame.mission.completionToast}`);
+      window.setTimeout(() => setStatusMessage('Guided demo ready'), 2600);
+    };
+
+    root.addEventListener('click', handleDemoAction, true);
+    return () => root.removeEventListener('click', handleDemoAction, true);
+  }, [allMissionFrames, completeMission]);
 
   const openLivePage = useCallback(() => {
     window.location.href = chapter.livePath;
@@ -1218,7 +1579,7 @@ export function InteractiveDemoWalkthrough() {
 
       if (event.key === 'ArrowRight') {
         event.preventDefault();
-        advanceFrame();
+        advanceMissionOrFrame();
       }
 
       if (event.key === 'ArrowLeft') {
@@ -1229,13 +1590,13 @@ export function InteractiveDemoWalkthrough() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [advanceFrame, goBack]);
+  }, [advanceMissionOrFrame, goBack]);
 
   useEffect(() => {
     if (!autoplay) return undefined;
-    const interval = window.setInterval(advanceFrame, 8500);
+    const interval = window.setInterval(advanceMissionOrFrame, 8500);
     return () => window.clearInterval(interval);
-  }, [advanceFrame, autoplay]);
+  }, [advanceMissionOrFrame, autoplay]);
 
   const railItems = useMemo(() => DEMO_CHAPTERS, []);
 
@@ -1249,14 +1610,38 @@ export function InteractiveDemoWalkthrough() {
             <div className="truncate text-[11px] font-semibold text-[#7A94B4]">Actual system walkthrough for property-owner prospects</div>
           </div>
         </div>
-        <div className="hidden min-w-0 flex-1 items-center justify-center lg:flex">
-          <div className="w-full max-w-xl rounded-full border border-[#2E7FFF]/22 bg-[#0A1628] p-1">
-            <div className="h-2 rounded-full bg-[#13294A]">
-              <div className="h-full rounded-full bg-[linear-gradient(90deg,#2E7FFF,#22D3EE,#7C3AED)] transition-all duration-300" style={{ width: `${progress}%` }} />
+        <div className="hidden min-w-0 flex-1 items-center justify-center gap-3 lg:flex">
+          <div className="min-w-0 flex-1 max-w-xl">
+            <div className="mb-1 truncate text-center text-[10px] font-black uppercase tracking-[0.14em] text-cyan-200">{DEMO_SCENARIO}</div>
+            <div className="rounded-full border border-[#2E7FFF]/22 bg-[#0A1628] p-1">
+              <div className="h-2 rounded-full bg-[#13294A]">
+                <div className="h-full rounded-full bg-[linear-gradient(90deg,#2E7FFF,#22D3EE,#7C3AED)] transition-all duration-300" style={{ width: `${progress}%` }} />
+              </div>
             </div>
+          </div>
+          <div className="hidden shrink-0 grid-cols-3 gap-1 xl:grid">
+            {[
+              [`${outcomeTotals.completedMissions}/${outcomeTotals.totalMissions}`, 'missions'],
+              [`${outcomeTotals.artifactCount}`, 'artifacts'],
+              [`${outcomeTotals.riskReduction}`, 'risk pts'],
+            ].map(([value, label]) => (
+              <div key={label} className="rounded-lg border border-[#2E7FFF]/18 bg-[#0A1628] px-2 py-1 text-center">
+                <div className="text-[12px] font-black text-white">{value}</div>
+                <div className="text-[8px] font-black uppercase tracking-[0.12em] text-[#7A94B4]">{label}</div>
+              </div>
+            ))}
           </div>
         </div>
         <div className="relative flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={resetDemoProgress}
+            className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#2E7FFF]/24 bg-[#0A1628] px-3 text-[11px] font-black text-[#B8C7DB] transition-colors hover:bg-[#112040] hover:text-white"
+            aria-label="Reset demo progress"
+          >
+            <RotateCcw size={14} />
+            <span className="hidden sm:inline">Reset</span>
+          </button>
           <button
             type="button"
             onClick={copyLink}
@@ -1338,6 +1723,9 @@ export function InteractiveDemoWalkthrough() {
             {railItems.map((item, index) => {
               const Icon = item.icon;
               const active = item.id === chapter.id;
+              const itemFrames = getEnrichedFrames(item);
+              const itemCompleted = itemFrames.filter(frame => completedMissionSet.has(frame.mission.id)).length;
+              const itemDone = itemCompleted === itemFrames.length;
               return (
                 <button
                   key={item.id}
@@ -1350,11 +1738,12 @@ export function InteractiveDemoWalkthrough() {
                   }`}
                 >
                   <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border ${active ? 'border-cyan-300/30 bg-cyan-300/12 text-cyan-200' : 'border-[#2E7FFF]/14 bg-[#07111F] text-[#7A94B4]'}`}>
-                    <Icon size={15} />
+                    {itemDone ? <CheckCircle2 size={15} /> : <Icon size={15} />}
                   </span>
                   <span className="min-w-0 md:hidden xl:block">
                     <span className="block text-[10px] font-black uppercase tracking-[0.14em] text-[#5F7FA8]">{String(index + 1).padStart(2, '0')}</span>
                     <span className="block truncate text-[12px] font-black">{item.label}</span>
+                    <span className="block text-[9px] font-black uppercase tracking-[0.12em] text-[#5F7FA8]">{itemCompleted}/{itemFrames.length} missions</span>
                   </span>
                 </button>
               );
@@ -1376,28 +1765,40 @@ export function InteractiveDemoWalkthrough() {
               </div>
             </div>
             <div ref={stageRef} className="relative min-h-0 flex-1 overflow-hidden">
-              <DemoStage key={chapter.id} chapter={chapter} onToast={onToast} onOpenChapter={selectChapter} />
+              <DemoStage key={chapter.id} chapter={chapter} onToast={onToast} onOpenChapter={selectChapter} totals={outcomeTotals} onCopySummary={copyOutcomeSummary} />
               <StageHotspot box={anchorBox} fallback={hotspotTarget.fallback} />
             </div>
           </div>
         </main>
 
-        <aside className="custom-scrollbar min-h-0 overflow-y-auto border-t border-[#2E7FFF]/16 bg-[#07111F] p-3 pb-5 md:border-l md:border-t-0">
-          <div className="flex h-full min-h-0 flex-col gap-2">
+        <aside className="flex min-h-0 flex-col border-t border-[#2E7FFF]/16 bg-[#07111F] p-3 md:border-l md:border-t-0">
+          <div className="custom-scrollbar min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
             <div>
               <div className="flex items-center justify-between gap-2">
-                <div className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-200">Why this matters</div>
+                <div className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-200">Mission brief</div>
                 <div className="rounded-full border border-[#2E7FFF]/22 bg-[#0A1628] px-2 py-1 text-[10px] font-black text-[#8DBDFF]">
-                  {activeFrameIndex + 1}/{frames.length}
+                  {activeMissionComplete ? 'Complete' : `${activeFrameIndex + 1}/${frames.length}`}
                 </div>
               </div>
               <h1 className="mt-1.5 text-[19px] font-black leading-tight text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{activeFrame.headline}</h1>
               <p className="mt-2 text-[12px] leading-5 text-[#B8C7DB]">{activeFrame.story}</p>
             </div>
 
+            <section className={`rounded-xl border px-3 py-2.5 ${activeMissionComplete ? 'border-emerald-300/24 bg-emerald-300/10' : 'border-[#2E7FFF]/22 bg-[#0A1628]'}`}>
+              <div className="flex items-start gap-2">
+                <CheckCircle2 size={15} className={`mt-0.5 shrink-0 ${activeMissionComplete ? 'text-emerald-200' : 'text-[#5F7FA8]'}`} />
+                <div className="min-w-0">
+                  <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#8DBDFF]">Try this</div>
+                  <p className="mt-1 text-[12px] font-bold leading-5 text-white">{activeFrame.mission.prompt}</p>
+                  <p className="mt-1 text-[11px] leading-4 text-[#8EA7C7]">{activeFrame.mission.talkingPoint}</p>
+                </div>
+              </div>
+            </section>
+
             <section className="grid grid-cols-3 gap-1.5">
               {frames.map((frame, index) => {
                 const active = frame.id === activeFrame.id;
+                const complete = completedMissionSet.has(frame.mission.id);
                 return (
                   <button
                     key={frame.id}
@@ -1410,7 +1811,10 @@ export function InteractiveDemoWalkthrough() {
                     }`}
                     aria-current={active ? 'step' : undefined}
                   >
-                    <span className="block text-[9px] font-black uppercase tracking-[0.14em] text-[#5F7FA8]">{String(index + 1).padStart(2, '0')}</span>
+                    <span className="flex items-center justify-between gap-1 text-[9px] font-black uppercase tracking-[0.14em] text-[#5F7FA8]">
+                      <span>{String(index + 1).padStart(2, '0')}</span>
+                      {complete && <CheckCircle2 size={10} className="text-emerald-200" />}
+                    </span>
                     <span className="mt-0.5 block truncate text-[11px] font-black">{frame.label}</span>
                   </button>
                 );
@@ -1430,35 +1834,62 @@ export function InteractiveDemoWalkthrough() {
                 <div className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-200">Next action</div>
                 <p className="mt-1 text-[12px] leading-5 text-emerald-50">{activeFrame.nextAction}</p>
               </div>
+              <div className="border-t border-[#2E7FFF]/12 px-3 py-2">
+                <div className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-200">Features covered</div>
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {activeFrame.features.map(feature => (
+                    <span key={feature} className="rounded-full border border-[#2E7FFF]/18 bg-[#07111F] px-2 py-1 text-[10px] font-bold text-[#B8C7DB]">{feature}</span>
+                  ))}
+                </div>
+              </div>
             </section>
 
-            <div className="mt-auto space-y-2">
+            <section className="rounded-xl border border-[#2E7FFF]/18 bg-[#0A1628] px-3 py-2">
+              <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#7A94B4]">Prepared artifact</div>
+              <div className="mt-1 text-[12px] font-black text-white">{activeFrame.artifact.label}</div>
+              <p className="mt-1 text-[11px] leading-4 text-[#8EA7C7]">{activeFrame.artifact.detail}</p>
+              <div className="mt-2 grid grid-cols-3 gap-1.5">
+                {[
+                  [`${activeFrame.outcome.timeSavedMinutes}m`, 'saved'],
+                  [`-${activeFrame.outcome.riskReduction}`, 'risk'],
+                  [`+${activeFrame.outcome.readinessGain}`, 'ready'],
+                ].map(([value, label]) => (
+                  <div key={label} className="rounded-lg border border-[#2E7FFF]/14 bg-[#07111F] px-2 py-1 text-center">
+                    <div className="text-[12px] font-black text-white">{value}</div>
+                    <div className="text-[8px] font-black uppercase tracking-[0.12em] text-[#5F7FA8]">{label}</div>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+          </div>
+
+          <div className="mt-3 shrink-0 space-y-2 border-t border-[#2E7FFF]/14 pt-3">
+            <button
+              type="button"
+              onClick={advanceMissionOrFrame}
+              className="flex min-h-10 w-full items-center justify-center gap-2 rounded-xl bg-[#2E7FFF] px-3 py-2.5 text-center text-[12px] font-black leading-tight text-white shadow-lg shadow-blue-950/30 transition-colors hover:bg-[#4B91FF]"
+            >
+              {activeMissionComplete ? <ChevronRight size={15} className="shrink-0" /> : <Sparkles size={15} className="shrink-0" />}
+              <span className="min-w-0 truncate">{primaryActionLabel}</span>
+            </button>
+            <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
-                onClick={advanceFrame}
-                className="flex min-h-10 w-full items-center justify-center gap-2 rounded-xl bg-[#2E7FFF] px-3 py-2.5 text-center text-[12px] font-black leading-tight text-white shadow-lg shadow-blue-950/30 transition-colors hover:bg-[#4B91FF]"
+                onClick={goBack}
+                className="flex h-9 items-center justify-center gap-2 rounded-xl border border-[#2E7FFF]/22 bg-[#0A1628] text-[12px] font-black text-[#B8C7DB] transition-colors hover:bg-[#112040] hover:text-white"
               >
-                <Sparkles size={15} className="shrink-0" />
-                <span className="min-w-0 truncate">{primaryActionLabel}</span>
+                <ChevronLeft size={15} />
+                Previous
               </button>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={goBack}
-                  className="flex h-9 items-center justify-center gap-2 rounded-xl border border-[#2E7FFF]/22 bg-[#0A1628] text-[12px] font-black text-[#B8C7DB] transition-colors hover:bg-[#112040] hover:text-white"
-                >
-                  <ChevronLeft size={15} />
-                  Previous
-                </button>
-                <button
-                  type="button"
-                  onClick={() => goBy(1)}
-                  className="flex h-9 items-center justify-center gap-2 rounded-xl border border-[#2E7FFF]/22 bg-[#0A1628] text-[12px] font-black text-[#B8C7DB] transition-colors hover:bg-[#112040] hover:text-white"
-                >
-                  Next page
-                  <ChevronRight size={15} />
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => goBy(1)}
+                className="flex h-9 items-center justify-center gap-2 rounded-xl border border-[#2E7FFF]/22 bg-[#0A1628] text-[12px] font-black text-[#B8C7DB] transition-colors hover:bg-[#112040] hover:text-white"
+              >
+                Next page
+                <ChevronRight size={15} />
+              </button>
             </div>
           </div>
         </aside>
