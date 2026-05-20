@@ -977,14 +977,13 @@ function StageHotspot({ box, fallback }: { box: AnchorBox | null; fallback: Fall
     <div
       aria-hidden="true"
       data-demo-hotspot="true"
-      className="pointer-events-none absolute z-30 rounded-2xl border border-cyan-200/85 bg-transparent shadow-[0_0_22px_rgba(34,211,238,0.22)]"
+      className="pointer-events-none absolute z-30 bg-transparent"
       style={highlightStyle}
     >
-      <span className="absolute left-0 top-0 h-4 w-4 -translate-x-px -translate-y-px rounded-tl-2xl border-l-2 border-t-2 border-cyan-200" />
-      <span className="absolute right-0 top-0 h-4 w-4 translate-x-px -translate-y-px rounded-tr-2xl border-r-2 border-t-2 border-cyan-200" />
-      <span className="absolute bottom-0 left-0 h-4 w-4 -translate-x-px translate-y-px rounded-bl-2xl border-b-2 border-l-2 border-cyan-200" />
-      <span className="absolute bottom-0 right-0 h-4 w-4 translate-x-px translate-y-px rounded-br-2xl border-b-2 border-r-2 border-cyan-200" />
-      <div className="absolute right-2 top-2 h-3 w-3 rounded-full bg-cyan-300 shadow-[0_0_14px_rgba(34,211,238,0.7)]" />
+      <span className="absolute left-0 top-0 h-3 w-3 -translate-x-px -translate-y-px rounded-tl-xl border-l-2 border-t-2 border-cyan-200/80" />
+      <span className="absolute right-0 top-0 h-3 w-3 translate-x-px -translate-y-px rounded-tr-xl border-r-2 border-t-2 border-cyan-200/80" />
+      <span className="absolute bottom-0 left-0 h-3 w-3 -translate-x-px translate-y-px rounded-bl-xl border-b-2 border-l-2 border-cyan-200/80" />
+      <span className="absolute bottom-0 right-0 h-3 w-3 translate-x-px translate-y-px rounded-br-xl border-b-2 border-r-2 border-cyan-200/80" />
     </div>
   );
 }
