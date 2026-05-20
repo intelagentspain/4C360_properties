@@ -786,24 +786,24 @@ export function InteractiveDemoWalkthrough() {
           </div>
         </main>
 
-        <aside className="custom-scrollbar min-h-0 overflow-y-auto border-t border-[#2E7FFF]/16 bg-[#07111F] p-3 lg:border-l lg:border-t-0">
-          <div className="flex min-h-full flex-col gap-3">
+        <aside className="custom-scrollbar min-h-0 overflow-y-auto border-t border-[#2E7FFF]/16 bg-[#07111F] p-3 pb-5 lg:border-l lg:border-t-0">
+          <div className="flex h-full min-h-0 flex-col gap-2">
             <div>
               <div className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-200">Why this matters</div>
-              <h1 className="mt-2 text-[21px] font-black leading-tight text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{chapter.headline}</h1>
+              <h1 className="mt-1.5 text-[20px] font-black leading-tight text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{chapter.headline}</h1>
               <p className="mt-2 text-[12px] leading-5 text-[#B8C7DB]">{chapter.story}</p>
             </div>
 
             <section className="rounded-xl border border-[#2E7FFF]/18 bg-[#0A1628]">
-              <div className="px-3 py-2.5">
+              <div className="px-3 py-2">
                 <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#7A94B4]">Client value</div>
                 <p className="mt-1 text-[12px] leading-5 text-[#E6EEF9]">{chapter.clientValue}</p>
               </div>
-              <div className="border-t border-[#2E7FFF]/12 px-3 py-2.5">
+              <div className="border-t border-[#2E7FFF]/12 px-3 py-2">
                 <div className="text-[10px] font-black uppercase tracking-[0.16em] text-amber-200">Client question</div>
                 <p className="mt-1 text-[12px] leading-5 text-amber-50">{chapter.decisionQuestion}</p>
               </div>
-              <div className="border-t border-[#2E7FFF]/12 px-3 py-2.5">
+              <div className="border-t border-[#2E7FFF]/12 px-3 py-2">
                 <div className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-200">Next action</div>
                 <p className="mt-1 text-[12px] leading-5 text-emerald-50">{chapter.nextAction}</p>
               </div>
