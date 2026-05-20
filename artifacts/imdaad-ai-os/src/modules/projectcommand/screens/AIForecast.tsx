@@ -18,7 +18,7 @@ export function AIForecast() {
   ];
 
   return (
-    <div className="custom-scrollbar h-full overflow-x-hidden overflow-y-auto px-5 py-4 text-[#EEF3FA]">
+    <div className="custom-scrollbar h-full overflow-x-hidden overflow-y-auto px-5 py-4 text-[#EEF3FA]" data-demo-anchor="project-forecast">
       <div className="mb-4 grid gap-4 xl:grid-cols-3">
         {Object.entries(aiContent.scenarios).map(([key, item]) => (
           <ScenarioCard

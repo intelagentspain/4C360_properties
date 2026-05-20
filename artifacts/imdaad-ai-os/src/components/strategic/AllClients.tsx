@@ -4043,7 +4043,7 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
   const selectedStatusSummary = selectedStatusKey ? statusSummaries.find(s => s.key === selectedStatusKey) ?? null : null;
 
   return (
-    <div className="h-full flex flex-col overflow-hidden relative">
+    <div className="h-full flex flex-col overflow-hidden relative" data-demo-anchor="portfolio-command">
       <div className="flex flex-col gap-3 px-5 py-3 border-b border-[rgba(46,127,255,0.15)] flex-shrink-0 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h2 className="text-[#EEF3FA] font-bold text-base" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
@@ -4055,7 +4055,7 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
               : `Portfolio command view · ${allClients.length} properties · Master Admin`}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+        <div className="flex flex-wrap items-center gap-2 lg:justify-end" data-demo-anchor="portfolio-health-actions">
           {statusSummaries.map(k => (
             <button
               key={k.key}

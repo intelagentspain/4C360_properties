@@ -27,7 +27,7 @@ export function RiskCommand() {
   }));
 
   return (
-    <div className="custom-scrollbar h-full overflow-x-hidden overflow-y-auto px-5 py-4 text-[#EEF3FA]">
+    <div className="custom-scrollbar h-full overflow-x-hidden overflow-y-auto px-5 py-4 text-[#EEF3FA]" data-demo-anchor="project-risk">
       <div className="mb-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {severities.map(severity => {
           const count = risks.filter(risk => risk.severity === severity).length;

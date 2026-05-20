@@ -2266,7 +2266,7 @@ export function FieldOpsDashboard({ onToast }: Props) {
   );
 
   return (
-    <div className="flex h-full flex-col overflow-hidden text-[#EEF3FA]">
+    <div className="flex h-full flex-col overflow-hidden text-[#EEF3FA]" data-demo-anchor="fieldops-command">
       <div className="flex-shrink-0 border-b border-[rgba(46,127,255,0.12)] px-6 py-5">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
           <div>
@@ -2286,7 +2286,7 @@ export function FieldOpsDashboard({ onToast }: Props) {
       </div>
 
       <div className="custom-scrollbar flex-1 overflow-y-auto px-6 py-5">
-        <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-5">
+        <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-5" data-demo-anchor="fieldops-kpis">
           {stats.map(stat => {
             const Icon = stat.icon;
             return (

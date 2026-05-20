@@ -7,6 +7,7 @@ import { FieldJobDeepLink } from "./pages/FieldJobDeepLink";
 import { LoginPage } from "./components/auth/LoginPage";
 import { FieldOpsCapture } from "./modules/fieldops/FieldOpsCapture";
 import { ModuleBrochure } from "./pages/ModuleBrochure";
+import { InteractiveDemoWalkthrough } from "./modules/demo";
 import { IncidentProvider, useIncidents } from "./context/IncidentContext";
 import { NotificationProvider } from "./context/NotificationContext";
 import { MemberProfilesProvider } from "./context/MemberProfilesContext";
@@ -48,6 +49,7 @@ function Root() {
   const isField = path === '/field' || path === '/field/' || path.startsWith('/field/');
   const fieldOpsCaptureMatch = path.match(/^\/fieldops\/survey\/([^/]+)\/capture/);
   const isLogin = path === '/login' || path === '/login/';
+  const isPropertiesDemo = path === '/demo/properties' || path === '/demo/properties/';
   const isBrochuresHost = window.location.hostname === 'brochures.4cgrc.com';
   const isSolutionsHost = window.location.hostname === 'solutions.4c360.com';
   const isSolutionSlug = /^\/(properties|fm|marine|osh)\/?$/.test(path);
@@ -56,6 +58,22 @@ function Root() {
 
   if (isLogin) {
     return <LoginPage />;
+  }
+
+  if (isPropertiesDemo) {
+    return (
+      <VendorsProvider>
+        <ClientsProvider>
+          <MemberProfilesProvider>
+            <NotificationProvider>
+              <IncidentProvider>
+                <InteractiveDemoWalkthrough />
+              </IncidentProvider>
+            </NotificationProvider>
+          </MemberProfilesProvider>
+        </ClientsProvider>
+      </VendorsProvider>
+    );
   }
 
   if (isBrochure) {

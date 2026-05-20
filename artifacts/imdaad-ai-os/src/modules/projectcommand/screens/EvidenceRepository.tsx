@@ -555,7 +555,7 @@ export function EvidenceRepository({ onToast }: { onToast?: (message: string, ty
   }));
 
   return (
-    <div className="custom-scrollbar h-full min-h-0 overflow-x-hidden overflow-y-auto px-5 py-4 text-[#EEF3FA]">
+    <div className="custom-scrollbar h-full min-h-0 overflow-x-hidden overflow-y-auto px-5 py-4 text-[#EEF3FA]" data-demo-anchor="project-evidence">
       <div className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-3">
