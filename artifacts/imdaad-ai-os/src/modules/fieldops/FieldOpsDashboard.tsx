@@ -2498,7 +2498,7 @@ export function FieldOpsDashboard({ onToast }: Props) {
                     <p className="text-[11px] text-[#7A94B4]">Responsible role: {generatedSurvey.responsibleRole}</p>
                   </div>
                   <div className="flex gap-2">
-                    <button onClick={() => onToast('AI structure applied to survey canvas', 'success')} className="rounded-lg bg-[#E11D2E] px-3 py-2 text-[11px] font-bold text-white">Apply to Survey</button>
+                    <button onClick={() => onToast('AI structure applied to survey canvas', 'success')} data-demo-action="fieldops-apply-survey" className="rounded-lg bg-[#E11D2E] px-3 py-2 text-[11px] font-bold text-white">Apply to Survey</button>
                     <button onClick={() => { setAiPrompt(current => nudgePrompt(current)); onToast('AI regenerated the checklist from your prompt', 'info'); }} className="rounded-lg border border-[rgba(46,127,255,0.22)] px-3 py-2 text-[11px] font-bold text-[#B8C7DB]">Regenerate</button>
                   </div>
                 </div>

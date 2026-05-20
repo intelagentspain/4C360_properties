@@ -2964,6 +2964,7 @@ function CardActions({
     <div className="grid grid-cols-3 gap-1 pt-2 border-t border-[rgba(46,127,255,0.1)]">
       <button
         onClick={e => { e.stopPropagation(); onNavigateToCommand(client.id, client.name); }}
+        data-demo-action="portfolio-open-command"
         className="flex flex-col items-center gap-0.5 py-1.5 rounded-lg bg-[rgba(46,127,255,0.1)] hover:bg-[rgba(46,127,255,0.2)] text-cyan-400 transition-colors"
         title="Command Center"
       >
@@ -3919,6 +3920,7 @@ function ClientDetailDrawer({
           <div className="p-4 border-t border-[rgba(46,127,255,0.15)] space-y-2">
             <button
               onClick={() => { onNavigateToCommand(client.id, client.name); onClose(); }}
+              data-demo-action="portfolio-open-command"
               className="w-full py-2.5 bg-[#2E7FFF] text-white text-[12px] font-semibold rounded-lg hover:bg-blue-500 transition-colors flex items-center justify-center gap-1.5"
             >
               Open Command Center <ArrowRight size={13} />

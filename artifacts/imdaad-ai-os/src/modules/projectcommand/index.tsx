@@ -170,6 +170,7 @@ export function ProjectCommand({
               <button
                 key={tab.id}
                 onClick={() => goTo(tab.id)}
+                data-demo-action={`projectcommand-tab-${tab.id}`}
                 className={`flex h-9 flex-shrink-0 items-center gap-1.5 rounded-lg border px-3 text-[11px] font-bold transition-all ${
                   active
                     ? 'border-[#7C3AED]/45 bg-[#7C3AED]/18 text-[#DDD6FE] shadow-[0_0_18px_rgba(124,58,237,0.14)]'

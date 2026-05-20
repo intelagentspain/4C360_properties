@@ -210,6 +210,7 @@ export function HospitalityClientView({ onToast, guestName = 'Resident', propert
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.07, duration: 0.28, ease: 'easeOut' }}
                 onClick={() => setActiveMode(mode.id)}
+                data-demo-action={`resident-mode-${mode.id}`}
                 className="flex flex-col items-start p-4 rounded-2xl text-left transition-all duration-200 active:scale-95"
                 style={{
                   background: '#FFFFFF',
@@ -262,6 +263,7 @@ export function HospitalityClientView({ onToast, guestName = 'Resident', propert
 
           <button
             onClick={handleCopyLink}
+            data-demo-action="resident-copy-link"
             className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl text-sm font-medium transition-all duration-200 active:scale-[0.97]"
             style={{
               background: '#FFFFFF',
