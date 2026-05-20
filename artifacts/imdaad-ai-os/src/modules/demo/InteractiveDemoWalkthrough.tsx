@@ -246,6 +246,7 @@ const DEMO_VOICE_ID = (
   import.meta.env.VITE_ELEVENLABS_DEMO_VOICE_ID
   ?? import.meta.env.VITE_ELEVENLABS_VOICE_ID
 ) as string | undefined;
+const SHOW_DEMO_VOICE_ADVISOR = import.meta.env.VITE_SHOW_DEMO_VOICE_ADVISOR === 'true';
 
 const SHOW_MODE_OPTIONS: Array<{
   id: DemoShowMode;
@@ -1965,7 +1966,7 @@ function ExecutiveControlRoom({
                 ))}
               </div>
               <p className="mt-3 text-[12px] leading-5 text-[#8EA7C7]">
-                Premium audio is handled by the ElevenLabs board advisor when an agent ID is configured. Captions stay on-screen for every board show.
+                Captions stay on-screen for every board show. Internal presenter audio can be enabled separately by the demo operator.
               </p>
             </div>
           </section>
@@ -2035,6 +2036,13 @@ async function requestDemoMicrophoneAccess() {
 
   const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
   stream.getTracks().forEach(track => track.stop());
+}
+
+function shouldShowDemoVoiceAdvisor() {
+  if (SHOW_DEMO_VOICE_ADVISOR) return true;
+  if (typeof window === 'undefined') return false;
+  const params = new URLSearchParams(window.location.search);
+  return params.get('voiceDebug') === 'true' || params.get('voiceControls') === 'true';
 }
 
 function DemoVoiceAdvisor({ section, onToast }: { section: DemoSection; onToast: ToastFn }) {
@@ -2771,7 +2779,7 @@ export function InteractiveDemoWalkthrough() {
             {autopilot.status === 'playing' ? <Pause size={14} /> : <Play size={14} />}
             <span className="hidden sm:inline">{autopilot.status === 'playing' ? 'Pause' : 'Play'}</span>
           </button>
-          <DemoVoiceAdvisor section={activeFrame} onToast={onToast} />
+          {shouldShowDemoVoiceAdvisor() && <DemoVoiceAdvisor section={activeFrame} onToast={onToast} />}
           <button
             type="button"
             onClick={resetDemoProgress}
