@@ -40,7 +40,12 @@ function isResidentDomain(): boolean {
 
 function getInitialStrategicPage(): StrategicPage {
   if (window.location.pathname.startsWith('/residentportal')) return 'residentportal';
+  if (window.location.pathname.startsWith('/vendorintelligence')) return 'vendorintelligence';
   return window.location.pathname.startsWith('/projectcommand') ? 'projectcommand' : 'allclients';
+}
+
+function getInitialPerspective(): Perspective {
+  return window.location.pathname === '/fieldops' || window.location.pathname === '/fieldops/' ? 'operational' : 'strategic';
 }
 
 function isResidentPortalRoute(): boolean {
@@ -74,7 +79,7 @@ const PERSP_MAP: Record<string, Perspective> = {
 
 function App() {
   const { getById }                          = useMemberProfiles();
-  const [perspective,    setPerspective]     = useState<Perspective>('strategic');
+  const [perspective,    setPerspective]     = useState<Perspective>(getInitialPerspective);
   const [strategicPage,  setStrategicPage]   = useState<StrategicPage>(getInitialStrategicPage);
   const [pathVersion, setPathVersion] = useState(0);
   const { toasts, addToast, removeToast }    = useToast();
@@ -115,7 +120,12 @@ function App() {
 
   const handleSetPerspective = (p: Perspective) => {
     setPerspective(p);
-    if (window.location.pathname.startsWith('/projectcommand') || window.location.pathname.startsWith('/residentportal')) {
+    if (
+      window.location.pathname.startsWith('/projectcommand') ||
+      window.location.pathname.startsWith('/residentportal') ||
+      window.location.pathname.startsWith('/vendorintelligence') ||
+      window.location.pathname.startsWith('/fieldops')
+    ) {
       window.history.pushState({}, '', '/');
       setPathVersion(current => current + 1);
     }
@@ -178,7 +188,20 @@ function App() {
       window.history.pushState({}, '', '/residentportal');
       setPathVersion(current => current + 1);
     }
-    if (page !== 'projectcommand' && page !== 'residentportal' && (window.location.pathname.startsWith('/projectcommand') || window.location.pathname.startsWith('/residentportal'))) {
+    if (page === 'vendorintelligence' && !window.location.pathname.startsWith('/vendorintelligence')) {
+      window.history.pushState({}, '', '/vendorintelligence');
+      setPathVersion(current => current + 1);
+    }
+    if (
+      page !== 'projectcommand' &&
+      page !== 'residentportal' &&
+      page !== 'vendorintelligence' &&
+      (
+        window.location.pathname.startsWith('/projectcommand') ||
+        window.location.pathname.startsWith('/residentportal') ||
+        window.location.pathname.startsWith('/vendorintelligence')
+      )
+    ) {
       window.history.pushState({}, '', '/');
       setPathVersion(current => current + 1);
     }

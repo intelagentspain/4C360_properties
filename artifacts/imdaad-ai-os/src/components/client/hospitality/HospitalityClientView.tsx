@@ -156,7 +156,7 @@ export function HospitalityClientView({ onToast, guestName = 'Resident', propert
   }
 
   return (
-    <div className="flex flex-col h-full overflow-y-auto" style={{ background: '#FDFAF6' }}>
+    <div className="flex flex-col h-full overflow-y-auto" data-demo-anchor="resident-experience" style={{ background: '#FDFAF6' }}>
       <div
         className="flex-shrink-0 px-6 pt-10 pb-8"
         style={{

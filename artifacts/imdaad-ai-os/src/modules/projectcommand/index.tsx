@@ -44,11 +44,15 @@ function screenFromPath(): ProjectCommandScreen {
 export function ProjectCommand({
   onToast,
   onOpenVendorIQ,
+  initialScreen,
+  demoMode = false,
 }: {
   onToast?: (message: string, type?: 'success' | 'warning' | 'error' | 'info') => void;
   onOpenVendorIQ?: () => void;
+  initialScreen?: ProjectCommandScreen;
+  demoMode?: boolean;
 }) {
-  const [screen, setScreen] = useState<ProjectCommandScreen>(screenFromPath);
+  const [screen, setScreen] = useState<ProjectCommandScreen>(() => initialScreen ?? screenFromPath());
   const [addProjectOpen, setAddProjectOpen] = useState(false);
   const selectedDataset = useSelectedProjectCommandData();
   const { organization, portfolio, property, project } = selectedDataset;
@@ -59,10 +63,14 @@ export function ProjectCommand({
   const goTo = (next: ProjectCommandScreen) => {
     setScreen(next);
     const nextPath = `/projectcommand/${next}`;
-    if (window.location.pathname !== nextPath) {
+    if (!demoMode && window.location.pathname !== nextPath) {
       window.history.pushState({}, '', nextPath);
     }
   };
+
+  useEffect(() => {
+    if (initialScreen) setScreen(initialScreen);
+  }, [initialScreen]);
 
   const activeTitle = useMemo(() => tabs.find(tab => tab.id === screen)?.label ?? 'Overview', [screen]);
 
@@ -101,10 +109,10 @@ export function ProjectCommand({
   }, [selectedDataset.id]);
 
   return (
-    <div className="flex h-full flex-col overflow-hidden text-[#EEF3FA]">
+    <div className="flex h-full flex-col overflow-hidden text-[#EEF3FA]" data-demo-anchor="projectcommand-shell">
       <div className="flex-shrink-0 border-b border-[rgba(46,127,255,0.12)] bg-[#07111F]/35 px-5 py-4">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
-          <div>
+          <div data-demo-anchor="projectcommand-context">
             <div className="mb-1 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-[#A78BFA]">
               <BrainCircuit size={13} />
               ProjectCommand / {activeTitle}
@@ -154,7 +162,7 @@ export function ProjectCommand({
           </div>
         </div>
 
-        <div className="no-scrollbar mt-4 flex gap-1.5 overflow-x-auto pb-1">
+        <div className="no-scrollbar mt-4 flex gap-1.5 overflow-x-auto pb-1" data-demo-anchor="projectcommand-tabs">
           {tabs.map(tab => {
             const Icon = tab.icon;
             const active = tab.id === screen;

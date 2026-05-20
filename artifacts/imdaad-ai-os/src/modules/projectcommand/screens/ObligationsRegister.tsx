@@ -152,7 +152,7 @@ export function ObligationsRegister({ onToast }: { onToast?: (message: string, t
   const closeDetail = () => setSelectedCode(null);
 
   return (
-    <div className={`grid h-full min-h-0 gap-4 text-[#EEF3FA] ${selected ? 'xl:grid-cols-[minmax(0,1fr)_600px]' : 'xl:grid-cols-1'}`}>
+    <div className={`grid h-full min-h-0 gap-4 text-[#EEF3FA] ${selected ? 'xl:grid-cols-[minmax(0,1fr)_600px]' : 'xl:grid-cols-1'}`} data-demo-anchor="project-obligations">
       <div className="custom-scrollbar min-h-0 overflow-y-auto px-5 py-4">
         <div className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
