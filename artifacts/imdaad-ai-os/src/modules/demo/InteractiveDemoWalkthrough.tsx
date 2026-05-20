@@ -786,43 +786,43 @@ export function InteractiveDemoWalkthrough() {
           </div>
         </main>
 
-        <aside className="min-h-0 border-t border-[#2E7FFF]/16 bg-[#07111F] p-4 lg:border-l lg:border-t-0">
-          <div className="flex h-full min-h-0 flex-col gap-4">
+        <aside className="custom-scrollbar min-h-0 overflow-y-auto border-t border-[#2E7FFF]/16 bg-[#07111F] p-3 lg:border-l lg:border-t-0">
+          <div className="flex min-h-full flex-col gap-3">
             <div>
               <div className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-200">Why this matters</div>
-              <h1 className="mt-3 text-2xl font-black leading-tight text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{chapter.headline}</h1>
-              <p className="mt-3 text-[13px] leading-6 text-[#B8C7DB]">{chapter.story}</p>
+              <h1 className="mt-2 text-[21px] font-black leading-tight text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{chapter.headline}</h1>
+              <p className="mt-2 text-[12px] leading-5 text-[#B8C7DB]">{chapter.story}</p>
             </div>
 
-            <section className="rounded-xl border border-[#2E7FFF]/18 bg-[#0A1628] p-4">
-              <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#7A94B4]">Client value</div>
-              <p className="mt-2 text-[13px] leading-6 text-[#E6EEF9]">{chapter.clientValue}</p>
+            <section className="rounded-xl border border-[#2E7FFF]/18 bg-[#0A1628]">
+              <div className="px-3 py-2.5">
+                <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#7A94B4]">Client value</div>
+                <p className="mt-1 text-[12px] leading-5 text-[#E6EEF9]">{chapter.clientValue}</p>
+              </div>
+              <div className="border-t border-[#2E7FFF]/12 px-3 py-2.5">
+                <div className="text-[10px] font-black uppercase tracking-[0.16em] text-amber-200">Client question</div>
+                <p className="mt-1 text-[12px] leading-5 text-amber-50">{chapter.decisionQuestion}</p>
+              </div>
+              <div className="border-t border-[#2E7FFF]/12 px-3 py-2.5">
+                <div className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-200">Next action</div>
+                <p className="mt-1 text-[12px] leading-5 text-emerald-50">{chapter.nextAction}</p>
+              </div>
             </section>
 
-            <section className="rounded-xl border border-amber-300/18 bg-amber-300/8 p-4">
-              <div className="text-[10px] font-black uppercase tracking-[0.16em] text-amber-200">Client question</div>
-              <p className="mt-2 text-[13px] leading-6 text-amber-50">{chapter.decisionQuestion}</p>
-            </section>
-
-            <section className="rounded-xl border border-emerald-300/18 bg-emerald-300/8 p-4">
-              <div className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-200">Next action</div>
-              <p className="mt-2 text-[13px] leading-6 text-emerald-50">{chapter.nextAction}</p>
-            </section>
-
-            <div className="mt-auto space-y-3">
+            <div className="mt-auto space-y-2">
               <button
                 type="button"
                 onClick={tryChapter}
-                className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#7C3AED] px-4 text-[12px] font-black text-white shadow-lg shadow-violet-950/30 transition-colors hover:bg-[#6D28D9]"
+                className="flex min-h-10 w-full items-center justify-center gap-2 rounded-xl bg-[#7C3AED] px-3 py-2.5 text-center text-[12px] font-black leading-tight text-white shadow-lg shadow-violet-950/30 transition-colors hover:bg-[#6D28D9]"
               >
-                <Sparkles size={15} />
-                {chapter.tryLabel}
+                <Sparkles size={15} className="shrink-0" />
+                <span className="min-w-0">{chapter.tryLabel}</span>
               </button>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => goBy(-1)}
-                  className="flex h-10 items-center justify-center gap-2 rounded-xl border border-[#2E7FFF]/22 bg-[#0A1628] text-[12px] font-black text-[#B8C7DB] transition-colors hover:bg-[#112040] hover:text-white"
+                  className="flex h-9 items-center justify-center gap-2 rounded-xl border border-[#2E7FFF]/22 bg-[#0A1628] text-[12px] font-black text-[#B8C7DB] transition-colors hover:bg-[#112040] hover:text-white"
                 >
                   <ChevronLeft size={15} />
                   Previous
@@ -830,17 +830,21 @@ export function InteractiveDemoWalkthrough() {
                 <button
                   type="button"
                   onClick={() => goBy(1)}
-                  className="flex h-10 items-center justify-center gap-2 rounded-xl border border-[#2E7FFF]/22 bg-[#0A1628] text-[12px] font-black text-[#B8C7DB] transition-colors hover:bg-[#112040] hover:text-white"
+                  className="flex h-9 items-center justify-center gap-2 rounded-xl border border-[#2E7FFF]/22 bg-[#0A1628] text-[12px] font-black text-[#B8C7DB] transition-colors hover:bg-[#112040] hover:text-white"
                 >
                   Next
                   <ChevronRight size={15} />
                 </button>
               </div>
-              <div className="rounded-xl border border-[#2E7FFF]/16 bg-[#0A1628]/70 px-3 py-2 text-[11px] font-bold text-[#8EA7C7]">{statusMessage}</div>
             </div>
           </div>
         </aside>
       </div>
+      {statusMessage !== 'Guided demo ready' && (
+        <div className="fixed right-3 top-20 z-[70] max-w-[340px] rounded-xl border border-[#2E7FFF]/22 bg-[#07111F]/95 px-3 py-2 text-[11px] font-bold leading-5 text-[#DCEBFF] shadow-2xl shadow-black/40 backdrop-blur" aria-live="polite">
+          {statusMessage}
+        </div>
+      )}
     </div>
   );
 }
