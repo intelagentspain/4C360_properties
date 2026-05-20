@@ -1983,7 +1983,36 @@ type DemoVoiceSession = {
 };
 
 function buildElevenLabsNarrationCue(section: DemoSection) {
-  return `NARRATE: ${section.narration.caption}`;
+  return `Please narrate this board-demo cue clearly and professionally, without adding extra setup: "${section.narration.caption}"`;
+}
+
+function formatElevenLabsError(error: unknown) {
+  const rawMessage = error instanceof Error ? error.message : String(error || '');
+  if (!rawMessage) {
+    return 'ElevenLabs could not start the audio session. Check the agent ID, agent access, and microphone permission.';
+  }
+
+  if (/permission|notallowed|denied/i.test(rawMessage)) {
+    return 'Microphone permission is blocked for this browser. Allow microphone access, then press Enable audio again.';
+  }
+
+  if (/401|authentication|authorization|signed url|conversation token/i.test(rawMessage)) {
+    return 'ElevenLabs rejected this as a private or protected agent. For this frontend demo, make the agent public/client-connect enabled, or add a signed URL endpoint for production.';
+  }
+
+  if (/404|not found|agent/i.test(rawMessage)) {
+    return 'ElevenLabs could not find that agent ID. Recheck the pasted ID and save it again.';
+  }
+
+  return rawMessage;
+}
+
+function formatElevenLabsDisconnect(details: unknown) {
+  if (!details || typeof details !== 'object') return '';
+  const candidate = details as { reason?: string; message?: string; closeReason?: string; closeCode?: number };
+  if (candidate.reason !== 'error') return '';
+  const message = candidate.message || candidate.closeReason || 'The ElevenLabs session disconnected unexpectedly.';
+  return candidate.closeCode ? `${message} (code ${candidate.closeCode})` : message;
 }
 
 function withVoiceConnectionTimeout<T>(promise: Promise<T>, timeoutMs = 15000) {
@@ -2064,20 +2093,27 @@ function DemoVoiceAdvisor({ section, onToast }: { section: DemoSection; onToast:
       const { Conversation } = await import('@elevenlabs/client');
       conversationRef.current = await withVoiceConnectionTimeout(Conversation.startSession({
         agentId: nextAgentId,
+        connectionType: 'websocket',
         ...(DEMO_VOICE_ID ? { overrides: { tts: { voiceId: DEMO_VOICE_ID } } } : {}),
         onConnect: () => {
           setVoiceStatus('listening');
           onToast('ElevenLabs board audio connected', 'success');
         },
-        onDisconnect: () => {
+        onDisconnect: (details: unknown) => {
           conversationRef.current = null;
           setVoiceActive(false);
-          setVoiceStatus('ready');
+          const disconnectError = formatElevenLabsDisconnect(details);
+          if (disconnectError) {
+            setVoiceErrorMessage(disconnectError);
+            setVoiceStatus('error');
+          } else {
+            setVoiceStatus('ready');
+          }
         },
         onError: (message: string) => {
           conversationRef.current = null;
           setVoiceActive(false);
-          setVoiceErrorMessage(message || 'ElevenLabs could not start the audio session. Check the agent ID and agent access settings.');
+          setVoiceErrorMessage(formatElevenLabsError(message));
           setVoiceStatus('error');
         },
         onModeChange: (mode: { mode: 'speaking' | 'listening' }) => setVoiceStatus(mode.mode),
@@ -2092,7 +2128,7 @@ function DemoVoiceAdvisor({ section, onToast }: { section: DemoSection; onToast:
     } catch (error) {
       conversationRef.current = null;
       setVoiceActive(false);
-      setVoiceErrorMessage(error instanceof Error ? error.message : 'ElevenLabs could not start the audio session. Check the agent ID, agent public access, and microphone permission.');
+      setVoiceErrorMessage(formatElevenLabsError(error));
       setVoiceStatus('error');
     }
   }, [onToast, section, voiceActive]);
