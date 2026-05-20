@@ -187,7 +187,7 @@ const DEMO_CHAPTERS: DemoChapter[] = [
     clientValue: 'Stage readiness becomes visible and assignable, not buried inside checklist files.',
     decisionQuestion: 'Which gate blocks the next value milestone?',
     nextAction: 'Queue the owner recovery action for the priority gate.',
-    tryLabel: 'Surface gate blocker',
+    tryLabel: 'Show Blocked Gate',
   },
   {
     id: 'cost',
