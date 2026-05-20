@@ -340,10 +340,14 @@ const DEMO_CHAPTERS: DemoChapter[] = [
   },
 ];
 
-function resolveInitialChapter() {
+function readChapterFromUrl() {
   const params = new URLSearchParams(window.location.search);
   const requested = params.get('chapter');
-  return DEMO_CHAPTERS.some(chapter => chapter.id === requested) ? requested! : DEMO_CHAPTERS[0].id;
+  return DEMO_CHAPTERS.some(chapter => chapter.id === requested) ? requested! : null;
+}
+
+function resolveInitialChapter() {
+  return readChapterFromUrl() ?? DEMO_CHAPTERS[0].id;
 }
 
 function updateChapterUrl(chapterId: string) {
@@ -608,11 +612,17 @@ export function InteractiveDemoWalkthrough() {
 
   useEffect(() => {
     const syncFromBrowser = () => {
-      const next = resolveInitialChapter();
-      setActiveId(next);
+      const next = readChapterFromUrl();
+      if (next) setActiveId(next);
     };
+
     window.addEventListener('popstate', syncFromBrowser);
-    return () => window.removeEventListener('popstate', syncFromBrowser);
+    const interval = window.setInterval(syncFromBrowser, 400);
+
+    return () => {
+      window.removeEventListener('popstate', syncFromBrowser);
+      window.clearInterval(interval);
+    };
   }, []);
 
   useEffect(() => {
