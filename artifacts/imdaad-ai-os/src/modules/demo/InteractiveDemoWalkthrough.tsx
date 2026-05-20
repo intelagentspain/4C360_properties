@@ -235,6 +235,7 @@ function buildShareUrl(chapterId?: string, sectionId?: string, showMode?: DemoSh
 }
 
 const DEMO_PROGRESS_STORAGE_KEY = '4c360-properties-demo-progress-v1';
+const DEMO_AGENT_STORAGE_KEY = '4c360-elevenlabs-demo-agent-id';
 const DEMO_SCENARIO = 'Sobha Pilot Tower handover risk: recover readiness, control cost exposure, close evidence gaps, and prepare owner decisions.';
 const DEMO_AGENT_ID = (
   import.meta.env.VITE_ELEVENLABS_DEMO_AGENT_ID
@@ -1404,6 +1405,24 @@ function saveDemoProgressState(state: DemoProgressState) {
   }
 }
 
+function loadStoredDemoAgentId() {
+  if (typeof window === 'undefined') return '';
+  try {
+    return window.localStorage.getItem(DEMO_AGENT_STORAGE_KEY)?.trim() ?? '';
+  } catch {
+    return '';
+  }
+}
+
+function saveStoredDemoAgentId(agentId: string) {
+  try {
+    window.localStorage.setItem(DEMO_AGENT_STORAGE_KEY, agentId);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function getOutcomeTotals(progressState: DemoProgressState) {
   const completedSet = new Set(progressState.completedMissionIds);
   const allFrames = getAllEnrichedFrames();
@@ -1742,6 +1761,12 @@ function BoardCaptionBar({
   autopilotStatus: DemoAutopilotState['status'];
   progress: number;
 }) {
+  const objectiveChain = [
+    { label: 'Signal', value: section.features[0] ?? section.title },
+    { label: 'Owner', value: section.decisionQuestion },
+    { label: 'Move', value: section.nextAction },
+  ];
+
   return (
     <div className="flex flex-shrink-0 items-center gap-3 border-b border-[#2E7FFF]/14 bg-[#081426] px-4 py-3">
       <div className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-cyan-300/24 bg-cyan-300/10 text-cyan-200 sm:flex">
@@ -1763,7 +1788,14 @@ function BoardCaptionBar({
             {autopilotStatus === 'playing' ? 'Auto tour running' : autopilotStatus === 'paused' ? 'Paused' : 'Manual'}
           </span>
         </div>
-        <p className="mt-1 line-clamp-2 text-[13px] font-semibold leading-5 text-[#E6EEF9]">{section.narration.caption}</p>
+        <div className="mt-2 grid gap-1.5 lg:grid-cols-3">
+          {objectiveChain.map(item => (
+            <div key={item.label} className="min-w-0 rounded-xl border border-[#2E7FFF]/14 bg-[#06101F] px-3 py-2">
+              <div className="text-[8px] font-black uppercase tracking-[0.14em] text-[#5F7FA8]">{item.label}</div>
+              <div className="mt-0.5 truncate text-[11px] font-black text-[#E6EEF9]">{item.value}</div>
+            </div>
+          ))}
+        </div>
       </div>
       <div className="hidden w-28 shrink-0 sm:block">
         <div className="mb-1 flex items-center justify-between text-[9px] font-black uppercase tracking-[0.12em] text-[#7A94B4]">
@@ -1950,26 +1982,49 @@ type DemoVoiceSession = {
   setMicMuted(isMuted: boolean): void;
 };
 
-function buildElevenLabsSystemPrompt() {
-  return [
-    'You are the 4C360 board demo voice advisor for a property-owner executive audience.',
-    'When a message starts with NARRATE:, speak the narration cue in a polished boardroom tone.',
-    'Keep narration concise, confident, and close to the supplied wording.',
-    'Do not invent product claims. If the board asks a question, answer from the Sobha Pilot Tower handover-risk scenario.',
-  ].join(' ');
-}
-
 function buildElevenLabsNarrationCue(section: DemoSection) {
   return `NARRATE: ${section.narration.caption}`;
 }
 
+function withVoiceConnectionTimeout<T>(promise: Promise<T>, timeoutMs = 15000) {
+  return new Promise<T>((resolve, reject) => {
+    const timeout = window.setTimeout(() => {
+      reject(new Error('ElevenLabs did not connect within 15 seconds. Check agent access, browser audio permissions, and network access.'));
+    }, timeoutMs);
+
+    promise
+      .then(value => resolve(value))
+      .catch(error => reject(error))
+      .finally(() => window.clearTimeout(timeout));
+  });
+}
+
+async function requestDemoMicrophoneAccess() {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    throw new Error('This browser does not expose microphone access. ElevenLabs voice needs microphone permission to start a live session.');
+  }
+
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  stream.getTracks().forEach(track => track.stop());
+}
+
 function DemoVoiceAdvisor({ section, onToast }: { section: DemoSection; onToast: ToastFn }) {
   const [open, setOpen] = useState(false);
-  const [voiceStatus, setVoiceStatus] = useState<DemoVoiceState>(DEMO_AGENT_ID ? 'ready' : 'unavailable');
+  const [storedAgentId, setStoredAgentId] = useState(loadStoredDemoAgentId);
+  const [agentIdInput, setAgentIdInput] = useState(() => loadStoredDemoAgentId());
+  const configuredAgentId = (DEMO_AGENT_ID ?? storedAgentId).trim();
+  const agentConfigured = Boolean(configuredAgentId);
+  const [voiceStatus, setVoiceStatus] = useState<DemoVoiceState>(() => (DEMO_AGENT_ID ?? loadStoredDemoAgentId()) ? 'ready' : 'unavailable');
   const [voiceActive, setVoiceActive] = useState(false);
+  const [voiceErrorMessage, setVoiceErrorMessage] = useState('');
   const [autoNarrationEnabled, setAutoNarrationEnabled] = useState(true);
   const conversationRef = useRef<DemoVoiceSession | null>(null);
   const lastNarratedSectionRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (agentConfigured && voiceStatus === 'unavailable') setVoiceStatus('ready');
+    if (!agentConfigured && voiceStatus === 'ready') setVoiceStatus('unavailable');
+  }, [agentConfigured, voiceStatus]);
 
   const sendNarrationCue = useCallback((targetSection: DemoSection) => {
     if (!conversationRef.current) return;
@@ -1987,13 +2042,15 @@ function DemoVoiceAdvisor({ section, onToast }: { section: DemoSection; onToast:
     }
     conversationRef.current = null;
     setVoiceActive(false);
-    setVoiceStatus(DEMO_AGENT_ID ? 'ready' : 'unavailable');
-  }, []);
+    setVoiceErrorMessage('');
+    setVoiceStatus(configuredAgentId ? 'ready' : 'unavailable');
+  }, [configuredAgentId]);
 
-  const startVoice = useCallback(async () => {
-    if (!DEMO_AGENT_ID) {
+  const startVoiceWithAgentId = useCallback(async (agentIdToUse: string) => {
+    const nextAgentId = agentIdToUse.trim();
+    if (!nextAgentId) {
       setVoiceStatus('unavailable');
-      onToast('Voice unavailable, captions active', 'info');
+      onToast('Paste the ElevenLabs agent ID to enable board audio', 'info');
       return;
     }
     if (voiceActive) return;
@@ -2001,26 +2058,13 @@ function DemoVoiceAdvisor({ section, onToast }: { section: DemoSection; onToast:
     try {
       setOpen(true);
       setVoiceActive(true);
+      setVoiceErrorMessage('');
       setVoiceStatus('connecting');
-      const { Conversation } = await import('@11labs/client');
-      const ttsOverride = DEMO_VOICE_ID ? { voiceId: DEMO_VOICE_ID } : undefined;
-      lastNarratedSectionRef.current = section.sectionId;
-      conversationRef.current = await Conversation.startSession({
-        agentId: DEMO_AGENT_ID,
-        connectionType: 'websocket',
-        overrides: {
-          agent: {
-            prompt: { prompt: buildElevenLabsSystemPrompt() },
-            firstMessage: section.narration.caption,
-            language: 'en',
-          },
-          ...(ttsOverride ? { tts: ttsOverride } : {}),
-        },
-        dynamicVariables: {
-          demo_scenario: DEMO_SCENARIO,
-          current_chapter: section.chapterId,
-          current_section: section.title,
-        },
+      await requestDemoMicrophoneAccess();
+      const { Conversation } = await import('@elevenlabs/client');
+      conversationRef.current = await withVoiceConnectionTimeout(Conversation.startSession({
+        agentId: nextAgentId,
+        ...(DEMO_VOICE_ID ? { overrides: { tts: { voiceId: DEMO_VOICE_ID } } } : {}),
         onConnect: () => {
           setVoiceStatus('listening');
           onToast('ElevenLabs board audio connected', 'success');
@@ -2030,19 +2074,46 @@ function DemoVoiceAdvisor({ section, onToast }: { section: DemoSection; onToast:
           setVoiceActive(false);
           setVoiceStatus('ready');
         },
-        onError: () => {
+        onError: (message: string) => {
           conversationRef.current = null;
           setVoiceActive(false);
+          setVoiceErrorMessage(message || 'ElevenLabs could not start the audio session. Check the agent ID and agent access settings.');
           setVoiceStatus('error');
         },
         onModeChange: (mode: { mode: 'speaking' | 'listening' }) => setVoiceStatus(mode.mode),
-      });
-    } catch {
+        onStatusChange: (status: { status: 'connecting' | 'connected' | 'disconnecting' | 'disconnected' }) => {
+          if (status.status === 'connecting') setVoiceStatus('connecting');
+          if (status.status === 'disconnected') setVoiceStatus('ready');
+        },
+      }));
+      lastNarratedSectionRef.current = section.sectionId;
+      conversationRef.current.sendContextualUpdate(`Demo scenario: ${DEMO_SCENARIO}. Current chapter: ${section.chapterId}. Current section: ${section.title}.`);
+      conversationRef.current.sendUserMessage(buildElevenLabsNarrationCue(section));
+    } catch (error) {
       conversationRef.current = null;
       setVoiceActive(false);
+      setVoiceErrorMessage(error instanceof Error ? error.message : 'ElevenLabs could not start the audio session. Check the agent ID, agent public access, and microphone permission.');
       setVoiceStatus('error');
     }
   }, [onToast, section, voiceActive]);
+
+  const saveAgentId = useCallback(() => {
+    const nextAgentId = agentIdInput.trim();
+    if (!nextAgentId) {
+      onToast('Paste the ElevenLabs agent ID first', 'info');
+      return;
+    }
+
+    const saved = saveStoredDemoAgentId(nextAgentId);
+    setStoredAgentId(nextAgentId);
+    setVoiceStatus('ready');
+    onToast(saved ? 'ElevenLabs agent ID saved. Connecting audio now.' : 'ElevenLabs agent ID ready. Connecting audio now.', saved ? 'success' : 'info');
+    void startVoiceWithAgentId(nextAgentId);
+  }, [agentIdInput, onToast, startVoiceWithAgentId]);
+
+  const startVoice = useCallback(async () => {
+    await startVoiceWithAgentId(configuredAgentId);
+  }, [configuredAgentId, startVoiceWithAgentId]);
 
   useEffect(() => {
     if (!voiceActive || !autoNarrationEnabled || !conversationRef.current) return;
@@ -2055,7 +2126,7 @@ function DemoVoiceAdvisor({ section, onToast }: { section: DemoSection; onToast:
   }, [stopVoice]);
 
   const voiceLabel = voiceStatus === 'unavailable'
-    ? 'ElevenLabs not configured'
+    ? 'Connect ElevenLabs audio'
     : voiceStatus === 'ready'
     ? 'ElevenLabs ready'
     : voiceStatus === 'connecting'
@@ -2074,7 +2145,7 @@ function DemoVoiceAdvisor({ section, onToast }: { section: DemoSection; onToast:
         className={`inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-[11px] font-black transition-colors ${
           voiceActive
             ? 'border-cyan-300/34 bg-cyan-300/12 text-cyan-100'
-            : DEMO_AGENT_ID
+            : agentConfigured
             ? 'border-[#2E7FFF]/24 bg-[#0A1628] text-[#B8C7DB] hover:bg-[#112040] hover:text-white'
             : 'border-amber-300/24 bg-amber-300/10 text-amber-100 hover:bg-amber-300/14'
         }`}
@@ -2085,13 +2156,13 @@ function DemoVoiceAdvisor({ section, onToast }: { section: DemoSection; onToast:
       </button>
 
       {open && (
-        <div className="absolute right-0 top-12 z-50 w-[min(390px,calc(100vw-32px))] rounded-2xl border border-[#2E7FFF]/24 bg-[#07111F] p-4 shadow-2xl shadow-black/50">
+        <div className="absolute right-0 top-12 z-50 max-h-[calc(100vh-96px)] w-[min(440px,calc(100vw-32px))] overflow-y-auto rounded-2xl border border-[#2E7FFF]/24 bg-[#07111F] p-4 shadow-2xl shadow-black/50">
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-200">Board voice advisor</div>
               <h3 className="mt-1 text-[16px] font-black text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{voiceLabel}</h3>
               <p className="mt-2 text-[12px] leading-5 text-[#8EA7C7]">
-                Premium demo audio uses ElevenLabs. Browser text-to-speech is intentionally not used for client demos.
+                Premium demo audio uses your ElevenLabs agent. Paste the agent ID once for local demos, or set the environment variable for deployment.
               </p>
             </div>
             <button
@@ -2105,10 +2176,43 @@ function DemoVoiceAdvisor({ section, onToast }: { section: DemoSection; onToast:
           </div>
 
           {!DEMO_AGENT_ID && (
-            <div className="mt-3 rounded-xl border border-amber-300/24 bg-amber-300/10 p-3">
-              <div className="text-[10px] font-black uppercase tracking-[0.16em] text-amber-100">Setup needed</div>
-              <p className="mt-1 text-[12px] leading-5 text-amber-50">
-                Add an ElevenLabs agent ID as VITE_ELEVENLABS_DEMO_AGENT_ID. The demo will also accept VITE_ELEVENLABS_SOLUTIONS_AGENT_ID or VITE_ELEVENLABS_AGENT_ID.
+            <div className={`mt-3 rounded-xl border p-3 ${agentConfigured ? 'border-emerald-300/24 bg-emerald-300/10' : 'border-amber-300/24 bg-amber-300/10'}`}>
+              <div className={`text-[10px] font-black uppercase tracking-[0.16em] ${agentConfigured ? 'text-emerald-100' : 'text-amber-100'}`}>
+                {agentConfigured ? 'Agent saved' : 'Connect agent'}
+              </div>
+              <p className={`mt-1 text-[12px] leading-5 ${agentConfigured ? 'text-emerald-50' : 'text-amber-50'}`}>
+                {agentConfigured
+                  ? 'Using the saved ElevenLabs agent ID for this browser. Save again if you changed it, or enable audio below.'
+                  : 'Paste the ElevenLabs agent ID you created. This saves it in this browser and connects the board audio immediately.'}
+              </p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+                <input
+                  type="text"
+                  value={agentIdInput}
+                  onChange={event => setAgentIdInput(event.target.value)}
+                  onKeyDown={event => {
+                    if (event.key === 'Enter') saveAgentId();
+                  }}
+                  placeholder="Paste ElevenLabs agent ID"
+                  className="h-10 min-w-0 rounded-xl border border-[#2E7FFF]/22 bg-[#06101F] px-3 text-[12px] font-bold text-white outline-none placeholder:text-[#5F7FA8] focus:border-cyan-300/45"
+                />
+                <button
+                  type="button"
+                  onClick={saveAgentId}
+                  className="h-10 rounded-xl bg-[#2E7FFF] px-3 text-[12px] font-black text-white transition-colors hover:bg-[#4B91FF]"
+                >
+                  Save and connect
+                </button>
+              </div>
+            </div>
+          )}
+
+          {voiceErrorMessage && (
+            <div className="mt-3 rounded-xl border border-[#E11D2E]/28 bg-[#E11D2E]/12 p-3">
+              <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#FFB4BC]">Connection issue</div>
+              <p className="mt-1 text-[12px] leading-5 text-[#FFE1E5]">{voiceErrorMessage}</p>
+              <p className="mt-2 text-[11px] leading-4 text-[#FFB4BC]">
+                If the ID is correct, check that the ElevenLabs agent is enabled for client connections and that microphone/audio permissions are allowed for this browser.
               </p>
             </div>
           )}
@@ -2122,27 +2226,27 @@ function DemoVoiceAdvisor({ section, onToast }: { section: DemoSection; onToast:
             <button
               type="button"
               onClick={voiceActive ? stopVoice : startVoice}
-              disabled={!DEMO_AGENT_ID && !voiceActive}
+              disabled={!agentConfigured && !voiceActive}
               className={`flex h-10 items-center justify-center gap-2 rounded-xl text-[12px] font-black transition-colors ${
                 voiceActive
                   ? 'border border-[#E11D2E]/34 bg-[#E11D2E]/18 text-[#FFB4BC]'
-                  : DEMO_AGENT_ID
+                  : agentConfigured
                   ? 'bg-[#2E7FFF] text-white hover:bg-[#4B91FF]'
                   : 'cursor-not-allowed border border-[#2E7FFF]/18 bg-[#06101F] text-[#7A94B4]'
               }`}
             >
               {voiceActive ? <MicOff size={15} /> : <Mic size={15} />}
-              {!DEMO_AGENT_ID ? 'Needs agent ID' : voiceActive ? 'Stop audio' : 'Enable audio'}
+              {!agentConfigured ? 'Save ID first' : voiceStatus === 'connecting' ? 'Connecting...' : voiceActive ? 'Stop audio' : 'Enable audio'}
             </button>
             <button
               type="button"
               onClick={() => voiceActive ? sendNarrationCue(section) : startVoice()}
               className={`flex h-10 items-center justify-center gap-2 rounded-xl border text-[12px] font-black transition-colors ${
-                DEMO_AGENT_ID
+                agentConfigured
                   ? 'border-[#2E7FFF]/22 bg-[#06101F] text-[#DCEBFF] hover:bg-[#112040]'
                   : 'cursor-not-allowed border-[#2E7FFF]/18 bg-[#06101F] text-[#7A94B4]'
               }`}
-              disabled={!DEMO_AGENT_ID}
+              disabled={!agentConfigured}
             >
               <Volume2 size={15} />
               Read cue
@@ -2253,6 +2357,7 @@ export function InteractiveDemoWalkthrough() {
   const activeMissionComplete = completedMissionSet.has(activeFrame.mission.id);
   const outcomeTotals = useMemo(() => getOutcomeTotals(progressState), [progressState]);
   const activeAct = useMemo(() => getActForChapter(chapter.id), [chapter.id]);
+  const activeActProgress = useMemo(() => getActProgress(activeAct, completedMissionSet), [activeAct, completedMissionSet]);
   const hotspotTarget = useMemo<HotspotTarget>(() => ({
     anchor: activeFrame.anchor ?? chapter.anchor,
     fallback: activeFrame.fallback ?? chapter.fallback,
@@ -2704,8 +2809,16 @@ export function InteractiveDemoWalkthrough() {
         <aside className="min-h-0 border-b border-[#2E7FFF]/16 bg-[#07111F] p-3 md:border-b-0 md:border-r md:p-2 xl:p-3">
           <div className="mb-3 flex items-center justify-between gap-2 md:justify-center xl:justify-between">
             <div className="md:hidden xl:block">
-              <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[#8DBDFF]">Board show path</div>
-              <div className="mt-1 text-[11px] text-[#7A94B4]">{activeIndex + 1} of {DEMO_CHAPTERS.length} pages, section {activeFrameIndex + 1} of {frames.length}</div>
+              <div className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-200">Mission path</div>
+              <div className="mt-1 text-[11px] font-bold text-[#8EA7C7]">
+                {activeAct.label} · {activeActProgress.completed}/{activeActProgress.total} cleared
+              </div>
+              <div className="mt-2 h-1.5 rounded-full bg-[#13294A]">
+                <div
+                  className="h-full rounded-full bg-[linear-gradient(90deg,#22D3EE,#2E7FFF,#7C3AED)] transition-all duration-300"
+                  style={{ width: `${Math.round((activeActProgress.completed / Math.max(1, activeActProgress.total)) * 100)}%` }}
+                />
+              </div>
             </div>
             <button
               type="button"
@@ -2740,9 +2853,9 @@ export function InteractiveDemoWalkthrough() {
                       {itemDone ? <CheckCircle2 size={15} /> : <Icon size={15} />}
                     </span>
                     <span className="min-w-0 md:hidden xl:block">
-                      <span className="block text-[10px] font-black uppercase tracking-[0.14em] text-[#5F7FA8]">{itemAct.label} / {String(index + 1).padStart(2, '0')}</span>
+                      <span className="block text-[10px] font-black uppercase tracking-[0.14em] text-[#5F7FA8]">Mission {String(index + 1).padStart(2, '0')} · {itemAct.label}</span>
                       <span className="block truncate text-[12px] font-black">{item.label}</span>
-                      <span className="block text-[9px] font-black uppercase tracking-[0.12em] text-[#5F7FA8]">{itemCompleted}/{itemFrames.length} sections</span>
+                      <span className="block text-[9px] font-black uppercase tracking-[0.12em] text-[#5F7FA8]">{itemCompleted}/{itemFrames.length} checkpoints</span>
                     </span>
                   </button>
                   {active && (
@@ -2808,34 +2921,45 @@ export function InteractiveDemoWalkthrough() {
           <div className="custom-scrollbar min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
             <div>
               <div className="flex items-center justify-between gap-2">
-                <div className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-200">Board narration</div>
+                <div className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-200">Mission HUD</div>
                 <div className="rounded-full border border-[#2E7FFF]/22 bg-[#0A1628] px-2 py-1 text-[10px] font-black text-[#8DBDFF]">
                   {activeMissionComplete ? 'Complete' : `${activeFrameIndex + 1}/${frames.length}`}
                 </div>
               </div>
               <h1 className="mt-1.5 text-[19px] font-black leading-tight text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{activeFrame.headline}</h1>
-              <p className="mt-2 text-[12px] leading-5 text-[#B8C7DB]">{activeFrame.boardNarrative}</p>
+              <div className="mt-2 grid grid-cols-3 gap-1.5">
+                {[
+                  [`-${activeFrame.outcome.riskReduction}`, 'risk'],
+                  [`+${activeFrame.outcome.readinessGain}`, 'ready'],
+                  [`${activeFrame.outcome.timeSavedMinutes}m`, 'save'],
+                ].map(([value, label]) => (
+                  <div key={label} className="rounded-lg border border-[#2E7FFF]/16 bg-[#0A1628] px-2 py-1.5 text-center">
+                    <div className="text-[14px] font-black text-white">{value}</div>
+                    <div className="text-[8px] font-black uppercase tracking-[0.12em] text-[#5F7FA8]">{label}</div>
+                  </div>
+                ))}
+              </div>
             </div>
 
             <section className="rounded-xl border border-cyan-300/18 bg-cyan-300/10 px-3 py-2.5">
-              <div className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-200">Voice script</div>
-              <p className="mt-1 text-[12px] font-semibold leading-5 text-[#E6EEF9]">{activeFrame.narration.caption}</p>
+              <div className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-200">Goal</div>
+              <p className="mt-1 text-[13px] font-black leading-5 text-white">{activeFrame.nextAction}</p>
             </section>
 
             <section className={`rounded-xl border px-3 py-2.5 ${activeMissionComplete ? 'border-emerald-300/24 bg-emerald-300/10' : 'border-[#2E7FFF]/22 bg-[#0A1628]'}`}>
               <div className="flex items-start gap-2">
                 <CheckCircle2 size={15} className={`mt-0.5 shrink-0 ${activeMissionComplete ? 'text-emerald-200' : 'text-[#5F7FA8]'}`} />
                 <div className="min-w-0">
-                  <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#8DBDFF]">Client proof</div>
-                  <p className="mt-1 text-[12px] font-bold leading-5 text-white">{activeFrame.mission.prompt}</p>
-                  <p className="mt-1 text-[11px] leading-4 text-[#8EA7C7]">{activeFrame.mission.talkingPoint}</p>
+                  <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#8DBDFF]">Win condition</div>
+                  <p className="mt-1 text-[12px] font-bold leading-5 text-white">{activeFrame.decisionQuestion}</p>
+                  <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-[#8EA7C7]">{activeFrame.clientValue}</p>
                 </div>
               </div>
             </section>
 
             <section className="rounded-xl border border-[#2E7FFF]/18 bg-[#0A1628] p-3">
               <div className="flex items-center justify-between gap-2">
-                <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#7A94B4]">Show length</div>
+                <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#7A94B4]">Pace</div>
                 <button
                   type="button"
                   onClick={() => setPresenterNotesOpen(current => !current)}
@@ -2895,19 +3019,25 @@ export function InteractiveDemoWalkthrough() {
 
             <section className="rounded-xl border border-[#2E7FFF]/18 bg-[#0A1628]">
               <div className="px-3 py-2">
-                <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#7A94B4]">Client value</div>
-                <p className="mt-1 text-[12px] leading-5 text-[#E6EEF9]">{activeFrame.clientValue}</p>
+                <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#7A94B4]">Playbook</div>
+                <div className="mt-2 flex items-center gap-2">
+                  <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-2 py-1 text-[10px] font-black text-cyan-100">Risk</span>
+                  <span className="text-[#5F7FA8]">→</span>
+                  <span className="rounded-full border border-[#2E7FFF]/22 bg-[#2E7FFF]/12 px-2 py-1 text-[10px] font-black text-[#DCEBFF]">Owner</span>
+                  <span className="text-[#5F7FA8]">→</span>
+                  <span className="rounded-full border border-emerald-300/22 bg-emerald-300/10 px-2 py-1 text-[10px] font-black text-emerald-100">Recovery</span>
+                </div>
               </div>
               <div className="border-t border-[#2E7FFF]/12 px-3 py-2">
-                <div className="text-[10px] font-black uppercase tracking-[0.16em] text-amber-200">Client question</div>
-                <p className="mt-1 text-[12px] leading-5 text-amber-50">{activeFrame.decisionQuestion}</p>
+                <div className="text-[10px] font-black uppercase tracking-[0.16em] text-amber-200">Say this</div>
+                <p className="mt-1 line-clamp-2 text-[12px] leading-5 text-amber-50">{activeFrame.narration.caption}</p>
               </div>
               <div className="border-t border-[#2E7FFF]/12 px-3 py-2">
-                <div className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-200">Next action</div>
-                <p className="mt-1 text-[12px] leading-5 text-emerald-50">{activeFrame.nextAction}</p>
+                <div className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-200">Next click</div>
+                <p className="mt-1 text-[12px] font-bold leading-5 text-emerald-50">{activeFrame.mission.actionLabel}</p>
               </div>
               <div className="border-t border-[#2E7FFF]/12 px-3 py-2">
-                <div className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-200">Features covered</div>
+                <div className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-200">Unlocked</div>
                 <div className="mt-1 flex flex-wrap gap-1">
                   {activeFrame.features.map(feature => (
                     <span key={feature} className="rounded-full border border-[#2E7FFF]/18 bg-[#07111F] px-2 py-1 text-[10px] font-bold text-[#B8C7DB]">{feature}</span>
@@ -2917,7 +3047,7 @@ export function InteractiveDemoWalkthrough() {
             </section>
 
             <section className="rounded-xl border border-[#2E7FFF]/18 bg-[#0A1628] px-3 py-2">
-              <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#7A94B4]">Prepared artifact</div>
+              <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#7A94B4]">Reward</div>
               <div className="mt-1 text-[12px] font-black text-white">{activeFrame.artifact.label}</div>
               <p className="mt-1 text-[11px] leading-4 text-[#8EA7C7]">{activeFrame.artifact.detail}</p>
               <div className="mt-2 grid grid-cols-3 gap-1.5">
