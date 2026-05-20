@@ -12,14 +12,22 @@ import {
   ExternalLink,
   FileText,
   FolderOpen,
+  ListTree,
+  Mic,
+  MicOff,
+  MonitorPlay,
   Pause,
   Play,
+  Presentation,
   RotateCcw,
+  Rocket,
   ShieldAlert,
   ShieldCheck,
   Smartphone,
   Sparkles,
   Target,
+  TimerReset,
+  Volume2,
   X,
   type LucideIcon,
 } from 'lucide-react';
@@ -89,12 +97,50 @@ type DemoProgressState = {
   completedAtByMissionId: Record<string, string>;
 };
 
+type DemoShowMode = 'teaser' | 'board' | 'deepDive';
+
+type DemoAutopilotState = {
+  status: 'idle' | 'playing' | 'paused';
+  started: boolean;
+};
+
+type DemoVoiceState = 'unavailable' | 'ready' | 'connecting' | 'listening' | 'speaking' | 'error';
+
+type DemoNarration = {
+  caption: string;
+  presenterNote: string;
+};
+
+type DemoMetricImpact = DemoOutcome & {
+  decisionsSurfaced: number;
+};
+
 type EnrichedDemoFrame = DemoFrame & {
   features: string[];
   mission: DemoMission;
   artifact: DemoArtifact;
   outcome: DemoOutcome;
   chapterId: string;
+};
+
+type DemoSection = EnrichedDemoFrame & {
+  sectionId: string;
+  legacyFrameId: string;
+  title: string;
+  boardNarrative: string;
+  clientProof: string;
+  durationByMode: Record<DemoShowMode, number>;
+  metricImpact: DemoMetricImpact;
+  narration: DemoNarration;
+  actId: string;
+};
+
+type DemoAct = {
+  id: string;
+  label: string;
+  title: string;
+  promise: string;
+  chapterIds: string[];
 };
 
 type DemoChapter = {
@@ -178,15 +224,66 @@ async function copyText(text: string) {
   return false;
 }
 
-function buildShareUrl(chapterId: string, frameId?: string) {
+function buildShareUrl(chapterId?: string, sectionId?: string, showMode?: DemoShowMode, autoplay?: boolean) {
   const url = new URL('/demo/properties', window.location.origin);
-  url.searchParams.set('chapter', chapterId);
-  if (frameId) url.searchParams.set('frame', frameId);
+  url.searchParams.set('mode', 'board');
+  if (showMode) url.searchParams.set('duration', showModeToQuery(showMode));
+  if (chapterId) url.searchParams.set('chapter', chapterId);
+  if (sectionId) url.searchParams.set('section', sectionId);
+  if (autoplay) url.searchParams.set('autoplay', 'true');
   return url.toString();
 }
 
 const DEMO_PROGRESS_STORAGE_KEY = '4c360-properties-demo-progress-v1';
 const DEMO_SCENARIO = 'Sobha Pilot Tower handover risk: recover readiness, control cost exposure, close evidence gaps, and prepare owner decisions.';
+const DEMO_AGENT_ID = (
+  import.meta.env.VITE_ELEVENLABS_DEMO_AGENT_ID
+  ?? import.meta.env.VITE_ELEVENLABS_SOLUTIONS_AGENT_ID
+  ?? import.meta.env.VITE_ELEVENLABS_AGENT_ID
+) as string | undefined;
+const DEMO_VOICE_ID = (
+  import.meta.env.VITE_ELEVENLABS_DEMO_VOICE_ID
+  ?? import.meta.env.VITE_ELEVENLABS_VOICE_ID
+) as string | undefined;
+
+const SHOW_MODE_OPTIONS: Array<{
+  id: DemoShowMode;
+  query: string;
+  label: string;
+  shortLabel: string;
+  description: string;
+  durationLabel: string;
+}> = [
+  { id: 'teaser', query: '3', label: '3 min teaser', shortLabel: 'Teaser', durationLabel: '3 min', description: 'Fast executive punch for first meetings.' },
+  { id: 'board', query: '6', label: '6 min board show', shortLabel: 'Board', durationLabel: '6 min', description: 'Recommended boardroom pacing with proof and payoff.' },
+  { id: 'deepDive', query: '12', label: '12 min deep dive', shortLabel: 'Deep Dive', durationLabel: '12 min', description: 'Slower product-led walkthrough for active buyers.' },
+];
+
+const DEFAULT_SHOW_MODE: DemoShowMode = 'board';
+
+const DEMO_ACTS: DemoAct[] = [
+  {
+    id: 'portfolio-control',
+    label: 'Act 1',
+    title: 'Portfolio Control',
+    promise: 'The board sees which assets need attention before teams start explaining reports.',
+    chapterIds: ['portfolio'],
+  },
+  {
+    id: 'risk-to-action',
+    label: 'Act 2',
+    title: 'Risk To Action',
+    promise: 'One handover risk becomes cost, gate, obligation, evidence, and forecast decisions.',
+    chapterIds: ['projectcommand', 'programme', 'stagegates', 'cost', 'risk', 'forecast', 'obligations', 'evidence'],
+  },
+  {
+    id: 'ai-operating-system',
+    label: 'Act 3',
+    title: 'AI Operating System',
+    promise: 'Vendor, field, resident, and owner workflows close the loop in one operating model.',
+    chapterIds: ['vendoriq', 'fieldops', 'resident', 'value'],
+  },
+];
 
 const EMPTY_PROGRESS_STATE: DemoProgressState = {
   completedMissionIds: [],
@@ -239,6 +336,181 @@ const CHAPTER_OUTCOMES: Record<string, DemoOutcome> = {
   fieldops: { timeSavedMinutes: 16, riskReduction: 3, readinessGain: 5 },
   resident: { timeSavedMinutes: 12, riskReduction: 2, readinessGain: 4 },
   value: { timeSavedMinutes: 10, riskReduction: 2, readinessGain: 3 },
+};
+
+const CHAPTER_NARRATION_OPENERS: Record<string, string> = {
+  portfolio: 'Act one starts at portfolio level. The board needs to know where attention is required before anyone opens a project file.',
+  projectcommand: 'Now we enter the command surface for the live handover risk. The point is not more reporting, it is one place to decide.',
+  programme: 'The programme chapter translates schedule complexity into a business conversation about handover confidence.',
+  stagegates: 'Stage gates show whether the next milestone is truly ready, and what evidence or owner action is holding it back.',
+  cost: 'Cost intelligence links budget movement to the specific decisions that can still reduce exposure.',
+  risk: 'Risk command turns the risk register into a live operating discussion about ownership, mitigation, and consequence.',
+  forecast: 'The forecast chapter shows the board what can happen before it happens, with confidence signals attached.',
+  obligations: 'Obligations connect regulatory, contractual, and authority duties directly to delivery progress and proof.',
+  evidence: 'Evidence is where the platform proves readiness, not by storing files, but by controlling gaps before handover.',
+  vendoriq: 'VendorIQ moves the conversation from subjective vendor opinion to measurable performance and corrective action.',
+  fieldops: 'FieldOps shows how site teams create the proof that executive controls need in order to move.',
+  resident: 'The resident layer proves that executive control and front-door service can belong to the same operating system.',
+  value: 'The final chapter converts the story into a pilot recommendation the board can act on.',
+};
+
+const SECTION_NARRATION_SCRIPTS: Record<string, DemoNarration> = {
+  'portfolio:health-actions': {
+    caption: 'Here, the board sees the portfolio health signal first. Instead of asking for updates asset by asset, leadership can spot the property that needs attention and move straight to action.',
+    presenterNote: 'Emphasize that the first win is prioritization. The demo starts with the question every owner asks: where should we spend management time today?',
+  },
+  'portfolio:portfolio-map': {
+    caption: 'The portfolio map turns multiple buildings into one operating picture. The value is not the map itself, it is the connection from asset health into project, vendor, evidence, and field execution.',
+    presenterNote: 'Point out that the board can stay at portfolio altitude while still knowing the system is connected underneath.',
+  },
+  'portfolio:command-path': {
+    caption: 'This is the moment the demo becomes actionable. A portfolio signal is no longer an observation, it becomes a command path into the project and the teams that can recover readiness.',
+    presenterNote: 'Use this as the bridge from executive visibility to operational control.',
+  },
+  'projectcommand:project-context': {
+    caption: 'The project twin gives the board the essential context: budget, progress, owner route, and current control state. It replaces fragmented status packs with one live project surface.',
+    presenterNote: 'Make clear that ProjectCommand is not a dashboard island. It is the entry point into all project control lenses.',
+  },
+  'projectcommand:control-tabs': {
+    caption: 'These tabs are the control model. Programme, stage gates, cost, risk, obligations, evidence, and forecast stay in the same project context, so the conversation does not reset every time the topic changes.',
+    presenterNote: 'Explain that the board can ask any control question without leaving the project story.',
+  },
+  'projectcommand:action-queue': {
+    caption: 'The action queue is where the review earns its value. The system surfaces what changed, who owns the next move, and which action protects delivery confidence this week.',
+    presenterNote: 'Anchor this on action accountability. This is the difference between reporting and operating.',
+  },
+  'programme:critical-path': {
+    caption: 'Critical path is shown in language the board can use. Instead of decoding programme files, leaders see which phase can move handover and where recovery effort should focus.',
+    presenterNote: 'Keep it executive: schedule risk is only useful when it identifies a decision.',
+  },
+  'programme:contractor-view': {
+    caption: 'The contractor view connects schedule pressure to accountable parties. Delay is no longer an abstract timeline problem, it is a recovery conversation with the right owner.',
+    presenterNote: 'Call out accountability. This is where delivery teams and commercial teams stop debating the source of delay.',
+  },
+  'programme:recovery-plan': {
+    caption: 'Recovery planning changes the tone from bad news to options. The board can see what move protects the milestone and what trade-off must be approved.',
+    presenterNote: 'Use this to show the platform supports forward action, not only retrospective delay narration.',
+  },
+  'stagegates:blocked-gate': {
+    caption: 'The blocked gate makes readiness visible. The board can see the milestone, the blocker, and the owner path without waiting for a separate checklist review.',
+    presenterNote: 'This is a strong proof point for handover and commissioning audiences.',
+  },
+  'stagegates:evidence-gaps': {
+    caption: 'The evidence gap explains why the gate cannot move. Missing or expired proof is tied to the control point, so the issue becomes specific and assignable.',
+    presenterNote: 'Show that 4C360 does not just flag a red status, it explains what proof is missing.',
+  },
+  'stagegates:recovery-actions': {
+    caption: 'The recovery action turns the gate problem into a workflow. The board sees who must act, what they need to provide, and how that action protects the next milestone.',
+    presenterNote: 'Stress owner action, due timing, and readiness movement.',
+  },
+  'cost:forecast': {
+    caption: 'Cost starts with the movement from baseline to forecast. The board can immediately see whether exposure is a budget issue, a commitment issue, or a decision still waiting for approval.',
+    presenterNote: 'Keep the money story simple: where is exposure coming from, and what decision changes it?',
+  },
+  'cost:variations': {
+    caption: 'The variation queue shows commercial pressure before it becomes a surprise. Each pending item is connected to forecast movement and a needed response.',
+    presenterNote: 'This is where owners see that compare quotes and variations belong in one commercial view.',
+  },
+  'cost:package-drivers': {
+    caption: 'Package drivers make the forecast explainable. Procurement, progress, and claims can be traced to the package that is actually moving final cost.',
+    presenterNote: 'Use this when the board asks, why is the number changing?',
+  },
+  'risk:risk-register': {
+    caption: 'The risk register becomes useful because it is live. Probability, impact, trend, and owner are all visible, so risk review becomes an operating discipline.',
+    presenterNote: 'Avoid sounding like generic risk software. The key is connection to project outcomes.',
+  },
+  'risk:mitigation': {
+    caption: 'Mitigation ownership is where risk becomes controllable. The board can challenge whether the action is current, evidenced, and strong enough to reduce exposure.',
+    presenterNote: 'Focus on action quality. This is where static risk scores become management accountability.',
+  },
+  'risk:risk-scenario': {
+    caption: 'Scenario impact connects the open risk to cost and programme consequence. The board can compare the cost of mitigation with the cost of doing nothing.',
+    presenterNote: 'This is a strong board-level line: risk is shown as a future outcome, not a register entry.',
+  },
+  'forecast:scenarios': {
+    caption: 'Forecast scenarios show what happens if today’s blockers continue. Optimistic, base, and pessimistic paths give the board a way to discuss timing, cost, and readiness before the month closes.',
+    presenterNote: 'Frame this as decision support, not prediction theatre.',
+  },
+  'forecast:confidence': {
+    caption: 'Confidence explains why the forecast should be trusted. The system exposes the signals and evidence behind the forecast, so the board understands what is strengthening or weakening it.',
+    presenterNote: 'Make the trust point explicit. The forecast is only persuasive when the evidence basis is visible.',
+  },
+  'forecast:decisions': {
+    caption: 'Decision cards turn the forecast into a choice. The board sees which action improves the base case and which owner must move next.',
+    presenterNote: 'Close the forecast chapter on action, not charts.',
+  },
+  'obligations:register': {
+    caption: 'The obligations register keeps authority, contractual, and owner duties in the delivery conversation. Nothing important sits outside the operating picture.',
+    presenterNote: 'Useful for compliance-heavy owners. Show that obligations are connected to projects and owners.',
+  },
+  'obligations:deadlines': {
+    caption: 'Deadline exposure shows what must be closed before it becomes a delivery issue. The board can prioritize obligations by consequence, not just due date.',
+    presenterNote: 'Tie obligations to handover readiness and escalation timing.',
+  },
+  'obligations:evidence-link': {
+    caption: 'The evidence link closes the loop. An obligation is not complete because someone wrote a note, it is complete when the required proof is attached and traceable.',
+    presenterNote: 'This is a simple but powerful proof point for governance.',
+  },
+  'evidence:readiness': {
+    caption: 'Evidence readiness turns the document repository into a control room. Current, expired, and action-required proof is organized around what can block approval.',
+    presenterNote: 'Position evidence as readiness control, not file storage.',
+  },
+  'evidence:expired-docs': {
+    caption: 'Expired documents are surfaced as operating risk. The board sees the proof that could block handover and the action needed to replace it.',
+    presenterNote: 'This section should feel practical and urgent.',
+  },
+  'evidence:pack-prep': {
+    caption: 'Pack preparation shows how proof becomes board-ready. The system assembles the evidence needed for the next gate so readiness can be reviewed with confidence.',
+    presenterNote: 'Connect this directly to handover meetings and owner approvals.',
+  },
+  'vendoriq:scorecard': {
+    caption: 'VendorIQ starts with measurable performance. SLA, quality, evidence, cost, and repeat failures are pulled into one vendor signal the board can defend.',
+    presenterNote: 'Avoid anecdotal vendor language. This is about defensible performance decisions.',
+  },
+  'vendoriq:quote-comparison': {
+    caption: 'Quote comparison becomes stronger when performance context is included. The lowest price is not automatically the best decision if risk and delivery history tell a different story.',
+    presenterNote: 'This directly answers the earlier concern about duplicate price analysis. The value is context, not another price table.',
+  },
+  'vendoriq:action-pack': {
+    caption: 'The action pack converts vendor concern into a formal route. Corrective notice, approvals, KPI targets, and owner follow-up are prepared from the scorecard.',
+    presenterNote: 'This is a high-impact section. Show the board that vendor movement is produced, not merely discussed.',
+  },
+  'fieldops:kpis': {
+    caption: 'FieldOps proves that the operating model reaches the site. Survey counts, field progress, and capture status show whether execution data is being created where the work happens.',
+    presenterNote: 'Connect field activity back to ProjectCommand and evidence readiness.',
+  },
+  'fieldops:active-surveys': {
+    caption: 'The survey queue shows work in motion. Assignments, status, capture method, and responses are visible before anyone waits for a weekly site summary.',
+    presenterNote: 'Make this practical for operations teams.',
+  },
+  'fieldops:capture-methods': {
+    caption: 'Capture methods create proof at the source. Mobile inspections and survey workflows make the evidence trail usable before memories fade or documents scatter.',
+    presenterNote: 'This is the field-to-evidence bridge.',
+  },
+  'resident:intake': {
+    caption: 'Resident intake shows the front door of the operating system. Camera, upload, voice, and AI chat routes capture the issue in a structured way from the start.',
+    presenterNote: 'Emphasize simplicity for residents and structure for operations.',
+  },
+  'resident:timeline': {
+    caption: 'The resident timeline reduces status noise. Residents see progress, updates, and next steps, while the operating team keeps the work connected behind the scenes.',
+    presenterNote: 'This is the customer-experience proof point.',
+  },
+  'resident:handoff': {
+    caption: 'The handoff connects resident service to execution. A resident request becomes structured work with an accountable team and a clear next response.',
+    presenterNote: 'Show that the platform connects experience, operations, and accountability.',
+  },
+  'value:operating-model': {
+    caption: 'The recap pulls the story together. Portfolio control, project command, evidence, vendors, field execution, and resident experience now operate as one system.',
+    presenterNote: 'Use this to land the three board promises: control, risk to action, and AI operating system.',
+  },
+  'value:pilot-path': {
+    caption: 'The recommended pilot is intentionally focused. Start with one active handover or critical project where readiness, proof, and action ownership matter immediately.',
+    presenterNote: 'Make the next step feel low-risk and concrete.',
+  },
+  'value:expansion': {
+    caption: 'Expansion is the natural path after the pilot proves value. Add VendorIQ, FieldOps, and resident intake to extend the same operating model across the portfolio.',
+    presenterNote: 'Close with a clear path from first win to broader adoption.',
+  },
 };
 
 const DEMO_CHAPTERS: DemoChapter[] = [
@@ -939,6 +1211,47 @@ function getChapterById(chapterId: string) {
   return DEMO_CHAPTERS.find(chapter => chapter.id === chapterId) ?? DEMO_CHAPTERS[0];
 }
 
+function showModeToQuery(showMode: DemoShowMode) {
+  return SHOW_MODE_OPTIONS.find(option => option.id === showMode)?.query ?? '6';
+}
+
+function queryToShowMode(value?: string | null): DemoShowMode {
+  const normalized = (value ?? '').trim().toLowerCase();
+  const matched = SHOW_MODE_OPTIONS.find(option => (
+    option.query === normalized || option.id.toLowerCase() === normalized || option.label.toLowerCase() === normalized
+  ));
+  return matched?.id ?? DEFAULT_SHOW_MODE;
+}
+
+function getShowModeOption(showMode: DemoShowMode) {
+  return SHOW_MODE_OPTIONS.find(option => option.id === showMode) ?? SHOW_MODE_OPTIONS[1];
+}
+
+function getActForChapter(chapterId: string) {
+  return DEMO_ACTS.find(act => act.chapterIds.includes(chapterId)) ?? DEMO_ACTS[0];
+}
+
+function getActProgress(act: DemoAct, completedMissionSet: Set<string>) {
+  const actFrames = act.chapterIds.flatMap(chapterId => getEnrichedFrames(getChapterById(chapterId)));
+  const completed = actFrames.filter(frame => completedMissionSet.has(frame.mission.id)).length;
+  return { completed, total: actFrames.length };
+}
+
+function normalizeSectionRequest(chapterId: string, requested?: string | null) {
+  if (!requested) return requested;
+  const aliases: Record<string, string> = {
+    'stagegates:evidence-gap': 'evidence-gaps',
+    'stagegates:blocked-gate': 'blocked-gate',
+    'stagegates:recovery-action': 'recovery-actions',
+    'cost:variation-driver': 'variations',
+    'cost:package-driver': 'package-drivers',
+    'portfolio:health-action': 'health-actions',
+    'projectcommand:project-context': 'project-context',
+    'resident:ops-handoff': 'handoff',
+  };
+  return aliases[`${chapterId}:${requested}`] ?? requested;
+}
+
 function getChapterFrames(chapter: DemoChapter): DemoFrame[] {
   return DEMO_FRAMES[chapter.id] ?? [
     {
@@ -957,8 +1270,9 @@ function getChapterFrames(chapter: DemoChapter): DemoFrame[] {
 }
 
 function resolveFrameId(chapter: DemoChapter, requested?: string | null) {
+  const normalized = normalizeSectionRequest(chapter.id, requested);
   const frames = getChapterFrames(chapter);
-  return frames.some(frame => frame.id === requested) ? requested! : frames[0].id;
+  return frames.some(frame => frame.id === normalized) ? normalized! : frames[0].id;
 }
 
 function missionTriggerForFrame(chapterId: string, frameId: string): DemoMissionTrigger {
@@ -1011,8 +1325,52 @@ function getEnrichedFrames(chapter: DemoChapter) {
   return getChapterFrames(chapter).map((frame, index) => enrichDemoFrame(chapter, frame, index));
 }
 
+function enrichDemoSection(chapter: DemoChapter, frame: EnrichedDemoFrame, frameIndex: number): DemoSection {
+  const act = getActForChapter(chapter.id);
+  const script = SECTION_NARRATION_SCRIPTS[`${chapter.id}:${frame.id}`] ?? {
+    caption: `${frame.headline}. ${frame.clientValue}`,
+    presenterNote: `${frame.nextAction} Board proof: ${frame.decisionQuestion}`,
+  };
+  const chapterOpener = frameIndex === 0 ? CHAPTER_NARRATION_OPENERS[chapter.id] : undefined;
+  const boardNarrative = [
+    frame.headline,
+    frame.story,
+  ].join(' ');
+
+  return {
+    ...frame,
+    sectionId: frame.id,
+    legacyFrameId: frame.id,
+    title: frame.label,
+    boardNarrative,
+    clientProof: frame.decisionQuestion,
+    durationByMode: {
+      teaser: 4600 + (frameIndex % 2) * 400,
+      board: 9000 + (frameIndex % 2) * 750,
+      deepDive: 18000 + (frameIndex % 2) * 1200,
+    },
+    metricImpact: {
+      ...frame.outcome,
+      decisionsSurfaced: 1,
+    },
+    narration: {
+      caption: chapterOpener ? `${chapterOpener} ${script.caption}` : script.caption,
+      presenterNote: script.presenterNote,
+    },
+    actId: act.id,
+  };
+}
+
+function getDemoSections(chapter: DemoChapter) {
+  return getEnrichedFrames(chapter).map((frame, index) => enrichDemoSection(chapter, frame, index));
+}
+
 function getAllEnrichedFrames() {
   return DEMO_CHAPTERS.flatMap(chapter => getEnrichedFrames(chapter));
+}
+
+function getAllDemoSections() {
+  return DEMO_CHAPTERS.flatMap(chapter => getDemoSections(chapter));
 }
 
 function normalizeProgressState(value: Partial<DemoProgressState> | null | undefined): DemoProgressState {
@@ -1064,6 +1422,7 @@ function getOutcomeTotals(progressState: DemoProgressState) {
     artifacts: Array.from(artifacts.values()),
     artifactCount: artifacts.size,
     featureCount: features.size,
+    decisionsSurfaced: completedFrames.length,
     timeSavedMinutes: completedFrames.reduce((sum, frame) => sum + frame.outcome.timeSavedMinutes, 0),
     riskReduction: completedFrames.reduce((sum, frame) => sum + frame.outcome.riskReduction, 0),
     readinessGain: completedFrames.reduce((sum, frame) => sum + frame.outcome.readinessGain, 0),
@@ -1076,6 +1435,7 @@ function buildOutcomeSummary(totals: ReturnType<typeof getOutcomeTotals>) {
     `Missions completed: ${totals.completedMissions}/${totals.totalMissions}`,
     `Artifacts prepared: ${totals.artifactCount}`,
     `Feature signals covered: ${totals.featureCount}`,
+    `Board decisions surfaced: ${totals.decisionsSurfaced}`,
     `Estimated time saved: ${totals.timeSavedMinutes} minutes`,
     `Risk reduced: ${totals.riskReduction} points`,
     `Readiness gained: ${totals.readinessGain} points`,
@@ -1088,11 +1448,28 @@ function readDemoLocationFromUrl() {
   const requested = params.get('chapter');
   const chapter = DEMO_CHAPTERS.find(item => item.id === requested);
   if (!chapter) return null;
+  const sectionRequest = params.get('section') ?? params.get('frame');
 
   return {
     chapterId: chapter.id,
-    frameId: resolveFrameId(chapter, params.get('frame')),
+    frameId: resolveFrameId(chapter, sectionRequest),
   };
+}
+
+function resolveInitialShowMode() {
+  const params = new URLSearchParams(window.location.search);
+  return queryToShowMode(params.get('duration'));
+}
+
+function resolveInitialAutopilot(): DemoAutopilotState {
+  const params = new URLSearchParams(window.location.search);
+  const playing = params.get('autoplay') === 'true';
+  return { status: playing ? 'playing' : 'idle', started: playing };
+}
+
+function shouldShowIntroInitially() {
+  const params = new URLSearchParams(window.location.search);
+  return !params.has('chapter') && params.get('autoplay') !== 'true';
 }
 
 function resolveInitialChapter() {
@@ -1105,10 +1482,22 @@ function resolveInitialFrame(chapterId: string) {
   return resolveFrameId(getChapterById(chapterId));
 }
 
-function updateChapterUrl(chapterId: string, frameId?: string) {
+function updateChapterUrl(
+  chapterId: string,
+  frameId?: string,
+  options: { showMode?: DemoShowMode; autoplay?: boolean } = {},
+) {
   const url = new URL(window.location.href);
+  url.searchParams.set('mode', 'board');
   url.searchParams.set('chapter', chapterId);
-  url.searchParams.set('frame', frameId ?? resolveFrameId(getChapterById(chapterId)));
+  url.searchParams.set('section', frameId ?? resolveFrameId(getChapterById(chapterId)));
+  url.searchParams.delete('frame');
+  url.searchParams.set('duration', showModeToQuery(options.showMode ?? queryToShowMode(url.searchParams.get('duration'))));
+  if (options.autoplay) {
+    url.searchParams.set('autoplay', 'true');
+  } else {
+    url.searchParams.delete('autoplay');
+  }
   window.history.replaceState({}, '', `${url.pathname}?${url.searchParams.toString()}${url.hash}`);
 }
 
@@ -1236,6 +1625,19 @@ function ValueRecap({ totals, onCopySummary }: { totals: ReturnType<typeof getOu
           </p>
         </div>
 
+        <section className="grid gap-3 lg:grid-cols-[1fr_1.2fr]">
+          <div className="rounded-2xl border border-[#E11D2E]/22 bg-[#E11D2E]/10 p-4">
+            <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[#FFB4BC]">Before 4C360</div>
+            <h3 className="mt-2 text-xl font-black text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Board risk was trapped in reports.</h3>
+            <p className="mt-2 text-[12px] leading-5 text-[#FECACA]">Handover readiness, vendor action, field proof, resident impact, and commercial exposure were reviewed as separate conversations.</p>
+          </div>
+          <div className="rounded-2xl border border-cyan-300/22 bg-cyan-300/10 p-4">
+            <div className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-200">After the board show</div>
+            <h3 className="mt-2 text-xl font-black text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>One operating decision is ready.</h3>
+            <p className="mt-2 text-[12px] leading-5 text-cyan-50">The board sees the risk, the recovery owner, the evidence pack, the vendor response, the field instruction, and the pilot recommendation in one connected model.</p>
+          </div>
+        </section>
+
         <section className="rounded-2xl border border-emerald-300/18 bg-emerald-300/8 p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -1251,11 +1653,12 @@ function ValueRecap({ totals, onCopySummary }: { totals: ReturnType<typeof getOu
               Copy summary
             </button>
           </div>
-          <div className="mt-4 grid gap-2 md:grid-cols-6">
+          <div className="mt-4 grid gap-2 md:grid-cols-7">
             {[
               [`${totals.completedMissions}/${totals.totalMissions}`, 'missions'],
               [`${totals.artifactCount}`, 'artifacts'],
               [`${totals.featureCount}`, 'features'],
+              [`${totals.decisionsSurfaced}`, 'decisions'],
               [`${totals.timeSavedMinutes}m`, 'time saved'],
               [`-${totals.riskReduction}`, 'risk points'],
               [`+${totals.readinessGain}`, 'readiness'],
@@ -1301,6 +1704,465 @@ function ValueRecap({ totals, onCopySummary }: { totals: ReturnType<typeof getOu
           ))}
         </div>
       </div>
+    </div>
+  );
+}
+
+function ValueSpine({ totals }: { totals: ReturnType<typeof getOutcomeTotals> }) {
+  const items = [
+    [`-${totals.riskReduction}`, 'risk reduced'],
+    [`+${totals.readinessGain}`, 'readiness'],
+    [`${totals.artifactCount}`, 'artifacts'],
+    [`${totals.decisionsSurfaced}`, 'decisions'],
+    [`${totals.timeSavedMinutes}m`, 'time saved'],
+  ];
+
+  return (
+    <div className="grid grid-cols-5 gap-1.5">
+      {items.map(([value, label]) => (
+        <div key={label} className="min-w-0 rounded-lg border border-[#2E7FFF]/18 bg-[#06101F] px-2 py-1.5 text-center">
+          <div className="truncate text-[13px] font-black text-white">{value}</div>
+          <div className="truncate text-[8px] font-black uppercase tracking-[0.11em] text-[#7A94B4]">{label}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function BoardCaptionBar({
+  act,
+  section,
+  showMode,
+  autopilotStatus,
+  progress,
+}: {
+  act: DemoAct;
+  section: DemoSection;
+  showMode: DemoShowMode;
+  autopilotStatus: DemoAutopilotState['status'];
+  progress: number;
+}) {
+  return (
+    <div className="flex flex-shrink-0 items-center gap-3 border-b border-[#2E7FFF]/14 bg-[#081426] px-4 py-3">
+      <div className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-cyan-300/24 bg-cyan-300/10 text-cyan-200 sm:flex">
+        <Presentation size={20} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-200">{act.label}: {act.title}</span>
+          <span className="rounded-full border border-[#2E7FFF]/20 bg-[#06101F] px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-[#8DBDFF]">
+            {getShowModeOption(showMode).label}
+          </span>
+          <span className={`rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] ${
+            autopilotStatus === 'playing'
+              ? 'bg-emerald-300/14 text-emerald-100'
+              : autopilotStatus === 'paused'
+              ? 'bg-amber-300/14 text-amber-100'
+              : 'bg-[#2E7FFF]/12 text-[#B8C7DB]'
+          }`}>
+            {autopilotStatus === 'playing' ? 'Auto tour running' : autopilotStatus === 'paused' ? 'Paused' : 'Manual'}
+          </span>
+        </div>
+        <p className="mt-1 line-clamp-2 text-[13px] font-semibold leading-5 text-[#E6EEF9]">{section.narration.caption}</p>
+      </div>
+      <div className="hidden w-28 shrink-0 sm:block">
+        <div className="mb-1 flex items-center justify-between text-[9px] font-black uppercase tracking-[0.12em] text-[#7A94B4]">
+          <span>section</span>
+          <span>{Math.round(progress)}%</span>
+        </div>
+        <div className="h-1.5 rounded-full bg-[#13294A]">
+          <div className="h-full rounded-full bg-[linear-gradient(90deg,#22D3EE,#2E7FFF,#7C3AED)] transition-all duration-300" style={{ width: `${progress}%` }} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ExecutiveControlRoom({
+  showMode,
+  onShowModeChange,
+  onStart,
+  onBrowse,
+  onCopyBoardLink,
+}: {
+  showMode: DemoShowMode;
+  onShowModeChange: (showMode: DemoShowMode) => void;
+  onStart: () => void;
+  onBrowse: () => void;
+  onCopyBoardLink: () => void;
+}) {
+  const promises = [
+    { icon: Building2, title: 'Portfolio Control', detail: 'One board view of asset health, owner risk, and the command path.' },
+    { icon: Target, title: 'Risk To Action', detail: 'A handover threat becomes gates, cost exposure, proof gaps, and assigned recovery.' },
+    { icon: BrainCircuit, title: 'AI Operating System', detail: 'Vendor, field, resident, and project signals resolve into one owner recommendation.' },
+  ];
+
+  return (
+    <div className="min-h-screen overflow-y-auto bg-[#030A15] text-[#EEF3FA]">
+      <div className="mx-auto flex min-h-screen max-w-7xl flex-col px-4 py-5">
+        <header className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <img src="/4c-logo.png" alt="4C logo" className="h-10 w-10 rounded-xl object-contain" />
+            <div className="min-w-0">
+              <div className="truncate text-[16px] font-black text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>4C360 Board Demo</div>
+              <div className="truncate text-[11px] font-bold uppercase tracking-[0.16em] text-[#7A94B4]">Actual system, cinematic walkthrough</div>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onCopyBoardLink}
+            className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl border border-[#2E7FFF]/24 bg-[#0A1628] px-3 text-[12px] font-black text-[#B8C7DB] hover:bg-[#112040] hover:text-white"
+          >
+            <Copy size={15} />
+            Copy Board Link
+          </button>
+        </header>
+
+        <main className="grid flex-1 items-center gap-5 py-6 md:grid-cols-[minmax(0,1fr)_minmax(320px,0.82fr)] xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
+          <section className="min-w-0">
+            <div className="inline-flex items-center gap-2 rounded-full border border-[#E11D2E]/28 bg-[#E11D2E]/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-[#FFB4BC]">
+              <MonitorPlay size={14} />
+              Executive control room
+            </div>
+            <h1 className="mt-5 max-w-4xl text-[clamp(32px,5.2vw,64px)] font-black leading-[0.96] text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+              One handover risk becomes a board-ready operating decision.
+            </h1>
+            <p className="mt-4 max-w-3xl text-[16px] leading-7 text-[#B8C7DB]">
+              {DEMO_SCENARIO} The show moves through live 4C360 screens, narrated proof points, and timed sections so the board sees the system working, not a static pitch.
+            </p>
+
+            <div className="mt-4 grid gap-2 md:hidden">
+              <button
+                type="button"
+                onClick={onStart}
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#2E7FFF] px-4 text-[14px] font-black text-white shadow-xl shadow-blue-950/35"
+              >
+                <Play size={17} />
+                Start Board Demo
+              </button>
+              <button
+                type="button"
+                onClick={onBrowse}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-[#2E7FFF]/24 bg-[#06101F] px-4 text-[13px] font-black text-[#DCEBFF]"
+              >
+                <ListTree size={16} />
+                Browse Chapters
+              </button>
+            </div>
+
+            <div className="mt-5 hidden gap-2 xl:grid xl:grid-cols-3">
+              {promises.map(({ icon: Icon, title, detail }) => (
+                <div key={title} className="rounded-2xl border border-[#2E7FFF]/20 bg-[#07111F] p-3 shadow-2xl shadow-black/20">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-300/24 bg-cyan-300/10 text-cyan-200">
+                    <Icon size={19} />
+                  </div>
+                  <h2 className="mt-3 text-[14px] font-black text-white">{title}</h2>
+                  <p className="mt-2 text-[12px] leading-5 text-[#8EA7C7]">{detail}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="rounded-3xl border border-[#2E7FFF]/24 bg-[linear-gradient(155deg,rgba(46,127,255,0.18),rgba(124,58,237,0.12),rgba(7,17,31,0.98))] p-5 shadow-2xl shadow-black/40">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-200">Choose pacing</div>
+                <h2 className="mt-1 text-2xl font-black text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Start the board show.</h2>
+              </div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-emerald-300/24 bg-emerald-300/10 text-emerald-200">
+                <Rocket size={22} />
+              </div>
+            </div>
+
+            <div className="mt-5 space-y-2">
+              {SHOW_MODE_OPTIONS.map(option => {
+                const active = showMode === option.id;
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => onShowModeChange(option.id)}
+                    className={`flex w-full items-center justify-between gap-3 rounded-2xl border p-3 text-left transition-colors ${
+                      active
+                        ? 'border-[#2E7FFF]/60 bg-[#2E7FFF]/18 text-white'
+                        : 'border-[#2E7FFF]/16 bg-[#06101F]/76 text-[#B8C7DB] hover:border-[#2E7FFF]/34 hover:bg-[#112040]'
+                    }`}
+                  >
+                    <span>
+                      <span className="block text-[13px] font-black">{option.label}</span>
+                      <span className="mt-1 block text-[11px] leading-4 text-[#8EA7C7]">{option.description}</span>
+                    </span>
+                    <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${active ? 'bg-cyan-300/14 text-cyan-100' : 'bg-[#0A1628] text-[#7A94B4]'}`}>
+                      {option.durationLabel}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="mt-5 grid gap-2 sm:grid-cols-[1fr_auto]">
+              <button
+                type="button"
+                onClick={onStart}
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#2E7FFF] px-4 text-[14px] font-black text-white shadow-xl shadow-blue-950/35 transition-colors hover:bg-[#4B91FF]"
+              >
+                <Play size={17} />
+                Start Board Demo
+              </button>
+              <button
+                type="button"
+                onClick={onBrowse}
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-[#2E7FFF]/24 bg-[#06101F] px-4 text-[13px] font-black text-[#DCEBFF] transition-colors hover:bg-[#112040]"
+              >
+                <ListTree size={16} />
+                Browse Chapters
+              </button>
+            </div>
+
+            <div className="mt-5 rounded-2xl border border-[#2E7FFF]/18 bg-[#06101F]/82 p-4">
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  ['39', 'live sections'],
+                  ['7', 'prepared artifacts'],
+                  ['1', 'board decision'],
+                ].map(([value, label]) => (
+                  <div key={label} className="rounded-xl border border-[#2E7FFF]/14 bg-[#0A1628] p-3 text-center">
+                    <div className="text-[20px] font-black text-white">{value}</div>
+                    <div className="mt-1 text-[9px] font-black uppercase tracking-[0.12em] text-[#7A94B4]">{label}</div>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-3 text-[12px] leading-5 text-[#8EA7C7]">
+                Premium audio is handled by the ElevenLabs board advisor when an agent ID is configured. Captions stay on-screen for every board show.
+              </p>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+  );
+}
+
+type DemoVoiceSession = {
+  endSession(): Promise<void>;
+  sendUserMessage(text: string): void;
+  sendContextualUpdate(text: string): void;
+  setMicMuted(isMuted: boolean): void;
+};
+
+function buildElevenLabsSystemPrompt() {
+  return [
+    'You are the 4C360 board demo voice advisor for a property-owner executive audience.',
+    'When a message starts with NARRATE:, speak the narration cue in a polished boardroom tone.',
+    'Keep narration concise, confident, and close to the supplied wording.',
+    'Do not invent product claims. If the board asks a question, answer from the Sobha Pilot Tower handover-risk scenario.',
+  ].join(' ');
+}
+
+function buildElevenLabsNarrationCue(section: DemoSection) {
+  return `NARRATE: ${section.narration.caption}`;
+}
+
+function DemoVoiceAdvisor({ section, onToast }: { section: DemoSection; onToast: ToastFn }) {
+  const [open, setOpen] = useState(false);
+  const [voiceStatus, setVoiceStatus] = useState<DemoVoiceState>(DEMO_AGENT_ID ? 'ready' : 'unavailable');
+  const [voiceActive, setVoiceActive] = useState(false);
+  const [autoNarrationEnabled, setAutoNarrationEnabled] = useState(true);
+  const conversationRef = useRef<DemoVoiceSession | null>(null);
+  const lastNarratedSectionRef = useRef<string | null>(null);
+
+  const sendNarrationCue = useCallback((targetSection: DemoSection) => {
+    if (!conversationRef.current) return;
+    lastNarratedSectionRef.current = targetSection.sectionId;
+    conversationRef.current.sendUserMessage(buildElevenLabsNarrationCue(targetSection));
+  }, []);
+
+  const stopVoice = useCallback(async () => {
+    if (conversationRef.current) {
+      try {
+        await conversationRef.current.endSession();
+      } catch {
+        // no-op
+      }
+    }
+    conversationRef.current = null;
+    setVoiceActive(false);
+    setVoiceStatus(DEMO_AGENT_ID ? 'ready' : 'unavailable');
+  }, []);
+
+  const startVoice = useCallback(async () => {
+    if (!DEMO_AGENT_ID) {
+      setVoiceStatus('unavailable');
+      onToast('Voice unavailable, captions active', 'info');
+      return;
+    }
+    if (voiceActive) return;
+
+    try {
+      setOpen(true);
+      setVoiceActive(true);
+      setVoiceStatus('connecting');
+      const { Conversation } = await import('@11labs/client');
+      const ttsOverride = DEMO_VOICE_ID ? { voiceId: DEMO_VOICE_ID } : undefined;
+      lastNarratedSectionRef.current = section.sectionId;
+      conversationRef.current = await Conversation.startSession({
+        agentId: DEMO_AGENT_ID,
+        connectionType: 'websocket',
+        overrides: {
+          agent: {
+            prompt: { prompt: buildElevenLabsSystemPrompt() },
+            firstMessage: section.narration.caption,
+            language: 'en',
+          },
+          ...(ttsOverride ? { tts: ttsOverride } : {}),
+        },
+        dynamicVariables: {
+          demo_scenario: DEMO_SCENARIO,
+          current_chapter: section.chapterId,
+          current_section: section.title,
+        },
+        onConnect: () => {
+          setVoiceStatus('listening');
+          onToast('ElevenLabs board audio connected', 'success');
+        },
+        onDisconnect: () => {
+          conversationRef.current = null;
+          setVoiceActive(false);
+          setVoiceStatus('ready');
+        },
+        onError: () => {
+          conversationRef.current = null;
+          setVoiceActive(false);
+          setVoiceStatus('error');
+        },
+        onModeChange: (mode: { mode: 'speaking' | 'listening' }) => setVoiceStatus(mode.mode),
+      });
+    } catch {
+      conversationRef.current = null;
+      setVoiceActive(false);
+      setVoiceStatus('error');
+    }
+  }, [onToast, section, voiceActive]);
+
+  useEffect(() => {
+    if (!voiceActive || !autoNarrationEnabled || !conversationRef.current) return;
+    if (lastNarratedSectionRef.current === section.sectionId) return;
+    sendNarrationCue(section);
+  }, [autoNarrationEnabled, section, sendNarrationCue, voiceActive]);
+
+  useEffect(() => () => {
+    void stopVoice();
+  }, [stopVoice]);
+
+  const voiceLabel = voiceStatus === 'unavailable'
+    ? 'ElevenLabs not configured'
+    : voiceStatus === 'ready'
+    ? 'ElevenLabs ready'
+    : voiceStatus === 'connecting'
+    ? 'Connecting to ElevenLabs'
+    : voiceStatus === 'listening'
+    ? 'ElevenLabs listening'
+    : voiceStatus === 'speaking'
+    ? 'ElevenLabs speaking'
+    : 'ElevenLabs error';
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(current => !current)}
+        className={`inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-[11px] font-black transition-colors ${
+          voiceActive
+            ? 'border-cyan-300/34 bg-cyan-300/12 text-cyan-100'
+            : DEMO_AGENT_ID
+            ? 'border-[#2E7FFF]/24 bg-[#0A1628] text-[#B8C7DB] hover:bg-[#112040] hover:text-white'
+            : 'border-amber-300/24 bg-amber-300/10 text-amber-100 hover:bg-amber-300/14'
+        }`}
+        aria-label="Open ElevenLabs board audio"
+      >
+        {voiceActive ? <Volume2 size={14} /> : <Mic size={14} />}
+        <span className="hidden sm:inline">{voiceActive ? 'Audio on' : 'ElevenLabs'}</span>
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-12 z-50 w-[min(390px,calc(100vw-32px))] rounded-2xl border border-[#2E7FFF]/24 bg-[#07111F] p-4 shadow-2xl shadow-black/50">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-200">Board voice advisor</div>
+              <h3 className="mt-1 text-[16px] font-black text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{voiceLabel}</h3>
+              <p className="mt-2 text-[12px] leading-5 text-[#8EA7C7]">
+                Premium demo audio uses ElevenLabs. Browser text-to-speech is intentionally not used for client demos.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#2E7FFF]/18 text-[#8EA7C7] hover:bg-white/5 hover:text-white"
+              aria-label="Close voice advisor"
+            >
+              <X size={14} />
+            </button>
+          </div>
+
+          {!DEMO_AGENT_ID && (
+            <div className="mt-3 rounded-xl border border-amber-300/24 bg-amber-300/10 p-3">
+              <div className="text-[10px] font-black uppercase tracking-[0.16em] text-amber-100">Setup needed</div>
+              <p className="mt-1 text-[12px] leading-5 text-amber-50">
+                Add an ElevenLabs agent ID as VITE_ELEVENLABS_DEMO_AGENT_ID. The demo will also accept VITE_ELEVENLABS_SOLUTIONS_AGENT_ID or VITE_ELEVENLABS_AGENT_ID.
+              </p>
+            </div>
+          )}
+
+          <div className="mt-3 rounded-xl border border-[#2E7FFF]/16 bg-[#0A1628] p-3">
+            <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#7A94B4]">Current narration</div>
+            <p className="mt-1 text-[12px] leading-5 text-[#DCEBFF]">{section.narration.caption}</p>
+          </div>
+
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={voiceActive ? stopVoice : startVoice}
+              disabled={!DEMO_AGENT_ID && !voiceActive}
+              className={`flex h-10 items-center justify-center gap-2 rounded-xl text-[12px] font-black transition-colors ${
+                voiceActive
+                  ? 'border border-[#E11D2E]/34 bg-[#E11D2E]/18 text-[#FFB4BC]'
+                  : DEMO_AGENT_ID
+                  ? 'bg-[#2E7FFF] text-white hover:bg-[#4B91FF]'
+                  : 'cursor-not-allowed border border-[#2E7FFF]/18 bg-[#06101F] text-[#7A94B4]'
+              }`}
+            >
+              {voiceActive ? <MicOff size={15} /> : <Mic size={15} />}
+              {!DEMO_AGENT_ID ? 'Needs agent ID' : voiceActive ? 'Stop audio' : 'Enable audio'}
+            </button>
+            <button
+              type="button"
+              onClick={() => voiceActive ? sendNarrationCue(section) : startVoice()}
+              className={`flex h-10 items-center justify-center gap-2 rounded-xl border text-[12px] font-black transition-colors ${
+                DEMO_AGENT_ID
+                  ? 'border-[#2E7FFF]/22 bg-[#06101F] text-[#DCEBFF] hover:bg-[#112040]'
+                  : 'cursor-not-allowed border-[#2E7FFF]/18 bg-[#06101F] text-[#7A94B4]'
+              }`}
+              disabled={!DEMO_AGENT_ID}
+            >
+              <Volume2 size={15} />
+              Read cue
+            </button>
+          </div>
+
+          <label className="mt-3 flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-[#2E7FFF]/16 bg-[#06101F] px-3 py-2">
+            <span>
+              <span className="block text-[11px] font-black text-white">Auto-read each section</span>
+              <span className="mt-0.5 block text-[10px] leading-4 text-[#7A94B4]">When ElevenLabs is connected, the advisor narrates every new spotlight.</span>
+            </span>
+            <input
+              type="checkbox"
+              checked={autoNarrationEnabled}
+              onChange={event => setAutoNarrationEnabled(event.target.checked)}
+              className="h-4 w-4 accent-[#2E7FFF]"
+            />
+          </label>
+        </div>
+      )}
     </div>
   );
 }
@@ -1369,7 +2231,11 @@ export function InteractiveDemoWalkthrough() {
   const stageRef = useRef<HTMLDivElement>(null);
   const [activeId, setActiveId] = useState(resolveInitialChapter);
   const [activeFrameId, setActiveFrameId] = useState(() => resolveInitialFrame(resolveInitialChapter()));
-  const [autoplay, setAutoplay] = useState(false);
+  const [showMode, setShowMode] = useState<DemoShowMode>(resolveInitialShowMode);
+  const [showIntro, setShowIntro] = useState(shouldShowIntroInitially);
+  const [autopilot, setAutopilot] = useState<DemoAutopilotState>(resolveInitialAutopilot);
+  const [presenterNotesOpen, setPresenterNotesOpen] = useState(false);
+  const [sectionProgress, setSectionProgress] = useState(0);
   const [statusMessage, setStatusMessage] = useState('Guided demo ready');
   const [shareCopied, setShareCopied] = useState(false);
   const [sharePanelOpen, setSharePanelOpen] = useState(false);
@@ -1378,21 +2244,26 @@ export function InteractiveDemoWalkthrough() {
 
   const activeIndex = Math.max(0, DEMO_CHAPTERS.findIndex(chapter => chapter.id === activeId));
   const chapter = DEMO_CHAPTERS[activeIndex] ?? DEMO_CHAPTERS[0];
-  const frames = useMemo(() => getEnrichedFrames(chapter), [chapter]);
+  const frames = useMemo(() => getDemoSections(chapter), [chapter]);
   const activeFrameIndex = Math.max(0, frames.findIndex(frame => frame.id === activeFrameId));
   const activeFrame = frames[activeFrameIndex] ?? frames[0];
   const nextFrame = frames[activeFrameIndex + 1] ?? null;
-  const allMissionFrames = useMemo(getAllEnrichedFrames, []);
+  const allMissionFrames = useMemo(getAllDemoSections, []);
   const completedMissionSet = useMemo(() => new Set(progressState.completedMissionIds), [progressState.completedMissionIds]);
   const activeMissionComplete = completedMissionSet.has(activeFrame.mission.id);
   const outcomeTotals = useMemo(() => getOutcomeTotals(progressState), [progressState]);
+  const activeAct = useMemo(() => getActForChapter(chapter.id), [chapter.id]);
   const hotspotTarget = useMemo<HotspotTarget>(() => ({
     anchor: activeFrame.anchor ?? chapter.anchor,
     fallback: activeFrame.fallback ?? chapter.fallback,
   }), [activeFrame, chapter.anchor, chapter.fallback]);
   const anchorBox = useAnchorBox(stageRef, hotspotTarget);
   const progress = Math.round(((activeIndex + ((activeFrameIndex + 1) / frames.length)) / DEMO_CHAPTERS.length) * 100);
-  const shareUrl = useMemo(() => buildShareUrl(chapter.id, activeFrame.id), [activeFrame.id, chapter.id]);
+  const sectionDurationMs = activeFrame.durationByMode[showMode];
+  const shareUrl = useMemo(
+    () => buildShareUrl(chapter.id, activeFrame.sectionId, showMode, autopilot.status === 'playing'),
+    [activeFrame.sectionId, autopilot.status, chapter.id, showMode],
+  );
   const nextChapter = DEMO_CHAPTERS[(activeIndex + 1) % DEMO_CHAPTERS.length];
   const primaryActionLabel = activeMissionComplete
     ? nextFrame ? `Next: ${nextFrame.label}` : `Next page: ${nextChapter.shortLabel}`
@@ -1401,16 +2272,18 @@ export function InteractiveDemoWalkthrough() {
   const selectChapter = useCallback((chapterId: string, frameId?: string) => {
     const nextChapter = getChapterById(chapterId);
     const nextFrameId = resolveFrameId(nextChapter, frameId);
+    setShowIntro(false);
     setActiveId(chapterId);
     setActiveFrameId(nextFrameId);
-    updateChapterUrl(chapterId, nextFrameId);
-  }, []);
+    updateChapterUrl(chapterId, nextFrameId, { showMode, autoplay: autopilot.status === 'playing' });
+  }, [autopilot.status, showMode]);
 
   const selectFrame = useCallback((frameId: string) => {
     const nextFrameId = resolveFrameId(chapter, frameId);
+    setShowIntro(false);
     setActiveFrameId(nextFrameId);
-    updateChapterUrl(chapter.id, nextFrameId);
-  }, [chapter]);
+    updateChapterUrl(chapter.id, nextFrameId, { showMode, autoplay: autopilot.status === 'playing' });
+  }, [autopilot.status, chapter, showMode]);
 
   const advanceFrame = useCallback(() => {
     if (nextFrame) {
@@ -1431,7 +2304,7 @@ export function InteractiveDemoWalkthrough() {
 
     const previousIndex = (activeIndex - 1 + DEMO_CHAPTERS.length) % DEMO_CHAPTERS.length;
     const previousChapter = DEMO_CHAPTERS[previousIndex];
-    const previousFrames = getEnrichedFrames(previousChapter);
+    const previousFrames = getDemoSections(previousChapter);
     selectChapter(previousChapter.id, previousFrames[previousFrames.length - 1]?.id);
   }, [activeFrameIndex, activeIndex, frames, selectChapter, selectFrame]);
 
@@ -1458,6 +2331,8 @@ export function InteractiveDemoWalkthrough() {
 
   const resetDemoProgress = useCallback(() => {
     setProgressState(EMPTY_PROGRESS_STATE);
+    setAutopilot({ status: 'idle', started: false });
+    setSectionProgress(0);
     try {
       window.sessionStorage.removeItem(DEMO_PROGRESS_STORAGE_KEY);
     } catch {
@@ -1493,12 +2368,47 @@ export function InteractiveDemoWalkthrough() {
     advanceFrame();
   }, [activeFrame.mission.id, advanceFrame, completeActiveMission, isMissionComplete]);
 
+  const startBoardDemo = useCallback(() => {
+    const firstChapter = DEMO_CHAPTERS[0];
+    const firstSection = getDemoSections(firstChapter)[0];
+    setShowIntro(false);
+    setActiveId(firstChapter.id);
+    setActiveFrameId(firstSection.id);
+    setAutopilot({ status: 'playing', started: true });
+    updateChapterUrl(firstChapter.id, firstSection.id, { showMode, autoplay: true });
+    setStatusMessage('SUCCESS: Board demo running');
+    window.setTimeout(() => setStatusMessage('Guided demo ready'), 2400);
+  }, [showMode]);
+
+  const browseChapters = useCallback(() => {
+    setShowIntro(false);
+    setAutopilot({ status: 'idle', started: false });
+    updateChapterUrl(chapter.id, activeFrame.id, { showMode, autoplay: false });
+  }, [activeFrame.id, chapter.id, showMode]);
+
+  const restartShow = useCallback(() => {
+    const firstChapter = DEMO_CHAPTERS[0];
+    const firstSection = getDemoSections(firstChapter)[0];
+    setActiveId(firstChapter.id);
+    setActiveFrameId(firstSection.id);
+    setShowIntro(false);
+    setAutopilot({ status: 'playing', started: true });
+    updateChapterUrl(firstChapter.id, firstSection.id, { showMode, autoplay: true });
+  }, [showMode]);
+
+  const toggleAutopilot = useCallback(() => {
+    setShowIntro(false);
+    const playing = autopilot.status !== 'playing';
+    setAutopilot(current => ({ status: playing ? 'playing' : 'paused', started: current.started || playing }));
+    updateChapterUrl(chapter.id, activeFrame.id, { showMode, autoplay: playing });
+  }, [activeFrame.id, autopilot.status, chapter.id, showMode]);
+
   const copyLink = useCallback(async () => {
     setSharePanelOpen(true);
     const copied = await copyText(shareUrl);
     if (copied) {
       setShareCopied(true);
-      onToast('Share link copied for this frame', 'success');
+      onToast('Share link copied for this section', 'success');
       window.setTimeout(() => setShareCopied(false), 2200);
       return;
     }
@@ -1512,6 +2422,25 @@ export function InteractiveDemoWalkthrough() {
     onToast(copied ? 'Outcome scorecard copied' : 'Outcome scorecard is ready to copy from the page', copied ? 'success' : 'info');
   }, [onToast, outcomeTotals]);
 
+  const copyBoardLink = useCallback(async () => {
+    const copied = await copyText(buildShareUrl(undefined, undefined, showMode));
+    onToast(copied ? 'Board demo link copied' : 'Board demo link is ready to copy', copied ? 'success' : 'info');
+  }, [onToast, showMode]);
+
+  const chooseShowMode = useCallback((nextMode: DemoShowMode) => {
+    setShowMode(nextMode);
+    const url = new URL(window.location.href);
+    url.searchParams.set('mode', 'board');
+    url.searchParams.set('duration', showModeToQuery(nextMode));
+    if (!showIntro) {
+      url.searchParams.set('chapter', chapter.id);
+      url.searchParams.set('section', activeFrame.id);
+      url.searchParams.delete('frame');
+      if (autopilot.status === 'playing') url.searchParams.set('autoplay', 'true');
+    }
+    window.history.replaceState({}, '', `${url.pathname}?${url.searchParams.toString()}${url.hash}`);
+  }, [activeFrame.id, autopilot.status, chapter.id, showIntro]);
+
   useEffect(() => {
     setShareCopied(false);
   }, [activeFrame.id, chapter.id]);
@@ -1519,6 +2448,17 @@ export function InteractiveDemoWalkthrough() {
   useEffect(() => {
     saveDemoProgressState(progressState);
   }, [progressState]);
+
+  useEffect(() => {
+    setSectionProgress(0);
+  }, [activeFrame.id, autopilot.status, showMode]);
+
+  useEffect(() => {
+    const root = stageRef.current;
+    if (!root || !hotspotTarget.anchor) return;
+    const target = root.querySelector(`[data-demo-anchor="${hotspotTarget.anchor}"]`) as HTMLElement | null;
+    target?.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' });
+  }, [activeFrame.id, hotspotTarget.anchor]);
 
   useEffect(() => {
     if (activeFrame.mission.trigger.type !== 'frameVisit') return;
@@ -1557,10 +2497,25 @@ export function InteractiveDemoWalkthrough() {
   useEffect(() => {
     const syncFromBrowser = () => {
       const next = readDemoLocationFromUrl();
-      if (!next) return;
+      const params = new URLSearchParams(window.location.search);
+      setShowMode(current => {
+        const nextMode = queryToShowMode(params.get('duration'));
+        return current === nextMode ? current : nextMode;
+      });
+      if (!next) {
+        if (!params.has('chapter')) setShowIntro(true);
+        return;
+      }
 
+      setShowIntro(false);
       setActiveId(current => (current === next.chapterId ? current : next.chapterId));
       setActiveFrameId(current => (current === next.frameId ? current : next.frameId));
+      setAutopilot(current => {
+        const shouldPlay = params.get('autoplay') === 'true';
+        if (shouldPlay && current.status !== 'playing') return { status: 'playing', started: true };
+        if (!shouldPlay && current.status === 'playing') return { status: 'paused', started: current.started };
+        return current;
+      });
     };
 
     window.addEventListener('popstate', syncFromBrowser);
@@ -1586,19 +2541,48 @@ export function InteractiveDemoWalkthrough() {
         event.preventDefault();
         goBack();
       }
+
+      if (event.key === ' ') {
+        event.preventDefault();
+        toggleAutopilot();
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [advanceMissionOrFrame, goBack]);
+  }, [advanceMissionOrFrame, goBack, toggleAutopilot]);
 
   useEffect(() => {
-    if (!autoplay) return undefined;
-    const interval = window.setInterval(advanceMissionOrFrame, 8500);
-    return () => window.clearInterval(interval);
-  }, [advanceMissionOrFrame, autoplay]);
+    if (autopilot.status !== 'playing') return undefined;
+    const startedAt = Date.now();
+    const progressInterval = window.setInterval(() => {
+      const elapsed = Date.now() - startedAt;
+      setSectionProgress(Math.min(100, (elapsed / sectionDurationMs) * 100));
+    }, 250);
+    const advanceTimer = window.setTimeout(() => {
+      completeMission(activeFrame.mission.id);
+      advanceFrame();
+    }, sectionDurationMs);
+
+    return () => {
+      window.clearInterval(progressInterval);
+      window.clearTimeout(advanceTimer);
+    };
+  }, [activeFrame.mission.id, advanceFrame, autopilot.status, completeMission, sectionDurationMs]);
 
   const railItems = useMemo(() => DEMO_CHAPTERS, []);
+
+  if (showIntro) {
+    return (
+      <ExecutiveControlRoom
+        showMode={showMode}
+        onShowModeChange={chooseShowMode}
+        onStart={startBoardDemo}
+        onBrowse={browseChapters}
+        onCopyBoardLink={copyBoardLink}
+      />
+    );
+  }
 
   return (
     <div className="h-screen overflow-hidden bg-[#030A15] text-[#EEF3FA]">
@@ -1606,24 +2590,26 @@ export function InteractiveDemoWalkthrough() {
         <div className="flex min-w-0 items-center gap-3">
           <img src="/4c-logo.png" alt="4C logo" className="h-9 w-9 rounded-lg object-contain" />
           <div className="min-w-0">
-            <div className="truncate text-[15px] font-black text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>4C360 Properties Interactive Demo</div>
-            <div className="truncate text-[11px] font-semibold text-[#7A94B4]">Actual system walkthrough for property-owner prospects</div>
+            <div className="truncate text-[15px] font-black text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>4C360 Board Demo</div>
+            <div className="truncate text-[11px] font-semibold text-[#7A94B4]">Cinematic actual-system walkthrough</div>
           </div>
         </div>
         <div className="hidden min-w-0 flex-1 items-center justify-center gap-3 lg:flex">
           <div className="min-w-0 flex-1 max-w-xl">
-            <div className="mb-1 truncate text-center text-[10px] font-black uppercase tracking-[0.14em] text-cyan-200">{DEMO_SCENARIO}</div>
+            <div className="mb-1 truncate text-center text-[10px] font-black uppercase tracking-[0.14em] text-cyan-200">{activeAct.title}: {DEMO_SCENARIO}</div>
             <div className="rounded-full border border-[#2E7FFF]/22 bg-[#0A1628] p-1">
               <div className="h-2 rounded-full bg-[#13294A]">
                 <div className="h-full rounded-full bg-[linear-gradient(90deg,#2E7FFF,#22D3EE,#7C3AED)] transition-all duration-300" style={{ width: `${progress}%` }} />
               </div>
             </div>
           </div>
-          <div className="hidden shrink-0 grid-cols-3 gap-1 xl:grid">
+          <div className="hidden shrink-0 grid-cols-5 gap-1 2xl:grid">
             {[
-              [`${outcomeTotals.completedMissions}/${outcomeTotals.totalMissions}`, 'missions'],
+              [`-${outcomeTotals.riskReduction}`, 'risk'],
+              [`+${outcomeTotals.readinessGain}`, 'ready'],
               [`${outcomeTotals.artifactCount}`, 'artifacts'],
-              [`${outcomeTotals.riskReduction}`, 'risk pts'],
+              [`${outcomeTotals.decisionsSurfaced}`, 'decisions'],
+              [`${outcomeTotals.timeSavedMinutes}m`, 'saved'],
             ].map(([value, label]) => (
               <div key={label} className="rounded-lg border border-[#2E7FFF]/18 bg-[#0A1628] px-2 py-1 text-center">
                 <div className="text-[12px] font-black text-white">{value}</div>
@@ -1633,6 +2619,18 @@ export function InteractiveDemoWalkthrough() {
           </div>
         </div>
         <div className="relative flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={toggleAutopilot}
+            className={`inline-flex h-9 items-center gap-2 rounded-lg px-3 text-[11px] font-black text-white transition-colors ${
+              autopilot.status === 'playing' ? 'bg-[#E11D2E] hover:bg-[#F43F5E]' : 'bg-[#2E7FFF] hover:bg-[#4B91FF]'
+            }`}
+            aria-label={autopilot.status === 'playing' ? 'Pause board demo' : 'Start board demo'}
+          >
+            {autopilot.status === 'playing' ? <Pause size={14} /> : <Play size={14} />}
+            <span className="hidden sm:inline">{autopilot.status === 'playing' ? 'Pause' : 'Play'}</span>
+          </button>
+          <DemoVoiceAdvisor section={activeFrame} onToast={onToast} />
           <button
             type="button"
             onClick={resetDemoProgress}
@@ -1650,7 +2648,7 @@ export function InteractiveDemoWalkthrough() {
                 ? 'border-emerald-300/30 bg-emerald-300/12 text-emerald-100'
                 : 'border-[#2E7FFF]/24 bg-[#0A1628] text-[#B8C7DB] hover:bg-[#112040] hover:text-white'
             }`}
-            aria-label={shareCopied ? 'Share link copied' : 'Share this frame'}
+            aria-label={shareCopied ? 'Share link copied' : 'Share this section'}
           >
             {shareCopied ? <CheckCircle2 size={14} /> : <Copy size={14} />}
             <span className="hidden sm:inline">{shareCopied ? 'Copied' : 'Share'}</span>
@@ -1659,8 +2657,8 @@ export function InteractiveDemoWalkthrough() {
             <div className="absolute right-0 top-12 z-50 w-[min(420px,calc(100vw-32px))] rounded-xl border border-[#2E7FFF]/24 bg-[#07111F] p-3 shadow-2xl shadow-black/50">
               <div className="mb-2 flex items-center justify-between gap-3">
                 <div>
-                  <div className="text-[11px] font-black uppercase tracking-[0.16em] text-cyan-200">Share frame</div>
-                  <div className="mt-1 text-[11px] text-[#8EA7C7]">Send this link to open the same demo step.</div>
+                  <div className="text-[11px] font-black uppercase tracking-[0.16em] text-cyan-200">Share section</div>
+                  <div className="mt-1 text-[11px] text-[#8EA7C7]">Send this link to open the same board-demo section.</div>
                 </div>
                 <button
                   type="button"
@@ -1706,16 +2704,16 @@ export function InteractiveDemoWalkthrough() {
         <aside className="min-h-0 border-b border-[#2E7FFF]/16 bg-[#07111F] p-3 md:border-b-0 md:border-r md:p-2 xl:p-3">
           <div className="mb-3 flex items-center justify-between gap-2 md:justify-center xl:justify-between">
             <div className="md:hidden xl:block">
-              <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[#8DBDFF]">Guided path</div>
-              <div className="mt-1 text-[11px] text-[#7A94B4]">{activeIndex + 1} of {DEMO_CHAPTERS.length} pages, frame {activeFrameIndex + 1} of {frames.length}</div>
+              <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[#8DBDFF]">Board show path</div>
+              <div className="mt-1 text-[11px] text-[#7A94B4]">{activeIndex + 1} of {DEMO_CHAPTERS.length} pages, section {activeFrameIndex + 1} of {frames.length}</div>
             </div>
             <button
               type="button"
-              onClick={() => setAutoplay(current => !current)}
-              className={`inline-flex h-9 w-9 items-center justify-center rounded-lg border text-white transition-colors ${autoplay ? 'border-violet-300/34 bg-violet-400/20' : 'border-[#2E7FFF]/22 bg-[#0A1628] hover:bg-[#112040]'}`}
-              aria-label={autoplay ? 'Pause autoplay' : 'Start autoplay'}
+              onClick={toggleAutopilot}
+              className={`inline-flex h-9 w-9 items-center justify-center rounded-lg border text-white transition-colors ${autopilot.status === 'playing' ? 'border-violet-300/34 bg-violet-400/20' : 'border-[#2E7FFF]/22 bg-[#0A1628] hover:bg-[#112040]'}`}
+              aria-label={autopilot.status === 'playing' ? 'Pause auto tour' : 'Start auto tour'}
             >
-              {autoplay ? <Pause size={15} /> : <Play size={15} />}
+              {autopilot.status === 'playing' ? <Pause size={15} /> : <Play size={15} />}
             </button>
           </div>
 
@@ -1723,29 +2721,54 @@ export function InteractiveDemoWalkthrough() {
             {railItems.map((item, index) => {
               const Icon = item.icon;
               const active = item.id === chapter.id;
-              const itemFrames = getEnrichedFrames(item);
+              const itemFrames = getDemoSections(item);
               const itemCompleted = itemFrames.filter(frame => completedMissionSet.has(frame.mission.id)).length;
               const itemDone = itemCompleted === itemFrames.length;
+              const itemAct = getActForChapter(item.id);
               return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => selectChapter(item.id)}
-                  className={`flex min-w-[170px] items-center gap-2 rounded-xl border px-3 py-2 text-left transition-all md:min-w-0 md:w-full md:justify-center md:px-2 xl:justify-start xl:px-3 ${
-                    active
-                      ? 'border-[#2E7FFF]/50 bg-[#2E7FFF]/16 text-white shadow-[0_0_22px_rgba(46,127,255,0.14)]'
-                      : 'border-transparent bg-[#0A1628]/70 text-[#8EA7C7] hover:border-[#2E7FFF]/22 hover:bg-[#112040]'
-                  }`}
-                >
-                  <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border ${active ? 'border-cyan-300/30 bg-cyan-300/12 text-cyan-200' : 'border-[#2E7FFF]/14 bg-[#07111F] text-[#7A94B4]'}`}>
-                    {itemDone ? <CheckCircle2 size={15} /> : <Icon size={15} />}
-                  </span>
-                  <span className="min-w-0 md:hidden xl:block">
-                    <span className="block text-[10px] font-black uppercase tracking-[0.14em] text-[#5F7FA8]">{String(index + 1).padStart(2, '0')}</span>
-                    <span className="block truncate text-[12px] font-black">{item.label}</span>
-                    <span className="block text-[9px] font-black uppercase tracking-[0.12em] text-[#5F7FA8]">{itemCompleted}/{itemFrames.length} missions</span>
-                  </span>
-                </button>
+                <div key={item.id} className="min-w-[170px] md:min-w-0">
+                  <button
+                    type="button"
+                    onClick={() => selectChapter(item.id)}
+                    className={`flex w-full items-center gap-2 rounded-xl border px-3 py-2 text-left transition-all md:justify-center md:px-2 xl:justify-start xl:px-3 ${
+                      active
+                        ? 'border-[#2E7FFF]/50 bg-[#2E7FFF]/16 text-white shadow-[0_0_22px_rgba(46,127,255,0.14)]'
+                        : 'border-transparent bg-[#0A1628]/70 text-[#8EA7C7] hover:border-[#2E7FFF]/22 hover:bg-[#112040]'
+                    }`}
+                  >
+                    <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border ${active ? 'border-cyan-300/30 bg-cyan-300/12 text-cyan-200' : 'border-[#2E7FFF]/14 bg-[#07111F] text-[#7A94B4]'}`}>
+                      {itemDone ? <CheckCircle2 size={15} /> : <Icon size={15} />}
+                    </span>
+                    <span className="min-w-0 md:hidden xl:block">
+                      <span className="block text-[10px] font-black uppercase tracking-[0.14em] text-[#5F7FA8]">{itemAct.label} / {String(index + 1).padStart(2, '0')}</span>
+                      <span className="block truncate text-[12px] font-black">{item.label}</span>
+                      <span className="block text-[9px] font-black uppercase tracking-[0.12em] text-[#5F7FA8]">{itemCompleted}/{itemFrames.length} sections</span>
+                    </span>
+                  </button>
+                  {active && (
+                    <div className="mt-1.5 hidden space-y-1 pl-10 xl:block">
+                      {itemFrames.map((frame, frameIndex) => {
+                        const frameActive = activeFrame.id === frame.id;
+                        const complete = completedMissionSet.has(frame.mission.id);
+                        return (
+                          <button
+                            key={frame.id}
+                            type="button"
+                            onClick={() => selectFrame(frame.id)}
+                            className={`flex w-full items-center justify-between gap-2 rounded-lg border px-2 py-1.5 text-left text-[11px] font-bold transition-colors ${
+                              frameActive
+                                ? 'border-cyan-300/32 bg-cyan-300/12 text-cyan-100'
+                                : 'border-[#2E7FFF]/10 bg-[#06101F] text-[#7A94B4] hover:border-[#2E7FFF]/24 hover:text-white'
+                            }`}
+                          >
+                            <span className="truncate">{frameIndex + 1}. {frame.title}</span>
+                            {complete && <CheckCircle2 size={11} className="shrink-0 text-emerald-200" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               );
             })}
           </div>
@@ -1764,6 +2787,16 @@ export function InteractiveDemoWalkthrough() {
                 <span className="text-[10px] font-black uppercase tracking-[0.14em] text-emerald-200">Live demo data</span>
               </div>
             </div>
+            <BoardCaptionBar
+              act={activeAct}
+              section={activeFrame}
+              showMode={showMode}
+              autopilotStatus={autopilot.status}
+              progress={sectionProgress}
+            />
+            <div className="flex-shrink-0 border-b border-[#2E7FFF]/14 bg-[#07111F] px-4 py-2 2xl:hidden">
+              <ValueSpine totals={outcomeTotals} />
+            </div>
             <div ref={stageRef} className="relative min-h-0 flex-1 overflow-hidden">
               <DemoStage key={chapter.id} chapter={chapter} onToast={onToast} onOpenChapter={selectChapter} totals={outcomeTotals} onCopySummary={copyOutcomeSummary} />
               <StageHotspot box={anchorBox} fallback={hotspotTarget.fallback} />
@@ -1775,24 +2808,63 @@ export function InteractiveDemoWalkthrough() {
           <div className="custom-scrollbar min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
             <div>
               <div className="flex items-center justify-between gap-2">
-                <div className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-200">Mission brief</div>
+                <div className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-200">Board narration</div>
                 <div className="rounded-full border border-[#2E7FFF]/22 bg-[#0A1628] px-2 py-1 text-[10px] font-black text-[#8DBDFF]">
                   {activeMissionComplete ? 'Complete' : `${activeFrameIndex + 1}/${frames.length}`}
                 </div>
               </div>
               <h1 className="mt-1.5 text-[19px] font-black leading-tight text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{activeFrame.headline}</h1>
-              <p className="mt-2 text-[12px] leading-5 text-[#B8C7DB]">{activeFrame.story}</p>
+              <p className="mt-2 text-[12px] leading-5 text-[#B8C7DB]">{activeFrame.boardNarrative}</p>
             </div>
+
+            <section className="rounded-xl border border-cyan-300/18 bg-cyan-300/10 px-3 py-2.5">
+              <div className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-200">Voice script</div>
+              <p className="mt-1 text-[12px] font-semibold leading-5 text-[#E6EEF9]">{activeFrame.narration.caption}</p>
+            </section>
 
             <section className={`rounded-xl border px-3 py-2.5 ${activeMissionComplete ? 'border-emerald-300/24 bg-emerald-300/10' : 'border-[#2E7FFF]/22 bg-[#0A1628]'}`}>
               <div className="flex items-start gap-2">
                 <CheckCircle2 size={15} className={`mt-0.5 shrink-0 ${activeMissionComplete ? 'text-emerald-200' : 'text-[#5F7FA8]'}`} />
                 <div className="min-w-0">
-                  <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#8DBDFF]">Try this</div>
+                  <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#8DBDFF]">Client proof</div>
                   <p className="mt-1 text-[12px] font-bold leading-5 text-white">{activeFrame.mission.prompt}</p>
                   <p className="mt-1 text-[11px] leading-4 text-[#8EA7C7]">{activeFrame.mission.talkingPoint}</p>
                 </div>
               </div>
+            </section>
+
+            <section className="rounded-xl border border-[#2E7FFF]/18 bg-[#0A1628] p-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#7A94B4]">Show length</div>
+                <button
+                  type="button"
+                  onClick={() => setPresenterNotesOpen(current => !current)}
+                  className="rounded-lg border border-[#2E7FFF]/18 px-2 py-1 text-[10px] font-black text-[#8DBDFF] hover:bg-[#112040]"
+                >
+                  {presenterNotesOpen ? 'Hide notes' : 'Presenter notes'}
+                </button>
+              </div>
+              <div className="mt-2 grid grid-cols-3 gap-1.5">
+                {SHOW_MODE_OPTIONS.map(option => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => chooseShowMode(option.id)}
+                    className={`rounded-lg border px-2 py-1.5 text-[10px] font-black transition-colors ${
+                      showMode === option.id
+                        ? 'border-cyan-300/36 bg-cyan-300/12 text-cyan-100'
+                        : 'border-[#2E7FFF]/14 bg-[#06101F] text-[#7A94B4] hover:text-white'
+                    }`}
+                  >
+                    {option.shortLabel}
+                  </button>
+                ))}
+              </div>
+              {presenterNotesOpen && (
+                <p className="mt-2 rounded-lg border border-amber-300/18 bg-amber-300/10 p-2 text-[11px] leading-4 text-amber-50">
+                  {activeFrame.narration.presenterNote}
+                </p>
+              )}
             </section>
 
             <section className="grid grid-cols-3 gap-1.5">
@@ -1815,7 +2887,7 @@ export function InteractiveDemoWalkthrough() {
                       <span>{String(index + 1).padStart(2, '0')}</span>
                       {complete && <CheckCircle2 size={10} className="text-emerald-200" />}
                     </span>
-                    <span className="mt-0.5 block truncate text-[11px] font-black">{frame.label}</span>
+                    <span className="mt-0.5 block truncate text-[11px] font-black">{frame.title}</span>
                   </button>
                 );
               })}
@@ -1873,21 +2945,29 @@ export function InteractiveDemoWalkthrough() {
               {activeMissionComplete ? <ChevronRight size={15} className="shrink-0" /> : <Sparkles size={15} className="shrink-0" />}
               <span className="min-w-0 truncate">{primaryActionLabel}</span>
             </button>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               <button
                 type="button"
                 onClick={goBack}
                 className="flex h-9 items-center justify-center gap-2 rounded-xl border border-[#2E7FFF]/22 bg-[#0A1628] text-[12px] font-black text-[#B8C7DB] transition-colors hover:bg-[#112040] hover:text-white"
               >
                 <ChevronLeft size={15} />
-                Previous
+                <span className="hidden xl:inline">Previous</span>
+              </button>
+              <button
+                type="button"
+                onClick={restartShow}
+                className="flex h-9 items-center justify-center gap-2 rounded-xl border border-[#2E7FFF]/22 bg-[#0A1628] text-[12px] font-black text-[#B8C7DB] transition-colors hover:bg-[#112040] hover:text-white"
+              >
+                <TimerReset size={15} />
+                <span className="hidden xl:inline">Restart</span>
               </button>
               <button
                 type="button"
                 onClick={() => goBy(1)}
                 className="flex h-9 items-center justify-center gap-2 rounded-xl border border-[#2E7FFF]/22 bg-[#0A1628] text-[12px] font-black text-[#B8C7DB] transition-colors hover:bg-[#112040] hover:text-white"
               >
-                Next page
+                <span className="hidden xl:inline">Next page</span>
                 <ChevronRight size={15} />
               </button>
             </div>
@@ -1899,6 +2979,34 @@ export function InteractiveDemoWalkthrough() {
           {statusMessage}
         </div>
       )}
+      <div className="fixed inset-x-0 bottom-0 z-[65] border-t border-[#2E7FFF]/24 bg-[#07111F]/96 p-2 shadow-2xl shadow-black/50 backdrop-blur md:hidden">
+        <div className="grid grid-cols-[44px_minmax(0,1fr)_44px] gap-2">
+          <button
+            type="button"
+            onClick={toggleAutopilot}
+            className={`flex h-11 items-center justify-center rounded-xl text-white ${autopilot.status === 'playing' ? 'bg-[#E11D2E]' : 'bg-[#0A1628] border border-[#2E7FFF]/22'}`}
+            aria-label={autopilot.status === 'playing' ? 'Pause auto tour' : 'Start auto tour'}
+          >
+            {autopilot.status === 'playing' ? <Pause size={16} /> : <Play size={16} />}
+          </button>
+          <button
+            type="button"
+            onClick={advanceMissionOrFrame}
+            className="flex h-11 min-w-0 items-center justify-center gap-2 rounded-xl bg-[#2E7FFF] px-3 text-[12px] font-black text-white"
+          >
+            {activeMissionComplete ? <ChevronRight size={15} className="shrink-0" /> : <Sparkles size={15} className="shrink-0" />}
+            <span className="truncate">{primaryActionLabel}</span>
+          </button>
+          <button
+            type="button"
+            onClick={goBack}
+            className="flex h-11 items-center justify-center rounded-xl border border-[#2E7FFF]/22 bg-[#0A1628] text-[#B8C7DB]"
+            aria-label="Previous section"
+          >
+            <ChevronLeft size={16} />
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
