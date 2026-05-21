@@ -239,11 +239,13 @@ function buildShareUrl(chapterId?: string, sectionId?: string, showMode?: DemoSh
 
 const DEMO_PROGRESS_STORAGE_KEY = '4c360-properties-demo-progress-v1';
 const DEMO_AGENT_STORAGE_KEY = '4c360-elevenlabs-demo-agent-id';
+const DEFAULT_DEMO_AGENT_ID = 'agent_5601ks3evt2rftyttrk7br8m5rtd';
 const DEMO_SCENARIO = 'Sobha Pilot Tower handover risk: recover readiness, control cost exposure, close evidence gaps, and prepare owner decisions.';
 const DEMO_AGENT_ID = (
   import.meta.env.VITE_ELEVENLABS_DEMO_AGENT_ID
   ?? import.meta.env.VITE_ELEVENLABS_SOLUTIONS_AGENT_ID
   ?? import.meta.env.VITE_ELEVENLABS_AGENT_ID
+  ?? DEFAULT_DEMO_AGENT_ID
 ) as string | undefined;
 const DEMO_VOICE_ID = (
   import.meta.env.VITE_ELEVENLABS_DEMO_VOICE_ID
@@ -2007,6 +2009,23 @@ type DemoVoiceSession = {
   setMicMuted(isMuted: boolean): void;
 };
 
+type DemoVoiceSingleton = {
+  session: DemoVoiceSession | null;
+  token: number;
+};
+
+declare global {
+  interface Window {
+    __4C360_DEMO_VOICE_SINGLETON__?: DemoVoiceSingleton;
+  }
+}
+
+function getDemoVoiceSingleton() {
+  if (typeof window === 'undefined') return null;
+  window.__4C360_DEMO_VOICE_SINGLETON__ ??= { session: null, token: 0 };
+  return window.__4C360_DEMO_VOICE_SINGLETON__;
+}
+
 function buildElevenLabsNarrationCue(section: DemoSection) {
   const script = getSectionNarrationScript(section);
   return `Say only the following client-facing script. Do not add tone labels, stage directions, bracketed text, introductions, closings, or extra explanation: "${script.audio}"`;
@@ -2131,8 +2150,10 @@ function DemoVoiceAdvisor({
   const stopVoice = useCallback(async () => {
     voiceSessionTokenRef.current += 1;
     voiceStartInFlightRef.current = false;
-    const activeConversation = conversationRef.current;
+    const voiceSingleton = getDemoVoiceSingleton();
+    const activeConversation = conversationRef.current ?? voiceSingleton?.session ?? null;
     conversationRef.current = null;
+    if (voiceSingleton) voiceSingleton.session = null;
     lastNarratedSectionRef.current = null;
 
     if (activeConversation) {
@@ -2159,6 +2180,17 @@ function DemoVoiceAdvisor({
     const sessionToken = voiceSessionTokenRef.current + 1;
     voiceSessionTokenRef.current = sessionToken;
     voiceStartInFlightRef.current = true;
+
+    const voiceSingleton = getDemoVoiceSingleton();
+    if (voiceSingleton?.session && voiceSingleton.session !== conversationRef.current) {
+      try {
+        await voiceSingleton.session.endSession();
+      } catch {
+        // no-op
+      }
+      voiceSingleton.session = null;
+    }
+
     try {
       setOpen(voiceSetupMode);
       setVoiceActive(true);
@@ -2178,6 +2210,8 @@ function DemoVoiceAdvisor({
         },
         onDisconnect: (details: unknown) => {
           if (voiceSessionTokenRef.current !== sessionToken) return;
+          const activeSingleton = getDemoVoiceSingleton();
+          if (activeSingleton?.token === sessionToken) activeSingleton.session = null;
           conversationRef.current = null;
           voiceStartInFlightRef.current = false;
           setVoiceActive(false);
@@ -2192,6 +2226,8 @@ function DemoVoiceAdvisor({
         onError: (message: string) => {
           if (voiceSessionTokenRef.current !== sessionToken) return;
           const errorMessage = formatElevenLabsError(message);
+          const activeSingleton = getDemoVoiceSingleton();
+          if (activeSingleton?.token === sessionToken) activeSingleton.session = null;
           conversationRef.current = null;
           voiceStartInFlightRef.current = false;
           setVoiceActive(false);
@@ -2216,12 +2252,19 @@ function DemoVoiceAdvisor({
       }
 
       conversationRef.current = conversation;
+      const activeSingleton = getDemoVoiceSingleton();
+      if (activeSingleton) {
+        activeSingleton.session = conversation;
+        activeSingleton.token = sessionToken;
+      }
       lastNarratedSectionRef.current = section.sectionId;
       conversationRef.current.sendContextualUpdate(`Demo scenario: ${DEMO_SCENARIO}. Format: 6-minute client walkthrough. Current chapter: ${section.chapterId}. Current section: ${section.title}.`);
       conversationRef.current.sendUserMessage(buildElevenLabsNarrationCue(section));
     } catch (error) {
       if (voiceSessionTokenRef.current !== sessionToken) return;
       const errorMessage = formatElevenLabsError(error);
+      const activeSingleton = getDemoVoiceSingleton();
+      if (activeSingleton?.token === sessionToken) activeSingleton.session = null;
       conversationRef.current = null;
       setVoiceActive(false);
       setVoiceErrorMessage(errorMessage);
@@ -2259,11 +2302,16 @@ function DemoVoiceAdvisor({
   }, [autoNarrationEnabled, section, sendNarrationCue, voiceActive]);
 
   useEffect(() => {
-    if (!voiceSetupMode || !narrationLaunchRequest || handledNarrationLaunchRequestRef.current === narrationLaunchRequest) return;
+    if (!narrationLaunchRequest || handledNarrationLaunchRequestRef.current === narrationLaunchRequest) return;
     handledNarrationLaunchRequestRef.current = narrationLaunchRequest;
-    if (!agentConfigured || voiceActive) return;
+    if (!agentConfigured || voiceActive || conversationRef.current || voiceStartInFlightRef.current) return;
     void startVoice();
-  }, [agentConfigured, narrationLaunchRequest, startVoice, voiceActive, voiceSetupMode]);
+  }, [agentConfigured, narrationLaunchRequest, startVoice, voiceActive]);
+
+  useEffect(() => {
+    if (tourStatus !== 'playing' || !autoNarrationEnabled || !agentConfigured || voiceActive || conversationRef.current || voiceStartInFlightRef.current) return;
+    void startVoice();
+  }, [agentConfigured, autoNarrationEnabled, startVoice, tourStatus, voiceActive]);
 
   useEffect(() => () => {
     void stopVoice();
@@ -2300,7 +2348,7 @@ function DemoVoiceAdvisor({
     : 'Narration';
   const narrationScript = getSectionNarrationScript(section);
 
-  if (!voiceSetupMode) return null;
+  if (!voiceSetupMode && !agentConfigured) return null;
 
   const handleNarrationClick = () => {
     if (voiceSetupMode) {
