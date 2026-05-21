@@ -19,7 +19,6 @@ import {
   Play,
   Presentation,
   RotateCcw,
-  Rocket,
   ShieldAlert,
   ShieldCheck,
   Smartphone,
@@ -268,6 +267,62 @@ const SHOW_MODE_OPTIONS: Array<{
 ];
 
 const DEFAULT_SHOW_MODE: DemoShowMode = 'board';
+
+const ENTRY_BRIEFINGS: Array<{
+  icon: LucideIcon;
+  label: string;
+  title: string;
+  body: string;
+  proof: string;
+  question: string;
+  metric: string;
+}> = [
+  {
+    icon: Building2,
+    label: 'Portfolio signal',
+    title: 'Know where leadership attention should go first.',
+    body: '4C360 combines asset health, SLA pressure, incidents, workload, compliance, and risk into one owner view, so the first decision is clear before teams start preparing reports.',
+    proof: 'Priority asset identified before the project review starts.',
+    question: 'Which property needs owner action today?',
+    metric: '1 owner view',
+  },
+  {
+    icon: Target,
+    label: 'Risk to action',
+    title: 'Turn a risk signal into the work that can resolve it.',
+    body: 'The walkthrough moves from portfolio concern into project control, programme, cost, risk, obligations, evidence, vendor action, field proof, and resident follow-through.',
+    proof: 'Every concern points to a team, blocker, artifact, and next decision.',
+    question: 'Who owns the recovery path?',
+    metric: '13 linked sections',
+  },
+  {
+    icon: ShieldAlert,
+    label: 'Exposure control',
+    title: 'See the commercial and readiness consequence early.',
+    body: 'Cost movement, gate blockers, missing evidence, vendor performance, and forecast scenarios are shown together, so the board can compare the cost of action with the cost of delay.',
+    proof: 'Risk, readiness, and cost impact stay in the same conversation.',
+    question: 'What happens if we wait?',
+    metric: 'live impact',
+  },
+  {
+    icon: CheckCircle2,
+    label: 'Operating proof',
+    title: 'Leave with evidence, assignments, and owner outputs.',
+    body: 'The demo closes with prepared artifacts for owner action, gate blockers, evidence readiness, vendor correction, field survey instruction, resident handoff, and pilot recommendation.',
+    proof: 'The board sees action-ready outputs, not only dashboards.',
+    question: 'What can the team do next?',
+    metric: '7 outputs',
+  },
+];
+
+const ENTRY_PATH_STEPS = [
+  'Portfolio signal',
+  'Project command',
+  'Cost and risk',
+  'Evidence proof',
+  'Vendor and field action',
+  'Owner recommendation',
+];
 
 const DEMO_ACTS: DemoAct[] = [
   {
@@ -1814,18 +1869,29 @@ function ExecutiveControlRoom({
   onStart: () => void;
   onCopyBoardLink: () => void;
 }) {
+  const [activeBriefingIndex, setActiveBriefingIndex] = useState(0);
+  const activeBriefing = ENTRY_BRIEFINGS[activeBriefingIndex];
+  const ActiveBriefingIcon = activeBriefing.icon;
   const promises = [
-    { icon: Building2, title: 'Portfolio command', detail: 'See health, SLA, incidents, workload, and risk in one owner view.' },
-    { icon: Target, title: 'Risk-to-action chain', detail: 'Move from asset signal into project, programme, cost, risk, obligations, and evidence.' },
-    { icon: BrainCircuit, title: 'Proof of execution', detail: 'Leave with action-ready outputs for vendors, field teams, residents, and owners.' },
+    { icon: Building2, title: 'Portfolio command', detail: 'One owner view for health, SLA, incidents, workload, compliance, and risk.' },
+    { icon: Target, title: 'Risk-to-action chain', detail: 'Every concern links to project control, recovery ownership, cost, evidence, and forecast.' },
+    { icon: BrainCircuit, title: 'Proof of execution', detail: 'Vendors, field teams, residents, and owners end with action-ready outputs.' },
   ];
 
+  useEffect(() => {
+    const briefingTimer = window.setInterval(() => {
+      setActiveBriefingIndex(current => (current + 1) % ENTRY_BRIEFINGS.length);
+    }, 4200);
+
+    return () => window.clearInterval(briefingTimer);
+  }, []);
+
   return (
-    <div className="min-h-screen overflow-y-auto bg-[#030A15] text-[#EEF3FA]">
-      <div className="mx-auto flex min-h-screen max-w-7xl flex-col px-4 py-5">
-        <header className="flex items-center gap-3">
+    <div className="min-h-screen overflow-y-auto bg-[#030A15] text-[#EEF3FA] lg:h-screen lg:overflow-hidden">
+      <div className="mx-auto flex min-h-screen max-w-[1580px] flex-col px-4 py-4 lg:h-screen lg:min-h-0 lg:px-6">
+        <header className="flex h-11 flex-shrink-0 items-center gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            <img src="/4c-logo.png" alt="4C logo" className="h-10 w-10 rounded-xl object-contain" />
+            <img src="/4c-logo.png" alt="4C logo" className="h-9 w-9 rounded-xl object-contain" />
             <div className="min-w-0">
               <div className="truncate text-[16px] font-black text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>DevelopmentX</div>
               <div className="truncate text-[11px] font-semibold text-[#7A94B4]">Powered by 4C360</div>
@@ -1833,17 +1899,19 @@ function ExecutiveControlRoom({
           </div>
         </header>
 
-        <main className="grid flex-1 items-start gap-5 py-6 md:grid-cols-[minmax(0,1fr)_minmax(320px,0.82fr)] xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
-          <section className="min-w-0">
-            <div className="inline-flex items-center gap-2 rounded-full border border-[#E11D2E]/28 bg-[#E11D2E]/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-[#FFB4BC]">
-              <MonitorPlay size={14} />
-              6-minute owner command walkthrough
+        <main className="grid flex-1 items-start gap-4 py-4 md:grid-cols-[minmax(0,1fr)_minmax(320px,0.82fr)] lg:min-h-0 lg:py-3 xl:grid-cols-[minmax(0,1.08fr)_minmax(360px,0.9fr)]">
+          <section className="min-w-0 lg:flex lg:min-h-0 lg:flex-col">
+            <div>
+              <div className="inline-flex w-fit items-center gap-2 rounded-full border border-[#E11D2E]/28 bg-[#E11D2E]/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-[#FFB4BC]">
+                <MonitorPlay size={13} />
+                6-minute owner command walkthrough
+              </div>
             </div>
-            <h1 className="mt-5 max-w-4xl text-[clamp(32px,5.2vw,64px)] font-black leading-[0.96] text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-              Control the portfolio before risk becomes delay.
+            <h1 className="mt-4 max-w-4xl text-[clamp(30px,4.35vw,56px)] font-black leading-[0.95] text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+              See the whole operating chain before risk becomes delay.
             </h1>
-            <p className="mt-4 max-w-3xl text-[16px] leading-7 text-[#B8C7DB]">
-              In six minutes, follow one property risk from first portfolio signal to project control, cost and risk exposure, evidence readiness, vendor movement, field proof, and an owner-ready action path.
+            <p className="mt-3 max-w-3xl text-[15px] leading-6 text-[#B8C7DB]">
+              In one live walkthrough, your team follows a real portfolio signal into project command, cost exposure, evidence readiness, vendor recovery, field proof, resident handoff, and an owner-ready decision.
             </p>
 
             <div className="mt-4 grid gap-2 md:hidden">
@@ -1857,42 +1925,94 @@ function ExecutiveControlRoom({
               </button>
             </div>
 
-            <div className="mt-5 hidden items-stretch gap-2 xl:grid xl:grid-cols-3">
-              {promises.map(({ icon: Icon, title, detail }) => (
-                <div key={title} className="flex min-h-[184px] flex-col rounded-2xl border border-[#2E7FFF]/20 bg-[#07111F] p-3 shadow-2xl shadow-black/20">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-300/24 bg-cyan-300/10 text-cyan-200">
-                    <Icon size={19} />
+            <div className="mt-4 rounded-2xl border border-[#2E7FFF]/18 bg-[#07111F] p-3 shadow-2xl shadow-black/20">
+              <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_128px] sm:items-center">
+                <div className="min-w-0">
+                  <div className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-200">Owner outcome path</div>
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    {ENTRY_PATH_STEPS.map((step, index) => (
+                      <div key={step} className="flex items-center gap-1.5">
+                        <span className={`rounded-full border px-2 py-0.5 text-[10px] font-black ${
+                          index === 0
+                            ? 'border-cyan-300/30 bg-cyan-300/12 text-cyan-100'
+                            : 'border-[#2E7FFF]/16 bg-[#06101F] text-[#8EA7C7]'
+                        }`}>
+                          {step}
+                        </span>
+                        {index < ENTRY_PATH_STEPS.length - 1 && <ChevronRight size={13} className="hidden text-[#3C5D86] sm:block" />}
+                      </div>
+                    ))}
                   </div>
-                  <h2 className="mt-3 text-[14px] font-black text-white">{title}</h2>
-                  <p className="mt-2 flex-1 text-[12px] leading-5 text-[#8EA7C7]">{detail}</p>
+                </div>
+                <div className="rounded-2xl border border-emerald-300/20 bg-emerald-300/10 p-2.5 text-center">
+                  <div className="text-[19px] font-black text-white">6 min</div>
+                  <div className="mt-1 text-[9px] font-black uppercase tracking-[0.14em] text-emerald-100">decision-ready path</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 hidden items-stretch gap-2 xl:grid xl:grid-cols-3">
+              {promises.map(({ icon: Icon, title, detail }) => (
+                <div key={title} className="flex min-h-[128px] flex-col rounded-2xl border border-[#2E7FFF]/20 bg-[#07111F] p-3 shadow-2xl shadow-black/20">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-cyan-300/24 bg-cyan-300/10 text-cyan-200">
+                    <Icon size={17} />
+                  </div>
+                  <h2 className="mt-2 text-[13px] font-black text-white">{title}</h2>
+                  <p className="mt-1.5 flex-1 text-[11px] leading-4 text-[#8EA7C7]">{detail}</p>
                 </div>
               ))}
             </div>
           </section>
 
-          <section className="rounded-3xl border border-[#2E7FFF]/24 bg-[linear-gradient(155deg,rgba(46,127,255,0.18),rgba(124,58,237,0.12),rgba(7,17,31,0.98))] p-5 shadow-2xl shadow-black/40">
+          <section className="min-h-0 rounded-3xl border border-[#2E7FFF]/24 bg-[linear-gradient(155deg,rgba(46,127,255,0.18),rgba(124,58,237,0.12),rgba(7,17,31,0.98))] p-4 shadow-2xl shadow-black/40 lg:max-h-full">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <div className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-200">First decision</div>
-                <h2 className="mt-1 text-2xl font-black text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Find the asset that needs action now.</h2>
+                <div className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-200">Live board briefing</div>
+                <h2 className="mt-1 text-[22px] font-black leading-tight text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{activeBriefing.title}</h2>
               </div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-emerald-300/24 bg-emerald-300/10 text-emerald-200">
-                <Rocket size={22} />
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-cyan-300/24 bg-cyan-300/10 text-cyan-200">
+                <ActiveBriefingIcon size={20} />
               </div>
             </div>
 
-            <div className="mt-5 rounded-2xl border border-[#2E7FFF]/18 bg-[#06101F]/82 p-4">
-              <div className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-200">Owner control path</div>
-              <p className="mt-2 text-[14px] leading-6 text-[#DCEBFF]">
-                Identify the priority property, open the project command view, expose the blockers, and leave with the next accountable owner action.
-              </p>
+            <div className="mt-4 rounded-2xl border border-[#2E7FFF]/18 bg-[#06101F]/82 p-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-200">{activeBriefing.label}</div>
+                <div className="rounded-full border border-[#2E7FFF]/18 bg-[#0A1628] px-2 py-1 text-[10px] font-black text-[#8DBDFF]">
+                  {activeBriefing.metric}
+                </div>
+              </div>
+              <p className="mt-2 text-[13px] leading-5 text-[#DCEBFF]">{activeBriefing.body}</p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                <div className="rounded-2xl border border-emerald-300/18 bg-emerald-300/10 p-2.5">
+                  <div className="text-[9px] font-black uppercase tracking-[0.16em] text-emerald-100">Proof point</div>
+                  <p className="mt-1 text-[11px] font-bold leading-4 text-[#DCEBFF]">{activeBriefing.proof}</p>
+                </div>
+                <div className="rounded-2xl border border-amber-300/18 bg-amber-300/10 p-2.5">
+                  <div className="text-[9px] font-black uppercase tracking-[0.16em] text-amber-100">Board question</div>
+                  <p className="mt-1 text-[11px] font-bold leading-4 text-[#DCEBFF]">{activeBriefing.question}</p>
+                </div>
+              </div>
+              <div className="mt-3 flex gap-1.5" aria-label="Board briefing rotation">
+                {ENTRY_BRIEFINGS.map((briefing, index) => (
+                  <button
+                    key={briefing.label}
+                    type="button"
+                    onClick={() => setActiveBriefingIndex(index)}
+                    className={`h-1.5 flex-1 rounded-full transition-colors ${
+                      index === activeBriefingIndex ? 'bg-cyan-300' : 'bg-[#2E7FFF]/20 hover:bg-[#2E7FFF]/35'
+                    }`}
+                    aria-label={`Show ${briefing.label}`}
+                  />
+                ))}
+              </div>
             </div>
 
-            <div className="mt-5 grid gap-2 sm:grid-cols-[1fr_auto]">
+            <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_auto]">
               <button
                 type="button"
                 onClick={onStart}
-                className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#2E7FFF] px-4 text-[14px] font-black text-white shadow-xl shadow-blue-950/35 transition-colors hover:bg-[#4B91FF]"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-[#2E7FFF] px-4 text-[14px] font-black text-white shadow-xl shadow-blue-950/35 transition-colors hover:bg-[#4B91FF]"
               >
                 <Play size={17} />
                 Start Demo
@@ -1900,28 +2020,28 @@ function ExecutiveControlRoom({
               <button
                 type="button"
                 onClick={onCopyBoardLink}
-                className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-[#2E7FFF]/24 bg-[#06101F] px-4 text-[13px] font-black text-[#DCEBFF] transition-colors hover:bg-[#112040]"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-[#2E7FFF]/24 bg-[#06101F] px-4 text-[13px] font-black text-[#DCEBFF] transition-colors hover:bg-[#112040]"
               >
                 <Copy size={16} />
                 Share demo link
               </button>
             </div>
 
-            <div className="mt-5 rounded-2xl border border-[#2E7FFF]/18 bg-[#06101F]/82 p-4">
+            <div className="mt-4 rounded-2xl border border-[#2E7FFF]/18 bg-[#06101F]/82 p-3">
               <div className="grid grid-cols-3 gap-2">
                 {[
                   ['1', 'priority risk'],
                   ['6', 'minute path'],
-                  ['7', 'action outputs'],
+                  ['7', 'ready outputs'],
                 ].map(([value, label]) => (
-                  <div key={label} className="rounded-xl border border-[#2E7FFF]/14 bg-[#0A1628] p-3 text-center">
-                    <div className="text-[20px] font-black text-white">{value}</div>
+                  <div key={label} className="rounded-xl border border-[#2E7FFF]/14 bg-[#0A1628] p-2.5 text-center">
+                    <div className="text-[18px] font-black text-white">{value}</div>
                     <div className="mt-1 text-[9px] font-black uppercase tracking-[0.12em] text-[#7A94B4]">{label}</div>
                   </div>
                 ))}
               </div>
-              <p className="mt-3 text-[12px] leading-5 text-[#8EA7C7]">
-                The walkthrough follows a live system path from owner visibility to assigned work, evidence, and a decision-ready recommendation.
+              <p className="mt-3 text-[11px] leading-4 text-[#8EA7C7]">
+                The demo shows how 4C360 changes a board conversation from status reporting into accountable operating decisions.
               </p>
             </div>
           </section>
@@ -2415,7 +2535,6 @@ export function InteractiveDemoWalkthrough() {
   const [showIntro, setShowIntro] = useState(shouldShowIntroInitially);
   const [autopilot, setAutopilot] = useState<DemoAutopilotState>(resolveInitialAutopilot);
   const [sectionProgress, setSectionProgress] = useState(0);
-  const [sectionElapsedMs, setSectionElapsedMs] = useState(0);
   const [statusMessage, setStatusMessage] = useState('Guided demo ready');
   const [shareCopied, setShareCopied] = useState(false);
   const [sharePanelOpen, setSharePanelOpen] = useState(false);
@@ -2519,7 +2638,6 @@ export function InteractiveDemoWalkthrough() {
     setProgressState(EMPTY_PROGRESS_STATE);
     setAutopilot({ status: 'idle', started: false });
     setSectionProgress(0);
-    setSectionElapsedMs(0);
     sectionElapsedRef.current = 0;
     try {
       window.sessionStorage.removeItem(DEMO_PROGRESS_STORAGE_KEY);
@@ -2555,7 +2673,6 @@ export function InteractiveDemoWalkthrough() {
     setActiveFrameId(firstSection.id);
     setAutopilot({ status: 'playing', started: true });
     setSectionProgress(0);
-    setSectionElapsedMs(0);
     sectionElapsedRef.current = 0;
     setNarrationLaunchRequest(current => current + 1);
     updateChapterUrl(firstChapter.id, firstSection.id, { showMode: DEFAULT_SHOW_MODE, autoplay: true });
@@ -2572,7 +2689,6 @@ export function InteractiveDemoWalkthrough() {
     setShowIntro(false);
     setAutopilot({ status: 'playing', started: true });
     setSectionProgress(0);
-    setSectionElapsedMs(0);
     sectionElapsedRef.current = 0;
     setNarrationLaunchRequest(current => current + 1);
     updateChapterUrl(firstChapter.id, firstSection.id, { showMode: DEFAULT_SHOW_MODE, autoplay: true });
@@ -2633,12 +2749,7 @@ export function InteractiveDemoWalkthrough() {
   }, [progressState]);
 
   useEffect(() => {
-    sectionElapsedRef.current = sectionElapsedMs;
-  }, [sectionElapsedMs]);
-
-  useEffect(() => {
     setSectionProgress(0);
-    setSectionElapsedMs(0);
     sectionElapsedRef.current = 0;
   }, [activeFrame.id, showMode]);
 
@@ -2747,7 +2858,6 @@ export function InteractiveDemoWalkthrough() {
     const updateElapsedTime = () => {
       const elapsed = Math.min(sectionDurationMs, Math.max(0, Date.now() - startedAt));
       sectionElapsedRef.current = elapsed;
-      setSectionElapsedMs(elapsed);
       setSectionProgress(Math.min(100, (elapsed / sectionDurationMs) * 100));
     };
 
@@ -2756,7 +2866,6 @@ export function InteractiveDemoWalkthrough() {
     const remainingDurationMs = Math.max(0, sectionDurationMs - sectionElapsedRef.current);
     const advanceTimer = window.setTimeout(() => {
       sectionElapsedRef.current = sectionDurationMs;
-      setSectionElapsedMs(sectionDurationMs);
       setSectionProgress(100);
       completeMission(activeFrame.mission.id);
       advanceFrame();
