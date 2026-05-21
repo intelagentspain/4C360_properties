@@ -2114,6 +2114,8 @@ function DemoVoiceAdvisor({
   const lastNarratedSectionRef = useRef<string | null>(null);
   const previousTourStatusRef = useRef<DemoAutopilotState['status']>(tourStatus);
   const handledNarrationLaunchRequestRef = useRef(0);
+  const voiceStartInFlightRef = useRef(false);
+  const voiceSessionTokenRef = useRef(0);
 
   useEffect(() => {
     if (agentConfigured && voiceStatus === 'unavailable') setVoiceStatus('ready');
@@ -2127,14 +2129,19 @@ function DemoVoiceAdvisor({
   }, []);
 
   const stopVoice = useCallback(async () => {
-    if (conversationRef.current) {
+    voiceSessionTokenRef.current += 1;
+    voiceStartInFlightRef.current = false;
+    const activeConversation = conversationRef.current;
+    conversationRef.current = null;
+    lastNarratedSectionRef.current = null;
+
+    if (activeConversation) {
       try {
-        await conversationRef.current.endSession();
+        await activeConversation.endSession();
       } catch {
         // no-op
       }
     }
-    conversationRef.current = null;
     setVoiceActive(false);
     setVoiceErrorMessage('');
     setVoiceStatus(configuredAgentId ? 'ready' : 'unavailable');
@@ -2147,26 +2154,32 @@ function DemoVoiceAdvisor({
       onToast('Paste the ElevenLabs agent ID to enable board audio', 'info');
       return;
     }
-    if (voiceActive) return;
+    if (voiceActive || conversationRef.current || voiceStartInFlightRef.current) return;
 
+    const sessionToken = voiceSessionTokenRef.current + 1;
+    voiceSessionTokenRef.current = sessionToken;
+    voiceStartInFlightRef.current = true;
     try {
-      setOpen(true);
+      setOpen(voiceSetupMode);
       setVoiceActive(true);
       setVoiceErrorMessage('');
       setVoiceStatus('connecting');
       await requestDemoMicrophoneAccess();
       const { Conversation } = await import('@11labs/client');
       const signedUrl = await getElevenLabsSignedUrl(nextAgentId);
-      conversationRef.current = await withVoiceConnectionTimeout(Conversation.startSession({
+      const conversation = await withVoiceConnectionTimeout(Conversation.startSession({
         ...(signedUrl ? { signedUrl } : { agentId: nextAgentId }),
         connectionType: 'websocket',
         ...(DEMO_VOICE_ID ? { overrides: { tts: { voiceId: DEMO_VOICE_ID } } } : {}),
         onConnect: () => {
+          if (voiceSessionTokenRef.current !== sessionToken) return;
           setVoiceStatus('listening');
           onToast('ElevenLabs board audio connected', 'success');
         },
         onDisconnect: (details: unknown) => {
+          if (voiceSessionTokenRef.current !== sessionToken) return;
           conversationRef.current = null;
+          voiceStartInFlightRef.current = false;
           setVoiceActive(false);
           const disconnectError = formatElevenLabsDisconnect(details);
           if (disconnectError) {
@@ -2177,31 +2190,49 @@ function DemoVoiceAdvisor({
           }
         },
         onError: (message: string) => {
+          if (voiceSessionTokenRef.current !== sessionToken) return;
           const errorMessage = formatElevenLabsError(message);
           conversationRef.current = null;
+          voiceStartInFlightRef.current = false;
           setVoiceActive(false);
           setVoiceErrorMessage(errorMessage);
           setVoiceStatus('error');
           onToast(errorMessage, 'error');
         },
-        onModeChange: (mode: { mode: 'speaking' | 'listening' }) => setVoiceStatus(mode.mode),
+        onModeChange: (mode: { mode: 'speaking' | 'listening' }) => {
+          if (voiceSessionTokenRef.current !== sessionToken) return;
+          setVoiceStatus(mode.mode);
+        },
         onStatusChange: (status: { status: 'connecting' | 'connected' | 'disconnecting' | 'disconnected' }) => {
+          if (voiceSessionTokenRef.current !== sessionToken) return;
           if (status.status === 'connecting') setVoiceStatus('connecting');
           if (status.status === 'disconnected') setVoiceStatus('ready');
         },
       }));
+
+      if (voiceSessionTokenRef.current !== sessionToken) {
+        await conversation.endSession().catch(() => undefined);
+        return;
+      }
+
+      conversationRef.current = conversation;
       lastNarratedSectionRef.current = section.sectionId;
       conversationRef.current.sendContextualUpdate(`Demo scenario: ${DEMO_SCENARIO}. Format: 6-minute client walkthrough. Current chapter: ${section.chapterId}. Current section: ${section.title}.`);
       conversationRef.current.sendUserMessage(buildElevenLabsNarrationCue(section));
     } catch (error) {
+      if (voiceSessionTokenRef.current !== sessionToken) return;
       const errorMessage = formatElevenLabsError(error);
       conversationRef.current = null;
       setVoiceActive(false);
       setVoiceErrorMessage(errorMessage);
       setVoiceStatus('error');
       onToast(errorMessage, 'error');
+    } finally {
+      if (voiceSessionTokenRef.current === sessionToken) {
+        voiceStartInFlightRef.current = false;
+      }
     }
-  }, [onToast, section, voiceActive]);
+  }, [onToast, section, voiceActive, voiceSetupMode]);
 
   const saveAgentId = useCallback(() => {
     const nextAgentId = agentIdInput.trim();
