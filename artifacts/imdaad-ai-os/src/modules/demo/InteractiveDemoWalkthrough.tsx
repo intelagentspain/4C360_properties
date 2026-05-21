@@ -12,7 +12,6 @@ import {
   ExternalLink,
   FileText,
   FolderOpen,
-  ListTree,
   Mic,
   MicOff,
   MonitorPlay,
@@ -97,7 +96,7 @@ type DemoProgressState = {
   completedAtByMissionId: Record<string, string>;
 };
 
-type DemoShowMode = 'teaser' | 'board' | 'deepDive';
+type DemoShowMode = 'board';
 
 type DemoAutopilotState = {
   status: 'idle' | 'playing' | 'paused';
@@ -105,6 +104,12 @@ type DemoAutopilotState = {
 };
 
 type DemoVoiceState = 'unavailable' | 'ready' | 'connecting' | 'listening' | 'speaking' | 'error';
+
+type DemoNarrationScript = {
+  caption: string;
+  audio: string;
+  presenterNote: string;
+};
 
 type DemoNarration = {
   caption: string;
@@ -226,10 +231,10 @@ async function copyText(text: string) {
 
 function buildShareUrl(chapterId?: string, sectionId?: string, showMode?: DemoShowMode, autoplay?: boolean) {
   const url = new URL('/demo/properties', window.location.origin);
-  url.searchParams.set('mode', 'board');
-  if (showMode) url.searchParams.set('duration', showModeToQuery(showMode));
   if (chapterId) url.searchParams.set('chapter', chapterId);
   if (sectionId) url.searchParams.set('section', sectionId);
+  if (showMode) url.searchParams.set('duration', showModeToQuery(showMode));
+  url.searchParams.set('mode', 'board');
   if (autoplay) url.searchParams.set('autoplay', 'true');
   return url.toString();
 }
@@ -246,7 +251,10 @@ const DEMO_VOICE_ID = (
   import.meta.env.VITE_ELEVENLABS_DEMO_VOICE_ID
   ?? import.meta.env.VITE_ELEVENLABS_VOICE_ID
 ) as string | undefined;
-const SHOW_DEMO_VOICE_ADVISOR = import.meta.env.VITE_SHOW_DEMO_VOICE_ADVISOR === 'true';
+const DEMO_SIGNED_URL_ENDPOINT = (
+  import.meta.env.VITE_ELEVENLABS_DEMO_SIGNED_URL_ENDPOINT
+  ?? import.meta.env.VITE_ELEVENLABS_SIGNED_URL_ENDPOINT
+) as string | undefined;
 
 const SHOW_MODE_OPTIONS: Array<{
   id: DemoShowMode;
@@ -256,9 +264,7 @@ const SHOW_MODE_OPTIONS: Array<{
   description: string;
   durationLabel: string;
 }> = [
-  { id: 'teaser', query: '3', label: '3 min teaser', shortLabel: 'Teaser', durationLabel: '3 min', description: 'Fast executive punch for first meetings.' },
-  { id: 'board', query: '6', label: '6 min board show', shortLabel: 'Board', durationLabel: '6 min', description: 'Recommended boardroom pacing with proof and payoff.' },
-  { id: 'deepDive', query: '12', label: '12 min deep dive', shortLabel: 'Deep Dive', durationLabel: '12 min', description: 'Slower product-led walkthrough for active buyers.' },
+  { id: 'board', query: '6', label: '6-minute owner command walkthrough', shortLabel: 'Board', durationLabel: '6 min', description: 'Follow one property risk from portfolio signal to accountable action.' },
 ];
 
 const DEFAULT_SHOW_MODE: DemoShowMode = 'board';
@@ -341,33 +347,33 @@ const CHAPTER_OUTCOMES: Record<string, DemoOutcome> = {
 };
 
 const CHAPTER_NARRATION_OPENERS: Record<string, string> = {
-  portfolio: 'Act one starts at portfolio level. The board needs to know where attention is required before anyone opens a project file.',
-  projectcommand: 'Now we enter the command surface for the live handover risk. The point is not more reporting, it is one place to decide.',
-  programme: 'The programme chapter translates schedule complexity into a business conversation about handover confidence.',
-  stagegates: 'Stage gates show whether the next milestone is truly ready, and what evidence or owner action is holding it back.',
-  cost: 'Cost intelligence links budget movement to the specific decisions that can still reduce exposure.',
-  risk: 'Risk command turns the risk register into a live operating discussion about ownership, mitigation, and consequence.',
-  forecast: 'The forecast chapter shows the board what can happen before it happens, with confidence signals attached.',
-  obligations: 'Obligations connect regulatory, contractual, and authority duties directly to delivery progress and proof.',
-  evidence: 'Evidence is where the platform proves readiness, not by storing files, but by controlling gaps before handover.',
-  vendoriq: 'VendorIQ moves the conversation from subjective vendor opinion to measurable performance and corrective action.',
-  fieldops: 'FieldOps shows how site teams create the proof that executive controls need in order to move.',
-  resident: 'The resident layer proves that executive control and front-door service can belong to the same operating system.',
-  value: 'The final chapter converts the story into a pilot recommendation the board can act on.',
+  portfolio: 'You start with a single portfolio command view, so your team can see where attention is needed before opening separate project files.',
+  projectcommand: 'You move from portfolio risk into one live project control surface with budget, progress, ownership, and current blockers in context.',
+  programme: 'You can translate schedule complexity into a practical handover decision, with critical path and recovery focus visible in the same place.',
+  stagegates: 'You can see whether the next milestone is actually ready, which gate is blocked, and what evidence or owner action is missing.',
+  cost: 'You can connect budget movement to the specific commercial decisions that still reduce exposure.',
+  risk: 'You can turn risk review into an ownership discussion, with mitigation quality and consequence visible together.',
+  forecast: 'You can compare likely outcomes before month-end and see which signals are strengthening or weakening confidence.',
+  obligations: 'You can keep regulatory, contractual, and authority duties connected to delivery progress and proof.',
+  evidence: 'You can control readiness by seeing current, expired, and missing proof before it blocks handover.',
+  vendoriq: 'You can move vendor decisions from opinion to measurable performance, evidence, and corrective action.',
+  fieldops: 'You can see whether site teams are creating the proof and updates needed to keep executive controls current.',
+  resident: 'You can connect resident service intake to accountable work, updates, and operational follow-through.',
+  value: 'You can close the review with a practical pilot path and the value created across decisions, actions, and evidence.',
 };
 
 const SECTION_NARRATION_SCRIPTS: Record<string, DemoNarration> = {
   'portfolio:health-actions': {
-    caption: 'Here, the board sees the portfolio health signal first. Instead of asking for updates asset by asset, leadership can spot the property that needs attention and move straight to action.',
-    presenterNote: 'Emphasize that the first win is prioritization. The demo starts with the question every owner asks: where should we spend management time today?',
+    caption: 'Your first view answers the owner question: which asset needs attention today? 4C360 brings health, risk, incidents, and open actions into one portfolio command view. Instead of waiting for separate updates, your team can immediately prioritize the property that needs leadership attention and move toward the right operating action.',
+    presenterNote: 'Highlight the client benefit: faster prioritization and less dependency on fragmented updates.',
   },
   'portfolio:portfolio-map': {
-    caption: 'The portfolio map turns multiple buildings into one operating picture. The value is not the map itself, it is the connection from asset health into project, vendor, evidence, and field execution.',
-    presenterNote: 'Point out that the board can stay at portfolio altitude while still knowing the system is connected underneath.',
+    caption: 'Your portfolio becomes an operating map, not a static property list. Each asset can lead into the relevant project, vendor, evidence, field, or resident context without losing the owner-level view.',
+    presenterNote: 'Highlight the client benefit: portfolio visibility with a connected route into the operating detail.',
   },
   'portfolio:command-path': {
-    caption: 'This is the moment the demo becomes actionable. A portfolio signal is no longer an observation, it becomes a command path into the project and the teams that can recover readiness.',
-    presenterNote: 'Use this as the bridge from executive visibility to operational control.',
+    caption: 'When a property shows risk, you have a direct path into the command surface that can resolve it. The concern moves from an executive observation to an accountable project, vendor, evidence, or field action.',
+    presenterNote: 'Highlight the client benefit: one-click movement from owner concern to accountable execution.',
   },
   'projectcommand:project-context': {
     caption: 'The project twin gives the board the essential context: budget, progress, owner route, and current control state. It replaces fragmented status packs with one live project surface.',
@@ -742,10 +748,10 @@ const DEMO_FRAMES: Record<string, DemoFrame[]> = {
       anchor: 'portfolio-health-actions',
       fallback: { left: 66, top: 8, width: 25, height: 10 },
       headline: 'Start with owner-level health signals',
-      story: 'Use the portfolio controls to show status, risk, and the fastest path into a command view.',
-      clientValue: 'Leadership starts with a clean portfolio signal instead of a spreadsheet hunt.',
+      story: 'Health, risk, incidents, and next actions are visible at portfolio level before the team opens another report.',
+      clientValue: 'Leadership gets a clean priority signal and can decide where management attention goes first.',
       decisionQuestion: 'Which asset needs attention first?',
-      nextAction: 'Select the property with the clearest control signal.',
+      nextAction: 'select the property with the clearest control signal.',
       tryLabel: 'Show Portfolio Signal',
     },
     {
@@ -754,10 +760,10 @@ const DEMO_FRAMES: Record<string, DemoFrame[]> = {
       anchor: 'portfolio-command',
       fallback: { left: 5, top: 18, width: 56, height: 26 },
       headline: 'Explain the portfolio as one operating picture',
-      story: 'Move from executive status into the property, project, vendor, or evidence context without changing systems.',
-      clientValue: 'The client sees how each asset connects to the same operating model.',
+      story: 'Each property connects to project, vendor, evidence, field, and resident context without changing systems.',
+      clientValue: 'The portfolio view stays executive-level while every asset remains connected to operational detail.',
       decisionQuestion: 'Where is the risk concentrated across the portfolio?',
-      nextAction: 'Use the map or portfolio list to open the relevant operating surface.',
+      nextAction: 'use the map or portfolio list to open the relevant operating surface.',
       tryLabel: 'Show Portfolio Map',
     },
     {
@@ -765,10 +771,10 @@ const DEMO_FRAMES: Record<string, DemoFrame[]> = {
       label: 'Command Path',
       fallback: { left: 56, top: 31, width: 34, height: 22 },
       headline: 'Turn portfolio attention into a command path',
-      story: 'Show how a property signal becomes a project control conversation in one click.',
-      clientValue: 'There is a visible path from owner concern to the team that can act.',
+      story: 'A property signal can move directly into the control surface owned by the team that can resolve it.',
+      clientValue: 'Owner concern becomes an accountable project, vendor, evidence, or field action.',
       decisionQuestion: 'Which command view should the client enter from this signal?',
-      nextAction: 'Open ProjectCommand for the selected asset.',
+      nextAction: 'open ProjectCommand for the selected asset.',
       tryLabel: 'Open Command Path',
     },
   ],
@@ -1217,16 +1223,20 @@ function showModeToQuery(showMode: DemoShowMode) {
   return SHOW_MODE_OPTIONS.find(option => option.id === showMode)?.query ?? '6';
 }
 
-function queryToShowMode(value?: string | null): DemoShowMode {
-  const normalized = (value ?? '').trim().toLowerCase();
-  const matched = SHOW_MODE_OPTIONS.find(option => (
-    option.query === normalized || option.id.toLowerCase() === normalized || option.label.toLowerCase() === normalized
-  ));
-  return matched?.id ?? DEFAULT_SHOW_MODE;
+function queryToShowMode(_value?: string | null): DemoShowMode {
+  return DEFAULT_SHOW_MODE;
 }
 
 function getShowModeOption(showMode: DemoShowMode) {
-  return SHOW_MODE_OPTIONS.find(option => option.id === showMode) ?? SHOW_MODE_OPTIONS[1];
+  return SHOW_MODE_OPTIONS.find(option => option.id === showMode) ?? SHOW_MODE_OPTIONS[0];
+}
+
+function getSectionNarrationScript(section: DemoSection): DemoNarrationScript {
+  return {
+    caption: section.narration.caption,
+    audio: section.narration.caption,
+    presenterNote: section.narration.presenterNote,
+  };
 }
 
 function getActForChapter(chapterId: string) {
@@ -1347,9 +1357,7 @@ function enrichDemoSection(chapter: DemoChapter, frame: EnrichedDemoFrame, frame
     boardNarrative,
     clientProof: frame.decisionQuestion,
     durationByMode: {
-      teaser: 4600 + (frameIndex % 2) * 400,
       board: 9000 + (frameIndex % 2) * 750,
-      deepDive: 18000 + (frameIndex % 2) * 1200,
     },
     metricImpact: {
       ...frame.outcome,
@@ -1507,17 +1515,16 @@ function updateChapterUrl(
   frameId?: string,
   options: { showMode?: DemoShowMode; autoplay?: boolean } = {},
 ) {
-  const url = new URL(window.location.href);
-  url.searchParams.set('mode', 'board');
+  const currentUrl = new URL(window.location.href);
+  const url = new URL('/demo/properties', window.location.origin);
   url.searchParams.set('chapter', chapterId);
   url.searchParams.set('section', frameId ?? resolveFrameId(getChapterById(chapterId)));
-  url.searchParams.delete('frame');
-  url.searchParams.set('duration', showModeToQuery(options.showMode ?? queryToShowMode(url.searchParams.get('duration'))));
+  url.searchParams.set('duration', showModeToQuery(options.showMode ?? queryToShowMode(currentUrl.searchParams.get('duration'))));
+  url.searchParams.set('mode', 'board');
   if (options.autoplay) {
     url.searchParams.set('autoplay', 'true');
-  } else {
-    url.searchParams.delete('autoplay');
   }
+  if (currentUrl.searchParams.get('voiceSetup') === 'true') url.searchParams.set('voiceSetup', 'true');
   window.history.replaceState({}, '', `${url.pathname}?${url.searchParams.toString()}${url.hash}`);
 }
 
@@ -1762,16 +1769,12 @@ function BoardCaptionBar({
   autopilotStatus: DemoAutopilotState['status'];
   progress: number;
 }) {
-  const objectiveChain = [
-    { label: 'Signal', value: section.features[0] ?? section.title },
-    { label: 'Owner', value: section.decisionQuestion },
-    { label: 'Move', value: section.nextAction },
-  ];
+  const narrationScript = getSectionNarrationScript(section);
 
   return (
-    <div className="flex flex-shrink-0 items-center gap-3 border-b border-[#2E7FFF]/14 bg-[#081426] px-4 py-3">
-      <div className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-cyan-300/24 bg-cyan-300/10 text-cyan-200 sm:flex">
-        <Presentation size={20} />
+    <div className="flex flex-shrink-0 items-center gap-3 border-b border-[#2E7FFF]/14 bg-[#081426] px-3 py-2">
+      <div className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-cyan-300/24 bg-cyan-300/10 text-cyan-200 sm:flex">
+        <Presentation size={16} />
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
@@ -1789,16 +1792,9 @@ function BoardCaptionBar({
             {autopilotStatus === 'playing' ? 'Auto tour running' : autopilotStatus === 'paused' ? 'Paused' : 'Manual'}
           </span>
         </div>
-        <div className="mt-2 grid gap-1.5 lg:grid-cols-3">
-          {objectiveChain.map(item => (
-            <div key={item.label} className="min-w-0 rounded-xl border border-[#2E7FFF]/14 bg-[#06101F] px-3 py-2">
-              <div className="text-[8px] font-black uppercase tracking-[0.14em] text-[#5F7FA8]">{item.label}</div>
-              <div className="mt-0.5 truncate text-[11px] font-black text-[#E6EEF9]">{item.value}</div>
-            </div>
-          ))}
-        </div>
+        <p className="mt-1 line-clamp-1 text-[11px] font-semibold leading-4 text-[#B8C7DB]">{narrationScript.caption}</p>
       </div>
-      <div className="hidden w-28 shrink-0 sm:block">
+      <div className="hidden w-24 shrink-0 sm:block">
         <div className="mb-1 flex items-center justify-between text-[9px] font-black uppercase tracking-[0.12em] text-[#7A94B4]">
           <span>section</span>
           <span>{Math.round(progress)}%</span>
@@ -1812,56 +1808,42 @@ function BoardCaptionBar({
 }
 
 function ExecutiveControlRoom({
-  showMode,
-  onShowModeChange,
   onStart,
-  onBrowse,
   onCopyBoardLink,
 }: {
-  showMode: DemoShowMode;
-  onShowModeChange: (showMode: DemoShowMode) => void;
   onStart: () => void;
-  onBrowse: () => void;
   onCopyBoardLink: () => void;
 }) {
   const promises = [
-    { icon: Building2, title: 'Portfolio Control', detail: 'One board view of asset health, owner risk, and the command path.' },
-    { icon: Target, title: 'Risk To Action', detail: 'A handover threat becomes gates, cost exposure, proof gaps, and assigned recovery.' },
-    { icon: BrainCircuit, title: 'AI Operating System', detail: 'Vendor, field, resident, and project signals resolve into one owner recommendation.' },
+    { icon: Building2, title: 'Portfolio command', detail: 'See health, SLA, incidents, workload, and risk in one owner view.' },
+    { icon: Target, title: 'Risk-to-action chain', detail: 'Move from asset signal into project, programme, cost, risk, obligations, and evidence.' },
+    { icon: BrainCircuit, title: 'Proof of execution', detail: 'Leave with action-ready outputs for vendors, field teams, residents, and owners.' },
   ];
 
   return (
     <div className="min-h-screen overflow-y-auto bg-[#030A15] text-[#EEF3FA]">
       <div className="mx-auto flex min-h-screen max-w-7xl flex-col px-4 py-5">
-        <header className="flex items-center justify-between gap-3">
+        <header className="flex items-center gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <img src="/4c-logo.png" alt="4C logo" className="h-10 w-10 rounded-xl object-contain" />
             <div className="min-w-0">
-              <div className="truncate text-[16px] font-black text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>4C360 Board Demo</div>
-              <div className="truncate text-[11px] font-bold uppercase tracking-[0.16em] text-[#7A94B4]">Actual system, cinematic walkthrough</div>
+              <div className="truncate text-[16px] font-black text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>DevelopmentX</div>
+              <div className="truncate text-[11px] font-semibold text-[#7A94B4]">Powered by 4C360</div>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onCopyBoardLink}
-            className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl border border-[#2E7FFF]/24 bg-[#0A1628] px-3 text-[12px] font-black text-[#B8C7DB] hover:bg-[#112040] hover:text-white"
-          >
-            <Copy size={15} />
-            Copy Board Link
-          </button>
         </header>
 
-        <main className="grid flex-1 items-center gap-5 py-6 md:grid-cols-[minmax(0,1fr)_minmax(320px,0.82fr)] xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
+        <main className="grid flex-1 items-start gap-5 py-6 md:grid-cols-[minmax(0,1fr)_minmax(320px,0.82fr)] xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
           <section className="min-w-0">
             <div className="inline-flex items-center gap-2 rounded-full border border-[#E11D2E]/28 bg-[#E11D2E]/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-[#FFB4BC]">
               <MonitorPlay size={14} />
-              Executive control room
+              6-minute owner command walkthrough
             </div>
             <h1 className="mt-5 max-w-4xl text-[clamp(32px,5.2vw,64px)] font-black leading-[0.96] text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-              One handover risk becomes a board-ready operating decision.
+              Control the portfolio before risk becomes delay.
             </h1>
             <p className="mt-4 max-w-3xl text-[16px] leading-7 text-[#B8C7DB]">
-              {DEMO_SCENARIO} The show moves through live 4C360 screens, narrated proof points, and timed sections so the board sees the system working, not a static pitch.
+              In six minutes, follow one property risk from first portfolio signal to project control, cost and risk exposure, evidence readiness, vendor movement, field proof, and an owner-ready action path.
             </p>
 
             <div className="mt-4 grid gap-2 md:hidden">
@@ -1871,26 +1853,18 @@ function ExecutiveControlRoom({
                 className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#2E7FFF] px-4 text-[14px] font-black text-white shadow-xl shadow-blue-950/35"
               >
                 <Play size={17} />
-                Start Board Demo
-              </button>
-              <button
-                type="button"
-                onClick={onBrowse}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-[#2E7FFF]/24 bg-[#06101F] px-4 text-[13px] font-black text-[#DCEBFF]"
-              >
-                <ListTree size={16} />
-                Browse Chapters
+                Start Demo
               </button>
             </div>
 
-            <div className="mt-5 hidden gap-2 xl:grid xl:grid-cols-3">
+            <div className="mt-5 hidden items-stretch gap-2 xl:grid xl:grid-cols-3">
               {promises.map(({ icon: Icon, title, detail }) => (
-                <div key={title} className="rounded-2xl border border-[#2E7FFF]/20 bg-[#07111F] p-3 shadow-2xl shadow-black/20">
+                <div key={title} className="flex min-h-[184px] flex-col rounded-2xl border border-[#2E7FFF]/20 bg-[#07111F] p-3 shadow-2xl shadow-black/20">
                   <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-300/24 bg-cyan-300/10 text-cyan-200">
                     <Icon size={19} />
                   </div>
                   <h2 className="mt-3 text-[14px] font-black text-white">{title}</h2>
-                  <p className="mt-2 text-[12px] leading-5 text-[#8EA7C7]">{detail}</p>
+                  <p className="mt-2 flex-1 text-[12px] leading-5 text-[#8EA7C7]">{detail}</p>
                 </div>
               ))}
             </div>
@@ -1899,38 +1873,19 @@ function ExecutiveControlRoom({
           <section className="rounded-3xl border border-[#2E7FFF]/24 bg-[linear-gradient(155deg,rgba(46,127,255,0.18),rgba(124,58,237,0.12),rgba(7,17,31,0.98))] p-5 shadow-2xl shadow-black/40">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <div className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-200">Choose pacing</div>
-                <h2 className="mt-1 text-2xl font-black text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Start the board show.</h2>
+                <div className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-200">First decision</div>
+                <h2 className="mt-1 text-2xl font-black text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Find the asset that needs action now.</h2>
               </div>
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-emerald-300/24 bg-emerald-300/10 text-emerald-200">
                 <Rocket size={22} />
               </div>
             </div>
 
-            <div className="mt-5 space-y-2">
-              {SHOW_MODE_OPTIONS.map(option => {
-                const active = showMode === option.id;
-                return (
-                  <button
-                    key={option.id}
-                    type="button"
-                    onClick={() => onShowModeChange(option.id)}
-                    className={`flex w-full items-center justify-between gap-3 rounded-2xl border p-3 text-left transition-colors ${
-                      active
-                        ? 'border-[#2E7FFF]/60 bg-[#2E7FFF]/18 text-white'
-                        : 'border-[#2E7FFF]/16 bg-[#06101F]/76 text-[#B8C7DB] hover:border-[#2E7FFF]/34 hover:bg-[#112040]'
-                    }`}
-                  >
-                    <span>
-                      <span className="block text-[13px] font-black">{option.label}</span>
-                      <span className="mt-1 block text-[11px] leading-4 text-[#8EA7C7]">{option.description}</span>
-                    </span>
-                    <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${active ? 'bg-cyan-300/14 text-cyan-100' : 'bg-[#0A1628] text-[#7A94B4]'}`}>
-                      {option.durationLabel}
-                    </span>
-                  </button>
-                );
-              })}
+            <div className="mt-5 rounded-2xl border border-[#2E7FFF]/18 bg-[#06101F]/82 p-4">
+              <div className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-200">Owner control path</div>
+              <p className="mt-2 text-[14px] leading-6 text-[#DCEBFF]">
+                Identify the priority property, open the project command view, expose the blockers, and leave with the next accountable owner action.
+              </p>
             </div>
 
             <div className="mt-5 grid gap-2 sm:grid-cols-[1fr_auto]">
@@ -1940,24 +1895,24 @@ function ExecutiveControlRoom({
                 className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#2E7FFF] px-4 text-[14px] font-black text-white shadow-xl shadow-blue-950/35 transition-colors hover:bg-[#4B91FF]"
               >
                 <Play size={17} />
-                Start Board Demo
+                Start Demo
               </button>
               <button
                 type="button"
-                onClick={onBrowse}
+                onClick={onCopyBoardLink}
                 className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-[#2E7FFF]/24 bg-[#06101F] px-4 text-[13px] font-black text-[#DCEBFF] transition-colors hover:bg-[#112040]"
               >
-                <ListTree size={16} />
-                Browse Chapters
+                <Copy size={16} />
+                Share demo link
               </button>
             </div>
 
             <div className="mt-5 rounded-2xl border border-[#2E7FFF]/18 bg-[#06101F]/82 p-4">
               <div className="grid grid-cols-3 gap-2">
                 {[
-                  ['39', 'live sections'],
-                  ['7', 'prepared artifacts'],
-                  ['1', 'board decision'],
+                  ['1', 'priority risk'],
+                  ['6', 'minute path'],
+                  ['7', 'action outputs'],
                 ].map(([value, label]) => (
                   <div key={label} className="rounded-xl border border-[#2E7FFF]/14 bg-[#0A1628] p-3 text-center">
                     <div className="text-[20px] font-black text-white">{value}</div>
@@ -1966,7 +1921,7 @@ function ExecutiveControlRoom({
                 ))}
               </div>
               <p className="mt-3 text-[12px] leading-5 text-[#8EA7C7]">
-                Captions stay on-screen for every board show. Internal presenter audio can be enabled separately by the demo operator.
+                The walkthrough follows a live system path from owner visibility to assigned work, evidence, and a decision-ready recommendation.
               </p>
             </div>
           </section>
@@ -1984,7 +1939,8 @@ type DemoVoiceSession = {
 };
 
 function buildElevenLabsNarrationCue(section: DemoSection) {
-  return `Please narrate this board-demo cue clearly and professionally, without adding extra setup: "${section.narration.caption}"`;
+  const script = getSectionNarrationScript(section);
+  return `Say only the following client-facing script. Do not add tone labels, stage directions, bracketed text, introductions, closings, or extra explanation: "${script.audio}"`;
 }
 
 function formatElevenLabsError(error: unknown) {
@@ -2038,15 +1994,45 @@ async function requestDemoMicrophoneAccess() {
   stream.getTracks().forEach(track => track.stop());
 }
 
-function shouldShowDemoVoiceAdvisor() {
-  if (SHOW_DEMO_VOICE_ADVISOR) return true;
-  if (typeof window === 'undefined') return false;
-  const params = new URLSearchParams(window.location.search);
-  return params.get('voiceDebug') === 'true' || params.get('voiceControls') === 'true';
+async function getElevenLabsSignedUrl(agentId: string) {
+  if (!DEMO_SIGNED_URL_ENDPOINT) return '';
+
+  const url = new URL(DEMO_SIGNED_URL_ENDPOINT, window.location.origin);
+  url.searchParams.set('agentId', agentId);
+
+  const response = await fetch(url.toString());
+  if (!response.ok) {
+    throw new Error(`Signed URL endpoint returned ${response.status}. Check the ElevenLabs signing endpoint configuration.`);
+  }
+
+  const payload = await response.json() as { signedUrl?: string; signed_url?: string };
+  const signedUrl = payload.signedUrl ?? payload.signed_url ?? '';
+  if (!signedUrl) {
+    throw new Error('Signed URL endpoint did not return signedUrl.');
+  }
+
+  return signedUrl;
 }
 
-function DemoVoiceAdvisor({ section, onToast }: { section: DemoSection; onToast: ToastFn }) {
+function isDemoVoiceSetupMode() {
+  if (typeof window === 'undefined') return false;
+  const params = new URLSearchParams(window.location.search);
+  return params.get('voiceSetup') === 'true';
+}
+
+function DemoVoiceAdvisor({
+  section,
+  tourStatus,
+  narrationLaunchRequest,
+  onToast,
+}: {
+  section: DemoSection;
+  tourStatus: DemoAutopilotState['status'];
+  narrationLaunchRequest: number;
+  onToast: ToastFn;
+}) {
   const [open, setOpen] = useState(false);
+  const voiceSetupMode = isDemoVoiceSetupMode();
   const [storedAgentId, setStoredAgentId] = useState(loadStoredDemoAgentId);
   const [agentIdInput, setAgentIdInput] = useState(() => loadStoredDemoAgentId());
   const configuredAgentId = (DEMO_AGENT_ID ?? storedAgentId).trim();
@@ -2057,6 +2043,8 @@ function DemoVoiceAdvisor({ section, onToast }: { section: DemoSection; onToast:
   const [autoNarrationEnabled, setAutoNarrationEnabled] = useState(true);
   const conversationRef = useRef<DemoVoiceSession | null>(null);
   const lastNarratedSectionRef = useRef<string | null>(null);
+  const previousTourStatusRef = useRef<DemoAutopilotState['status']>(tourStatus);
+  const handledNarrationLaunchRequestRef = useRef(0);
 
   useEffect(() => {
     if (agentConfigured && voiceStatus === 'unavailable') setVoiceStatus('ready');
@@ -2098,9 +2086,10 @@ function DemoVoiceAdvisor({ section, onToast }: { section: DemoSection; onToast:
       setVoiceErrorMessage('');
       setVoiceStatus('connecting');
       await requestDemoMicrophoneAccess();
-      const { Conversation } = await import('@elevenlabs/client');
+      const { Conversation } = await import('@11labs/client');
+      const signedUrl = await getElevenLabsSignedUrl(nextAgentId);
       conversationRef.current = await withVoiceConnectionTimeout(Conversation.startSession({
-        agentId: nextAgentId,
+        ...(signedUrl ? { signedUrl } : { agentId: nextAgentId }),
         connectionType: 'websocket',
         ...(DEMO_VOICE_ID ? { overrides: { tts: { voiceId: DEMO_VOICE_ID } } } : {}),
         onConnect: () => {
@@ -2119,10 +2108,12 @@ function DemoVoiceAdvisor({ section, onToast }: { section: DemoSection; onToast:
           }
         },
         onError: (message: string) => {
+          const errorMessage = formatElevenLabsError(message);
           conversationRef.current = null;
           setVoiceActive(false);
-          setVoiceErrorMessage(formatElevenLabsError(message));
+          setVoiceErrorMessage(errorMessage);
           setVoiceStatus('error');
+          onToast(errorMessage, 'error');
         },
         onModeChange: (mode: { mode: 'speaking' | 'listening' }) => setVoiceStatus(mode.mode),
         onStatusChange: (status: { status: 'connecting' | 'connected' | 'disconnecting' | 'disconnected' }) => {
@@ -2131,13 +2122,15 @@ function DemoVoiceAdvisor({ section, onToast }: { section: DemoSection; onToast:
         },
       }));
       lastNarratedSectionRef.current = section.sectionId;
-      conversationRef.current.sendContextualUpdate(`Demo scenario: ${DEMO_SCENARIO}. Current chapter: ${section.chapterId}. Current section: ${section.title}.`);
+      conversationRef.current.sendContextualUpdate(`Demo scenario: ${DEMO_SCENARIO}. Format: 6-minute client walkthrough. Current chapter: ${section.chapterId}. Current section: ${section.title}.`);
       conversationRef.current.sendUserMessage(buildElevenLabsNarrationCue(section));
     } catch (error) {
+      const errorMessage = formatElevenLabsError(error);
       conversationRef.current = null;
       setVoiceActive(false);
-      setVoiceErrorMessage(formatElevenLabsError(error));
+      setVoiceErrorMessage(errorMessage);
       setVoiceStatus('error');
+      onToast(errorMessage, 'error');
     }
   }, [onToast, section, voiceActive]);
 
@@ -2165,9 +2158,27 @@ function DemoVoiceAdvisor({ section, onToast }: { section: DemoSection; onToast:
     sendNarrationCue(section);
   }, [autoNarrationEnabled, section, sendNarrationCue, voiceActive]);
 
+  useEffect(() => {
+    if (!voiceSetupMode || !narrationLaunchRequest || handledNarrationLaunchRequestRef.current === narrationLaunchRequest) return;
+    handledNarrationLaunchRequestRef.current = narrationLaunchRequest;
+    if (!agentConfigured || voiceActive) return;
+    void startVoice();
+  }, [agentConfigured, narrationLaunchRequest, startVoice, voiceActive, voiceSetupMode]);
+
   useEffect(() => () => {
     void stopVoice();
   }, [stopVoice]);
+
+  useEffect(() => {
+    if (!voiceSetupMode) setOpen(false);
+  }, [voiceSetupMode]);
+
+  useEffect(() => {
+    if (previousTourStatusRef.current === 'playing' && tourStatus !== 'playing' && voiceActive) {
+      void stopVoice();
+    }
+    previousTourStatusRef.current = tourStatus;
+  }, [stopVoice, tourStatus, voiceActive]);
 
   const voiceLabel = voiceStatus === 'unavailable'
     ? 'Connect ElevenLabs audio'
@@ -2180,26 +2191,47 @@ function DemoVoiceAdvisor({ section, onToast }: { section: DemoSection; onToast:
     : voiceStatus === 'speaking'
     ? 'ElevenLabs speaking'
     : 'ElevenLabs error';
+  const narrationButtonLabel = voiceActive
+    ? 'Audio on'
+    : voiceStatus === 'connecting'
+    ? 'Connecting'
+    : voiceStatus === 'error'
+    ? 'Audio issue'
+    : 'Narration';
+  const narrationScript = getSectionNarrationScript(section);
+
+  if (!voiceSetupMode) return null;
+
+  const handleNarrationClick = () => {
+    if (voiceSetupMode) {
+      setOpen(current => !current);
+      return;
+    }
+
+    void (voiceActive ? stopVoice() : startVoice());
+  };
 
   return (
     <div className="relative">
       <button
         type="button"
-        onClick={() => setOpen(current => !current)}
+        onClick={handleNarrationClick}
         className={`inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-[11px] font-black transition-colors ${
           voiceActive
             ? 'border-cyan-300/34 bg-cyan-300/12 text-cyan-100'
+            : voiceStatus === 'error'
+            ? 'border-[#E11D2E]/34 bg-[#E11D2E]/14 text-[#FFB4BC] hover:bg-[#E11D2E]/20'
             : agentConfigured
             ? 'border-[#2E7FFF]/24 bg-[#0A1628] text-[#B8C7DB] hover:bg-[#112040] hover:text-white'
             : 'border-amber-300/24 bg-amber-300/10 text-amber-100 hover:bg-amber-300/14'
         }`}
-        aria-label="Open ElevenLabs board audio"
+        aria-label={voiceSetupMode ? 'Open ElevenLabs voice setup' : voiceActive ? 'Stop narration audio' : 'Start narration audio'}
       >
-        {voiceActive ? <Volume2 size={14} /> : <Mic size={14} />}
-        <span className="hidden sm:inline">{voiceActive ? 'Audio on' : 'ElevenLabs'}</span>
+        {voiceActive ? <Volume2 size={14} /> : voiceStatus === 'error' ? <MicOff size={14} /> : <Mic size={14} />}
+        <span className="hidden sm:inline">{voiceSetupMode && !agentConfigured ? 'Voice setup' : narrationButtonLabel}</span>
       </button>
 
-      {open && (
+      {voiceSetupMode && open && (
         <div className="absolute right-0 top-12 z-50 max-h-[calc(100vh-96px)] w-[min(440px,calc(100vw-32px))] overflow-y-auto rounded-2xl border border-[#2E7FFF]/24 bg-[#07111F] p-4 shadow-2xl shadow-black/50">
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -2256,14 +2288,14 @@ function DemoVoiceAdvisor({ section, onToast }: { section: DemoSection; onToast:
               <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#FFB4BC]">Connection issue</div>
               <p className="mt-1 text-[12px] leading-5 text-[#FFE1E5]">{voiceErrorMessage}</p>
               <p className="mt-2 text-[11px] leading-4 text-[#FFB4BC]">
-                If the ID is correct, check that the ElevenLabs agent is enabled for client connections and that microphone/audio permissions are allowed for this browser.
+                If the ID is correct, check that the ElevenLabs agent allows public client connections. For private agents, set a signed URL endpoint for deployment.
               </p>
             </div>
           )}
 
           <div className="mt-3 rounded-xl border border-[#2E7FFF]/16 bg-[#0A1628] p-3">
             <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#7A94B4]">Current narration</div>
-            <p className="mt-1 text-[12px] leading-5 text-[#DCEBFF]">{section.narration.caption}</p>
+            <p className="mt-1 text-[12px] leading-5 text-[#DCEBFF]">{narrationScript.audio}</p>
           </div>
 
           <div className="mt-3 grid grid-cols-2 gap-2">
@@ -2382,13 +2414,15 @@ export function InteractiveDemoWalkthrough() {
   const [showMode, setShowMode] = useState<DemoShowMode>(resolveInitialShowMode);
   const [showIntro, setShowIntro] = useState(shouldShowIntroInitially);
   const [autopilot, setAutopilot] = useState<DemoAutopilotState>(resolveInitialAutopilot);
-  const [presenterNotesOpen, setPresenterNotesOpen] = useState(false);
   const [sectionProgress, setSectionProgress] = useState(0);
+  const [sectionElapsedMs, setSectionElapsedMs] = useState(0);
   const [statusMessage, setStatusMessage] = useState('Guided demo ready');
   const [shareCopied, setShareCopied] = useState(false);
   const [sharePanelOpen, setSharePanelOpen] = useState(false);
+  const [narrationLaunchRequest, setNarrationLaunchRequest] = useState(0);
   const [progressState, setProgressState] = useState<DemoProgressState>(loadDemoProgressState);
   const shareInputRef = useRef<HTMLInputElement>(null);
+  const sectionElapsedRef = useRef(0);
 
   const activeIndex = Math.max(0, DEMO_CHAPTERS.findIndex(chapter => chapter.id === activeId));
   const chapter = DEMO_CHAPTERS[activeIndex] ?? DEMO_CHAPTERS[0];
@@ -2398,7 +2432,7 @@ export function InteractiveDemoWalkthrough() {
   const nextFrame = frames[activeFrameIndex + 1] ?? null;
   const allMissionFrames = useMemo(getAllDemoSections, []);
   const completedMissionSet = useMemo(() => new Set(progressState.completedMissionIds), [progressState.completedMissionIds]);
-  const activeMissionComplete = completedMissionSet.has(activeFrame.mission.id);
+  const activeSectionComplete = completedMissionSet.has(activeFrame.mission.id);
   const outcomeTotals = useMemo(() => getOutcomeTotals(progressState), [progressState]);
   const activeAct = useMemo(() => getActForChapter(chapter.id), [chapter.id]);
   const activeActProgress = useMemo(() => getActProgress(activeAct, completedMissionSet), [activeAct, completedMissionSet]);
@@ -2407,16 +2441,19 @@ export function InteractiveDemoWalkthrough() {
     fallback: activeFrame.fallback ?? chapter.fallback,
   }), [activeFrame, chapter.anchor, chapter.fallback]);
   const anchorBox = useAnchorBox(stageRef, hotspotTarget);
-  const progress = Math.round(((activeIndex + ((activeFrameIndex + 1) / frames.length)) / DEMO_CHAPTERS.length) * 100);
+  const sectionControlProgress = autopilot.status === 'playing'
+    ? sectionProgress
+    : Math.round(((activeFrameIndex + 1) / frames.length) * 100);
   const sectionDurationMs = activeFrame.durationByMode[showMode];
   const shareUrl = useMemo(
     () => buildShareUrl(chapter.id, activeFrame.sectionId, showMode, autopilot.status === 'playing'),
     [activeFrame.sectionId, autopilot.status, chapter.id, showMode],
   );
   const nextChapter = DEMO_CHAPTERS[(activeIndex + 1) % DEMO_CHAPTERS.length];
-  const primaryActionLabel = activeMissionComplete
-    ? nextFrame ? `Next: ${nextFrame.label}` : `Next page: ${nextChapter.shortLabel}`
-    : activeFrame.mission.actionLabel;
+  const nextSectionLabel = nextFrame ? `Next: ${nextFrame.label}` : `Next: ${nextChapter.shortLabel}`;
+  const activeMissionComplete = activeSectionComplete;
+  const primaryActionLabel = nextSectionLabel;
+  const [presenterNotesOpen, setPresenterNotesOpen] = useState(false);
 
   const selectChapter = useCallback((chapterId: string, frameId?: string) => {
     const nextChapter = getChapterById(chapterId);
@@ -2482,6 +2519,8 @@ export function InteractiveDemoWalkthrough() {
     setProgressState(EMPTY_PROGRESS_STATE);
     setAutopilot({ status: 'idle', started: false });
     setSectionProgress(0);
+    setSectionElapsedMs(0);
+    sectionElapsedRef.current = 0;
     try {
       window.sessionStorage.removeItem(DEMO_PROGRESS_STORAGE_KEY);
     } catch {
@@ -2502,53 +2541,48 @@ export function InteractiveDemoWalkthrough() {
     window.setTimeout(() => setStatusMessage('Guided demo ready'), 3200);
   }, [allMissionFrames, completeMission]);
 
-  const completeActiveMission = useCallback(() => {
-    const completedNow = completeMission(activeFrame.mission.id);
-    const message = completedNow ? activeFrame.mission.completionToast : `${activeFrame.artifact.label} already prepared`;
-    setStatusMessage(`${completedNow ? 'SUCCESS' : 'INFO'}: ${message}`);
-    window.setTimeout(() => setStatusMessage('Guided demo ready'), 2600);
-  }, [activeFrame, completeMission]);
-
   const advanceMissionOrFrame = useCallback(() => {
-    if (!isMissionComplete(activeFrame.mission.id)) {
-      completeActiveMission();
-      return;
-    }
+    if (!isMissionComplete(activeFrame.mission.id)) completeMission(activeFrame.mission.id);
     advanceFrame();
-  }, [activeFrame.mission.id, advanceFrame, completeActiveMission, isMissionComplete]);
+  }, [activeFrame.mission.id, advanceFrame, completeMission, isMissionComplete]);
 
   const startBoardDemo = useCallback(() => {
     const firstChapter = DEMO_CHAPTERS[0];
     const firstSection = getDemoSections(firstChapter)[0];
+    setShowMode(DEFAULT_SHOW_MODE);
     setShowIntro(false);
     setActiveId(firstChapter.id);
     setActiveFrameId(firstSection.id);
     setAutopilot({ status: 'playing', started: true });
-    updateChapterUrl(firstChapter.id, firstSection.id, { showMode, autoplay: true });
+    setSectionProgress(0);
+    setSectionElapsedMs(0);
+    sectionElapsedRef.current = 0;
+    setNarrationLaunchRequest(current => current + 1);
+    updateChapterUrl(firstChapter.id, firstSection.id, { showMode: DEFAULT_SHOW_MODE, autoplay: true });
     setStatusMessage('SUCCESS: Board demo running');
     window.setTimeout(() => setStatusMessage('Guided demo ready'), 2400);
-  }, [showMode]);
-
-  const browseChapters = useCallback(() => {
-    setShowIntro(false);
-    setAutopilot({ status: 'idle', started: false });
-    updateChapterUrl(chapter.id, activeFrame.id, { showMode, autoplay: false });
-  }, [activeFrame.id, chapter.id, showMode]);
+  }, []);
 
   const restartShow = useCallback(() => {
     const firstChapter = DEMO_CHAPTERS[0];
     const firstSection = getDemoSections(firstChapter)[0];
+    setShowMode(DEFAULT_SHOW_MODE);
     setActiveId(firstChapter.id);
     setActiveFrameId(firstSection.id);
     setShowIntro(false);
     setAutopilot({ status: 'playing', started: true });
-    updateChapterUrl(firstChapter.id, firstSection.id, { showMode, autoplay: true });
-  }, [showMode]);
+    setSectionProgress(0);
+    setSectionElapsedMs(0);
+    sectionElapsedRef.current = 0;
+    setNarrationLaunchRequest(current => current + 1);
+    updateChapterUrl(firstChapter.id, firstSection.id, { showMode: DEFAULT_SHOW_MODE, autoplay: true });
+  }, []);
 
   const toggleAutopilot = useCallback(() => {
     setShowIntro(false);
     const playing = autopilot.status !== 'playing';
     setAutopilot(current => ({ status: playing ? 'playing' : 'paused', started: current.started || playing }));
+    if (playing) setNarrationLaunchRequest(current => current + 1);
     updateChapterUrl(chapter.id, activeFrame.id, { showMode, autoplay: playing });
   }, [activeFrame.id, autopilot.status, chapter.id, showMode]);
 
@@ -2599,8 +2633,14 @@ export function InteractiveDemoWalkthrough() {
   }, [progressState]);
 
   useEffect(() => {
+    sectionElapsedRef.current = sectionElapsedMs;
+  }, [sectionElapsedMs]);
+
+  useEffect(() => {
     setSectionProgress(0);
-  }, [activeFrame.id, autopilot.status, showMode]);
+    setSectionElapsedMs(0);
+    sectionElapsedRef.current = 0;
+  }, [activeFrame.id, showMode]);
 
   useEffect(() => {
     const root = stageRef.current;
@@ -2703,17 +2743,27 @@ export function InteractiveDemoWalkthrough() {
 
   useEffect(() => {
     if (autopilot.status !== 'playing') return undefined;
-    const startedAt = Date.now();
-    const progressInterval = window.setInterval(() => {
-      const elapsed = Date.now() - startedAt;
+    const startedAt = Date.now() - sectionElapsedRef.current;
+    const updateElapsedTime = () => {
+      const elapsed = Math.min(sectionDurationMs, Math.max(0, Date.now() - startedAt));
+      sectionElapsedRef.current = elapsed;
+      setSectionElapsedMs(elapsed);
       setSectionProgress(Math.min(100, (elapsed / sectionDurationMs) * 100));
-    }, 250);
+    };
+
+    updateElapsedTime();
+    const progressInterval = window.setInterval(updateElapsedTime, 250);
+    const remainingDurationMs = Math.max(0, sectionDurationMs - sectionElapsedRef.current);
     const advanceTimer = window.setTimeout(() => {
+      sectionElapsedRef.current = sectionDurationMs;
+      setSectionElapsedMs(sectionDurationMs);
+      setSectionProgress(100);
       completeMission(activeFrame.mission.id);
       advanceFrame();
-    }, sectionDurationMs);
+    }, remainingDurationMs);
 
     return () => {
+      updateElapsedTime();
       window.clearInterval(progressInterval);
       window.clearTimeout(advanceTimer);
     };
@@ -2724,10 +2774,7 @@ export function InteractiveDemoWalkthrough() {
   if (showIntro) {
     return (
       <ExecutiveControlRoom
-        showMode={showMode}
-        onShowModeChange={chooseShowMode}
         onStart={startBoardDemo}
-        onBrowse={browseChapters}
         onCopyBoardLink={copyBoardLink}
       />
     );
@@ -2739,56 +2786,11 @@ export function InteractiveDemoWalkthrough() {
         <div className="flex min-w-0 items-center gap-3">
           <img src="/4c-logo.png" alt="4C logo" className="h-9 w-9 rounded-lg object-contain" />
           <div className="min-w-0">
-            <div className="truncate text-[15px] font-black text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>4C360 Board Demo</div>
-            <div className="truncate text-[11px] font-semibold text-[#7A94B4]">Cinematic actual-system walkthrough</div>
-          </div>
-        </div>
-        <div className="hidden min-w-0 flex-1 items-center justify-center gap-3 lg:flex">
-          <div className="min-w-0 flex-1 max-w-xl">
-            <div className="mb-1 truncate text-center text-[10px] font-black uppercase tracking-[0.14em] text-cyan-200">{activeAct.title}: {DEMO_SCENARIO}</div>
-            <div className="rounded-full border border-[#2E7FFF]/22 bg-[#0A1628] p-1">
-              <div className="h-2 rounded-full bg-[#13294A]">
-                <div className="h-full rounded-full bg-[linear-gradient(90deg,#2E7FFF,#22D3EE,#7C3AED)] transition-all duration-300" style={{ width: `${progress}%` }} />
-              </div>
-            </div>
-          </div>
-          <div className="hidden shrink-0 grid-cols-5 gap-1 2xl:grid">
-            {[
-              [`-${outcomeTotals.riskReduction}`, 'risk'],
-              [`+${outcomeTotals.readinessGain}`, 'ready'],
-              [`${outcomeTotals.artifactCount}`, 'artifacts'],
-              [`${outcomeTotals.decisionsSurfaced}`, 'decisions'],
-              [`${outcomeTotals.timeSavedMinutes}m`, 'saved'],
-            ].map(([value, label]) => (
-              <div key={label} className="rounded-lg border border-[#2E7FFF]/18 bg-[#0A1628] px-2 py-1 text-center">
-                <div className="text-[12px] font-black text-white">{value}</div>
-                <div className="text-[8px] font-black uppercase tracking-[0.12em] text-[#7A94B4]">{label}</div>
-              </div>
-            ))}
+            <div className="truncate text-[15px] font-black text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>DevelopmentX</div>
+            <div className="truncate text-[11px] font-semibold text-[#7A94B4]">Powered by 4C360</div>
           </div>
         </div>
         <div className="relative flex shrink-0 items-center gap-2">
-          <button
-            type="button"
-            onClick={toggleAutopilot}
-            className={`inline-flex h-9 items-center gap-2 rounded-lg px-3 text-[11px] font-black text-white transition-colors ${
-              autopilot.status === 'playing' ? 'bg-[#E11D2E] hover:bg-[#F43F5E]' : 'bg-[#2E7FFF] hover:bg-[#4B91FF]'
-            }`}
-            aria-label={autopilot.status === 'playing' ? 'Pause board demo' : 'Start board demo'}
-          >
-            {autopilot.status === 'playing' ? <Pause size={14} /> : <Play size={14} />}
-            <span className="hidden sm:inline">{autopilot.status === 'playing' ? 'Pause' : 'Play'}</span>
-          </button>
-          {shouldShowDemoVoiceAdvisor() && <DemoVoiceAdvisor section={activeFrame} onToast={onToast} />}
-          <button
-            type="button"
-            onClick={resetDemoProgress}
-            className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#2E7FFF]/24 bg-[#0A1628] px-3 text-[11px] font-black text-[#B8C7DB] transition-colors hover:bg-[#112040] hover:text-white"
-            aria-label="Reset demo progress"
-          >
-            <RotateCcw size={14} />
-            <span className="hidden sm:inline">Reset</span>
-          </button>
           <button
             type="button"
             onClick={copyLink}
@@ -2849,13 +2851,13 @@ export function InteractiveDemoWalkthrough() {
         </div>
       </header>
 
-      <div className="grid h-[calc(100vh-64px)] min-h-0 grid-cols-1 overflow-y-auto md:grid-cols-[76px_minmax(0,1fr)_292px] md:overflow-hidden xl:grid-cols-[248px_minmax(0,1fr)_330px]">
-        <aside className="min-h-0 border-b border-[#2E7FFF]/16 bg-[#07111F] p-3 md:border-b-0 md:border-r md:p-2 xl:p-3">
-          <div className="mb-3 flex items-center justify-between gap-2 md:justify-center xl:justify-between">
-            <div className="md:hidden xl:block">
-              <div className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-200">Mission path</div>
+      <div className="grid h-[calc(100vh-64px)] min-h-0 grid-cols-1 overflow-y-auto md:grid-cols-[72px_minmax(0,1fr)] md:overflow-hidden 2xl:grid-cols-[232px_minmax(0,1fr)]">
+        <aside className="min-h-0 border-b border-[#2E7FFF]/16 bg-[#07111F] p-2 md:border-b-0 md:border-r 2xl:p-3">
+          <div className="mb-2 flex items-center justify-between gap-2 md:justify-center 2xl:justify-between">
+            <div className="md:hidden 2xl:block">
+              <div className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-200">Story path</div>
               <div className="mt-1 text-[11px] font-bold text-[#8EA7C7]">
-                {activeAct.label} · {activeActProgress.completed}/{activeActProgress.total} cleared
+                {activeAct.label} · {activeActProgress.completed}/{activeActProgress.total} sections
               </div>
               <div className="mt-2 h-1.5 rounded-full bg-[#13294A]">
                 <div
@@ -2864,17 +2866,27 @@ export function InteractiveDemoWalkthrough() {
                 />
               </div>
             </div>
-            <button
-              type="button"
-              onClick={toggleAutopilot}
-              className={`inline-flex h-9 w-9 items-center justify-center rounded-lg border text-white transition-colors ${autopilot.status === 'playing' ? 'border-violet-300/34 bg-violet-400/20' : 'border-[#2E7FFF]/22 bg-[#0A1628] hover:bg-[#112040]'}`}
-              aria-label={autopilot.status === 'playing' ? 'Pause auto tour' : 'Start auto tour'}
-            >
-              {autopilot.status === 'playing' ? <Pause size={15} /> : <Play size={15} />}
-            </button>
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                type="button"
+                onClick={toggleAutopilot}
+                className={`inline-flex h-9 w-9 items-center justify-center rounded-lg border text-white transition-colors ${autopilot.status === 'playing' ? 'border-violet-300/34 bg-violet-400/20' : 'border-[#2E7FFF]/22 bg-[#0A1628] hover:bg-[#112040]'}`}
+                aria-label={autopilot.status === 'playing' ? 'Pause auto tour' : 'Start auto tour'}
+              >
+                {autopilot.status === 'playing' ? <Pause size={15} /> : <Play size={15} />}
+              </button>
+              {isDemoVoiceSetupMode() && (
+                <DemoVoiceAdvisor
+                  section={activeFrame}
+                  tourStatus={autopilot.status}
+                  narrationLaunchRequest={narrationLaunchRequest}
+                  onToast={onToast}
+                />
+              )}
+            </div>
           </div>
 
-          <div className="custom-scrollbar flex gap-2 overflow-x-auto pb-1 md:block md:max-h-[calc(100vh-150px)] md:space-y-1.5 md:overflow-y-auto md:pr-0 xl:pr-1">
+          <div className="custom-scrollbar flex gap-2 overflow-x-auto pb-1 md:block md:max-h-[calc(100vh-132px)] md:space-y-1.5 md:overflow-y-auto md:pr-0 2xl:pr-1">
             {railItems.map((item, index) => {
               const Icon = item.icon;
               const active = item.id === chapter.id;
@@ -2887,7 +2899,7 @@ export function InteractiveDemoWalkthrough() {
                   <button
                     type="button"
                     onClick={() => selectChapter(item.id)}
-                    className={`flex w-full items-center gap-2 rounded-xl border px-3 py-2 text-left transition-all md:justify-center md:px-2 xl:justify-start xl:px-3 ${
+                    className={`flex w-full items-center gap-2 rounded-xl border px-3 py-2 text-left transition-all md:justify-center md:px-2 2xl:justify-start 2xl:px-3 ${
                       active
                         ? 'border-[#2E7FFF]/50 bg-[#2E7FFF]/16 text-white shadow-[0_0_22px_rgba(46,127,255,0.14)]'
                         : 'border-transparent bg-[#0A1628]/70 text-[#8EA7C7] hover:border-[#2E7FFF]/22 hover:bg-[#112040]'
@@ -2896,14 +2908,14 @@ export function InteractiveDemoWalkthrough() {
                     <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border ${active ? 'border-cyan-300/30 bg-cyan-300/12 text-cyan-200' : 'border-[#2E7FFF]/14 bg-[#07111F] text-[#7A94B4]'}`}>
                       {itemDone ? <CheckCircle2 size={15} /> : <Icon size={15} />}
                     </span>
-                    <span className="min-w-0 md:hidden xl:block">
-                      <span className="block text-[10px] font-black uppercase tracking-[0.14em] text-[#5F7FA8]">Mission {String(index + 1).padStart(2, '0')} · {itemAct.label}</span>
+                    <span className="min-w-0 md:hidden 2xl:block">
+                      <span className="block text-[10px] font-black uppercase tracking-[0.14em] text-[#5F7FA8]">Chapter {String(index + 1).padStart(2, '0')} · {itemAct.label}</span>
                       <span className="block truncate text-[12px] font-black">{item.label}</span>
-                      <span className="block text-[9px] font-black uppercase tracking-[0.12em] text-[#5F7FA8]">{itemCompleted}/{itemFrames.length} checkpoints</span>
+                      <span className="block text-[9px] font-black uppercase tracking-[0.12em] text-[#5F7FA8]">{itemCompleted}/{itemFrames.length} sections</span>
                     </span>
                   </button>
                   {active && (
-                    <div className="mt-1.5 hidden space-y-1 pl-10 xl:block">
+                    <div className="mt-1.5 hidden space-y-1 pl-10 2xl:block">
                       {itemFrames.map((frame, frameIndex) => {
                         const frameActive = activeFrame.id === frame.id;
                         const complete = completedMissionSet.has(frame.mission.id);
@@ -2931,12 +2943,11 @@ export function InteractiveDemoWalkthrough() {
           </div>
         </aside>
 
-        <main className="min-h-[620px] min-w-0 overflow-hidden bg-[#06101F] p-3 md:min-h-0">
+        <main className="min-h-[620px] min-w-0 overflow-hidden bg-[#06101F] p-2 md:min-h-0">
           <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-[#2E7FFF]/22 bg-[#0A1628] shadow-2xl shadow-black/30">
-            <div className="flex flex-shrink-0 items-center justify-between gap-3 border-b border-[#2E7FFF]/14 bg-[#07111F] px-4 py-2.5">
+            <div className="flex flex-shrink-0 items-center justify-between gap-3 border-b border-[#2E7FFF]/14 bg-[#07111F] px-3 py-2">
               <div className="min-w-0">
                 <div className="truncate text-[13px] font-black text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{chapter.label}</div>
-                <div className="truncate text-[10px] font-bold uppercase tracking-[0.15em] text-[#5F7FA8]">Actual 4C360 surface</div>
                 <div className="mt-0.5 truncate text-[11px] font-semibold text-cyan-100/90">Focus: {activeFrame.headline}</div>
               </div>
               <div className="flex items-center gap-1.5">
@@ -2951,17 +2962,62 @@ export function InteractiveDemoWalkthrough() {
               autopilotStatus={autopilot.status}
               progress={sectionProgress}
             />
-            <div className="flex-shrink-0 border-b border-[#2E7FFF]/14 bg-[#07111F] px-4 py-2 2xl:hidden">
+            <div className="hidden flex-shrink-0 border-b border-[#2E7FFF]/14 bg-[#07111F] px-4 py-2">
               <ValueSpine totals={outcomeTotals} />
             </div>
             <div ref={stageRef} className="relative min-h-0 flex-1 overflow-hidden">
               <DemoStage key={chapter.id} chapter={chapter} onToast={onToast} onOpenChapter={selectChapter} totals={outcomeTotals} onCopySummary={copyOutcomeSummary} />
               <StageHotspot box={anchorBox} fallback={hotspotTarget.fallback} />
             </div>
+            <div className="hidden">
+              <div className="grid items-center gap-2 md:grid-cols-[40px_minmax(0,1fr)_40px_140px]">
+                <button
+                  type="button"
+                  onClick={goBack}
+                  className="flex h-10 items-center justify-center rounded-xl border border-[#2E7FFF]/22 bg-[#0A1628] text-[#B8C7DB] transition-colors hover:bg-[#112040] hover:text-white"
+                  aria-label="Previous section"
+                >
+                  <ChevronLeft size={17} />
+                </button>
+                <div className="min-w-0 rounded-xl border border-[#2E7FFF]/14 bg-[#06101F] px-3 py-1.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="truncate text-[12px] font-black text-white">{activeFrame.title}</div>
+                      <div className="mt-0.5 truncate text-[10px] font-black uppercase tracking-[0.12em] text-[#5F7FA8]">
+                        Section {activeFrameIndex + 1}/{frames.length} · {getShowModeOption(showMode).durationLabel}
+                      </div>
+                    </div>
+                    {activeSectionComplete && <CheckCircle2 size={16} className="shrink-0 text-emerald-200" />}
+                  </div>
+                  <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[#13294A]">
+                    <div
+                      className="h-full rounded-full bg-[linear-gradient(90deg,#2E7FFF,#22D3EE,#7C3AED)] transition-all duration-300"
+                      style={{ width: `${sectionControlProgress}%` }}
+                    />
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={restartShow}
+                  className="flex h-10 items-center justify-center rounded-xl border border-[#2E7FFF]/22 bg-[#0A1628] text-[#B8C7DB] transition-colors hover:bg-[#112040] hover:text-white"
+                  aria-label="Restart board demo"
+                >
+                  <TimerReset size={16} />
+                </button>
+                <button
+                  type="button"
+                  onClick={advanceMissionOrFrame}
+                  className="flex h-10 min-w-0 items-center justify-center gap-2 rounded-xl bg-[#2E7FFF] px-3 text-[12px] font-black text-white shadow-lg shadow-blue-950/30 transition-colors hover:bg-[#4B91FF]"
+                >
+                  <span className="truncate">{nextSectionLabel}</span>
+                  <ChevronRight size={16} className="shrink-0" />
+                </button>
+              </div>
+            </div>
           </div>
         </main>
 
-        <aside className="flex min-h-0 flex-col border-t border-[#2E7FFF]/16 bg-[#07111F] p-3 md:border-l md:border-t-0">
+        <aside className="hidden">
           <div className="custom-scrollbar min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
             <div>
               <div className="flex items-center justify-between gap-2">
@@ -3153,7 +3209,7 @@ export function InteractiveDemoWalkthrough() {
           {statusMessage}
         </div>
       )}
-      <div className="fixed inset-x-0 bottom-0 z-[65] border-t border-[#2E7FFF]/24 bg-[#07111F]/96 p-2 shadow-2xl shadow-black/50 backdrop-blur md:hidden">
+      <div className="hidden">
         <div className="grid grid-cols-[44px_minmax(0,1fr)_44px] gap-2">
           <button
             type="button"
