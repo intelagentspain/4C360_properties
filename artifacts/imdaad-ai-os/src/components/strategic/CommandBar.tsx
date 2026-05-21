@@ -1,11 +1,19 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { Search, Bell, ChevronDown, Zap, Bot, Hand, Plus, X, Building2, MapPin, FileText, User, Users, Sparkles, Loader2, MessageSquare, BookOpen, DollarSign, Package } from 'lucide-react';
+import { Search, Bell, ChevronDown, Zap, Bot, Hand, Plus, X, Building2, MapPin, FileText, User, Users, Sparkles, Loader2, MessageSquare, BookOpen, DollarSign, Package, UploadCloud, CheckCircle2, ArrowLeft, ArrowRight, Database, ClipboardList } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMemberProfiles } from '@/context/MemberProfilesContext';
 import type { MockMemberProfile } from '@/data/mockData';
 import { useMemberFilter, isFilterActive } from '@/context/MemberFilterContext';
 import { useClients } from '@/context/ClientsContext';
 import { WhatsAppModal } from '@/components/shared/WhatsAppModal';
+import { parseProjectDocumentFile, type ParsedProjectDocument } from '@/modules/projectcommand/data/projectDocumentParser';
+import {
+  buildPropertyApiMappingPreview,
+  extractPropertyContext,
+  type ExtractedPropertyContext,
+  type PropertyIntakeMode,
+  type PropertyReviewSection,
+} from './propertyIntake';
 import {
   COMMAND_FILTER_ALL_VALUES,
   COMMAND_SERVICE_OPTIONS,
@@ -349,7 +357,8 @@ export interface TeamMember {
 
 interface AddClientModalProps {
   onClose: () => void;
-  onSave: (data: ClientData, teamMembers: TeamMember[], inviteOk: boolean, failedCount: number) => void;
+  onSave: (data: ClientData, teamMembers: TeamMember[], inviteOk: boolean, failedCount: number, options?: { keepOpen?: boolean }) => void;
+  demoSection?: 'wizard' | 'ai' | 'upload';
 }
 
 const SECTION_ICONS = {
@@ -548,7 +557,80 @@ const EMPTY_MEMBER = (): TeamMember => ({
   commChannels: ['whatsapp', 'email'],
 });
 
-export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
+type PropertyIntakeStep = 'import' | 'understanding' | 'review' | 'launch';
+
+interface UploadedPropertyFile {
+  fileName: string;
+  status: 'reading' | 'ready' | 'limited' | 'error';
+  detail: string;
+  parsed?: ParsedProjectDocument;
+}
+
+const PROPERTY_UNDERSTANDING_STEPS = [
+  'Reading property material',
+  'Finding property profile and locations',
+  'Mapping sites, assets, and systems',
+  'Detecting contract, SLA, and budget signals',
+  'Preparing team, evidence, and starter actions',
+];
+
+const PROPERTY_INTAKE_MODES: Array<{
+  mode: PropertyIntakeMode;
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+  cta: string;
+}> = [
+  {
+    mode: 'wizard',
+    title: 'Guided Wizard',
+    description: 'Step through property profile, sites, team, documents, budget, and inventory.',
+    icon: <ClipboardList size={18} />,
+    cta: 'Start wizard',
+  },
+  {
+    mode: 'ai-brief',
+    title: 'AI Brief',
+    description: 'Paste a short property summary and let AI prepare the operating context.',
+    icon: <Sparkles size={18} />,
+    cta: 'Write brief',
+  },
+  {
+    mode: 'file-upload',
+    title: 'File Upload',
+    description: 'Upload handover packs, asset registers, SOPs, contracts, or warranty files.',
+    icon: <UploadCloud size={18} />,
+    cta: 'Upload files',
+  },
+  {
+    mode: 'api',
+    title: 'API Connector',
+    description: 'Preview the intake API mapping and simulate a first property sync.',
+    icon: <Database size={18} />,
+    cta: 'Configure API',
+  },
+];
+
+function mapDemoSectionToIntakeMode(demoSection?: 'wizard' | 'ai' | 'upload'): PropertyIntakeMode | null {
+  if (demoSection === 'wizard') return 'wizard';
+  if (demoSection === 'ai') return 'ai-brief';
+  if (demoSection === 'upload') return 'file-upload';
+  return null;
+}
+
+function ConfidenceBadge({ confidence, needsConfirmation }: { confidence: number; needsConfirmation?: boolean }) {
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-bold ${
+      needsConfirmation
+        ? 'border-amber-400/30 bg-amber-400/12 text-amber-200'
+        : 'border-emerald-400/25 bg-emerald-400/10 text-emerald-200'
+    }`}>
+      {needsConfirmation ? 'Needs confirmation' : `${confidence}% confidence`}
+    </span>
+  );
+}
+
+export function AddClientModal({ onClose, onSave, demoSection }: AddClientModalProps) {
   const [activeTab, setActiveTab]             = useState<Tab>('business');
   const [name, setName]                       = useState('');
   const [sector, setSector]                   = useState('');
@@ -586,8 +668,40 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
   const [detectingSet, setDetectingSet] = useState<Set<number>>(new Set());
   const [geoErrors, setGeoErrors] = useState<Record<number, string>>({});
   const [whatsappTarget, setWhatsappTarget] = useState<{ name: string; phone: string; message: string } | null>(null);
+  const [intakeMode, setIntakeMode] = useState<PropertyIntakeMode | null>(() => mapDemoSectionToIntakeMode(demoSection));
+  const [intakeStep, setIntakeStep] = useState<PropertyIntakeStep>('import');
+  const [briefText, setBriefText] = useState('');
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedPropertyFile[]>([]);
+  const [extractionProgress, setExtractionProgress] = useState(0);
+  const [extractedContext, setExtractedContext] = useState<ExtractedPropertyContext | null>(null);
+  const [selectedReviewSection, setSelectedReviewSection] = useState<string>('profile');
+  const [intakeError, setIntakeError] = useState('');
+  const [launchNote, setLaunchNote] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { profiles } = useMemberProfiles();
+
+  useEffect(() => {
+    if (!demoSection) return;
+    const demoMode = mapDemoSectionToIntakeMode(demoSection);
+    if (demoMode) setIntakeMode(demoMode);
+
+    if (!name) setName('Sobha Pilot Tower');
+    if (!sector) setSector('Real Estate');
+    if (!industrySubtype) setIndustrySubtype('High-Rise Residential');
+    if (siteNames.length === 1 && !siteNames[0]) setSiteNames(['Sobha Pilot Tower']);
+    if (!contractType) setContractType('Integrated FM');
+    if (!slaTier) setSlaTier('Platinum');
+
+    if (demoSection === 'wizard') setActiveTab('business');
+    if (demoSection === 'ai') setActiveTab('sites');
+    if (demoSection === 'upload') setActiveTab('knowledge');
+
+    if (demoSection === 'upload' && kbDocs.length === 0) {
+      setKbDocs([{ id: 'demo-handover-pack', title: 'Handover pack / asset register', url: 'sobha-pilot-tower-handover.xlsx' }]);
+      setKbNotes('Upload property packs, asset registers, contracts, SOPs, warranties, and authority documents so 4C360 can build the operating context from day one.');
+    }
+  }, [contractType, demoSection, industrySubtype, kbDocs.length, name, sector, siteNames, slaTier]);
 
   const detectSiteLocation = async (siteIdx: number) => {
     setGeoErrors(prev => { const next = { ...prev }; delete next[siteIdx]; return next; });
@@ -862,6 +976,134 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
   const updateInventoryItem = (id: string, field: keyof InventoryItem, val: string) =>
     setInventoryItems(prev => prev.map(item => item.id === id ? { ...item, [field]: val } : item));
 
+  const applyExtractedPropertyContext = (context: ExtractedPropertyContext) => {
+    const nextSites = context.siteNames.length ? context.siteNames : [''];
+    const nextSiteAssets: Record<number, AssetRow[]> = {};
+    nextSites.forEach((_, index) => { nextSiteAssets[index] = []; });
+    context.assets.forEach(asset => {
+      const siteIndex = Math.max(0, nextSites.findIndex(site => site === asset.assignedSite));
+      nextSiteAssets[siteIndex] = [...(nextSiteAssets[siteIndex] ?? []), asset];
+    });
+
+    setName(context.property.name);
+    setSector(context.property.sector);
+    setIndustrySubtype(context.property.industrySubtype);
+    setInitialsColor(context.property.initialsColor);
+    setContractType(context.contract.contractType);
+    setContractStart(context.contract.contractStartDate);
+    setContractEnd(context.contract.contractEndDate);
+    setSlaTier(context.contract.slaTier);
+    setContractValue(context.contract.contractValue);
+    setSiteNames(nextSites);
+    setSiteAssets(nextSiteAssets);
+    setContactName(context.contact.contactName);
+    setContactEmail(context.contact.contactEmail);
+    setContactPhone(context.contact.contactPhone);
+    setAccountManager(context.contact.accountManager);
+    setTeamMembers(context.teamMembers);
+    setKbNotes(context.knowledgeBaseNotes);
+    setKbDocs(context.knowledgeBaseDocs);
+    setBudgetAnnual(context.budget.annual);
+    setBudgetCurrency(context.budget.currency);
+    setBudgetCostCentre(context.budget.costCentre);
+    setBudgetApprovalThreshold(context.budget.approvalThreshold);
+    setBudgetServiceLines(context.budget.serviceLines);
+    setInventoryItems(context.inventoryItems);
+    setErrors({});
+  };
+
+  const runPropertyExtraction = async (
+    mode: Exclude<PropertyIntakeMode, 'wizard'>,
+    text: string,
+    docs: ParsedProjectDocument[] = [],
+    apiPayload?: Record<string, unknown>,
+  ) => {
+    const usableText = [text, ...docs.map(doc => doc.text)].filter(Boolean).join('\n\n').trim();
+    if (mode === 'ai-brief' && usableText.length < 20) {
+      setIntakeError('Add a short property brief so AI has enough context to extract from.');
+      return;
+    }
+    if (mode === 'file-upload' && docs.length === 0) {
+      setIntakeError('Upload at least one property file, or use the AI brief path.');
+      return;
+    }
+
+    setIntakeError('');
+    setIntakeStep('understanding');
+    setExtractionProgress(0);
+    for (let i = 0; i < PROPERTY_UNDERSTANDING_STEPS.length; i += 1) {
+      setExtractionProgress(i + 1);
+      await new Promise(resolve => window.setTimeout(resolve, 180));
+    }
+
+    const context = await extractPropertyContext({
+      mode,
+      text: usableText,
+      fileNames: docs.map(doc => doc.fileName),
+      apiPayload,
+    });
+    setExtractedContext(context);
+    setSelectedReviewSection(context.sections[0]?.id ?? 'profile');
+    applyExtractedPropertyContext(context);
+    setIntakeStep('review');
+  };
+
+  const handlePropertyFileSelection = async (files: FileList | null) => {
+    const selectedFiles = Array.from(files ?? []);
+    if (selectedFiles.length === 0) return;
+    setIntakeError('');
+    setUploadedFiles(selectedFiles.map(file => ({
+      fileName: file.name,
+      status: 'reading',
+      detail: 'Reading file',
+    })));
+
+    const parsedDocs: ParsedProjectDocument[] = [];
+    const nextStatuses: UploadedPropertyFile[] = [];
+    for (const file of selectedFiles) {
+      try {
+        const parsed = await parseProjectDocumentFile(file);
+        parsedDocs.push(parsed);
+        nextStatuses.push({
+          fileName: file.name,
+          status: parsed.warning ? 'limited' : 'ready',
+          detail: parsed.warning ?? `${parsed.text.length.toLocaleString()} readable characters extracted`,
+          parsed,
+        });
+      } catch {
+        nextStatuses.push({
+          fileName: file.name,
+          status: 'error',
+          detail: 'Could not read this file. Try PDF/DOCX/XLSX or paste a brief.',
+        });
+      }
+    }
+    setUploadedFiles(nextStatuses);
+    const readableDocs = parsedDocs.filter(doc => doc.text.trim().length > 0);
+    if (readableDocs.length > 0) {
+      await runPropertyExtraction('file-upload', briefText, readableDocs);
+    } else {
+      setIntakeError('No readable text was found. Paste a short property brief or upload a text-readable PDF/DOCX/XLSX.');
+    }
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const simulateApiSync = () => {
+    const mapping = buildPropertyApiMappingPreview();
+    void runPropertyExtraction('api', '', [], mapping.samplePayload);
+  };
+
+  const resetIntake = () => {
+    setIntakeMode(null);
+    setIntakeStep('import');
+    setBriefText('');
+    setUploadedFiles([]);
+    setExtractionProgress(0);
+    setExtractedContext(null);
+    setIntakeError('');
+    setLaunchNote('');
+  };
+
   const validate = () => {
     const errs: Record<string, string> = {};
     if (!name.trim())          errs.name = 'Property name is required';
@@ -974,7 +1216,12 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
       setIsSaving(false);
     }
 
-    onSave(clientData, filledMembers, inviteOk, failedCount);
+    const keepOpen = intakeMode !== null && intakeMode !== 'wizard';
+    onSave(clientData, filledMembers, inviteOk, failedCount, { keepOpen });
+    if (keepOpen) {
+      setIntakeStep('launch');
+      setLaunchNote(`${clientData.name} is now in the portfolio with ${clientData.numSites} site${clientData.numSites === '1' ? '' : 's'}, ${clientData.totalAssets} assets, ${clientData.knowledgeBaseDocs.length} source document${clientData.knowledgeBaseDocs.length === 1 ? '' : 's'}, and ${filledMembers.length} team member${filledMembers.length === 1 ? '' : 's'}.`);
+    }
   };
 
   const clearErr = (key: string) => {
@@ -987,6 +1234,16 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
     if (tab === 'team') return !!(errors.team_required) || Object.keys(errors).some(k => k.startsWith('team_') && k !== 'team_required');
     return false;
   };
+
+  const selectedReview: PropertyReviewSection | undefined = extractedContext?.sections.find(section => section.id === selectedReviewSection) ?? extractedContext?.sections[0];
+  const apiMapping = buildPropertyApiMappingPreview();
+  const modalSubtitle = !intakeMode
+    ? 'Choose the fastest way to create a property with usable operating context'
+    : intakeMode === 'wizard'
+      ? 'Guided setup for property profile, sites, team, documents, budget, and inventory'
+      : intakeStep === 'launch'
+        ? 'Property created with operating context and starter actions'
+        : 'AI reads context first, then prepares a reviewable operating baseline';
 
   return (
     <>
@@ -1006,7 +1263,8 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.96, y: -10 }}
         transition={{ duration: 0.18 }}
-        className="fixed z-[2001] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[580px] max-h-[85vh] flex flex-col bg-[#0D1E38] border border-[rgba(46,127,255,0.3)] rounded-2xl shadow-2xl overflow-hidden"
+        className={`fixed z-[2001] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 ${intakeMode === 'wizard' ? 'w-[580px]' : 'w-[min(940px,calc(100vw-40px))]'} max-h-[88vh] flex flex-col bg-[#0D1E38] border border-[rgba(46,127,255,0.3)] rounded-2xl shadow-2xl overflow-hidden`}
+        data-demo-anchor="property-onboarding-wizard"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-[rgba(46,127,255,0.15)] flex-shrink-0">
@@ -1018,7 +1276,7 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
               <div className="text-[#EEF3FA] text-sm font-semibold" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
                 Add New Property
               </div>
-              <div className="text-[10px] text-[#7A94B4]">Complete all sections to onboard a new property</div>
+              <div className="text-[10px] text-[#7A94B4]">{modalSubtitle}</div>
             </div>
           </div>
           <button onClick={onClose} className="text-[#7A94B4] hover:text-white transition-colors rounded-md p-1 hover:bg-white/5">
@@ -1027,7 +1285,8 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
         </div>
 
         {/* Tab Bar */}
-        <div className="flex items-center gap-0.5 px-5 pt-3 pb-0 flex-shrink-0 border-b border-[rgba(46,127,255,0.12)]">
+        {intakeMode === 'wizard' && (
+        <div className="flex items-center gap-0.5 px-5 pt-3 pb-0 flex-shrink-0 border-b border-[rgba(46,127,255,0.12)]" data-demo-anchor="property-onboarding-tabs">
           {TABS.map(tab => {
             const isActive = activeTab === tab.key;
             const hasErr = tabHasError(tab.key);
@@ -1050,9 +1309,391 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
             );
           })}
         </div>
+        )}
 
         {/* Tab Content */}
         <div className="flex-1 overflow-y-auto px-5 py-4 custom-scrollbar">
+          {!intakeMode && (
+            <div className="space-y-5">
+              <div className="rounded-2xl border border-cyan-300/20 bg-[#09273A] p-4">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-300/12 text-cyan-200">
+                    <Sparkles size={18} />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+                      Start from how your team actually has the information.
+                    </h3>
+                    <p className="mt-1 max-w-2xl text-sm leading-6 text-[#A8BEDA]">
+                      Create the property manually, paste a brief, upload source files, or preview an API sync. Every path creates a property plus sites, assets, documents, budget signals, team owners, and starter actions.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-2">
+                {PROPERTY_INTAKE_MODES.map(option => (
+                  <button
+                    key={option.mode}
+                    type="button"
+                    onClick={() => {
+                      setIntakeMode(option.mode);
+                      setIntakeStep('import');
+                      setIntakeError('');
+                    }}
+                    className="group flex min-h-[150px] flex-col items-start justify-between rounded-2xl border border-[rgba(46,127,255,0.22)] bg-[#0A1628] p-4 text-left transition-all hover:-translate-y-0.5 hover:border-[#2E7FFF]/55 hover:bg-[#10274A]"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#2E7FFF]/25 bg-[#2E7FFF]/12 text-[#8CC0FF] transition-colors group-hover:text-white">
+                        {option.icon}
+                      </div>
+                      <div>
+                        <div className="text-sm font-bold text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{option.title}</div>
+                        <p className="mt-1 text-xs leading-5 text-[#8EA7C7]">{option.description}</p>
+                      </div>
+                    </div>
+                    <span className="mt-4 inline-flex items-center gap-1.5 text-[11px] font-bold text-[#2E7FFF] group-hover:text-white">
+                      {option.cta}
+                      <ArrowRight size={12} />
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {intakeMode && intakeMode !== 'wizard' && (
+            <div className="space-y-4">
+              <div className="grid gap-2 md:grid-cols-5">
+                {['Import Context', 'AI Understanding', 'Review & Correct', 'Create Property', 'Launch'].map((stepLabel, index) => {
+                  const currentIndex = intakeStep === 'import' ? 0 : intakeStep === 'understanding' ? 1 : intakeStep === 'review' ? 2 : 4;
+                  const active = index <= currentIndex;
+                  return (
+                    <div
+                      key={stepLabel}
+                      className={`rounded-xl border px-3 py-2 ${active ? 'border-[#2E7FFF]/40 bg-[#14315C]' : 'border-[rgba(46,127,255,0.16)] bg-[#071321]'}`}
+                    >
+                      <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#7BB4FF]">{index + 1}</div>
+                      <div className="mt-1 text-[11px] font-bold text-[#EEF3FA]">{stepLabel}</div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {intakeStep === 'import' && (
+                <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
+                  <div className="rounded-2xl border border-cyan-300/20 bg-[#09273A] p-4" data-demo-anchor={intakeMode === 'file-upload' ? 'property-onboarding-upload' : 'property-onboarding-ai'}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-200">
+                          {intakeMode === 'ai-brief' ? 'AI brief intake' : intakeMode === 'file-upload' ? 'Source file intake' : 'API connector intake'}
+                        </div>
+                        <h3 className="mt-2 text-lg font-bold text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+                          {intakeMode === 'ai-brief' ? 'Describe the property in plain language' : intakeMode === 'file-upload' ? 'Upload actual property material' : 'Connect a property source system'}
+                        </h3>
+                        <p className="mt-1 text-sm leading-6 text-[#A8BEDA]">
+                          {intakeMode === 'api'
+                            ? 'This demo connector shows the intake contract and simulates the first sync without calling an external system.'
+                            : 'AI extracts the property structure, then you review every field before creating the property.'}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={resetIntake}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-[#2E7FFF]/22 px-3 py-2 text-[11px] font-bold text-[#A8BEDA] hover:bg-white/5 hover:text-white"
+                      >
+                        <ArrowLeft size={12} />
+                        Change path
+                      </button>
+                    </div>
+
+                    {intakeMode === 'ai-brief' && (
+                      <div className="mt-4 space-y-3">
+                        <textarea
+                          value={briefText}
+                          onChange={event => setBriefText(event.target.value)}
+                          placeholder="Example: Sobha Pilot Tower is a high-rise residential property in Business Bay with tower, podium, lifts, MEP, fire systems, CCTV, handover docs, warranty packs, and a premium SLA..."
+                          className="min-h-[190px] w-full rounded-2xl border border-[#2E7FFF]/24 bg-[#06101F] px-4 py-3 text-sm leading-6 text-[#EEF3FA] placeholder-[#5F7899] outline-none focus:border-[#2E7FFF]"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => void runPropertyExtraction('ai-brief', briefText)}
+                          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#2E7FFF] px-4 py-2 text-sm font-bold text-white hover:bg-[#4B91FF]"
+                        >
+                          <Sparkles size={15} />
+                          Extract operating context
+                        </button>
+                      </div>
+                    )}
+
+                    {intakeMode === 'file-upload' && (
+                      <div className="mt-4 space-y-3">
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          multiple
+                          accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.csv"
+                          className="hidden"
+                          onChange={event => void handlePropertyFileSelection(event.target.files)}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="flex min-h-[150px] w-full flex-col items-center justify-center rounded-2xl border border-dashed border-[#2E7FFF]/35 bg-[#06101F] px-4 text-center text-[#B8C7DB] hover:border-[#2E7FFF] hover:bg-[#0A1C35]"
+                        >
+                          <UploadCloud size={28} className="mb-3 text-[#8CC0FF]" />
+                          <span className="text-sm font-bold text-[#EEF3FA]">Upload property pack, asset register, contract, SOP, warranty, or authority file</span>
+                          <span className="mt-1 text-xs text-[#7A94B4]">PDF, DOC, DOCX, XLS, XLSX, TXT, CSV</span>
+                        </button>
+                        <textarea
+                          value={briefText}
+                          onChange={event => setBriefText(event.target.value)}
+                          placeholder="Optional: paste notes that should be combined with uploaded files."
+                          className="min-h-[86px] w-full rounded-2xl border border-[#2E7FFF]/18 bg-[#06101F] px-4 py-3 text-sm leading-6 text-[#EEF3FA] placeholder-[#5F7899] outline-none focus:border-[#2E7FFF]"
+                        />
+                      </div>
+                    )}
+
+                    {intakeMode === 'api' && (
+                      <div className="mt-4 space-y-3">
+                        <div className="rounded-2xl border border-[#2E7FFF]/18 bg-[#06101F] p-4">
+                          <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#7BB4FF]">Endpoint</div>
+                          <div className="mt-2 rounded-xl border border-[#2E7FFF]/16 bg-[#0A1628] px-3 py-2 font-mono text-xs text-[#DCEBFF]">{apiMapping.endpoint}</div>
+                          <div className="mt-3 grid gap-2 md:grid-cols-2">
+                            <div>
+                              <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#7A94B4]">Required</div>
+                              <p className="mt-1 text-xs text-[#DCEBFF]">{apiMapping.requiredFields.join(', ')}</p>
+                            </div>
+                            <div>
+                              <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#7A94B4]">Mapped</div>
+                              <p className="mt-1 text-xs text-[#DCEBFF]">{apiMapping.mappedFields.join(', ')}</p>
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={simulateApiSync}
+                          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#2E7FFF] px-4 py-2 text-sm font-bold text-white hover:bg-[#4B91FF]"
+                        >
+                          <Database size={15} />
+                          Simulate first sync
+                        </button>
+                      </div>
+                    )}
+
+                    {intakeError && (
+                      <div className="mt-3 rounded-xl border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-xs font-semibold text-amber-100">{intakeError}</div>
+                    )}
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="rounded-2xl border border-[#2E7FFF]/18 bg-[#0A1628] p-4">
+                      <div className="text-[11px] font-black uppercase tracking-[0.18em] text-[#7BB4FF]">What AI will prepare</div>
+                      <div className="mt-3 grid gap-2">
+                        {['Property profile', 'Sites and zones', 'Assets and systems', 'Contacts and team owners', 'Contract / SLA / budget', 'Documents and evidence'].map(item => (
+                          <div key={item} className="flex items-center gap-2 rounded-xl border border-[#2E7FFF]/14 bg-[#06101F] px-3 py-2 text-xs font-semibold text-[#DCEBFF]">
+                            <CheckCircle2 size={13} className="text-emerald-300" />
+                            {item}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {uploadedFiles.length > 0 && (
+                      <div className="rounded-2xl border border-[#2E7FFF]/18 bg-[#0A1628] p-4">
+                        <div className="text-[11px] font-black uppercase tracking-[0.18em] text-[#7BB4FF]">Uploaded files</div>
+                        <div className="mt-3 space-y-2">
+                          {uploadedFiles.map(file => (
+                            <div key={file.fileName} className="rounded-xl border border-[#2E7FFF]/14 bg-[#06101F] px-3 py-2">
+                              <div className="flex items-center justify-between gap-3">
+                                <span className="truncate text-xs font-bold text-[#EEF3FA]">{file.fileName}</span>
+                                <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-bold ${file.status === 'ready' ? 'bg-emerald-400/12 text-emerald-200' : file.status === 'limited' ? 'bg-amber-400/12 text-amber-200' : file.status === 'error' ? 'bg-red-400/12 text-red-200' : 'bg-[#2E7FFF]/12 text-[#8CC0FF]'}`}>
+                                  {file.status}
+                                </span>
+                              </div>
+                              <p className="mt-1 text-[11px] leading-4 text-[#8EA7C7]">{file.detail}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {intakeStep === 'understanding' && (
+                <div className="rounded-2xl border border-[#2E7FFF]/22 bg-[#0A1628] p-5">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#2E7FFF]/14 text-[#8CC0FF]">
+                      <Loader2 size={22} className="animate-spin" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>AI is building the property operating context</h3>
+                      <p className="mt-1 text-sm text-[#A8BEDA]">The extraction stays reviewable. Weak fields will be marked for confirmation.</p>
+                    </div>
+                  </div>
+                  <div className="mt-5 space-y-2">
+                    {PROPERTY_UNDERSTANDING_STEPS.map((step, index) => (
+                      <div key={step} className={`flex items-center gap-3 rounded-xl border px-3 py-2 ${index < extractionProgress ? 'border-emerald-400/22 bg-emerald-400/8 text-emerald-100' : 'border-[#2E7FFF]/12 bg-[#06101F] text-[#7A94B4]'}`}>
+                        {index < extractionProgress ? <CheckCircle2 size={14} /> : <Loader2 size={14} className="animate-spin opacity-60" />}
+                        <span className="text-sm font-semibold">{step}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {intakeStep === 'review' && extractedContext && (
+                <div className="grid gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
+                  <div className="space-y-3">
+                    <div className="rounded-2xl border border-[#2E7FFF]/18 bg-[#0A1628] p-4">
+                      <div className="text-[11px] font-black uppercase tracking-[0.18em] text-[#7BB4FF]">Extracted signals</div>
+                      <div className="mt-3 space-y-2">
+                        {extractedContext.signals.map(signal => (
+                          <div key={signal.id} className="rounded-xl border border-[#2E7FFF]/14 bg-[#06101F] px-3 py-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-xs font-bold text-[#EEF3FA]">{signal.label}</span>
+                              <ConfidenceBadge confidence={signal.confidence} needsConfirmation={signal.needsConfirmation} />
+                            </div>
+                            <p className="mt-1 text-[11px] leading-4 text-[#A8BEDA]">{signal.value}</p>
+                            <p className="mt-1 text-[10px] text-[#5F7899]">Source: {signal.source}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-cyan-300/18 bg-[#09273A] p-4">
+                      <div className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-200">Starter actions</div>
+                      <div className="mt-3 space-y-2">
+                        {extractedContext.starterActions.map(action => (
+                          <div key={action} className="flex items-center gap-2 rounded-xl bg-[#06101F] px-3 py-2 text-xs font-semibold text-[#DCEBFF]">
+                            <CheckCircle2 size={13} className="text-emerald-300" />
+                            {action}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-[#2E7FFF]/18 bg-[#0A1628] p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <div className="text-[11px] font-black uppercase tracking-[0.18em] text-[#7BB4FF]">Review and correct</div>
+                        <h3 className="mt-1 text-lg font-bold text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{name || 'Property profile'}</h3>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {extractedContext.sections.map(section => (
+                          <button
+                            key={section.id}
+                            type="button"
+                            onClick={() => setSelectedReviewSection(section.id)}
+                            className={`rounded-full border px-3 py-1.5 text-[11px] font-bold ${selectedReview?.id === section.id ? 'border-[#2E7FFF] bg-[#2E7FFF]/18 text-white' : 'border-[#2E7FFF]/18 text-[#8EA7C7] hover:bg-white/5'}`}
+                          >
+                            {section.title}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {selectedReview && (
+                      <div className="mt-3 rounded-xl border border-[#2E7FFF]/14 bg-[#06101F] px-3 py-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-xs font-semibold text-[#DCEBFF]">{selectedReview.summary}</p>
+                          <ConfidenceBadge confidence={selectedReview.confidence} needsConfirmation={selectedReview.needsConfirmation} />
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="mt-4 grid gap-3 md:grid-cols-2">
+                      <div>
+                        <FieldLabel label="Property name" required />
+                        <input value={name} onChange={e => { setName(e.target.value); clearErr('name'); }} className={inputCls(!!errors.name)} />
+                        {errors.name && <p className="mt-0.5 text-[10px] text-red-400">{errors.name}</p>}
+                      </div>
+                      <div>
+                        <FieldLabel label="Sector" required />
+                        <select value={sector} onChange={e => { setSector(e.target.value); setIndustrySubtype(''); clearErr('sector'); }} className={`${selectCls} ${errors.sector ? 'border-red-500/60' : ''}`}>
+                          <option value="" className="bg-[#0A1628]">Select sector...</option>
+                          {SECTOR_OPTIONS.map(s => <option key={s} value={s} className="bg-[#0A1628]">{s}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <FieldLabel label="Sub-type" />
+                        <input value={industrySubtype} onChange={e => setIndustrySubtype(e.target.value)} className={inputCls()} />
+                      </div>
+                      <div>
+                        <FieldLabel label="SLA tier" required />
+                        <select value={slaTier} onChange={e => { setSlaTier(e.target.value); clearErr('slaTier'); }} className={selectCls}>
+                          {SLA_TIERS.map(t => <option key={t} value={t} className="bg-[#0A1628]">{t}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <FieldLabel label="Primary site" required />
+                        <input value={siteNames[0] ?? ''} onChange={e => updateSite(0, e.target.value)} className={inputCls(!!errors.sites)} />
+                        {errors.sites && <p className="mt-0.5 text-[10px] text-red-400">{errors.sites}</p>}
+                      </div>
+                      <div>
+                        <FieldLabel label="Contract value" />
+                        <input value={contractValue} onChange={e => setContractValue(e.target.value)} className={inputCls()} />
+                      </div>
+                      <div>
+                        <FieldLabel label="Contact name" required />
+                        <input value={contactName} onChange={e => { setContactName(e.target.value); clearErr('contactName'); }} className={inputCls(!!errors.contactName)} />
+                        {errors.contactName && <p className="mt-0.5 text-[10px] text-red-400">{errors.contactName}</p>}
+                      </div>
+                      <div>
+                        <FieldLabel label="Account manager" />
+                        <input value={accountManager} onChange={e => setAccountManager(e.target.value)} className={inputCls()} />
+                      </div>
+                    </div>
+
+                    <div className="mt-4 grid gap-3 md:grid-cols-4">
+                      <div className="rounded-xl border border-[#2E7FFF]/14 bg-[#06101F] p-3">
+                        <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#7A94B4]">Sites</div>
+                        <div className="mt-1 text-xl font-black text-[#EEF3FA]">{siteNames.filter(Boolean).length}</div>
+                      </div>
+                      <div className="rounded-xl border border-[#2E7FFF]/14 bg-[#06101F] p-3">
+                        <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#7A94B4]">Assets</div>
+                        <div className="mt-1 text-xl font-black text-[#EEF3FA]">{allAssetRows.length}</div>
+                      </div>
+                      <div className="rounded-xl border border-[#2E7FFF]/14 bg-[#06101F] p-3">
+                        <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#7A94B4]">Docs</div>
+                        <div className="mt-1 text-xl font-black text-[#EEF3FA]">{kbDocs.length}</div>
+                      </div>
+                      <div className="rounded-xl border border-[#2E7FFF]/14 bg-[#06101F] p-3">
+                        <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#7A94B4]">Team</div>
+                        <div className="mt-1 text-xl font-black text-[#EEF3FA]">{teamMembers.filter(m => m.name && m.email && m.role).length}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {intakeStep === 'launch' && (
+                <div className="rounded-2xl border border-emerald-300/24 bg-emerald-400/8 p-5">
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-300/14 text-emerald-200">
+                      <CheckCircle2 size={24} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[11px] font-black uppercase tracking-[0.18em] text-emerald-200">Property created</div>
+                      <h3 className="mt-1 text-xl font-bold text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{name}</h3>
+                      <p className="mt-2 text-sm leading-6 text-[#B8C7DB]">{launchNote}</p>
+                      <div className="mt-4 grid gap-2 md:grid-cols-4">
+                        <button type="button" onClick={onClose} className="rounded-xl bg-[#2E7FFF] px-3 py-3 text-xs font-bold text-white hover:bg-[#4B91FF]">Open Property Command</button>
+                        <button type="button" onClick={() => { window.location.href = '/projectcommand/overview'; }} className="rounded-xl border border-[#2E7FFF]/24 bg-[#0A1628] px-3 py-3 text-xs font-bold text-[#DCEBFF] hover:bg-[#112040]">Add Project</button>
+                        <button type="button" onClick={() => setLaunchNote('Team invite draft is ready. Review the team tab before sending real invitations.')} className="rounded-xl border border-[#2E7FFF]/24 bg-[#0A1628] px-3 py-3 text-xs font-bold text-[#DCEBFF] hover:bg-[#112040]">Invite Team</button>
+                        <button type="button" onClick={() => { window.location.href = '/ppmschedule'; }} className="rounded-xl border border-[#2E7FFF]/24 bg-[#0A1628] px-3 py-3 text-xs font-bold text-[#DCEBFF] hover:bg-[#112040]">Generate PPM Plan</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {intakeMode === 'wizard' && (
+          <>
 
           {activeTab === 'business' && (
             <div className="space-y-4">
@@ -1310,7 +1951,7 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
                       {/* Assets area */}
                       <div className="px-3 pb-3 space-y-2.5">
                         {/* AI Suggest strip */}
-                        <div className="flex items-center justify-between bg-[rgba(46,127,255,0.05)] border border-[rgba(46,127,255,0.14)] rounded-lg px-2.5 py-2">
+                        <div className="flex items-center justify-between bg-[rgba(46,127,255,0.05)] border border-[rgba(46,127,255,0.14)] rounded-lg px-2.5 py-2" data-demo-anchor="property-onboarding-ai">
                           <p className="text-[10px] text-[#7A94B4]">
                             {siteRows.length > 0
                               ? <span><span className="text-[#EEF3FA] font-semibold">{siteRows.length}</span> asset{siteRows.length !== 1 ? 's' : ''} registered</span>
@@ -1902,7 +2543,7 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
                 <p className="mt-0.5 text-[9px] text-[#4A6080]">Free-form notes - visible to the team in the property's knowledge panel</p>
               </div>
 
-              <div>
+              <div data-demo-anchor="property-onboarding-upload">
                 <div className="flex items-center justify-between mb-2">
                   <FieldLabel label="Documents & Links" />
                   <button
@@ -2216,16 +2857,21 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
             </div>
           )}
 
+          </>
+          )}
+
         </div>
 
         {/* Footer */}
+        {intakeStep !== 'launch' && (
         <div className="px-5 py-3.5 border-t border-[rgba(46,127,255,0.12)] flex gap-2 flex-shrink-0 bg-[#0A1628]/60">
           <button
-            onClick={onClose}
+            onClick={intakeMode && intakeMode !== 'wizard' ? resetIntake : onClose}
             className="flex-1 py-2 border border-[rgba(46,127,255,0.25)] text-[#7A94B4] text-xs rounded-lg hover:bg-white/5 hover:text-[#EEF3FA] transition-colors"
           >
-            Cancel
+            {intakeMode && intakeMode !== 'wizard' ? 'Back to options' : 'Cancel'}
           </button>
+          {(intakeMode === 'wizard' || intakeStep === 'review') && (
           <button
             onClick={handleSave}
             disabled={isSaving}
@@ -2242,11 +2888,23 @@ export function AddClientModal({ onClose, onSave }: AddClientModalProps) {
             ) : (
               <>
                 <Plus size={11} />
-                Add Property
+                {intakeMode === 'wizard' ? 'Add Property' : 'Create Property'}
               </>
             )}
           </button>
+          )}
+          {intakeMode && intakeMode !== 'wizard' && intakeStep === 'import' && (
+            <div className="flex-1 rounded-lg border border-[#2E7FFF]/14 bg-[#06101F] px-3 py-2 text-center text-[11px] font-semibold text-[#7A94B4]">
+              Import context to continue
+            </div>
+          )}
+          {intakeMode && intakeMode !== 'wizard' && intakeStep === 'understanding' && (
+            <div className="flex-1 rounded-lg border border-[#2E7FFF]/14 bg-[#06101F] px-3 py-2 text-center text-[11px] font-semibold text-[#7A94B4]">
+              AI extraction in progress
+            </div>
+          )}
         </div>
+        )}
       </motion.div>
     </>
   );
@@ -2327,12 +2985,14 @@ export function CommandBar({ onToast, selectedFilters, onFiltersChange }: Props)
     setOpenFilter(null);
   };
 
-  const handleAddClient = (data: ClientData, teamMembers: TeamMember[], inviteOk: boolean, failedCount: number) => {
+  const handleAddClient = (data: ClientData, teamMembers: TeamMember[], inviteOk: boolean, failedCount: number, options?: { keepOpen?: boolean }) => {
     setClientData(prev => [...prev, data]);
     updateSelected({ ...activeSelected, Client: data.name });
-    setShowAddClient(false);
+    if (!options?.keepOpen) setShowAddClient(false);
     setOpenFilter(null);
-    addProfiles(teamMembers);
+    void addProfiles(teamMembers).catch(err => {
+      console.warn('[CommandBar] Failed to persist team members, property remains available locally:', err);
+    });
     if (!inviteOk) {
       if (failedCount > 0) {
         onToast(

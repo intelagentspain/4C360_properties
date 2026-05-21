@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type RefObject, type SyntheticEvent } from 'react';
 import {
   BarChart3,
   BrainCircuit,
@@ -17,6 +17,7 @@ import {
   MonitorPlay,
   Pause,
   Play,
+  Plus,
   RotateCcw,
   ShieldAlert,
   ShieldCheck,
@@ -43,6 +44,14 @@ type FallbackHotspot = {
   top: number;
   width: number;
   height: number;
+};
+
+type DemoSpotlightBeat = {
+  anchor?: string;
+  fallback: FallbackHotspot;
+  startPct: number;
+  endPct: number;
+  label?: string;
 };
 
 type DemoFrame = {
@@ -101,12 +110,18 @@ type DemoAutopilotState = {
   started: boolean;
 };
 
+type DemoNarrationPhase = 'intro' | 'section' | 'closing' | 'chapterEnd';
+
 type DemoVoiceState = 'unavailable' | 'ready' | 'connecting' | 'listening' | 'speaking' | 'error';
 
 type DemoNarrationScript = {
   caption: string;
   audio: string;
   presenterNote: string;
+  audioSrc: string;
+  estimatedDurationMs: number;
+  beats: DemoSpotlightBeat[];
+  requiresChapterConfirmation?: boolean;
 };
 
 type DemoNarration = {
@@ -135,6 +150,12 @@ type DemoSection = EnrichedDemoFrame & {
   durationByMode: Record<DemoShowMode, number>;
   metricImpact: DemoMetricImpact;
   narration: DemoNarration;
+  chapterIntroScript: DemoNarrationScript;
+  sectionScript: DemoNarrationScript;
+  chapterClosingPrompt: DemoNarrationScript;
+  audioSrc: string;
+  estimatedDurationMs: number;
+  requiresChapterConfirmation: boolean;
   actId: string;
 };
 
@@ -318,6 +339,7 @@ const ENTRY_BRIEFINGS: Array<{
 
 const ENTRY_PATH_STEPS = [
   'Portfolio signal',
+  'Create property',
   'Project command',
   'Cost and risk',
   'Evidence proof',
@@ -331,7 +353,7 @@ const DEMO_ACTS: DemoAct[] = [
     label: 'Act 1',
     title: 'Portfolio Control',
     promise: 'The board sees which assets need attention before teams start explaining reports.',
-    chapterIds: ['portfolio'],
+    chapterIds: ['portfolio', 'propertysetup'],
   },
   {
     id: 'risk-to-action',
@@ -355,6 +377,7 @@ const EMPTY_PROGRESS_STATE: DemoProgressState = {
 };
 
 const CHAPTER_FEATURES: Record<string, string[]> = {
+  propertysetup: ['Guided property wizard', 'AI asset setup', 'Document upload'],
   portfolio: ['Portfolio health signals', 'Asset prioritization', 'Command routing'],
   projectcommand: ['Project twin context', 'Control module navigation', 'Owner action queue'],
   programme: ['Critical path view', 'Contractor accountability', 'Recovery planning'],
@@ -371,6 +394,7 @@ const CHAPTER_FEATURES: Record<string, string[]> = {
 };
 
 const CHAPTER_ARTIFACTS: Record<string, DemoArtifact> = {
+  propertysetup: { id: 'property-onboarding-pack', label: 'Property onboarding pack', detail: 'Property profile, AI asset baseline, and uploaded source documents prepared.' },
   portfolio: { id: 'owner-action-plan', label: 'Owner action plan', detail: 'Priority property, control route, and first owner decision captured.' },
   projectcommand: { id: 'project-control-note', label: 'Project control note', detail: 'Project twin context and review path prepared for the owner.' },
   programme: { id: 'recovery-path-note', label: 'Programme recovery note', detail: 'Critical path risk and recovery owner summarized.' },
@@ -387,6 +411,7 @@ const CHAPTER_ARTIFACTS: Record<string, DemoArtifact> = {
 };
 
 const CHAPTER_OUTCOMES: Record<string, DemoOutcome> = {
+  propertysetup: { timeSavedMinutes: 18, riskReduction: 2, readinessGain: 4 },
   portfolio: { timeSavedMinutes: 12, riskReduction: 3, readinessGain: 2 },
   projectcommand: { timeSavedMinutes: 18, riskReduction: 4, readinessGain: 3 },
   programme: { timeSavedMinutes: 20, riskReduction: 5, readinessGain: 4 },
@@ -403,6 +428,7 @@ const CHAPTER_OUTCOMES: Record<string, DemoOutcome> = {
 };
 
 const CHAPTER_NARRATION_OPENERS: Record<string, string> = {
+  propertysetup: 'Before portfolio control can work, a property needs to enter the system cleanly. 4C360 supports a guided setup path where your team can create the property manually, use AI to suggest assets and operating context, or start from uploaded property documents.',
   portfolio: 'Before we open a project file, start with the owner question: where does leadership attention need to go today? This portfolio command view brings property health, risk, incidents, SLA pressure, and open actions into one operating picture. The point is not another dashboard. The point is knowing which asset needs action, why it matters, and where to go next.',
   projectcommand: 'You move from portfolio risk into one live project control surface with budget, progress, ownership, and current blockers in context.',
   programme: 'You can translate schedule complexity into a practical handover decision, with critical path and recovery focus visible in the same place.',
@@ -419,6 +445,18 @@ const CHAPTER_NARRATION_OPENERS: Record<string, string> = {
 };
 
 const SECTION_NARRATION_SCRIPTS: Record<string, DemoNarration> = {
+  'propertysetup:wizard': {
+    caption: 'Start with the guided property wizard. Your team can capture the property name, sector, contract type, SLA tier, locations, contacts, team ownership, budgets, inventory, and knowledge base in one onboarding flow. This matters because the operating model is only as good as the first property record. 4C360 makes the setup structured enough for governance, but simple enough for an operations team to complete without waiting for a technical implementation project.',
+    presenterNote: 'Highlight the Add New Property wizard and explain that onboarding starts from structured owner and operating context.',
+  },
+  'propertysetup:ai': {
+    caption: 'Now look at the AI-supported setup path. Once the property type and site are known, the system can suggest typical assets, maintenance context, condition notes, compliance references, and PPM assumptions. Your team can edit the AI output before saving, so it accelerates setup without removing human control. This is especially useful when a portfolio has many similar towers, communities, or facilities that need to be onboarded quickly.',
+    presenterNote: 'Show the AI Suggest Assets control in the Sites tab and position it as faster baseline creation, not blind automation.',
+  },
+  'propertysetup:upload': {
+    caption: 'The third path is simple file-based onboarding. Your team can start from handover packs, asset registers, contracts, SOPs, warranties, authority documents, or spreadsheet files. Those source documents become part of the property knowledge base, so the operating context is not trapped in inboxes or shared folders. This gives the owner a practical route: use the wizard for clean data, AI for acceleration, and file upload for existing property packs.',
+    presenterNote: 'Highlight documents and links in the Knowledge Base tab. The point is fast ingestion of existing property material.',
+  },
   'portfolio:health-actions': {
     caption: 'Look at the health signals at the top of the portfolio view. This is the first decision point for an owner: which properties are critical, which are warning, and which are operating normally. Instead of waiting for separate updates from each team, your leadership group can immediately see where attention is needed and start the review from priority, not noise.',
     presenterNote: 'Point to the status and action strip. The client should see that the review starts with priority, not scattered reporting.',
@@ -593,6 +631,22 @@ const DEMO_CHAPTERS: DemoChapter[] = [
     decisionQuestion: 'Which properties need leadership attention today?',
     nextAction: 'Open the highest-risk property and inspect the connected command context.',
     tryLabel: 'Focus portfolio signal',
+  },
+  {
+    id: 'propertysetup',
+    label: 'Property Onboarding',
+    shortLabel: 'Onboarding',
+    screen: 'portfolio',
+    icon: Plus,
+    anchor: 'property-onboarding-entry',
+    fallback: { left: 70, top: 8, width: 22, height: 10 },
+    livePath: '/',
+    headline: 'Add a new property into the operating model',
+    story: 'The owner can create a property through a guided wizard, accelerate setup with AI, or start from existing handover and asset files.',
+    clientValue: 'New properties enter 4C360 with enough context to support operations, evidence, budgets, teams, and portfolio control from day one.',
+    decisionQuestion: 'How quickly can a new property become operationally usable?',
+    nextAction: 'Choose the fastest onboarding route for the property context.',
+    tryLabel: 'Show property setup',
   },
   {
     id: 'projectcommand',
@@ -797,6 +851,44 @@ const DEMO_CHAPTERS: DemoChapter[] = [
 ];
 
 const DEMO_FRAMES: Record<string, DemoFrame[]> = {
+  propertysetup: [
+    {
+      id: 'wizard',
+      label: 'Wizard',
+      anchor: 'property-onboarding-wizard',
+      fallback: { left: 28, top: 12, width: 44, height: 70 },
+      headline: 'Create the property through a guided wizard',
+      story: 'The wizard captures business profile, sites, team, knowledge base, budget, and inventory in one controlled flow.',
+      clientValue: 'Owners get a repeatable onboarding path that keeps property setup consistent across the portfolio.',
+      decisionQuestion: 'What minimum information is needed before this property can be managed?',
+      nextAction: 'review the property profile, location, contract, owner, and operating tabs.',
+      tryLabel: 'Show setup wizard',
+    },
+    {
+      id: 'ai',
+      label: 'AI Setup',
+      anchor: 'property-onboarding-ai',
+      fallback: { left: 32, top: 40, width: 38, height: 12 },
+      headline: 'Use AI to speed up asset setup',
+      story: 'AI can suggest likely assets, conditions, maintenance notes, and compliance context from the property type and site.',
+      clientValue: 'Teams can create a usable baseline faster while still reviewing and editing every AI suggestion.',
+      decisionQuestion: 'Which asset baseline should AI prepare for this property?',
+      nextAction: 'use AI to suggest assets and operating context for the site.',
+      tryLabel: 'Show AI setup',
+    },
+    {
+      id: 'upload',
+      label: 'File Upload',
+      anchor: 'property-onboarding-upload',
+      fallback: { left: 30, top: 38, width: 42, height: 30 },
+      headline: 'Start from existing property files',
+      story: 'Handover packs, asset registers, contracts, SOPs, warranties, and authority documents can be added to the knowledge base.',
+      clientValue: 'The owner can onboard a property from the material they already have instead of rebuilding context manually.',
+      decisionQuestion: 'Which existing files should become the property knowledge base?',
+      nextAction: 'attach the handover pack, asset register, and operating documents.',
+      tryLabel: 'Show file upload',
+    },
+  ],
   portfolio: [
     {
       id: 'health-actions',
@@ -1288,12 +1380,160 @@ function getShowModeOption(showMode: DemoShowMode) {
   return SHOW_MODE_OPTIONS.find(option => option.id === showMode) ?? SHOW_MODE_OPTIONS[0];
 }
 
-function getSectionNarrationScript(section: DemoSection): DemoNarrationScript {
+function getDemoAudioSrc(chapterId: string, segmentId: string) {
+  return `/demo-audio/properties/${chapterId}/${segmentId}.mp3`;
+}
+
+function estimateNarrationDurationMs(script: string) {
+  const words = script.trim().split(/\s+/).filter(Boolean).length;
+  return Math.max(9000, Math.round((words / 2.25) * 1000));
+}
+
+function spotlightBeat(
+  anchor: string | undefined,
+  fallback: FallbackHotspot,
+  startPct: number,
+  endPct: number,
+  label?: string,
+): DemoSpotlightBeat {
   return {
-    caption: section.narration.caption,
-    audio: section.narration.caption,
-    presenterNote: section.narration.presenterNote,
+    anchor,
+    fallback,
+    startPct: Math.max(0, Math.min(100, startPct)),
+    endPct: Math.max(0, Math.min(100, endPct)),
+    label,
   };
+}
+
+function makeNarrationScript(
+  chapterId: string,
+  segmentId: string,
+  audio: string,
+  presenterNote: string,
+  beats: DemoSpotlightBeat[] = [],
+  requiresChapterConfirmation = false,
+): DemoNarrationScript {
+  return {
+    caption: audio,
+    audio,
+    presenterNote,
+    audioSrc: getDemoAudioSrc(chapterId, segmentId),
+    estimatedDurationMs: estimateNarrationDurationMs(audio),
+    beats,
+    requiresChapterConfirmation,
+  };
+}
+
+function buildEvenSpotlightBeats(frames: DemoFrame[], fallback: FallbackHotspot) {
+  if (frames.length === 0) return [spotlightBeat(undefined, fallback, 0, 100)];
+  const span = 100 / frames.length;
+  return frames.map((frame, index) => spotlightBeat(
+    frame.anchor,
+    frame.fallback ?? fallback,
+    index * span,
+    index === frames.length - 1 ? 100 : (index + 1) * span,
+    frame.label,
+  ));
+}
+
+function getChapterIntroBeats(chapter: DemoChapter, frames: DemoFrame[]) {
+  if (chapter.id === 'portfolio') {
+    return [
+      spotlightBeat('portfolio-health-actions', { left: 58, top: 8, width: 32, height: 9 }, 0, 34, 'Health signals'),
+      spotlightBeat('portfolio-command', chapter.fallback, 34, 68, 'Portfolio command'),
+      spotlightBeat('portfolio-command-path', { left: 6, top: 69, width: 38, height: 13 }, 68, 100, 'Command path'),
+    ];
+  }
+  return buildEvenSpotlightBeats(frames, chapter.fallback);
+}
+
+function getSectionSpotlightBeats(chapter: DemoChapter, frame: EnrichedDemoFrame) {
+  const key = `${chapter.id}:${frame.id}`;
+  const beatMap: Record<string, DemoSpotlightBeat[]> = {
+    'portfolio:health-actions': [
+      spotlightBeat('portfolio-health-actions', { left: 58, top: 8, width: 32, height: 9 }, 0, 24, 'Health actions'),
+      spotlightBeat('portfolio-kpi-cards', { left: 4, top: 16, width: 92, height: 17 }, 24, 62, 'Portfolio KPIs'),
+      spotlightBeat('portfolio-impact-cards', { left: 4, top: 34, width: 92, height: 14 }, 62, 100, 'Impact cards'),
+    ],
+    'portfolio:portfolio-map': [
+      spotlightBeat('portfolio-command', { left: 3, top: 3, width: 94, height: 90 }, 0, 28, 'Portfolio command'),
+      spotlightBeat('portfolio-pulse-feed', { left: 4, top: 47, width: 92, height: 15 }, 28, 68, 'Portfolio pulse'),
+      spotlightBeat('portfolio-primary-card', { left: 4, top: 62, width: 44, height: 28 }, 68, 100, 'Property card'),
+    ],
+    'portfolio:command-path': [
+      spotlightBeat('portfolio-primary-card', { left: 4, top: 62, width: 44, height: 28 }, 0, 36, 'Property card'),
+      spotlightBeat('portfolio-command-path', { left: 6, top: 69, width: 38, height: 13 }, 36, 78, 'Command action'),
+      spotlightBeat('projectcommand-context', { left: 4, top: 8, width: 39, height: 13 }, 78, 100, 'ProjectCommand route'),
+    ],
+  };
+
+  return beatMap[key] ?? [
+    spotlightBeat(frame.anchor ?? chapter.anchor, frame.fallback ?? chapter.fallback, 0, 100, frame.label),
+  ];
+}
+
+function buildChapterIntroScript(chapter: DemoChapter) {
+  const frames = getChapterFrames(chapter);
+  const sectionList = frames.map(frame => frame.label).join(', ');
+  const opener = CHAPTER_NARRATION_OPENERS[chapter.id] ?? chapter.story;
+  const audio = `${opener} In this chapter, focus on ${sectionList}. By the end of the chapter, your team should be able to answer this board question: ${chapter.decisionQuestion}`;
+  return makeNarrationScript(
+    chapter.id,
+    'intro',
+    audio,
+    `Open ${chapter.label} by framing the owner question before pointing to individual sections.`,
+    getChapterIntroBeats(chapter, frames),
+  );
+}
+
+function normalizeActionPhrase(action: string) {
+  const trimmed = action.trim();
+  if (!trimmed) return 'move to the next operating action';
+  return trimmed.charAt(0).toLowerCase() + trimmed.slice(1).replace(/\.$/, '');
+}
+
+function buildSectionScript(chapter: DemoChapter, frame: EnrichedDemoFrame, baseScript: DemoNarration) {
+  const baseCaption = baseScript.caption.trim();
+  const featureCue = `The highlighted area is ${frame.label}. It shows ${frame.story.charAt(0).toLowerCase()}${frame.story.slice(1).replace(/\.$/, '')}.`;
+  const valueCue = `${frame.clientValue}`;
+  const decisionCue = `The decision for your team is clear: ${frame.decisionQuestion}`;
+  const actionCue = `From here, your team can ${normalizeActionPhrase(frame.nextAction)}.`;
+  const audio = [baseCaption, featureCue, valueCue, decisionCue, actionCue].join(' ');
+  return makeNarrationScript(chapter.id, frame.id, audio, baseScript.presenterNote, getSectionSpotlightBeats(chapter, frame));
+}
+
+function buildChapterClosingPrompt(chapter: DemoChapter) {
+  const nextChapter = DEMO_CHAPTERS[(DEMO_CHAPTERS.findIndex(item => item.id === chapter.id) + 1) % DEMO_CHAPTERS.length];
+  const frames = getChapterFrames(chapter);
+  const sectionList = frames.map(frame => frame.label).join(', ');
+  const audio = `That closes ${chapter.label}. You have seen ${sectionList}, and the key question is now ready for discussion: ${chapter.decisionQuestion} Would you like to ask a question about this chapter, replay it, or move to ${nextChapter.label}?`;
+  return makeNarrationScript(
+    chapter.id,
+    'closing',
+    audio,
+    `Stop at the end of ${chapter.label} and wait for the viewer to choose the next step.`,
+    [spotlightBeat(chapter.anchor, chapter.fallback, 0, 100, chapter.label)],
+    true,
+  );
+}
+
+function getSectionNarrationScript(section: DemoSection): DemoNarrationScript {
+  return section.sectionScript;
+}
+
+function getActiveNarrationScript(section: DemoSection, phase: DemoNarrationPhase) {
+  if (phase === 'intro') return section.chapterIntroScript;
+  if (phase === 'closing' || phase === 'chapterEnd') return section.chapterClosingPrompt;
+  return section.sectionScript;
+}
+
+function getActiveSpotlightBeat(script: DemoNarrationScript, progress: number, fallbackTarget: HotspotTarget): DemoSpotlightBeat {
+  const fallbackBeat = spotlightBeat(fallbackTarget.anchor, fallbackTarget.fallback, 0, 100);
+  if (script.beats.length === 0) return fallbackBeat;
+  const boundedProgress = Math.max(0, Math.min(100, progress));
+  return script.beats.find(beat => boundedProgress >= beat.startPct && boundedProgress < beat.endPct)
+    ?? script.beats[script.beats.length - 1]
+    ?? fallbackBeat;
 }
 
 function getActForChapter(chapterId: string) {
@@ -1400,11 +1640,13 @@ function enrichDemoSection(chapter: DemoChapter, frame: EnrichedDemoFrame, frame
     caption: `${frame.headline}. ${frame.clientValue}`,
     presenterNote: `${frame.nextAction} Board proof: ${frame.decisionQuestion}`,
   };
-  const chapterOpener = frameIndex === 0 ? CHAPTER_NARRATION_OPENERS[chapter.id] : undefined;
   const boardNarrative = [
     frame.headline,
     frame.story,
   ].join(' ');
+  const sectionScript = buildSectionScript(chapter, frame, script);
+  const chapterIntroScript = buildChapterIntroScript(chapter);
+  const chapterClosingPrompt = buildChapterClosingPrompt(chapter);
 
   return {
     ...frame,
@@ -1421,9 +1663,15 @@ function enrichDemoSection(chapter: DemoChapter, frame: EnrichedDemoFrame, frame
       decisionsSurfaced: 1,
     },
     narration: {
-      caption: chapterOpener ? `${chapterOpener} ${script.caption}` : script.caption,
+      caption: sectionScript.caption,
       presenterNote: script.presenterNote,
     },
+    chapterIntroScript,
+    sectionScript,
+    chapterClosingPrompt,
+    audioSrc: sectionScript.audioSrc,
+    estimatedDurationMs: sectionScript.estimatedDurationMs,
+    requiresChapterConfirmation: frameIndex === getChapterFrames(chapter).length - 1,
     actId: act.id,
   };
 }
@@ -1631,7 +1879,7 @@ function useAnchorBox(stageRef: RefObject<HTMLDivElement | null>, target: Hotspo
         const relativeTop = rect.top - rootRect.top;
         const startsNearSurfaceOrigin = relativeLeft < rootRect.width * 0.12 && relativeTop < rootRect.height * 0.12;
         const isFullSurface = startsNearSurfaceOrigin && rect.width > rootRect.width * 0.82 && rect.height > rootRect.height * 0.66;
-        const isOversizedAnchor = rect.width > rootRect.width * 0.76 && rect.height > rootRect.height * 0.38;
+        const isOversizedAnchor = rect.width > rootRect.width * 0.86 && rect.height > rootRect.height * 0.58;
         if (isFullSurface || isOversizedAnchor) {
           setBox(fallbackBox());
           return;
@@ -1664,23 +1912,85 @@ function useAnchorBox(stageRef: RefObject<HTMLDivElement | null>, target: Hotspo
   return box;
 }
 
-function StageHotspot({ box, fallback }: { box: AnchorBox | null; fallback: FallbackHotspot }) {
-  const highlightStyle: CSSProperties = box
-    ? { left: box.left, top: box.top, width: box.width, height: box.height }
-    : { left: `${fallback.left}%`, top: `${fallback.top}%`, width: `${fallback.width}%`, height: `${fallback.height}%` };
+function StageSpotlight({ box, fallback }: { box: AnchorBox | null; fallback: FallbackHotspot }) {
+  const fallbackStyle: CSSProperties = { left: `${fallback.left}%`, top: `${fallback.top}%`, width: `${fallback.width}%`, height: `${fallback.height}%` };
+  const inset = 8;
+  const target = box
+    ? {
+        left: Math.max(8, box.left - inset),
+        top: Math.max(8, box.top - inset),
+        width: Math.min(box.stageWidth - Math.max(8, box.left - inset) - 8, box.width + inset * 2),
+        height: Math.min(box.stageHeight - Math.max(8, box.top - inset) - 8, box.height + inset * 2),
+        stageWidth: box.stageWidth,
+        stageHeight: box.stageHeight,
+      }
+    : null;
+
+  const targetStyle: CSSProperties = target
+    ? {
+        left: target.left,
+        top: target.top,
+        width: target.width,
+        height: target.height,
+        transition: 'left 360ms ease, top 360ms ease, width 360ms ease, height 360ms ease',
+      }
+    : fallbackStyle;
+
+  const dim = 'rgba(1, 8, 18, 0.56)';
+  const panels: CSSProperties[] = target
+    ? [
+        { left: 0, top: 0, width: target.stageWidth, height: target.top },
+        { left: 0, top: target.top, width: target.left, height: target.height },
+        { left: target.left + target.width, top: target.top, width: Math.max(0, target.stageWidth - target.left - target.width), height: target.height },
+        { left: 0, top: target.top + target.height, width: target.stageWidth, height: Math.max(0, target.stageHeight - target.top - target.height) },
+      ]
+    : [];
 
   return (
-    <div
-      aria-hidden="true"
-      data-demo-hotspot="true"
-      className="pointer-events-none absolute z-30 bg-transparent"
-      style={highlightStyle}
-    >
-      <span className="absolute left-0 top-0 h-3 w-3 -translate-x-px -translate-y-px rounded-tl-xl border-l-2 border-t-2 border-cyan-200/80" />
-      <span className="absolute right-0 top-0 h-3 w-3 translate-x-px -translate-y-px rounded-tr-xl border-r-2 border-t-2 border-cyan-200/80" />
-      <span className="absolute bottom-0 left-0 h-3 w-3 -translate-x-px translate-y-px rounded-bl-xl border-b-2 border-l-2 border-cyan-200/80" />
-      <span className="absolute bottom-0 right-0 h-3 w-3 translate-x-px translate-y-px rounded-br-xl border-b-2 border-r-2 border-cyan-200/80" />
-    </div>
+    <>
+      {panels.map((panel, index) => (
+        <div
+          // eslint-disable-next-line react/no-array-index-key
+          key={index}
+          aria-hidden="true"
+          className="pointer-events-none absolute z-30 backdrop-blur-[1px] transition-all duration-300"
+          style={{ ...panel, backgroundColor: dim }}
+        />
+      ))}
+      <div
+        aria-hidden="true"
+        data-demo-spotlight="true"
+        className="pointer-events-none absolute z-40 rounded-2xl border border-cyan-100/80 bg-cyan-200/[0.02] shadow-[0_0_26px_rgba(34,211,238,0.28),inset_0_0_18px_rgba(34,211,238,0.12)]"
+        style={targetStyle}
+      />
+    </>
+  );
+}
+
+function IntroDashboardReveal({ progress }: { progress: number }) {
+  const revealProgress = Math.max(0, Math.min(1, progress / 48));
+  const dimOpacity = Math.max(0.04, 0.93 * (1 - revealProgress));
+  const glowOpacity = Math.min(1, Math.max(0, (progress - 18) / 38));
+
+  return (
+    <>
+      <div
+        aria-hidden="true"
+        data-demo-intro-reveal="true"
+        className="pointer-events-none absolute inset-0 z-30 transition-opacity duration-500"
+        style={{
+          background: `rgba(1, 8, 22, ${dimOpacity})`,
+        }}
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-3 z-40 rounded-2xl border border-cyan-200/45 transition-opacity duration-500"
+        style={{
+          opacity: glowOpacity,
+          boxShadow: '0 0 34px rgba(34,211,238,0.26), inset 0 0 34px rgba(46,127,255,0.12)',
+        }}
+      />
+    </>
   );
 }
 
@@ -2109,15 +2419,19 @@ function isDemoVoiceSetupMode() {
 }
 
 function DemoVoiceAdvisor({
+  chapter,
   section,
   tourStatus,
   narrationLaunchRequest,
   onToast,
+  purpose = 'qna',
 }: {
+  chapter?: DemoChapter;
   section: DemoSection;
   tourStatus: DemoAutopilotState['status'];
   narrationLaunchRequest: number;
   onToast: ToastFn;
+  purpose?: 'narration' | 'qna';
 }) {
   const [open, setOpen] = useState(false);
   const voiceSetupMode = isDemoVoiceSetupMode();
@@ -2146,6 +2460,12 @@ function DemoVoiceAdvisor({
     lastNarratedSectionRef.current = targetSection.sectionId;
     conversationRef.current.sendUserMessage(buildElevenLabsNarrationCue(targetSection));
   }, []);
+
+  const sendQnaCue = useCallback(() => {
+    if (!conversationRef.current) return;
+    conversationRef.current.sendContextualUpdate(`Board demo Q&A context. Current chapter: ${chapter?.label ?? section.chapterId}. Current section: ${section.title}. Current decision question: ${section.decisionQuestion}.`);
+    conversationRef.current.sendUserMessage(`Tell the viewer you can answer questions about ${chapter?.label ?? 'this chapter'}, or they can continue to the next chapter when ready. Keep it brief and client-facing.`);
+  }, [chapter?.label, section]);
 
   const stopVoice = useCallback(async () => {
     voiceSessionTokenRef.current += 1;
@@ -2258,8 +2578,12 @@ function DemoVoiceAdvisor({
         activeSingleton.token = sessionToken;
       }
       lastNarratedSectionRef.current = section.sectionId;
-      conversationRef.current.sendContextualUpdate(`Demo scenario: ${DEMO_SCENARIO}. Format: 6-minute client walkthrough. Current chapter: ${section.chapterId}. Current section: ${section.title}.`);
-      conversationRef.current.sendUserMessage(buildElevenLabsNarrationCue(section));
+      conversationRef.current.sendContextualUpdate(`Demo scenario: ${DEMO_SCENARIO}. Format: presenter-led board walkthrough. Current chapter: ${chapter?.label ?? section.chapterId}. Current section: ${section.title}.`);
+      if (purpose === 'qna') {
+        sendQnaCue();
+      } else {
+        conversationRef.current.sendUserMessage(buildElevenLabsNarrationCue(section));
+      }
     } catch (error) {
       if (voiceSessionTokenRef.current !== sessionToken) return;
       const errorMessage = formatElevenLabsError(error);
@@ -2275,7 +2599,7 @@ function DemoVoiceAdvisor({
         voiceStartInFlightRef.current = false;
       }
     }
-  }, [onToast, section, voiceActive, voiceSetupMode]);
+  }, [chapter?.label, onToast, purpose, section, sendQnaCue, voiceActive, voiceSetupMode]);
 
   const saveAgentId = useCallback(() => {
     const nextAgentId = agentIdInput.trim();
@@ -2296,22 +2620,25 @@ function DemoVoiceAdvisor({
   }, [configuredAgentId, startVoiceWithAgentId]);
 
   useEffect(() => {
+    if (purpose !== 'narration') return;
     if (!voiceActive || !autoNarrationEnabled || !conversationRef.current) return;
     if (lastNarratedSectionRef.current === section.sectionId) return;
     sendNarrationCue(section);
-  }, [autoNarrationEnabled, section, sendNarrationCue, voiceActive]);
+  }, [autoNarrationEnabled, purpose, section, sendNarrationCue, voiceActive]);
 
   useEffect(() => {
+    if (purpose !== 'narration') return;
     if (!narrationLaunchRequest || handledNarrationLaunchRequestRef.current === narrationLaunchRequest) return;
     handledNarrationLaunchRequestRef.current = narrationLaunchRequest;
     if (!agentConfigured || voiceActive || conversationRef.current || voiceStartInFlightRef.current) return;
     void startVoice();
-  }, [agentConfigured, narrationLaunchRequest, startVoice, voiceActive]);
+  }, [agentConfigured, narrationLaunchRequest, purpose, startVoice, voiceActive]);
 
   useEffect(() => {
+    if (purpose !== 'narration') return;
     if (tourStatus !== 'playing' || !autoNarrationEnabled || !agentConfigured || voiceActive || conversationRef.current || voiceStartInFlightRef.current) return;
     void startVoice();
-  }, [agentConfigured, autoNarrationEnabled, startVoice, tourStatus, voiceActive]);
+  }, [agentConfigured, autoNarrationEnabled, purpose, startVoice, tourStatus, voiceActive]);
 
   useEffect(() => () => {
     void stopVoice();
@@ -2340,12 +2667,12 @@ function DemoVoiceAdvisor({
     ? 'ElevenLabs speaking'
     : 'ElevenLabs error';
   const narrationButtonLabel = voiceActive
-    ? 'Audio on'
+    ? purpose === 'qna' ? 'Q&A live' : 'Audio on'
     : voiceStatus === 'connecting'
     ? 'Connecting'
     : voiceStatus === 'error'
     ? 'Audio issue'
-    : 'Narration';
+    : purpose === 'qna' ? 'Ask a question' : 'Narration';
   const narrationScript = getSectionNarrationScript(section);
 
   if (!voiceSetupMode && !agentConfigured) return null;
@@ -2460,11 +2787,11 @@ function DemoVoiceAdvisor({
               }`}
             >
               {voiceActive ? <MicOff size={15} /> : <Mic size={15} />}
-              {!agentConfigured ? 'Save ID first' : voiceStatus === 'connecting' ? 'Connecting...' : voiceActive ? 'Stop audio' : 'Enable audio'}
+                  {!agentConfigured ? 'Save ID first' : voiceStatus === 'connecting' ? 'Connecting...' : voiceActive ? 'End Q&A' : purpose === 'qna' ? 'Start Q&A' : 'Enable audio'}
             </button>
             <button
               type="button"
-              onClick={() => voiceActive ? sendNarrationCue(section) : startVoice()}
+              onClick={() => voiceActive ? (purpose === 'qna' ? sendQnaCue() : sendNarrationCue(section)) : startVoice()}
               className={`flex h-10 items-center justify-center gap-2 rounded-xl border text-[12px] font-black transition-colors ${
                 agentConfigured
                   ? 'border-[#2E7FFF]/22 bg-[#06101F] text-[#DCEBFF] hover:bg-[#112040]'
@@ -2473,7 +2800,7 @@ function DemoVoiceAdvisor({
               disabled={!agentConfigured}
             >
               <Volume2 size={15} />
-              Read cue
+              {purpose === 'qna' ? 'Ask prompt' : 'Read cue'}
             </button>
           </div>
 
@@ -2495,14 +2822,230 @@ function DemoVoiceAdvisor({
   );
 }
 
+function DemoNarrationPlayer({
+  script,
+  status,
+  playbackKey,
+  onEnded,
+  onProgress,
+}: {
+  script: DemoNarrationScript;
+  status: DemoAutopilotState['status'];
+  playbackKey: string;
+  onEnded: () => void;
+  onProgress: (progress: number) => void;
+}) {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const fallbackTimerRef = useRef<number | null>(null);
+  const fallbackProgressRef = useRef<number | null>(null);
+  const fallbackStartedAtRef = useRef<number | null>(null);
+  const fallbackElapsedRef = useRef(0);
+  const endedRef = useRef(false);
+  const onEndedRef = useRef(onEnded);
+  const onProgressRef = useRef(onProgress);
+  const statusRef = useRef(status);
+
+  useEffect(() => {
+    statusRef.current = status;
+  }, [status]);
+
+  useEffect(() => {
+    onEndedRef.current = onEnded;
+  }, [onEnded]);
+
+  useEffect(() => {
+    onProgressRef.current = onProgress;
+  }, [onProgress]);
+
+  const clearFallback = useCallback(() => {
+    if (fallbackTimerRef.current) window.clearTimeout(fallbackTimerRef.current);
+    if (fallbackProgressRef.current) window.clearInterval(fallbackProgressRef.current);
+    fallbackTimerRef.current = null;
+    fallbackProgressRef.current = null;
+    fallbackStartedAtRef.current = null;
+  }, []);
+
+  const finishNarration = useCallback(() => {
+    if (endedRef.current) return;
+    endedRef.current = true;
+    clearFallback();
+    audioRef.current?.pause();
+    onProgressRef.current(100);
+    onEndedRef.current();
+  }, [clearFallback]);
+
+  const startFallbackTiming = useCallback(() => {
+    if (endedRef.current || fallbackStartedAtRef.current) return;
+    const estimatedDuration = Math.max(1000, script.estimatedDurationMs);
+    fallbackStartedAtRef.current = Date.now() - fallbackElapsedRef.current;
+    const updateProgress = () => {
+      const startedAt = fallbackStartedAtRef.current ?? Date.now();
+      fallbackElapsedRef.current = Math.min(estimatedDuration, Math.max(0, Date.now() - startedAt));
+      onProgressRef.current(Math.min(100, (fallbackElapsedRef.current / estimatedDuration) * 100));
+    };
+    updateProgress();
+    fallbackProgressRef.current = window.setInterval(updateProgress, 250);
+    fallbackTimerRef.current = window.setTimeout(finishNarration, Math.max(0, estimatedDuration - fallbackElapsedRef.current));
+  }, [finishNarration, script.estimatedDurationMs]);
+
+  const pauseFallbackTiming = useCallback(() => {
+    if (fallbackStartedAtRef.current !== null) {
+      fallbackElapsedRef.current = Math.min(script.estimatedDurationMs, Math.max(0, Date.now() - fallbackStartedAtRef.current));
+    }
+    clearFallback();
+  }, [clearFallback, script.estimatedDurationMs]);
+
+  useEffect(() => {
+    endedRef.current = false;
+    fallbackElapsedRef.current = 0;
+    onProgressRef.current(0);
+    clearFallback();
+
+    const audio = new Audio(script.audioSrc);
+    audio.preload = 'auto';
+    audioRef.current = audio;
+
+    const handleTimeUpdate = () => {
+      if (!Number.isFinite(audio.duration) || audio.duration <= 0) return;
+      onProgressRef.current(Math.min(100, (audio.currentTime / audio.duration) * 100));
+    };
+    const handleError = () => {
+      if (statusRef.current === 'playing') startFallbackTiming();
+    };
+    audio.addEventListener('timeupdate', handleTimeUpdate);
+    audio.addEventListener('ended', finishNarration);
+    audio.addEventListener('error', handleError);
+
+    if (statusRef.current === 'playing') {
+      audio.play().catch(() => startFallbackTiming());
+    }
+
+    return () => {
+      clearFallback();
+      audio.pause();
+      audio.removeEventListener('timeupdate', handleTimeUpdate);
+      audio.removeEventListener('ended', finishNarration);
+      audio.removeEventListener('error', handleError);
+      audio.removeAttribute('src');
+      audio.load();
+      if (audioRef.current === audio) audioRef.current = null;
+    };
+  }, [clearFallback, finishNarration, playbackKey, script.audioSrc, startFallbackTiming]);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio || endedRef.current) return;
+
+    if (status === 'playing') {
+      if (fallbackElapsedRef.current > 0 || audio.error) {
+        startFallbackTiming();
+        return;
+      }
+      audio.play().catch(() => startFallbackTiming());
+      return;
+    }
+
+    audio.pause();
+    pauseFallbackTiming();
+  }, [pauseFallbackTiming, startFallbackTiming, status]);
+
+  return null;
+}
+
+function ChapterEndPanel({
+  chapter,
+  nextChapter,
+  section,
+  onClose,
+  onNextChapter,
+  onReplayChapter,
+  onReplaySection,
+  onToast,
+}: {
+  chapter: DemoChapter;
+  nextChapter: DemoChapter;
+  section: DemoSection;
+  onClose: () => void;
+  onNextChapter: () => void;
+  onReplayChapter: () => void;
+  onReplaySection: () => void;
+  onToast: ToastFn;
+}) {
+  return (
+    <div className="absolute inset-x-3 bottom-3 z-40 rounded-2xl border border-cyan-300/28 bg-[#07111F]/96 p-3 shadow-2xl shadow-black/50 backdrop-blur md:inset-x-auto md:right-3 md:w-[min(460px,calc(100%-24px))]">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-200">Chapter pause</div>
+          <h2 className="mt-1 text-[17px] font-black leading-tight text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+            {chapter.label} is ready for questions.
+          </h2>
+          <p className="mt-2 text-[12px] leading-5 text-[#B8C7DB]">{section.chapterClosingPrompt.caption}</p>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close chapter pause"
+          className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#2E7FFF]/22 bg-[#0A1628] text-[#9FB6D5] transition-colors hover:bg-[#112040] hover:text-white"
+        >
+          <X size={17} />
+        </button>
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_1fr]">
+        <button
+          type="button"
+          onClick={onNextChapter}
+          className="flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#2E7FFF] px-3 py-2 text-[12px] font-black text-white hover:bg-[#4B91FF]"
+        >
+          Next chapter: {nextChapter.shortLabel}
+          <ChevronRight size={15} />
+        </button>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={onReplayChapter}
+            className="flex min-h-10 items-center justify-center gap-2 rounded-xl border border-[#2E7FFF]/22 bg-[#0A1628] px-3 py-2 text-[12px] font-black text-[#DCEBFF] hover:bg-[#112040]"
+          >
+            <RotateCcw size={14} />
+            Replay
+          </button>
+          <button
+            type="button"
+            onClick={onReplaySection}
+            className="flex min-h-10 items-center justify-center gap-2 rounded-xl border border-[#2E7FFF]/22 bg-[#0A1628] px-3 py-2 text-[12px] font-black text-[#DCEBFF] hover:bg-[#112040]"
+          >
+            <TimerReset size={14} />
+            Section
+          </button>
+        </div>
+      </div>
+      <div className="mt-2 flex items-center justify-between gap-2 rounded-xl border border-[#2E7FFF]/16 bg-[#06101F] px-3 py-2">
+        <div className="min-w-0">
+          <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#7A94B4]">Board Q&A</div>
+          <div className="mt-0.5 truncate text-[12px] font-bold text-[#DCEBFF]">Ask about this chapter before moving on.</div>
+        </div>
+        <DemoVoiceAdvisor
+          chapter={chapter}
+          section={section}
+          tourStatus="paused"
+          narrationLaunchRequest={0}
+          onToast={onToast}
+          purpose="qna"
+        />
+      </div>
+    </div>
+  );
+}
+
 function DemoStage({
   chapter,
+  section,
   onToast,
   onOpenChapter,
   totals,
   onCopySummary,
 }: {
   chapter: DemoChapter;
+  section: DemoSection;
   onToast: ToastFn;
   onOpenChapter: (chapterId: string) => void;
   totals: ReturnType<typeof getOutcomeTotals>;
@@ -2515,6 +3058,8 @@ function DemoStage({
         onClientSelect={clientId => onToast(`Portfolio focus set to ${clientId}`, 'info')}
         onNavigateToIncidents={clientId => onToast(`Incident view ready for ${clientId}`, 'info')}
         onNavigateToCommand={() => onOpenChapter('projectcommand')}
+        demoAddPropertySection={chapter.id === 'propertysetup' ? section.id as 'wizard' | 'ai' | 'upload' : undefined}
+        demoPortfolioSection={chapter.id === 'portfolio' ? section.id as 'health-actions' | 'portfolio-map' | 'command-path' : undefined}
       />
     );
   }
@@ -2566,7 +3111,8 @@ export function InteractiveDemoWalkthrough() {
   const [statusMessage, setStatusMessage] = useState('Guided demo ready');
   const [shareCopied, setShareCopied] = useState(false);
   const [sharePanelOpen, setSharePanelOpen] = useState(false);
-  const [narrationLaunchRequest, setNarrationLaunchRequest] = useState(0);
+  const [narrationPhase, setNarrationPhase] = useState<DemoNarrationPhase>('section');
+  const [chapterEndOpen, setChapterEndOpen] = useState(false);
   const [progressState, setProgressState] = useState<DemoProgressState>(loadDemoProgressState);
   const shareInputRef = useRef<HTMLInputElement>(null);
   const sectionElapsedRef = useRef(0);
@@ -2583,15 +3129,24 @@ export function InteractiveDemoWalkthrough() {
   const outcomeTotals = useMemo(() => getOutcomeTotals(progressState), [progressState]);
   const activeAct = useMemo(() => getActForChapter(chapter.id), [chapter.id]);
   const activeActProgress = useMemo(() => getActProgress(activeAct, completedMissionSet), [activeAct, completedMissionSet]);
-  const hotspotTarget = useMemo<HotspotTarget>(() => ({
+  const activeNarrationScript = useMemo(() => getActiveNarrationScript(activeFrame, narrationPhase), [activeFrame, narrationPhase]);
+  const baseHotspotTarget = useMemo<HotspotTarget>(() => ({
     anchor: activeFrame.anchor ?? chapter.anchor,
     fallback: activeFrame.fallback ?? chapter.fallback,
   }), [activeFrame, chapter.anchor, chapter.fallback]);
+  const activeSpotlightBeat = useMemo(
+    () => getActiveSpotlightBeat(activeNarrationScript, sectionProgress, baseHotspotTarget),
+    [activeNarrationScript, baseHotspotTarget, sectionProgress],
+  );
+  const hotspotTarget = useMemo<HotspotTarget>(() => ({
+    anchor: activeSpotlightBeat.anchor,
+    fallback: activeSpotlightBeat.fallback,
+  }), [activeSpotlightBeat]);
   const anchorBox = useAnchorBox(stageRef, hotspotTarget);
   const sectionControlProgress = autopilot.status === 'playing'
     ? sectionProgress
     : Math.round(((activeFrameIndex + 1) / frames.length) * 100);
-  const sectionDurationMs = activeFrame.durationByMode[showMode];
+  const narrationPlaybackKey = `${chapter.id}:${activeFrame.id}:${narrationPhase}`;
   const shareUrl = useMemo(
     () => buildShareUrl(chapter.id, activeFrame.sectionId, showMode, autopilot.status === 'playing'),
     [activeFrame.sectionId, autopilot.status, chapter.id, showMode],
@@ -2600,12 +3155,15 @@ export function InteractiveDemoWalkthrough() {
   const nextSectionLabel = nextFrame ? `Next: ${nextFrame.label}` : `Next: ${nextChapter.shortLabel}`;
   const activeMissionComplete = activeSectionComplete;
   const primaryActionLabel = nextSectionLabel;
+  const demoInteractionLocked = autopilot.status === 'playing' && !chapterEndOpen;
   const [presenterNotesOpen, setPresenterNotesOpen] = useState(false);
 
   const selectChapter = useCallback((chapterId: string, frameId?: string) => {
     const nextChapter = getChapterById(chapterId);
     const nextFrameId = resolveFrameId(nextChapter, frameId);
     setShowIntro(false);
+    setChapterEndOpen(false);
+    setNarrationPhase(frameId ? 'section' : 'intro');
     setActiveId(chapterId);
     setActiveFrameId(nextFrameId);
     updateChapterUrl(chapterId, nextFrameId, { showMode, autoplay: autopilot.status === 'playing' });
@@ -2614,6 +3172,8 @@ export function InteractiveDemoWalkthrough() {
   const selectFrame = useCallback((frameId: string) => {
     const nextFrameId = resolveFrameId(chapter, frameId);
     setShowIntro(false);
+    setChapterEndOpen(false);
+    setNarrationPhase('section');
     setActiveFrameId(nextFrameId);
     updateChapterUrl(chapter.id, nextFrameId, { showMode, autoplay: autopilot.status === 'playing' });
   }, [autopilot.status, chapter, showMode]);
@@ -2624,9 +3184,11 @@ export function InteractiveDemoWalkthrough() {
       return;
     }
 
-    const nextIndex = (activeIndex + 1) % DEMO_CHAPTERS.length;
-    selectChapter(DEMO_CHAPTERS[nextIndex].id);
-  }, [activeIndex, nextFrame, selectChapter, selectFrame]);
+    setNarrationPhase('closing');
+    setAutopilot({ status: 'playing', started: true });
+    setChapterEndOpen(false);
+    updateChapterUrl(chapter.id, activeFrame.id, { showMode, autoplay: true });
+  }, [activeFrame.id, chapter.id, nextFrame, selectFrame, showMode]);
 
   const goBack = useCallback(() => {
     const previousFrame = frames[activeFrameIndex - 1];
@@ -2665,6 +3227,8 @@ export function InteractiveDemoWalkthrough() {
   const resetDemoProgress = useCallback(() => {
     setProgressState(EMPTY_PROGRESS_STATE);
     setAutopilot({ status: 'idle', started: false });
+    setNarrationPhase('section');
+    setChapterEndOpen(false);
     setSectionProgress(0);
     sectionElapsedRef.current = 0;
     try {
@@ -2699,10 +3263,11 @@ export function InteractiveDemoWalkthrough() {
     setShowIntro(false);
     setActiveId(firstChapter.id);
     setActiveFrameId(firstSection.id);
+    setNarrationPhase('intro');
+    setChapterEndOpen(false);
     setAutopilot({ status: 'playing', started: true });
     setSectionProgress(0);
     sectionElapsedRef.current = 0;
-    setNarrationLaunchRequest(current => current + 1);
     updateChapterUrl(firstChapter.id, firstSection.id, { showMode: DEFAULT_SHOW_MODE, autoplay: true });
     setStatusMessage('SUCCESS: Board demo running');
     window.setTimeout(() => setStatusMessage('Guided demo ready'), 2400);
@@ -2715,20 +3280,27 @@ export function InteractiveDemoWalkthrough() {
     setActiveId(firstChapter.id);
     setActiveFrameId(firstSection.id);
     setShowIntro(false);
+    setNarrationPhase('intro');
+    setChapterEndOpen(false);
     setAutopilot({ status: 'playing', started: true });
     setSectionProgress(0);
     sectionElapsedRef.current = 0;
-    setNarrationLaunchRequest(current => current + 1);
     updateChapterUrl(firstChapter.id, firstSection.id, { showMode: DEFAULT_SHOW_MODE, autoplay: true });
   }, []);
 
   const toggleAutopilot = useCallback(() => {
     setShowIntro(false);
+    if (chapterEndOpen) {
+      setChapterEndOpen(false);
+      setNarrationPhase('closing');
+      setAutopilot({ status: 'playing', started: true });
+      updateChapterUrl(chapter.id, activeFrame.id, { showMode, autoplay: true });
+      return;
+    }
     const playing = autopilot.status !== 'playing';
     setAutopilot(current => ({ status: playing ? 'playing' : 'paused', started: current.started || playing }));
-    if (playing) setNarrationLaunchRequest(current => current + 1);
     updateChapterUrl(chapter.id, activeFrame.id, { showMode, autoplay: playing });
-  }, [activeFrame.id, autopilot.status, chapter.id, showMode]);
+  }, [activeFrame.id, autopilot.status, chapter.id, chapterEndOpen, showMode]);
 
   const copyLink = useCallback(async () => {
     setSharePanelOpen(true);
@@ -2779,7 +3351,7 @@ export function InteractiveDemoWalkthrough() {
   useEffect(() => {
     setSectionProgress(0);
     sectionElapsedRef.current = 0;
-  }, [activeFrame.id, showMode]);
+  }, [activeFrame.id, narrationPhase, showMode]);
 
   useEffect(() => {
     const root = stageRef.current;
@@ -2836,8 +3408,18 @@ export function InteractiveDemoWalkthrough() {
       }
 
       setShowIntro(false);
-      setActiveId(current => (current === next.chapterId ? current : next.chapterId));
-      setActiveFrameId(current => (current === next.frameId ? current : next.frameId));
+      setActiveId(current => {
+        if (current === next.chapterId) return current;
+        setChapterEndOpen(false);
+        setNarrationPhase('section');
+        return next.chapterId;
+      });
+      setActiveFrameId(current => {
+        if (current === next.frameId) return current;
+        setChapterEndOpen(false);
+        setNarrationPhase('section');
+        return next.frameId;
+      });
       setAutopilot(current => {
         const shouldPlay = params.get('autoplay') === 'true';
         if (shouldPlay && current.status !== 'playing') return { status: 'playing', started: true };
@@ -2855,10 +3437,20 @@ export function InteractiveDemoWalkthrough() {
     };
   }, []);
 
+  const swallowDemoInteraction = useCallback((event: SyntheticEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+  }, []);
+
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
       if (target?.closest('input, textarea, select')) return;
+
+      if (autopilot.status === 'playing' && event.key !== ' ') {
+        event.preventDefault();
+        return;
+      }
 
       if (event.key === 'ArrowRight') {
         event.preventDefault();
@@ -2878,33 +3470,71 @@ export function InteractiveDemoWalkthrough() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [advanceMissionOrFrame, goBack, toggleAutopilot]);
+  }, [advanceMissionOrFrame, autopilot.status, goBack, toggleAutopilot]);
 
-  useEffect(() => {
-    if (autopilot.status !== 'playing') return undefined;
-    const startedAt = Date.now() - sectionElapsedRef.current;
-    const updateElapsedTime = () => {
-      const elapsed = Math.min(sectionDurationMs, Math.max(0, Date.now() - startedAt));
-      sectionElapsedRef.current = elapsed;
-      setSectionProgress(Math.min(100, (elapsed / sectionDurationMs) * 100));
-    };
+  const handleNarrationEnded = useCallback(() => {
+    if (autopilot.status !== 'playing') return;
 
-    updateElapsedTime();
-    const progressInterval = window.setInterval(updateElapsedTime, 250);
-    const remainingDurationMs = Math.max(0, sectionDurationMs - sectionElapsedRef.current);
-    const advanceTimer = window.setTimeout(() => {
-      sectionElapsedRef.current = sectionDurationMs;
-      setSectionProgress(100);
+    if (narrationPhase === 'intro') {
+      setNarrationPhase('section');
+      return;
+    }
+
+    if (narrationPhase === 'section') {
       completeMission(activeFrame.mission.id);
-      advanceFrame();
-    }, remainingDurationMs);
+      if (nextFrame) {
+        selectFrame(nextFrame.id);
+        return;
+      }
+      setNarrationPhase('closing');
+      return;
+    }
 
-    return () => {
-      updateElapsedTime();
-      window.clearInterval(progressInterval);
-      window.clearTimeout(advanceTimer);
-    };
-  }, [activeFrame.mission.id, advanceFrame, autopilot.status, completeMission, sectionDurationMs]);
+    if (narrationPhase === 'closing') {
+      setNarrationPhase('chapterEnd');
+      setChapterEndOpen(true);
+      setAutopilot(current => ({ status: 'paused', started: current.started }));
+      updateChapterUrl(chapter.id, activeFrame.id, { showMode, autoplay: false });
+    }
+  }, [activeFrame.id, activeFrame.mission.id, autopilot.status, chapter.id, completeMission, narrationPhase, nextFrame, selectFrame, showMode]);
+
+  const continueToNextChapter = useCallback(() => {
+    const nextIndex = (activeIndex + 1) % DEMO_CHAPTERS.length;
+    const targetChapter = DEMO_CHAPTERS[nextIndex];
+    const firstSection = getDemoSections(targetChapter)[0];
+    setShowIntro(false);
+    setChapterEndOpen(false);
+    setActiveId(targetChapter.id);
+    setActiveFrameId(firstSection.id);
+    setNarrationPhase('intro');
+    setAutopilot({ status: 'playing', started: true });
+    updateChapterUrl(targetChapter.id, firstSection.id, { showMode, autoplay: true });
+  }, [activeIndex, showMode]);
+
+  const replayChapter = useCallback(() => {
+    const firstSection = frames[0];
+    setShowIntro(false);
+    setChapterEndOpen(false);
+    setActiveFrameId(firstSection.id);
+    setNarrationPhase('intro');
+    setAutopilot({ status: 'playing', started: true });
+    updateChapterUrl(chapter.id, firstSection.id, { showMode, autoplay: true });
+  }, [chapter.id, frames, showMode]);
+
+  const replaySection = useCallback(() => {
+    setShowIntro(false);
+    setChapterEndOpen(false);
+    setNarrationPhase('section');
+    setAutopilot({ status: 'playing', started: true });
+    updateChapterUrl(chapter.id, activeFrame.id, { showMode, autoplay: true });
+  }, [activeFrame.id, chapter.id, showMode]);
+
+  const closeChapterEndPanel = useCallback(() => {
+    setChapterEndOpen(false);
+    setNarrationPhase('section');
+    setAutopilot(current => ({ status: 'paused', started: current.started }));
+    updateChapterUrl(chapter.id, activeFrame.id, { showMode, autoplay: false });
+  }, [activeFrame.id, chapter.id, showMode]);
 
   const railItems = useMemo(() => DEMO_CHAPTERS, []);
 
@@ -2919,6 +3549,17 @@ export function InteractiveDemoWalkthrough() {
 
   return (
     <div className="h-screen overflow-hidden bg-[#030A15] text-[#EEF3FA]">
+      {demoInteractionLocked && (
+        <div
+          aria-hidden="true"
+          className="fixed inset-0 z-[1000] cursor-default bg-transparent"
+          onClick={swallowDemoInteraction}
+          onContextMenu={swallowDemoInteraction}
+          onDoubleClick={swallowDemoInteraction}
+          onPointerDown={swallowDemoInteraction}
+          onPointerUp={swallowDemoInteraction}
+        />
+      )}
       <header className="flex h-16 flex-shrink-0 items-center justify-between gap-3 border-b border-[#2E7FFF]/18 bg-[#07111F] px-4">
         <div className="flex min-w-0 items-center gap-3">
           <img src="/4c-logo.png" alt="4C logo" className="h-9 w-9 rounded-lg object-contain" />
@@ -3007,19 +3648,14 @@ export function InteractiveDemoWalkthrough() {
               <button
                 type="button"
                 onClick={toggleAutopilot}
-                className={`inline-flex h-9 w-9 items-center justify-center rounded-lg border text-white transition-colors ${autopilot.status === 'playing' ? 'border-violet-300/34 bg-violet-400/20' : 'border-[#2E7FFF]/22 bg-[#0A1628] hover:bg-[#112040]'}`}
-                aria-label={autopilot.status === 'playing' ? 'Pause auto tour' : 'Start auto tour'}
+                className={`relative z-[1100] inline-flex h-9 w-9 items-center justify-center rounded-lg border text-white transition-colors ${autopilot.status === 'playing' ? 'border-violet-300/34 bg-violet-400/20' : 'border-[#2E7FFF]/22 bg-[#0A1628] hover:bg-[#112040]'}`}
+                aria-label={autopilot.status === 'playing' ? 'Pause narration' : 'Start narration'}
               >
                 {autopilot.status === 'playing' ? <Pause size={15} /> : <Play size={15} />}
               </button>
-              {isDemoVoiceSetupMode() && (
-                <DemoVoiceAdvisor
-                  section={activeFrame}
-                  tourStatus={autopilot.status}
-                  narrationLaunchRequest={narrationLaunchRequest}
-                  onToast={onToast}
-                />
-              )}
+              <div className="hidden rounded-lg border border-[#2E7FFF]/16 bg-[#0A1628] px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#8EA7C7] 2xl:block">
+                {narrationPhase === 'intro' ? 'Chapter intro' : narrationPhase === 'closing' || narrationPhase === 'chapterEnd' ? 'Chapter pause' : 'Scripted audio'}
+              </div>
             </div>
           </div>
 
@@ -3086,8 +3722,28 @@ export function InteractiveDemoWalkthrough() {
               <ValueSpine totals={outcomeTotals} />
             </div>
             <div ref={stageRef} className="relative min-h-0 flex-1 overflow-hidden">
-              <DemoStage key={chapter.id} chapter={chapter} onToast={onToast} onOpenChapter={selectChapter} totals={outcomeTotals} onCopySummary={copyOutcomeSummary} />
-              <StageHotspot box={anchorBox} fallback={hotspotTarget.fallback} />
+              <DemoNarrationPlayer
+                script={activeNarrationScript}
+                status={chapterEndOpen ? 'paused' : autopilot.status}
+                playbackKey={narrationPlaybackKey}
+                onEnded={handleNarrationEnded}
+                onProgress={setSectionProgress}
+              />
+              <DemoStage key={`${chapter.id}:${activeFrame.id}`} chapter={chapter} section={activeFrame} onToast={onToast} onOpenChapter={selectChapter} totals={outcomeTotals} onCopySummary={copyOutcomeSummary} />
+              {!chapterEndOpen && autopilot.started && narrationPhase === 'intro' && <IntroDashboardReveal progress={sectionProgress} />}
+              {!chapterEndOpen && autopilot.started && narrationPhase !== 'intro' && chapter.id !== 'portfolio' && <StageSpotlight box={anchorBox} fallback={hotspotTarget.fallback} />}
+              {chapterEndOpen && (
+                <ChapterEndPanel
+                  chapter={chapter}
+                  nextChapter={nextChapter}
+                  section={activeFrame}
+                  onClose={closeChapterEndPanel}
+                  onNextChapter={continueToNextChapter}
+                  onReplayChapter={replayChapter}
+                  onReplaySection={replaySection}
+                  onToast={onToast}
+                />
+              )}
             </div>
             <div className="hidden">
               <div className="grid items-center gap-2 md:grid-cols-[40px_minmax(0,1fr)_40px_140px]">
