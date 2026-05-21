@@ -2964,6 +2964,7 @@ function CardActions({
     <div className="grid grid-cols-3 gap-1 pt-2 border-t border-[rgba(46,127,255,0.1)]">
       <button
         onClick={e => { e.stopPropagation(); onNavigateToCommand(client.id, client.name); }}
+        data-demo-anchor="portfolio-command-path"
         data-demo-action="portfolio-open-command"
         className="flex flex-col items-center gap-0.5 py-1.5 rounded-lg bg-[rgba(46,127,255,0.1)] hover:bg-[rgba(46,127,255,0.2)] text-cyan-400 transition-colors"
         title="Command Center"

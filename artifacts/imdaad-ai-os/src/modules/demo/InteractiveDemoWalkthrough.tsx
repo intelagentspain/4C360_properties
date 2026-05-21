@@ -17,7 +17,6 @@ import {
   MonitorPlay,
   Pause,
   Play,
-  Presentation,
   RotateCcw,
   ShieldAlert,
   ShieldCheck,
@@ -240,11 +239,13 @@ function buildShareUrl(chapterId?: string, sectionId?: string, showMode?: DemoSh
 
 const DEMO_PROGRESS_STORAGE_KEY = '4c360-properties-demo-progress-v1';
 const DEMO_AGENT_STORAGE_KEY = '4c360-elevenlabs-demo-agent-id';
+const DEFAULT_DEMO_AGENT_ID = 'agent_5601ks3evt2rftyttrk7br8m5rtd';
 const DEMO_SCENARIO = 'Sobha Pilot Tower handover risk: recover readiness, control cost exposure, close evidence gaps, and prepare owner decisions.';
 const DEMO_AGENT_ID = (
   import.meta.env.VITE_ELEVENLABS_DEMO_AGENT_ID
   ?? import.meta.env.VITE_ELEVENLABS_SOLUTIONS_AGENT_ID
   ?? import.meta.env.VITE_ELEVENLABS_AGENT_ID
+  ?? DEFAULT_DEMO_AGENT_ID
 ) as string | undefined;
 const DEMO_VOICE_ID = (
   import.meta.env.VITE_ELEVENLABS_DEMO_VOICE_ID
@@ -402,7 +403,7 @@ const CHAPTER_OUTCOMES: Record<string, DemoOutcome> = {
 };
 
 const CHAPTER_NARRATION_OPENERS: Record<string, string> = {
-  portfolio: 'You start with a single portfolio command view, so your team can see where attention is needed before opening separate project files.',
+  portfolio: 'Before we open a project file, start with the owner question: where does leadership attention need to go today? This portfolio command view brings property health, risk, incidents, SLA pressure, and open actions into one operating picture. The point is not another dashboard. The point is knowing which asset needs action, why it matters, and where to go next.',
   projectcommand: 'You move from portfolio risk into one live project control surface with budget, progress, ownership, and current blockers in context.',
   programme: 'You can translate schedule complexity into a practical handover decision, with critical path and recovery focus visible in the same place.',
   stagegates: 'You can see whether the next milestone is actually ready, which gate is blocked, and what evidence or owner action is missing.',
@@ -419,16 +420,16 @@ const CHAPTER_NARRATION_OPENERS: Record<string, string> = {
 
 const SECTION_NARRATION_SCRIPTS: Record<string, DemoNarration> = {
   'portfolio:health-actions': {
-    caption: 'Your first view answers the owner question: which asset needs attention today? 4C360 brings health, risk, incidents, and open actions into one portfolio command view. Instead of waiting for separate updates, your team can immediately prioritize the property that needs leadership attention and move toward the right operating action.',
-    presenterNote: 'Highlight the client benefit: faster prioritization and less dependency on fragmented updates.',
+    caption: 'Look at the health signals at the top of the portfolio view. This is the first decision point for an owner: which properties are critical, which are warning, and which are operating normally. Instead of waiting for separate updates from each team, your leadership group can immediately see where attention is needed and start the review from priority, not noise.',
+    presenterNote: 'Point to the status and action strip. The client should see that the review starts with priority, not scattered reporting.',
   },
   'portfolio:portfolio-map': {
-    caption: 'Your portfolio becomes an operating map, not a static property list. Each asset can lead into the relevant project, vendor, evidence, field, or resident context without losing the owner-level view.',
-    presenterNote: 'Highlight the client benefit: portfolio visibility with a connected route into the operating detail.',
+    caption: 'Now look across the full portfolio command view. Each property is carrying more than a name and location. You can see operating status, incidents, SLA performance, compliance, integrations, and risk context in one place. This lets your team stay at owner level while still knowing that every asset can connect into project, vendor, evidence, field, or resident operations.',
+    presenterNote: 'Spotlight the full portfolio command surface. Emphasize that the owner can stay high level while every property remains connected to operating detail.',
   },
   'portfolio:command-path': {
-    caption: 'When a property shows risk, you have a direct path into the command surface that can resolve it. The concern moves from an executive observation to an accountable project, vendor, evidence, or field action.',
-    presenterNote: 'Highlight the client benefit: one-click movement from owner concern to accountable execution.',
+    caption: 'This is where the portfolio view becomes actionable. When a property shows risk, the owner does not need to ask who has the latest report. The command action takes the team straight into the control surface for that asset, where project progress, blockers, cost, risk, evidence, and owners can be reviewed in context. The signal becomes an accountable operating path.',
+    presenterNote: 'Spotlight the command action. This is the handoff from portfolio signal to accountable project control.',
   },
   'projectcommand:project-context': {
     caption: 'The project twin gives the board the essential context: budget, progress, owner route, and current control state. It replaces fragmented status packs with one live project surface.',
@@ -824,6 +825,7 @@ const DEMO_FRAMES: Record<string, DemoFrame[]> = {
     {
       id: 'command-path',
       label: 'Command Path',
+      anchor: 'portfolio-command-path',
       fallback: { left: 56, top: 31, width: 34, height: 22 },
       headline: 'Turn portfolio attention into a command path',
       story: 'A property signal can move directly into the control surface owned by the team that can resolve it.',
@@ -1811,57 +1813,6 @@ function ValueSpine({ totals }: { totals: ReturnType<typeof getOutcomeTotals> })
   );
 }
 
-function BoardCaptionBar({
-  act,
-  section,
-  showMode,
-  autopilotStatus,
-  progress,
-}: {
-  act: DemoAct;
-  section: DemoSection;
-  showMode: DemoShowMode;
-  autopilotStatus: DemoAutopilotState['status'];
-  progress: number;
-}) {
-  const narrationScript = getSectionNarrationScript(section);
-
-  return (
-    <div className="flex flex-shrink-0 items-center gap-3 border-b border-[#2E7FFF]/14 bg-[#081426] px-3 py-2">
-      <div className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-cyan-300/24 bg-cyan-300/10 text-cyan-200 sm:flex">
-        <Presentation size={16} />
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-200">{act.label}: {act.title}</span>
-          <span className="rounded-full border border-[#2E7FFF]/20 bg-[#06101F] px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-[#8DBDFF]">
-            {getShowModeOption(showMode).label}
-          </span>
-          <span className={`rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] ${
-            autopilotStatus === 'playing'
-              ? 'bg-emerald-300/14 text-emerald-100'
-              : autopilotStatus === 'paused'
-              ? 'bg-amber-300/14 text-amber-100'
-              : 'bg-[#2E7FFF]/12 text-[#B8C7DB]'
-          }`}>
-            {autopilotStatus === 'playing' ? 'Auto tour running' : autopilotStatus === 'paused' ? 'Paused' : 'Manual'}
-          </span>
-        </div>
-        <p className="mt-1 line-clamp-1 text-[11px] font-semibold leading-4 text-[#B8C7DB]">{narrationScript.caption}</p>
-      </div>
-      <div className="hidden w-24 shrink-0 sm:block">
-        <div className="mb-1 flex items-center justify-between text-[9px] font-black uppercase tracking-[0.12em] text-[#7A94B4]">
-          <span>section</span>
-          <span>{Math.round(progress)}%</span>
-        </div>
-        <div className="h-1.5 rounded-full bg-[#13294A]">
-          <div className="h-full rounded-full bg-[linear-gradient(90deg,#22D3EE,#2E7FFF,#7C3AED)] transition-all duration-300" style={{ width: `${progress}%` }} />
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function ExecutiveControlRoom({
   onStart,
   onCopyBoardLink,
@@ -1899,7 +1850,7 @@ function ExecutiveControlRoom({
           </div>
         </header>
 
-        <main className="grid flex-1 items-start gap-4 py-4 md:grid-cols-[minmax(0,1fr)_minmax(320px,0.82fr)] lg:min-h-0 lg:py-3 xl:grid-cols-[minmax(0,1.08fr)_minmax(360px,0.9fr)]">
+        <main className="grid flex-1 items-start gap-4 py-4 md:grid-cols-[minmax(0,1fr)_minmax(320px,0.82fr)] lg:min-h-0 lg:items-stretch lg:py-3 xl:grid-cols-[minmax(0,1.08fr)_minmax(360px,0.9fr)]">
           <section className="min-w-0 lg:flex lg:min-h-0 lg:flex-col">
             <div>
               <div className="inline-flex w-fit items-center gap-2 rounded-full border border-[#E11D2E]/28 bg-[#E11D2E]/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-[#FFB4BC]">
@@ -1951,7 +1902,7 @@ function ExecutiveControlRoom({
               </div>
             </div>
 
-            <div className="mt-4 hidden items-stretch gap-2 xl:grid xl:grid-cols-3">
+            <div className="mt-4 hidden items-stretch gap-2 xl:mt-auto xl:grid xl:grid-cols-3">
               {promises.map(({ icon: Icon, title, detail }) => (
                 <div key={title} className="flex min-h-[128px] flex-col rounded-2xl border border-[#2E7FFF]/20 bg-[#07111F] p-3 shadow-2xl shadow-black/20">
                   <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-cyan-300/24 bg-cyan-300/10 text-cyan-200">
@@ -1964,7 +1915,7 @@ function ExecutiveControlRoom({
             </div>
           </section>
 
-          <section className="min-h-0 rounded-3xl border border-[#2E7FFF]/24 bg-[linear-gradient(155deg,rgba(46,127,255,0.18),rgba(124,58,237,0.12),rgba(7,17,31,0.98))] p-4 shadow-2xl shadow-black/40 lg:max-h-full">
+          <section className="min-h-0 rounded-3xl border border-[#2E7FFF]/24 bg-[linear-gradient(155deg,rgba(46,127,255,0.18),rgba(124,58,237,0.12),rgba(7,17,31,0.98))] p-4 shadow-2xl shadow-black/40 lg:flex lg:max-h-full lg:flex-col lg:pb-0">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <div className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-200">Live board briefing</div>
@@ -1975,7 +1926,7 @@ function ExecutiveControlRoom({
               </div>
             </div>
 
-            <div className="mt-4 rounded-2xl border border-[#2E7FFF]/18 bg-[#06101F]/82 p-3">
+            <div className="mt-4 rounded-2xl border border-[#2E7FFF]/18 bg-[#06101F]/82 p-3 lg:mt-auto">
               <div className="flex items-center justify-between gap-3">
                 <div className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-200">{activeBriefing.label}</div>
                 <div className="rounded-full border border-[#2E7FFF]/18 bg-[#0A1628] px-2 py-1 text-[10px] font-black text-[#8DBDFF]">
@@ -2057,6 +2008,23 @@ type DemoVoiceSession = {
   sendContextualUpdate(text: string): void;
   setMicMuted(isMuted: boolean): void;
 };
+
+type DemoVoiceSingleton = {
+  session: DemoVoiceSession | null;
+  token: number;
+};
+
+declare global {
+  interface Window {
+    __4C360_DEMO_VOICE_SINGLETON__?: DemoVoiceSingleton;
+  }
+}
+
+function getDemoVoiceSingleton() {
+  if (typeof window === 'undefined') return null;
+  window.__4C360_DEMO_VOICE_SINGLETON__ ??= { session: null, token: 0 };
+  return window.__4C360_DEMO_VOICE_SINGLETON__;
+}
 
 function buildElevenLabsNarrationCue(section: DemoSection) {
   const script = getSectionNarrationScript(section);
@@ -2165,6 +2133,8 @@ function DemoVoiceAdvisor({
   const lastNarratedSectionRef = useRef<string | null>(null);
   const previousTourStatusRef = useRef<DemoAutopilotState['status']>(tourStatus);
   const handledNarrationLaunchRequestRef = useRef(0);
+  const voiceStartInFlightRef = useRef(false);
+  const voiceSessionTokenRef = useRef(0);
 
   useEffect(() => {
     if (agentConfigured && voiceStatus === 'unavailable') setVoiceStatus('ready');
@@ -2178,14 +2148,21 @@ function DemoVoiceAdvisor({
   }, []);
 
   const stopVoice = useCallback(async () => {
-    if (conversationRef.current) {
+    voiceSessionTokenRef.current += 1;
+    voiceStartInFlightRef.current = false;
+    const voiceSingleton = getDemoVoiceSingleton();
+    const activeConversation = conversationRef.current ?? voiceSingleton?.session ?? null;
+    conversationRef.current = null;
+    if (voiceSingleton) voiceSingleton.session = null;
+    lastNarratedSectionRef.current = null;
+
+    if (activeConversation) {
       try {
-        await conversationRef.current.endSession();
+        await activeConversation.endSession();
       } catch {
         // no-op
       }
     }
-    conversationRef.current = null;
     setVoiceActive(false);
     setVoiceErrorMessage('');
     setVoiceStatus(configuredAgentId ? 'ready' : 'unavailable');
@@ -2198,26 +2175,45 @@ function DemoVoiceAdvisor({
       onToast('Paste the ElevenLabs agent ID to enable board audio', 'info');
       return;
     }
-    if (voiceActive) return;
+    if (voiceActive || conversationRef.current || voiceStartInFlightRef.current) return;
+
+    const sessionToken = voiceSessionTokenRef.current + 1;
+    voiceSessionTokenRef.current = sessionToken;
+    voiceStartInFlightRef.current = true;
+
+    const voiceSingleton = getDemoVoiceSingleton();
+    if (voiceSingleton?.session && voiceSingleton.session !== conversationRef.current) {
+      try {
+        await voiceSingleton.session.endSession();
+      } catch {
+        // no-op
+      }
+      voiceSingleton.session = null;
+    }
 
     try {
-      setOpen(true);
+      setOpen(voiceSetupMode);
       setVoiceActive(true);
       setVoiceErrorMessage('');
       setVoiceStatus('connecting');
       await requestDemoMicrophoneAccess();
       const { Conversation } = await import('@11labs/client');
       const signedUrl = await getElevenLabsSignedUrl(nextAgentId);
-      conversationRef.current = await withVoiceConnectionTimeout(Conversation.startSession({
+      const conversation = await withVoiceConnectionTimeout(Conversation.startSession({
         ...(signedUrl ? { signedUrl } : { agentId: nextAgentId }),
         connectionType: 'websocket',
         ...(DEMO_VOICE_ID ? { overrides: { tts: { voiceId: DEMO_VOICE_ID } } } : {}),
         onConnect: () => {
+          if (voiceSessionTokenRef.current !== sessionToken) return;
           setVoiceStatus('listening');
           onToast('ElevenLabs board audio connected', 'success');
         },
         onDisconnect: (details: unknown) => {
+          if (voiceSessionTokenRef.current !== sessionToken) return;
+          const activeSingleton = getDemoVoiceSingleton();
+          if (activeSingleton?.token === sessionToken) activeSingleton.session = null;
           conversationRef.current = null;
+          voiceStartInFlightRef.current = false;
           setVoiceActive(false);
           const disconnectError = formatElevenLabsDisconnect(details);
           if (disconnectError) {
@@ -2228,31 +2224,58 @@ function DemoVoiceAdvisor({
           }
         },
         onError: (message: string) => {
+          if (voiceSessionTokenRef.current !== sessionToken) return;
           const errorMessage = formatElevenLabsError(message);
+          const activeSingleton = getDemoVoiceSingleton();
+          if (activeSingleton?.token === sessionToken) activeSingleton.session = null;
           conversationRef.current = null;
+          voiceStartInFlightRef.current = false;
           setVoiceActive(false);
           setVoiceErrorMessage(errorMessage);
           setVoiceStatus('error');
           onToast(errorMessage, 'error');
         },
-        onModeChange: (mode: { mode: 'speaking' | 'listening' }) => setVoiceStatus(mode.mode),
+        onModeChange: (mode: { mode: 'speaking' | 'listening' }) => {
+          if (voiceSessionTokenRef.current !== sessionToken) return;
+          setVoiceStatus(mode.mode);
+        },
         onStatusChange: (status: { status: 'connecting' | 'connected' | 'disconnecting' | 'disconnected' }) => {
+          if (voiceSessionTokenRef.current !== sessionToken) return;
           if (status.status === 'connecting') setVoiceStatus('connecting');
           if (status.status === 'disconnected') setVoiceStatus('ready');
         },
       }));
+
+      if (voiceSessionTokenRef.current !== sessionToken) {
+        await conversation.endSession().catch(() => undefined);
+        return;
+      }
+
+      conversationRef.current = conversation;
+      const activeSingleton = getDemoVoiceSingleton();
+      if (activeSingleton) {
+        activeSingleton.session = conversation;
+        activeSingleton.token = sessionToken;
+      }
       lastNarratedSectionRef.current = section.sectionId;
       conversationRef.current.sendContextualUpdate(`Demo scenario: ${DEMO_SCENARIO}. Format: 6-minute client walkthrough. Current chapter: ${section.chapterId}. Current section: ${section.title}.`);
       conversationRef.current.sendUserMessage(buildElevenLabsNarrationCue(section));
     } catch (error) {
+      if (voiceSessionTokenRef.current !== sessionToken) return;
       const errorMessage = formatElevenLabsError(error);
+      const activeSingleton = getDemoVoiceSingleton();
+      if (activeSingleton?.token === sessionToken) activeSingleton.session = null;
       conversationRef.current = null;
       setVoiceActive(false);
       setVoiceErrorMessage(errorMessage);
       setVoiceStatus('error');
       onToast(errorMessage, 'error');
+    } finally {
+      if (voiceSessionTokenRef.current === sessionToken) {
+        voiceStartInFlightRef.current = false;
+      }
     }
-  }, [onToast, section, voiceActive]);
+  }, [onToast, section, voiceActive, voiceSetupMode]);
 
   const saveAgentId = useCallback(() => {
     const nextAgentId = agentIdInput.trim();
@@ -2279,11 +2302,16 @@ function DemoVoiceAdvisor({
   }, [autoNarrationEnabled, section, sendNarrationCue, voiceActive]);
 
   useEffect(() => {
-    if (!voiceSetupMode || !narrationLaunchRequest || handledNarrationLaunchRequestRef.current === narrationLaunchRequest) return;
+    if (!narrationLaunchRequest || handledNarrationLaunchRequestRef.current === narrationLaunchRequest) return;
     handledNarrationLaunchRequestRef.current = narrationLaunchRequest;
-    if (!agentConfigured || voiceActive) return;
+    if (!agentConfigured || voiceActive || conversationRef.current || voiceStartInFlightRef.current) return;
     void startVoice();
-  }, [agentConfigured, narrationLaunchRequest, startVoice, voiceActive, voiceSetupMode]);
+  }, [agentConfigured, narrationLaunchRequest, startVoice, voiceActive]);
+
+  useEffect(() => {
+    if (tourStatus !== 'playing' || !autoNarrationEnabled || !agentConfigured || voiceActive || conversationRef.current || voiceStartInFlightRef.current) return;
+    void startVoice();
+  }, [agentConfigured, autoNarrationEnabled, startVoice, tourStatus, voiceActive]);
 
   useEffect(() => () => {
     void stopVoice();
@@ -2320,7 +2348,7 @@ function DemoVoiceAdvisor({
     : 'Narration';
   const narrationScript = getSectionNarrationScript(section);
 
-  if (!voiceSetupMode) return null;
+  if (!voiceSetupMode && !agentConfigured) return null;
 
   const handleNarrationClick = () => {
     if (voiceSetupMode) {
@@ -3054,23 +3082,6 @@ export function InteractiveDemoWalkthrough() {
 
         <main className="min-h-[620px] min-w-0 overflow-hidden bg-[#06101F] p-2 md:min-h-0">
           <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-[#2E7FFF]/22 bg-[#0A1628] shadow-2xl shadow-black/30">
-            <div className="flex flex-shrink-0 items-center justify-between gap-3 border-b border-[#2E7FFF]/14 bg-[#07111F] px-3 py-2">
-              <div className="min-w-0">
-                <div className="truncate text-[13px] font-black text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{chapter.label}</div>
-                <div className="mt-0.5 truncate text-[11px] font-semibold text-cyan-100/90">Focus: {activeFrame.headline}</div>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-full bg-emerald-300" />
-                <span className="text-[10px] font-black uppercase tracking-[0.14em] text-emerald-200">Live demo data</span>
-              </div>
-            </div>
-            <BoardCaptionBar
-              act={activeAct}
-              section={activeFrame}
-              showMode={showMode}
-              autopilotStatus={autopilot.status}
-              progress={sectionProgress}
-            />
             <div className="hidden flex-shrink-0 border-b border-[#2E7FFF]/14 bg-[#07111F] px-4 py-2">
               <ValueSpine totals={outcomeTotals} />
             </div>
