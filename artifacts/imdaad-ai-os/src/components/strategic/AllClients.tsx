@@ -1925,7 +1925,7 @@ function PortfolioSummaryStrip({ clients, onToast }: { clients: PortfolioClient[
 
   return (
     <>
-      <div className="grid grid-cols-2 md:grid-cols-3 2xl:grid-cols-6 gap-2 px-5 py-3 border-b border-[rgba(46,127,255,0.12)] flex-shrink-0">
+      <div className="grid grid-cols-2 md:grid-cols-3 2xl:grid-cols-6 gap-2 px-5 py-3 border-b border-[rgba(46,127,255,0.12)] flex-shrink-0" data-demo-anchor="portfolio-kpi-cards">
         {kpis.map(k => (
           <div
             key={k.key}
@@ -2551,7 +2551,7 @@ function ExecutiveImpactStrip({ clients, onToast }: { clients: PortfolioClient[]
 
   return (
     <>
-      <div className="grid grid-cols-2 gap-2 px-5 py-2.5 border-b border-[rgba(46,127,255,0.12)] flex-shrink-0 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-2 px-5 py-2.5 border-b border-[rgba(46,127,255,0.12)] flex-shrink-0 lg:grid-cols-5" data-demo-anchor="portfolio-impact-cards">
         {items.map(item => (
           <div
             key={item.key}
@@ -2848,7 +2848,7 @@ function PortfolioPulseFeed({ onToast }: { onToast: ToastFn }) {
   }
 
   return (
-    <div className="mx-5 mb-3 rounded-xl border border-[rgba(46,127,255,0.2)] bg-[rgba(17,32,64,0.7)] overflow-hidden flex-shrink-0">
+    <div className="mx-5 mb-3 rounded-xl border border-[rgba(46,127,255,0.2)] bg-[rgba(17,32,64,0.7)] overflow-hidden flex-shrink-0" data-demo-anchor="portfolio-pulse-feed">
       <div className="flex items-center justify-between px-3 py-2 border-b border-[rgba(46,127,255,0.12)]">
         <div className="flex items-center gap-2">
           <div className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
@@ -2994,6 +2994,7 @@ function CardActions({
 
 function ClientPortfolioCard({
   client,
+  demoAnchor,
   onSelect,
   onDismiss,
   onToast,
@@ -3003,6 +3004,7 @@ function ClientPortfolioCard({
   onNavigateToCommand,
 }: {
   client: PortfolioClient;
+  demoAnchor?: string;
   onSelect: (c: PortfolioClient) => void;
   onDismiss: (clientId: string) => void;
   onToast: ToastFn;
@@ -3021,6 +3023,7 @@ function ClientPortfolioCard({
       <motion.div
         whileTap={{ scale: 0.995 }}
         exit={{ opacity: 0, scale: 0.98 }}
+        data-demo-anchor={demoAnchor}
         className={`relative w-full flex flex-col rounded-xl border bg-[rgba(17,32,64,0.7)] overflow-hidden ${STATUS_BORDER[client.status]} ${STATUS_GLOW[client.status]}`}
       >
         <button
@@ -3073,6 +3076,7 @@ function ClientPortfolioCard({
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.96 }}
+      data-demo-anchor={demoAnchor}
       className={`relative flex min-w-0 flex-col rounded-xl border bg-[rgba(17,32,64,0.7)] overflow-hidden ${STATUS_BORDER[client.status]} ${STATUS_GLOW[client.status]}`}
     >
       <div className={`h-1 w-full ${RISK_STRIP[client.riskLevel]}`} />
@@ -3227,9 +3231,11 @@ function KPITile({ label, value, color, sub }: { label: string; value: string | 
 function ClientReportPanel({
   client,
   onClose,
+  demoAutoScroll = false,
 }: {
   client: PortfolioClient;
   onClose: () => void;
+  demoAutoScroll?: boolean;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [shareOpen, setShareOpen] = useState(false);
@@ -3239,6 +3245,14 @@ function ClientReportPanel({
   const [emailResult, setEmailResult] = useState<'idle' | 'sent' | 'error'>('idle');
   const [copied, setCopied] = useState(false);
   const [copyFailed, setCopyFailed] = useState(false);
+
+  useEffect(() => {
+    if (!demoAutoScroll) return undefined;
+    const timer = window.setTimeout(() => {
+      scrollRef.current?.scrollTo({ top: 210, behavior: 'smooth' });
+    }, 1100);
+    return () => window.clearTimeout(timer);
+  }, [client.id, demoAutoScroll]);
 
   function closeShare() {
     setShareOpen(false);
@@ -3944,9 +3958,11 @@ interface Props {
   onClientSelect: (clientId: string) => void;
   onNavigateToIncidents: (clientId: string) => void;
   onNavigateToCommand: (clientId: string, clientName?: string) => void;
+  demoAddPropertySection?: 'wizard' | 'ai' | 'upload';
+  demoPortfolioSection?: 'health-actions' | 'portfolio-map' | 'command-path';
 }
 
-export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onNavigateToCommand }: Props) {
+export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onNavigateToCommand, demoAddPropertySection, demoPortfolioSection }: Props) {
   const memberFilter  = useMemberFilter();
   const { addProfiles } = useMemberProfiles();
   const { clients: allClients, addClient } = useClients();
@@ -3971,7 +3987,12 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
   const [hiddenClientIds, setHiddenClientIds] = useState<string[]>([]);
   const [selectedStatusKey, setSelectedStatusKey] = useState<PortfolioStatusKey | null>(null);
 
-  const handleAddClient = (data: ClientData, teamMembers: TeamMember[], inviteOk: boolean, failedCount: number) => {
+  useEffect(() => {
+    if (!demoAddPropertySection) return;
+    setShowAddModal(true);
+  }, [demoAddPropertySection]);
+
+  const handleAddClient = (data: ClientData, teamMembers: TeamMember[], inviteOk: boolean, failedCount: number, options?: { keepOpen?: boolean }) => {
     addClient({
       id: `CLT-${Date.now()}`,
       name: data.name,
@@ -3989,8 +4010,10 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
       lastUpdated: 'Just now',
       contract: { number: `IMD-${Date.now()}`, tier: data.slaTier ?? 'Standard', annualValue: data.contractValue ?? '' },
     }).catch(err => console.warn('[AllClients] Failed to persist client:', err));
-    addProfiles(teamMembers);
-    setShowAddModal(false);
+    void addProfiles(teamMembers).catch(err => {
+      console.warn('[AllClients] Failed to persist team members, property remains available locally:', err);
+    });
+    if (!options?.keepOpen) setShowAddModal(false);
     if (teamMembers.length > 0 && !inviteOk) {
       const msg = failedCount > 0
         ? `${data.name} added — ${failedCount} invite${failedCount > 1 ? 's' : ''} failed to send`
@@ -4035,6 +4058,7 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
       return (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9);
     });
   const filtered = matchingClients.filter(c => !hiddenClientIds.includes(c.id));
+  const demoCommandPathClient = filtered.find(client => client.status === 'critical') ?? filtered[0] ?? allClients[0] ?? null;
   const hiddenCount = hiddenClientIds.length;
   const hiddenMatchingCount = matchingClients.length - filtered.length;
   const statusSummaries: PortfolioStatusSummary[] = (['critical', 'warning', 'live'] as const).map(statusKey => ({
@@ -4044,6 +4068,21 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
     ...STATUS_SUMMARY_CONFIG[statusKey],
   }));
   const selectedStatusSummary = selectedStatusKey ? statusSummaries.find(s => s.key === selectedStatusKey) ?? null : null;
+
+  useEffect(() => {
+    if (demoPortfolioSection !== 'command-path') {
+      setReportClient(null);
+      return;
+    }
+
+    if (!demoCommandPathClient) return;
+    const timer = window.setTimeout(() => {
+      setSelected(null);
+      setReportClient(demoCommandPathClient);
+    }, 500);
+
+    return () => window.clearTimeout(timer);
+  }, [demoCommandPathClient, demoCommandPathClient?.id, demoPortfolioSection]);
 
   return (
     <div className="h-full flex flex-col overflow-hidden relative" data-demo-anchor="portfolio-command">
@@ -4073,6 +4112,7 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
           <button
             onClick={() => setShowAddModal(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-[#2E7FFF] hover:bg-blue-500 text-white text-[11px] font-semibold rounded-lg transition-colors shadow-[0_0_12px_rgba(46,127,255,0.35)]"
+            data-demo-anchor="property-onboarding-entry"
           >
             <Plus size={13} />
             Add New Property
@@ -4179,18 +4219,18 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
             )}
           </div>
         ) : view === 'grid' ? (
-          <div className="grid grid-cols-1 gap-3 xl:grid-cols-2 2xl:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 xl:grid-cols-2 2xl:grid-cols-3" data-demo-anchor="portfolio-property-grid">
             <AnimatePresence initial={false}>
-              {filtered.map(c => (
-                <ClientPortfolioCard key={c.id} client={c} onSelect={setSelected} onDismiss={handleDismissClient} onToast={onToast} onReport={setReportClient} view="grid" onNavigateToIncidents={onNavigateToIncidents} onNavigateToCommand={onNavigateToCommand} />
+              {filtered.map((c, index) => (
+                <ClientPortfolioCard key={c.id} client={c} demoAnchor={index === 0 ? 'portfolio-primary-card' : undefined} onSelect={setSelected} onDismiss={handleDismissClient} onToast={onToast} onReport={setReportClient} view="grid" onNavigateToIncidents={onNavigateToIncidents} onNavigateToCommand={onNavigateToCommand} />
               ))}
             </AnimatePresence>
           </div>
         ) : (
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2" data-demo-anchor="portfolio-property-grid">
             <AnimatePresence initial={false}>
-              {filtered.map(c => (
-                <ClientPortfolioCard key={c.id} client={c} onSelect={setSelected} onDismiss={handleDismissClient} onToast={onToast} onReport={setReportClient} view="list" onNavigateToIncidents={onNavigateToIncidents} onNavigateToCommand={onNavigateToCommand} />
+              {filtered.map((c, index) => (
+                <ClientPortfolioCard key={c.id} client={c} demoAnchor={index === 0 ? 'portfolio-primary-card' : undefined} onSelect={setSelected} onDismiss={handleDismissClient} onToast={onToast} onReport={setReportClient} view="list" onNavigateToIncidents={onNavigateToIncidents} onNavigateToCommand={onNavigateToCommand} />
               ))}
             </AnimatePresence>
           </div>
@@ -4236,6 +4276,7 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
             <ClientReportPanel
               client={reportClient}
               onClose={() => setReportClient(null)}
+              demoAutoScroll={demoPortfolioSection === 'command-path'}
             />
           </>
         )}
@@ -4246,6 +4287,7 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
           <AddClientModal
             onClose={() => setShowAddModal(false)}
             onSave={handleAddClient}
+            demoSection={demoAddPropertySection}
           />
         )}
       </AnimatePresence>
