@@ -5,14 +5,14 @@ self.addEventListener('push', function(event) {
   try {
     payload = event.data.json();
   } catch {
-    payload = { title: 'AI-OS', body: event.data.text() };
+    payload = { title: 'DevelopmentX', body: event.data.text() };
   }
 
   const options = {
     body: payload.body || '',
-    icon: '/favicon.svg',
-    badge: '/favicon.svg',
-    tag: payload.tag || 'imdaad-notification',
+    icon: '/4c-logo.png',
+    badge: '/4c-logo.png',
+    tag: payload.tag || 'developmentx-notification',
     data: payload.data || {},
     requireInteraction: true,
     actions: [
@@ -22,7 +22,7 @@ self.addEventListener('push', function(event) {
   };
 
   event.waitUntil(
-    self.registration.showNotification(payload.title || 'AI-OS', options)
+    self.registration.showNotification(payload.title || 'DevelopmentX', options)
   );
 });
 
