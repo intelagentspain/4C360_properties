@@ -4015,7 +4015,6 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
   const [reportClient,  setReportClient]  = useState<PortfolioClient | null>(null);
   const [showAddModal,  setShowAddModal]  = useState(false);
   const [hiddenClientIds, setHiddenClientIds] = useState<string[]>([]);
-  const [selectedStatusKey, setSelectedStatusKey] = useState<PortfolioStatusKey | null>(null);
 
   useEffect(() => {
     if (!demoAddPropertySection) return;
@@ -4091,13 +4090,6 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
   const demoCommandPathClient = filtered.find(client => client.status === 'critical') ?? filtered[0] ?? allClients[0] ?? null;
   const hiddenCount = hiddenClientIds.length;
   const hiddenMatchingCount = matchingClients.length - filtered.length;
-  const statusSummaries: PortfolioStatusSummary[] = (['critical', 'warning', 'live'] as const).map(statusKey => ({
-    key: statusKey,
-    count: allClients.filter(c => c.status === statusKey).length,
-    clients: allClients.filter(c => c.status === statusKey),
-    ...STATUS_SUMMARY_CONFIG[statusKey],
-  }));
-  const selectedStatusSummary = selectedStatusKey ? statusSummaries.find(s => s.key === selectedStatusKey) ?? null : null;
 
   useEffect(() => {
     if (demoPortfolioSection !== 'command-path') {
@@ -4116,8 +4108,8 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
 
   return (
     <div className="h-full flex flex-col overflow-hidden relative" data-demo-anchor="portfolio-command">
-      <div className="flex flex-col gap-3 px-5 py-3 border-b border-[rgba(46,127,255,0.15)] flex-shrink-0 lg:flex-row lg:items-center lg:justify-between">
-        <div>
+      <div className="flex flex-col gap-3 px-5 py-3 border-b border-[rgba(46,127,255,0.15)] flex-shrink-0 xl:flex-row xl:items-center xl:justify-between">
+        <div className="min-w-0">
           <h2 className="text-[#EEF3FA] font-bold text-base" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
             {isMemberMode ? 'My Properties' : 'Properties'}
           </h2>
@@ -4127,21 +4119,60 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
               : `Portfolio command view · ${allClients.length} properties · Master Admin`}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2 lg:justify-end" data-demo-anchor="portfolio-health-actions">
-          {statusSummaries.map(k => (
-            <button
-              key={k.key}
-              onClick={() => setSelectedStatusKey(k.key)}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[10px] font-semibold transition-all hover:-translate-y-0.5 hover:border-[#2E7FFF]/45 hover:shadow-[0_0_14px_rgba(46,127,255,0.16)] focus:outline-none focus:ring-1 focus:ring-[#2E7FFF]/70 ${k.bg} ${k.color}`}
-              aria-label={`Open ${k.label} status details`}
-            >
-              <span className="text-[13px] font-bold">{k.count}</span>
-              <span>{k.label} {propertyNoun(k.count)}</span>
-            </button>
-          ))}
+        <div className="flex min-w-0 flex-1 flex-wrap items-stretch gap-2 xl:justify-end">
+          <div className="flex min-w-[190px] flex-1 items-center gap-1.5 rounded-lg border border-[rgba(46,127,255,0.2)] bg-[#112040] px-2.5 py-1.5 xl:max-w-[240px]">
+            <Search size={11} className="shrink-0 text-[#7A94B4]" />
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search properties..."
+              className="min-w-0 flex-1 bg-transparent text-[11px] text-[#EEF3FA] placeholder-[#7A94B4] outline-none"
+            />
+          </div>
+
+          <select
+            value={region}
+            onChange={e => setRegion(e.target.value)}
+            className="min-w-[122px] flex-1 cursor-pointer rounded-lg border border-[rgba(46,127,255,0.2)] bg-[#112040] px-2 py-1.5 text-[10px] text-[#7A94B4] outline-none sm:flex-none"
+          >
+            {REGIONS.map(r => <option key={r} value={r}>Region: {r}</option>)}
+          </select>
+
+          <select
+            value={sector}
+            onChange={e => setSector(e.target.value)}
+            className="min-w-[132px] flex-1 cursor-pointer rounded-lg border border-[rgba(46,127,255,0.2)] bg-[#112040] px-2 py-1.5 text-[10px] text-[#7A94B4] outline-none sm:flex-none"
+          >
+            {SECTORS.map(s => <option key={s} value={s}>Sector: {s.length > 20 ? `${s.slice(0, 18)}...` : s}</option>)}
+          </select>
+
+          <select
+            value={status}
+            onChange={e => setStatus(e.target.value)}
+            className="min-w-[112px] flex-1 cursor-pointer rounded-lg border border-[rgba(46,127,255,0.2)] bg-[#112040] px-2 py-1.5 text-[10px] capitalize text-[#7A94B4] outline-none sm:flex-none"
+          >
+            {STATUSES.map(s => <option key={s} value={s}>Status: {s}</option>)}
+          </select>
+
+          <select
+            value={riskLevel}
+            onChange={e => setRiskLevel(e.target.value)}
+            className="min-w-[104px] flex-1 cursor-pointer rounded-lg border border-[rgba(46,127,255,0.2)] bg-[#112040] px-2 py-1.5 text-[10px] capitalize text-[#7A94B4] outline-none sm:flex-none"
+          >
+            {RISK_LVLS.map(r => <option key={r} value={r}>Risk: {r}</option>)}
+          </select>
+
+          <select
+            value={sortKey}
+            onChange={e => setSortKey(e.target.value)}
+            className="min-w-[132px] flex-1 cursor-pointer rounded-lg border border-[rgba(46,127,255,0.2)] bg-[#112040] px-2 py-1.5 text-[10px] text-[#7A94B4] outline-none sm:flex-none"
+          >
+            {SORT_OPTS.map(s => <option key={s.key} value={s.key}>Sort: {s.label}</option>)}
+          </select>
+
           <button
             onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#2E7FFF] hover:bg-blue-500 text-white text-[11px] font-semibold rounded-lg transition-colors shadow-[0_0_12px_rgba(46,127,255,0.35)]"
+            className="flex min-w-[142px] items-center justify-center gap-1.5 rounded-lg bg-[#2E7FFF] px-3 py-1.5 text-[11px] font-semibold text-white shadow-[0_0_12px_rgba(46,127,255,0.35)] transition-colors hover:bg-blue-500"
             data-demo-anchor="property-onboarding-entry"
           >
             <Plus size={13} />
@@ -4150,31 +4181,15 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
         </div>
       </div>
 
-      <PortfolioSummaryStrip clients={allClients} onToast={onToast} />
+      <div data-demo-anchor="portfolio-health-actions">
+        <PortfolioSummaryStrip clients={allClients} onToast={onToast} />
+      </div>
 
       <ExecutiveImpactStrip clients={allClients} onToast={onToast} />
 
       <PortfolioPulseFeed onToast={onToast} />
 
-      <div className="flex items-stretch gap-2 px-5 pb-2.5 flex-shrink-0 flex-wrap gap-y-2">
-        <div className="flex min-w-[180px] flex-1 items-center gap-1.5 bg-[#112040] rounded-lg px-2.5 py-1.5 border border-[rgba(46,127,255,0.2)] sm:flex-none">
-          <Search size={11} className="text-[#7A94B4]" />
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search properties..."
-            className="w-full bg-transparent text-[11px] text-[#EEF3FA] placeholder-[#7A94B4] outline-none sm:w-36"
-          />
-        </div>
-
-        <select
-          value={region}
-          onChange={e => setRegion(e.target.value)}
-          className="min-w-[130px] flex-1 text-[10px] px-2 py-1.5 rounded-lg border border-[rgba(46,127,255,0.2)] bg-[#112040] text-[#7A94B4] outline-none cursor-pointer sm:flex-none"
-        >
-          {REGIONS.map(r => <option key={r} value={r}>Region: {r}</option>)}
-        </select>
-
+      <div className="hidden">
         <select
           value={sector}
           onChange={e => setSector(e.target.value)}
@@ -4266,23 +4281,6 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
           </div>
         )}
       </div>
-
-      <AnimatePresence>
-        {selectedStatusSummary && (
-          <>
-            <div className="fixed inset-0 z-[300] bg-black/35 backdrop-blur-[1px]" onClick={() => setSelectedStatusKey(null)} />
-            <StatusSummaryModal
-              summary={selectedStatusSummary}
-              onClose={() => setSelectedStatusKey(null)}
-              onToast={onToast}
-              onOpenClient={client => {
-                setSelectedStatusKey(null);
-                setSelected(client);
-              }}
-            />
-          </>
-        )}
-      </AnimatePresence>
 
       <AnimatePresence>
         {selected && (
