@@ -518,16 +518,16 @@ const SECTION_NARRATION_SCRIPTS: Record<string, DemoNarration> = {
     presenterNote: 'Stress owner action, due timing, and readiness movement.',
   },
   'cost:forecast': {
-    caption: 'Cost starts with the movement from baseline to forecast. The board can immediately see whether exposure is a budget issue, a commitment issue, or a decision still waiting for approval.',
-    presenterNote: 'Keep the money story simple: where is exposure coming from, and what decision changes it?',
+    caption: 'Cost now resolves into a choice. You can see the forecast delta, pending variations, top package driver, and the three commercial paths available to the owner.',
+    presenterNote: 'Frame this as a board decision: approve recovery, hold proof, or accept the exposure.',
   },
   'cost:variations': {
-    caption: 'The variation queue shows commercial pressure before it becomes a surprise. Each pending item is connected to forecast movement and a needed response.',
-    presenterNote: 'This is where owners see that compare quotes and variations belong in one commercial view.',
+    caption: 'The variation queue shows which changes are still waiting for a commercial decision, who owns the approval, and how each item affects programme and forecast.',
+    presenterNote: 'Show that pending VOs are not admin noise. They are decision pressure.',
   },
   'cost:package-drivers': {
-    caption: 'Package drivers make the forecast explainable. Procurement, progress, and claims can be traced to the package that is actually moving final cost.',
-    presenterNote: 'Use this when the board asks, why is the number changing?',
+    caption: 'Package drivers make the forecast explainable. You can trace procurement, progress, claims, vendor score, and delay exposure back to the exact package moving final cost.',
+    presenterNote: 'Use this when the board asks why the number changed.',
   },
   'risk:risk-register': {
     caption: 'The risk register becomes useful because it is live. Probability, impact, trend, and owner are all visible, so risk review becomes an operating discipline.',
@@ -542,15 +542,15 @@ const SECTION_NARRATION_SCRIPTS: Record<string, DemoNarration> = {
     presenterNote: 'This is a strong board-level line: risk is shown as a future outcome, not a register entry.',
   },
   'forecast:scenarios': {
-    caption: 'Forecast scenarios show what happens if today’s blockers continue. Optimistic, base, and pessimistic paths give the board a way to discuss timing, cost, and readiness before the month closes.',
+    caption: 'Forecast scenarios compare the outcome paths side by side. You can see probability, completion date, final cost, assumptions, and cost movement before the board commits to an action.',
     presenterNote: 'Frame this as decision support, not prediction theatre.',
   },
   'forecast:confidence': {
-    caption: 'Confidence explains why the forecast should be trusted. The system exposes the signals and evidence behind the forecast, so the board understands what is strengthening or weakening it.',
+    caption: 'Confidence explains why the forecast should be trusted. The system exposes cost range, early warnings, ranked actions, and evidence basis so your team can challenge the forecast intelligently.',
     presenterNote: 'Make the trust point explicit. The forecast is only persuasive when the evidence basis is visible.',
   },
   'forecast:decisions': {
-    caption: 'Decision cards turn the forecast into a choice. The board sees which action improves the base case and which owner must move next.',
+    caption: 'Decision cards turn the forecast into a next move. The board sees which action improves the base case, the impact it protects, and the deadline for the accountable owner.',
     presenterNote: 'Close the forecast chapter on action, not charts.',
   },
   'obligations:register': {
@@ -1054,18 +1054,19 @@ const DEMO_FRAMES: Record<string, DemoFrame[]> = {
     {
       id: 'forecast',
       label: 'Forecast',
-      anchor: 'project-cost',
+      anchor: 'project-cost-bridge',
       fallback: { left: 6, top: 13, width: 60, height: 28 },
-      headline: 'Connect budget, commitments, variations, and forecast',
-      story: 'Show how the project moves from baseline budget to live forecast exposure.',
-      clientValue: 'Owners see where cost pressure is coming from before it becomes a surprise.',
+      headline: 'Convert cost exposure into a board choice',
+      story: 'Show the commercial decision bridge: approve recovery, hold cash until proof arrives, or accept the cost and programme consequence.',
+      clientValue: 'Owners see the decision that changes final cost, not just the number that moved.',
       decisionQuestion: 'Which commercial decision changes the final cost forecast?',
-      nextAction: 'Open the top exposure and inspect the driver.',
+      nextAction: 'Select the preferred commercial path and inspect the supporting driver.',
       tryLabel: 'Show Cost Forecast',
     },
     {
       id: 'variations',
       label: 'Variations',
+      anchor: 'project-cost-variations',
       fallback: { left: 6, top: 36, width: 45, height: 25 },
       headline: 'Make variation exposure visible',
       story: 'Use the VO queue to connect pending approvals, contractor pressure, and forecast movement.',
@@ -1077,6 +1078,7 @@ const DEMO_FRAMES: Record<string, DemoFrame[]> = {
     {
       id: 'package-drivers',
       label: 'Package Drivers',
+      anchor: 'project-cost-package-drivers',
       fallback: { left: 52, top: 36, width: 40, height: 25 },
       headline: 'Explain cost movement by package',
       story: 'Package drivers show where procurement, progress, and claims affect final cost.',
@@ -1128,11 +1130,11 @@ const DEMO_FRAMES: Record<string, DemoFrame[]> = {
     {
       id: 'scenarios',
       label: 'Scenarios',
-      anchor: 'project-forecast',
+      anchor: 'project-forecast-scenarios',
       fallback: { left: 7, top: 13, width: 56, height: 27 },
       headline: 'Show outcomes before they happen',
-      story: 'Compare optimistic, base, and pessimistic outcomes from the same project signal.',
-      clientValue: 'Owners can discuss likely outcomes before month-end reports arrive.',
+      story: 'Compare optimistic, base, and pessimistic outcomes from the same project signal, including final cost, date, and assumptions.',
+      clientValue: 'Owners can compare the cost of action with the cost of waiting before month-end reports arrive.',
       decisionQuestion: 'What happens if current blockers are not resolved?',
       nextAction: 'Compare the scenarios and call out the decision that changes the curve.',
       tryLabel: 'Show Scenarios',
@@ -1140,6 +1142,7 @@ const DEMO_FRAMES: Record<string, DemoFrame[]> = {
     {
       id: 'confidence',
       label: 'Confidence',
+      anchor: 'project-forecast-confidence',
       fallback: { left: 7, top: 38, width: 42, height: 22 },
       headline: 'Explain confidence, not just prediction',
       story: 'Use confidence signals to show why the forecast is moving and what evidence supports it.',
@@ -1151,6 +1154,7 @@ const DEMO_FRAMES: Record<string, DemoFrame[]> = {
     {
       id: 'decisions',
       label: 'Decision Cards',
+      anchor: 'project-forecast-decisions',
       fallback: { left: 52, top: 38, width: 40, height: 22 },
       headline: 'Turn forecast movement into decisions',
       story: 'Decision cards show which action protects date, cost, or readiness.',
