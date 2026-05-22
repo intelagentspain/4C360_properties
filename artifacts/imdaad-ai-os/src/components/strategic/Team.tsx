@@ -792,9 +792,9 @@ function Pill({ children, className = '' }: { children: ReactNode; className?: s
 
 function MetricCard({ title, value, note, icon, tone = '#2E7FFF' }: { title: string; value: string; note: string; icon: ReactNode; tone?: string }) {
   return (
-    <div className="rounded-lg border border-white/[0.08] bg-white/[0.035] p-3 min-h-[108px]">
+    <div className="min-w-0 rounded-lg border border-white/[0.08] bg-white/[0.035] p-3 min-h-[108px]">
       <div className="flex items-start justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <p className="text-[10px] font-semibold uppercase text-[#7A94B4]">{title}</p>
           <p className="mt-2 text-[24px] font-extrabold text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{value}</p>
         </div>
@@ -816,7 +816,7 @@ function ProgressBar({ value, color = '#00C6FF' }: { value: number; color?: stri
 }
 
 function Panel({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <section className={`rounded-lg border border-white/[0.08] bg-[#0D1E3A]/80 ${className}`}>{children}</section>;
+  return <section className={`min-w-0 rounded-lg border border-white/[0.08] bg-[#0D1E3A]/80 ${className}`}>{children}</section>;
 }
 
 function WorkforceProfileDrawer({ employee, onClose }: { employee: Employee; onClose: () => void }) {
@@ -971,10 +971,40 @@ function OverviewTab({ onEmployeeSelect, onToast }: { onEmployeeSelect: (employe
     },
     {
       label: 'Next manager move',
-      value: 'Rebalance 6 jobs',
+      value: 'Move 6 jobs',
       detail: 'Protects Bayz 102 QA and reduces overtime pressure.',
       tone: 'text-cyan-100',
       bg: 'bg-[#00C6FF]/[0.065] border-[#00C6FF]/18',
+    },
+  ];
+  const workloadLanes = [
+    {
+      label: 'Bayz 102 QA',
+      value: '+4 inspectors',
+      detail: 'Cover the next inspection window.',
+      action: 'Assign QA cover',
+      tone: '#00C6FF',
+    },
+    {
+      label: 'Tower B',
+      value: '6 jobs',
+      detail: 'Move routine work away from overload.',
+      action: 'Move technicians',
+      tone: '#FFCD57',
+    },
+    {
+      label: 'Certifications',
+      value: '23 expiring',
+      detail: 'Lock renewals before access is blocked.',
+      action: 'Start renewal queue',
+      tone: '#FF9B38',
+    },
+    {
+      label: 'Resident follow-up',
+      value: 'Same day',
+      detail: 'Use spare FM response capacity.',
+      action: 'Assign callbacks',
+      tone: '#38D98A',
     },
   ];
   const riskAlerts = [
@@ -1008,7 +1038,7 @@ function OverviewTab({ onEmployeeSelect, onToast }: { onEmployeeSelect: (employe
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 2xl:grid-cols-9">
         <MetricCard title="Active Workforce" value="1,284" note="Portfolio personnel across projects, sites, vendors, and service teams." icon={<Users size={17} />} tone="#2E7FFF" />
         <MetricCard title="On-Site Today" value="812" note="Checked into active properties and project work fronts." icon={<MapPin size={17} />} tone="#00C6FF" />
         <MetricCard title="Assigned to Projects" value="936" note="Linked to ProjectCommand, FieldOps, InspectPro, OSH, or FacilityCore." icon={<BriefcaseBusiness size={17} />} tone="#9C7CFF" />
@@ -1020,8 +1050,8 @@ function OverviewTab({ onEmployeeSelect, onToast }: { onEmployeeSelect: (employe
         <MetricCard title="Utilization" value="78%" note="Live capacity balance across sites, projects, and shifts." icon={<GaugeIcon />} tone="#38D98A" />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 2xl:grid-cols-[minmax(0,1.35fr)_minmax(390px,0.85fr)]">
-        <Panel className="overflow-hidden">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
+        <Panel className="min-w-0 overflow-hidden xl:col-span-7 2xl:col-span-7">
           <div className="border-b border-white/[0.08] bg-[#10264A]/55 px-4 py-3">
             <SectionTitle
               icon={<Activity size={15} />}
@@ -1032,7 +1062,7 @@ function OverviewTab({ onEmployeeSelect, onToast }: { onEmployeeSelect: (employe
               {[
                 ['Portfolio load', '78%', 'Healthy, but Bayz 102 needs QA cover'],
                 ['Capacity at risk', '64 people', 'Overload, certification, or quality flags'],
-                ['Recommended move', 'Rebalance today', 'Shift routine work away from critical fronts'],
+                ['Recommended move', 'Move routine jobs', 'Shift routine work away from critical fronts'],
               ].map(([label, value, detail]) => (
                 <div key={label} className="rounded-lg border border-white/[0.07] bg-[#071224]/70 p-3">
                   <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#7A94B4]">{label}</p>
@@ -1043,40 +1073,35 @@ function OverviewTab({ onEmployeeSelect, onToast }: { onEmployeeSelect: (employe
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 p-4 xl:grid-cols-[minmax(0,1fr)_260px]">
+          <div className="grid grid-cols-1 gap-3 p-4 xl:grid-cols-[minmax(0,1fr)_280px]">
             <div className="min-w-0 rounded-xl border border-white/[0.07] bg-[#071224]/60 p-3">
               <div className="mb-2 flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#7A94B4]">6-week operating trend</p>
-                  <p className="mt-1 text-[11px] text-[#C8D6E8]">Productivity is improving while risk is rising, so the next decision is capacity control.</p>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#7A94B4]">Workload lanes</p>
+                  <p className="mt-1 text-[11px] text-[#C8D6E8]">No empty chart space: each lane has a person, pressure, and next move.</p>
                 </div>
-                <div className="flex flex-wrap justify-end gap-2 text-[10px]">
-                  {[
-                    ['Productivity', '#00C6FF'],
-                    ['Utilization', '#38D98A'],
-                    ['Completion', '#FFCD57'],
-                    ['Risk', '#FF5C6C'],
-                  ].map(([label, color]) => (
-                    <span key={label} className="inline-flex items-center gap-1 text-[#8AA6C8]">
-                      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
-                      {label}
-                    </span>
-                  ))}
-                </div>
+                <Pill className="border-[#00C6FF]/25 bg-[#00C6FF]/10 text-cyan-100">Live queue</Pill>
               </div>
-              <div className="h-[180px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={healthTrend} margin={{ top: 10, right: 12, bottom: 0, left: -16 }}>
-                    <CartesianGrid stroke="rgba(255,255,255,0.055)" vertical={false} />
-                    <XAxis dataKey="week" stroke="#4A6080" tickLine={false} axisLine={false} tick={{ fontSize: 10 }} />
-                    <YAxis domain={[0, 100]} stroke="#4A6080" tickLine={false} axisLine={false} tick={{ fontSize: 10 }} />
-                    <Tooltip contentStyle={{ background: '#0A1628', border: '1px solid rgba(46,127,255,0.25)', borderRadius: 8, color: '#EEF3FA' }} />
-                    <Line type="monotone" dataKey="productivity" stroke="#00C6FF" strokeWidth={3} dot={{ r: 3, fill: '#00C6FF' }} activeDot={{ r: 5 }} />
-                    <Line type="monotone" dataKey="utilization" stroke="#38D98A" strokeWidth={2.5} dot={false} />
-                    <Line type="monotone" dataKey="completion" stroke="#FFCD57" strokeWidth={2.5} dot={false} />
-                    <Line type="monotone" dataKey="risk" stroke="#FF5C6C" strokeWidth={2.5} dot={{ r: 2, fill: '#FF5C6C' }} />
-                  </LineChart>
-                </ResponsiveContainer>
+              <div className="grid gap-2 md:grid-cols-2">
+                {workloadLanes.map(lane => (
+                  <div key={lane.label} className="rounded-xl border border-white/[0.07] bg-white/[0.035] p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-[10px] font-black uppercase tracking-[0.15em] text-[#8AA6C8]">{lane.label}</p>
+                        <p className="mt-1 text-[18px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{lane.value}</p>
+                      </div>
+                      <span className="h-2.5 w-2.5 shrink-0 rounded-full shadow-[0_0_16px_currentColor]" style={{ backgroundColor: lane.tone, color: lane.tone }} />
+                    </div>
+                    <p className="mt-2 min-h-8 text-[11px] leading-4 text-[#AFC1D7]">{lane.detail}</p>
+                    <button
+                      type="button"
+                      onClick={() => onToast(`${lane.action} prepared for ${lane.label}`, 'info')}
+                      className="mt-3 w-full rounded-lg border border-[#2E7FFF]/22 bg-[#2E7FFF]/10 px-3 py-2 text-[10px] font-black text-blue-100 transition-colors hover:border-[#2E7FFF]/55 hover:bg-[#2E7FFF]/18"
+                    >
+                      {lane.action}
+                    </button>
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -1090,16 +1115,16 @@ function OverviewTab({ onEmployeeSelect, onToast }: { onEmployeeSelect: (employe
               ))}
               <button
                 type="button"
-                onClick={() => onToast('AI prepared a workforce rebalance plan for Bayz 102 and Tower B.', 'info')}
+                onClick={() => onToast('AI prepared a technician movement plan for Bayz 102 and Tower B.', 'info')}
                 className="w-full rounded-xl border border-[#2E7FFF]/30 bg-[#2E7FFF]/14 px-3 py-2.5 text-[11px] font-bold text-blue-100 transition-colors hover:border-[#2E7FFF]/60 hover:bg-[#2E7FFF]/22"
               >
-                Build rebalance plan
+                Build technician plan
               </button>
             </div>
           </div>
         </Panel>
 
-        <Panel className="overflow-hidden">
+        <Panel className="min-w-0 overflow-hidden xl:col-span-5 2xl:col-span-5">
           <div className="border-b border-white/[0.08] bg-[#10264A]/55 px-4 py-3">
             <SectionTitle
               icon={<Award size={15} />}
@@ -2329,8 +2354,8 @@ export function Team({ onToast }: { onToast: ToastFn }) {
   return (
     <div className="flex h-full flex-col overflow-hidden bg-[#0A1628]">
       <div className="flex-shrink-0 border-b border-white/[0.08] px-5 pt-4">
-        <div className="flex items-start justify-between gap-4">
-          <div>
+        <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(320px,390px)]">
+          <div className="min-w-0">
             <div className="flex items-center gap-2">
               <div className="w-9 h-9 rounded-lg bg-[#2E7FFF]/14 border border-[#2E7FFF]/25 flex items-center justify-center text-[#00C6FF]">
                 <Users size={18} />
@@ -2346,7 +2371,7 @@ export function Team({ onToast }: { onToast: ToastFn }) {
               ))}
             </div>
           </div>
-          <div className="rounded-lg border border-[#00C6FF]/20 bg-[#00C6FF]/[0.055] p-3 w-[360px]">
+          <div className="min-w-0 rounded-lg border border-[#00C6FF]/20 bg-[#00C6FF]/[0.055] p-3">
             <div className="flex items-center gap-2 text-[10px] font-bold uppercase text-cyan-200"><Bot size={13} /> Live workforce intelligence</div>
             <p className="mt-2 text-[11px] leading-relaxed text-[#C8D6E8]">Connected to ProjectCommand, FieldOps, InspectPro, ServiceDesk, VendorIQ, FacilityCore, ResidentPortal, and OSH.</p>
             <div className="mt-3 grid grid-cols-2 gap-2">
