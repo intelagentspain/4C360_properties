@@ -480,7 +480,7 @@ type Tab = 'business' | 'sites' | 'team' | 'knowledge' | 'budget' | 'inventory';
 
 const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
   { key: 'business',  label: 'Business',       icon: <Building2 size={11} /> },
-  { key: 'sites',     label: 'Sites',           icon: <MapPin size={11} /> },
+  { key: 'sites',     label: 'Sites / Zones',   icon: <MapPin size={11} /> },
   { key: 'team',      label: 'Team',            icon: <Users size={11} /> },
   { key: 'knowledge', label: 'Knowledge Base',  icon: <BookOpen size={11} /> },
   { key: 'budget',    label: 'Budget',          icon: <DollarSign size={11} /> },
@@ -1895,10 +1895,10 @@ export function AddClientModal({ onClose, onSave, demoSection }: AddClientModalP
 
           {activeTab === 'sites' && (
             <div className="space-y-3">
-              <SectionHeader icon={SECTION_ICONS.sites} title="Sites & Assets" />
+              <SectionHeader icon={SECTION_ICONS.sites} title="Sites / Zones & Assets" />
 
               <div className="flex items-center gap-3 text-[11px] text-[#7A94B4]">
-                <span><span className="font-semibold text-[#EEF3FA]">{siteNames.length}</span> site{siteNames.length !== 1 ? 's' : ''}</span>
+                <span><span className="font-semibold text-[#EEF3FA]">{siteNames.length}</span> zone{siteNames.length !== 1 ? 's' : ''}</span>
                 <span className="text-[#2E3A52]">·</span>
                 <span><span className="font-semibold text-[#EEF3FA]">{allAssetRows.length}</span> total asset{allAssetRows.length !== 1 ? 's' : ''}</span>
               </div>
@@ -1920,7 +1920,7 @@ export function AddClientModal({ onClose, onSave, demoSection }: AddClientModalP
                         <input
                           value={site}
                           onChange={e => { updateSite(siteIdx, e.target.value); clearErr('sites'); }}
-                          placeholder={`Site ${siteIdx + 1} name or location`}
+                          placeholder={`Zone ${siteIdx + 1} name or location`}
                           className={`flex-1 ${inputCls(siteIdx === 0 && !!errors.sites)}`}
                         />
                         <button

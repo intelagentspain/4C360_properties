@@ -3443,6 +3443,34 @@ export function InteractiveDemoWalkthrough() {
   }, []);
 
   useEffect(() => {
+    if (!demoInteractionLocked) return undefined;
+
+    const blockInteraction = (event: Event) => {
+      const target = event.target instanceof Element ? event.target : null;
+      if (target?.closest('[data-demo-pause-control="true"]')) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    };
+
+    const lockedEvents = [
+      'click',
+      'contextmenu',
+      'dblclick',
+      'mousedown',
+      'mouseup',
+      'pointerdown',
+      'pointerup',
+      'touchstart',
+      'touchend',
+    ];
+
+    lockedEvents.forEach(eventName => document.addEventListener(eventName, blockInteraction, true));
+    return () => {
+      lockedEvents.forEach(eventName => document.removeEventListener(eventName, blockInteraction, true));
+    };
+  }, [demoInteractionLocked]);
+
+  useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
       if (target?.closest('input, textarea, select')) return;
@@ -3551,6 +3579,7 @@ export function InteractiveDemoWalkthrough() {
     <div className="h-screen overflow-hidden bg-[#030A15] text-[#EEF3FA]">
       {demoInteractionLocked && (
         <div
+          data-demo-click-shield="true"
           aria-hidden="true"
           className="fixed inset-0 z-[1000] cursor-default bg-transparent"
           onClick={swallowDemoInteraction}
@@ -3647,6 +3676,7 @@ export function InteractiveDemoWalkthrough() {
             <div className="flex shrink-0 items-center gap-2">
               <button
                 type="button"
+                data-demo-pause-control="true"
                 onClick={toggleAutopilot}
                 className={`relative z-[1100] inline-flex h-9 w-9 items-center justify-center rounded-lg border text-white transition-colors ${autopilot.status === 'playing' ? 'border-violet-300/34 bg-violet-400/20' : 'border-[#2E7FFF]/22 bg-[#0A1628] hover:bg-[#112040]'}`}
                 aria-label={autopilot.status === 'playing' ? 'Pause narration' : 'Start narration'}

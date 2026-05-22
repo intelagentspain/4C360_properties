@@ -1504,6 +1504,7 @@ function PortfolioKpiModal({ kpi, onClose, onToast }: { kpi: PortfolioKpi; onClo
   const selectedFocusRows = kpi.focusRows.filter(row => selectedFocusActions.includes(`${row.label}:${row.action}`));
   const selectedCommandActions = kpi.actions.filter(action => selectedActions.includes(action.label));
   const actionCount = selectedActions.length + selectedFocusActions.length;
+  const isSitesKpi = kpi.key === 'sites';
 
   const reviewLater = () => {
     setReviewScheduled(true);
@@ -1540,9 +1541,13 @@ function PortfolioKpiModal({ kpi, onClose, onToast }: { kpi: PortfolioKpi; onClo
             {kpi.icon}
           </div>
           <div>
-            <div className="text-[9px] font-bold uppercase tracking-wide text-[#7A94B4]">Command Answer</div>
+            <div className="text-[9px] font-bold uppercase tracking-wide text-[#7A94B4]">
+              {isSitesKpi ? 'Coverage OS' : 'Command Answer'}
+            </div>
             <h3 className="mt-0.5 text-sm font-bold leading-tight text-[#EEF3FA]">{kpi.label}</h3>
-            <p className="mt-1 max-w-2xl text-[11px] leading-relaxed text-[#9DB9E8]">{kpi.commandAnswer}</p>
+            <p className="mt-1 max-w-2xl text-[11px] leading-relaxed text-[#9DB9E8]">
+              {isSitesKpi ? 'Every job, asset, sensor, technician, and SLA clock needs a zone.' : kpi.commandAnswer}
+            </p>
           </div>
         </div>
         <button onClick={onClose} className="rounded-lg p-1.5 text-[#7A94B4] transition-colors hover:bg-white/5 hover:text-white" aria-label="Close KPI details">
@@ -1551,9 +1556,29 @@ function PortfolioKpiModal({ kpi, onClose, onToast }: { kpi: PortfolioKpi; onClo
       </div>
 
       <div className="custom-scrollbar min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
+        {isSitesKpi && (
+          <div className="rounded-2xl border border-cyan-300/22 bg-[linear-gradient(135deg,rgba(8,145,178,0.16),rgba(46,127,255,0.08))] p-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-200">Coverage OS</div>
+                <h4 className="mt-1 text-[15px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+                  {kpi.value} zones under command
+                </h4>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {['Techs', 'Assets', 'Sensors', 'Incidents', 'Evidence', 'SLA'].map(item => (
+                  <span key={item} className="rounded-full border border-cyan-300/18 bg-[#06101F]/80 px-3 py-1 text-[10px] font-black text-cyan-100">
+                    {item}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="grid gap-2 md:grid-cols-[0.8fr_1.2fr_1.2fr]">
           <div className={`rounded-xl border p-3 ${kpi.bg}`}>
-            <div className="text-[9px] uppercase tracking-wide text-[#7A94B4]">Signal</div>
+            <div className="text-[9px] uppercase tracking-wide text-[#7A94B4]">{isSitesKpi ? 'Coverage footprint' : 'Signal'}</div>
             <div className={`mt-1 text-2xl font-black leading-tight ${kpi.color}`}>{kpi.value}</div>
             <div className="mt-1 text-[10px] leading-relaxed text-[#8EA7C7]">{kpi.label}</div>
           </div>
@@ -1575,7 +1600,7 @@ function PortfolioKpiModal({ kpi, onClose, onToast }: { kpi: PortfolioKpi; onClo
 
         <div className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#07111F] p-3">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-            <div className="text-[10px] font-bold uppercase tracking-wide text-[#8DBDFF]">Where to act first</div>
+            <div className="text-[10px] font-bold uppercase tracking-wide text-[#8DBDFF]">{isSitesKpi ? 'Pressure zones' : 'Where to act first'}</div>
             <div className="rounded-full border border-[rgba(46,127,255,0.16)] bg-[#0A1628] px-2 py-0.5 text-[9px] text-[#7A94B4]">{kpi.sourceTrace}</div>
           </div>
           <div className="space-y-2">
@@ -1723,13 +1748,13 @@ function PortfolioSummaryStrip({ clients, onToast }: { clients: PortfolioClient[
       tone: client.status === 'critical' ? 'text-red-200' : client.status === 'warning' ? 'text-amber-200' : 'text-emerald-200',
     }));
   const siteCoverageRows = [...clients]
-    .sort((a, b) => b.sites - a.sites || pressureScore(b) - pressureScore(a))
+    .sort((a, b) => pressureScore(b) - pressureScore(a) || b.sites - a.sites)
     .slice(0, 3)
     .map(client => ({
       label: client.name,
-      value: `${client.sites} sites`,
-      detail: `${client.workOrders} active WOs and ${client.incidents} incidents across this footprint. Route load is ${Math.round(client.workOrders / Math.max(client.sites, 1))} WOs/site.`,
-      action: client.incidents > 5 || client.sla < 85 ? 'Rebalance coverage' : 'Check route density',
+      value: `${client.sites} zones`,
+      detail: `${Math.round(client.workOrders / Math.max(client.sites, 1))} WOs/zone / ${client.incidents} incidents / ${client.sla}% SLA.`,
+      action: client.incidents > 5 || client.sla < 85 ? 'Move techs here' : 'Open zone view',
       tone: client.sla < 85 ? 'text-red-200' : client.incidents > 5 ? 'text-amber-200' : 'text-cyan-200',
     }));
   const workOrderFocusRows = [...clients]
@@ -1806,24 +1831,24 @@ function PortfolioSummaryStrip({ clients, onToast }: { clients: PortfolioClient[
     },
     {
       key: 'sites',
-      label: 'Total Sites',
+      label: 'Sites / Zones',
       value: totalSites,
       icon: <MapPin size={13} />,
       color: 'text-cyan-400',
       bg: 'bg-cyan-500/10 border-cyan-500/20',
-      summary: `${totalSites} sites are distributed across the active property portfolio. The highest-site properties drive field coverage and route planning.`,
+      summary: `${totalSites} operating zones are the control layer for work, assets, sensors, people, evidence, and SLA.`,
       detailRows: topClientRows(clients, c => c.sites),
-      chips: ['Open site heatmap', 'Review route load', 'Flag coverage gaps', 'Export site list'],
-      commandAnswer: `${totalSites} sites is a coverage-control question, not a geography fact. The useful view is where site density meets work-order load, incidents, and low SLA because that is where routes, supervisors, and vendors break first.`,
-      nextBestAction: 'Open the route view for the largest site clusters and rebalance the next shift around pressure, not only distance.',
-      ifIgnored: 'Large clusters can hide slow response pockets until resident complaints or SLA breaches surface late.',
-      sourceTrace: 'Based on sites, active WOs, incidents, overdue tasks, and SLA',
+      chips: ['Open zone command', 'Move technicians', 'Assign zone owners', 'Start SLA watch'],
+      commandAnswer: `${totalSites} zones show where work is owned: people, assets, sensors, incidents, evidence, and SLA in one operating footprint.`,
+      nextBestAction: 'Move technicians to the zones with the most incidents, open work, and SLA risk.',
+      ifIgnored: 'Unowned zones become slow routes, missed evidence, and late SLA breaches.',
+      sourceTrace: 'Zones / WOs / incidents / SLA',
       focusRows: siteCoverageRows,
       actions: [
-        { label: 'Rebalance route coverage', owner: 'Dispatch Lead', impact: 'Moves technicians toward the clusters where site density is creating response risk.', channel: 'Dispatch' },
-        { label: 'Assign cluster supervisor', owner: 'Operations Lead', impact: 'Creates one accountable owner for the highest-pressure footprint.', channel: 'Task' },
-        { label: 'Open site heatmap', owner: 'Command Center', impact: 'Shows which sites need coverage review before the next shift starts.', channel: 'Map' },
-        { label: 'Flag uncovered service windows', owner: 'DevelopmentX Copilot', impact: 'Finds site/time combinations likely to miss SLA before field load spikes.', channel: 'AI Watch' },
+        { label: 'Move technicians to pressure zones', owner: 'Dispatch Lead', impact: 'Sends available technicians to the zones most likely to breach SLA.', channel: 'Dispatch' },
+        { label: 'Assign zone owners', owner: 'Operations Lead', impact: 'Makes each risky footprint accountable.', channel: 'Task' },
+        { label: 'Open asset layer', owner: 'Command Center', impact: 'Shows the assets and sensors driving pressure.', channel: 'Map' },
+        { label: 'Start SLA watch', owner: 'DevelopmentX Copilot', impact: 'Warns before the next breach.', channel: 'AI Watch' },
       ],
     },
     {
@@ -1929,7 +1954,9 @@ function PortfolioSummaryStrip({ clients, onToast }: { clients: PortfolioClient[
         {kpis.map(k => (
           <div
             key={k.key}
-            className={`group relative rounded-xl border transition-all hover:-translate-y-0.5 hover:border-[#2E7FFF]/45 hover:shadow-[0_0_18px_rgba(46,127,255,0.16)] ${k.bg}`}
+            className={`group relative rounded-xl border transition-all hover:-translate-y-0.5 hover:border-[#2E7FFF]/45 hover:shadow-[0_0_18px_rgba(46,127,255,0.16)] ${k.bg} ${
+              k.key === 'sites' ? 'ring-1 ring-cyan-300/25 shadow-[0_0_22px_rgba(34,211,238,0.10)]' : ''
+            }`}
           >
             <button
               type="button"
@@ -1941,6 +1968,9 @@ function PortfolioSummaryStrip({ clients, onToast }: { clients: PortfolioClient[
               <div>
                 <div className={`text-base font-bold leading-tight ${k.color}`}>{k.value}</div>
                 <div className="mt-0.5 text-[9px] uppercase tracking-wide leading-tight text-[#7A94B4]">{k.label}</div>
+                {k.key === 'sites' && (
+                  <div className="mt-1 text-[8px] font-black uppercase tracking-[0.14em] text-cyan-200">Coverage OS</div>
+                )}
               </div>
             </button>
             <button
