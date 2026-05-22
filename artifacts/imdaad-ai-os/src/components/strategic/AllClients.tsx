@@ -5,6 +5,7 @@ import {
   Zap, ChevronRight, Activity, Database, Users, BarChart2,
   TrendingUp, MapPin, ArrowRight, Shield, Bot, Plus,
   FileText, Truck, Package, Wrench, Calendar, Share2, Link2, Mail, Send, Check, Mic,
+  BellRing, BellOff,
 } from 'lucide-react';
 import { type PortfolioClient } from '@/data/mockData';
 import { type ToastFn } from '@/lib/ui';
@@ -1505,6 +1506,7 @@ function PortfolioKpiModal({ kpi, onClose, onToast }: { kpi: PortfolioKpi; onClo
   const selectedCommandActions = kpi.actions.filter(action => selectedActions.includes(action.label));
   const actionCount = selectedActions.length + selectedFocusActions.length;
   const isSitesKpi = kpi.key === 'sites';
+  const topFocusRow = kpi.focusRows[0];
 
   const reviewLater = () => {
     setReviewScheduled(true);
@@ -1530,7 +1532,7 @@ function PortfolioKpiModal({ kpi, onClose, onToast }: { kpi: PortfolioKpi; onClo
       animate={{ opacity: 1, scale: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.96, y: 12 }}
       transition={{ duration: 0.18 }}
-      className="fixed left-1/2 top-1/2 z-[320] flex max-h-[calc(100dvh-32px)] w-[min(760px,calc(100%-32px))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-[rgba(46,127,255,0.28)] bg-[#0B172A] shadow-2xl"
+      className="fixed left-1/2 top-1/2 z-[320] flex max-h-[calc(100dvh-32px)] w-[min(720px,calc(100%-32px))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-[rgba(46,127,255,0.28)] bg-[#0B172A] shadow-2xl"
       role="dialog"
       aria-modal="true"
       aria-label={`${kpi.label} details`}
@@ -1542,11 +1544,11 @@ function PortfolioKpiModal({ kpi, onClose, onToast }: { kpi: PortfolioKpi; onClo
           </div>
           <div>
             <div className="text-[9px] font-bold uppercase tracking-wide text-[#7A94B4]">
-              {isSitesKpi ? 'Coverage OS' : 'Command Answer'}
+              {isSitesKpi ? 'Coverage OS' : 'Command Decision'}
             </div>
             <h3 className="mt-0.5 text-sm font-bold leading-tight text-[#EEF3FA]">{kpi.label}</h3>
             <p className="mt-1 max-w-2xl text-[11px] leading-relaxed text-[#9DB9E8]">
-              {isSitesKpi ? 'Every job, asset, sensor, technician, and SLA clock needs a zone.' : kpi.commandAnswer}
+              {isSitesKpi ? 'Every job, asset, sensor, technician, and SLA clock needs a zone.' : kpi.summary}
             </p>
           </div>
         </div>
@@ -1557,7 +1559,7 @@ function PortfolioKpiModal({ kpi, onClose, onToast }: { kpi: PortfolioKpi; onClo
 
       <div className="custom-scrollbar min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
         {isSitesKpi && (
-          <div className="rounded-2xl border border-cyan-300/22 bg-[linear-gradient(135deg,rgba(8,145,178,0.16),rgba(46,127,255,0.08))] p-3">
+          <div className="rounded-xl border border-cyan-300/22 bg-[linear-gradient(135deg,rgba(8,145,178,0.16),rgba(46,127,255,0.08))] p-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <div className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-200">Coverage OS</div>
@@ -1576,38 +1578,47 @@ function PortfolioKpiModal({ kpi, onClose, onToast }: { kpi: PortfolioKpi; onClo
           </div>
         )}
 
-        <div className="grid gap-2 md:grid-cols-[0.8fr_1.2fr_1.2fr]">
+        <div className="grid gap-3 md:grid-cols-[150px_minmax(0,1fr)]">
           <div className={`rounded-xl border p-3 ${kpi.bg}`}>
-            <div className="text-[9px] uppercase tracking-wide text-[#7A94B4]">{isSitesKpi ? 'Coverage footprint' : 'Signal'}</div>
-            <div className={`mt-1 text-2xl font-black leading-tight ${kpi.color}`}>{kpi.value}</div>
-            <div className="mt-1 text-[10px] leading-relaxed text-[#8EA7C7]">{kpi.label}</div>
+            <div className="text-[9px] font-bold uppercase tracking-wide text-[#7A94B4]">{isSitesKpi ? 'Footprint' : 'Signal'}</div>
+            <div className={`mt-1 text-3xl font-black leading-none ${kpi.color}`}>{kpi.value}</div>
+            <div className="mt-1 text-[10px] text-[#8EA7C7]">{kpi.label}</div>
           </div>
           <div className="rounded-xl border border-emerald-400/20 bg-emerald-500/10 p-3">
-            <div className="mb-1 flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-wide text-emerald-200">
-              <Zap size={11} />
-              Best next move
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="mb-1 flex items-center gap-1.5 text-[9px] font-black uppercase tracking-wide text-emerald-200">
+                  <Zap size={11} />
+                  Do this now
+                </div>
+                <div className="text-[13px] font-black leading-snug text-[#EEF3FA]">{kpi.nextBestAction}</div>
+                <div className="mt-2 flex items-start gap-1.5 text-[10px] leading-4 text-amber-100/90">
+                  <AlertTriangle size={11} className="mt-0.5 shrink-0 text-amber-200" />
+                  {kpi.ifIgnored}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={createKpiActionPlan}
+                className="shrink-0 rounded-lg bg-[#2E7FFF] px-3 py-2 text-[10px] font-black text-white shadow-[0_0_14px_rgba(46,127,255,0.32)] transition-colors hover:bg-blue-500"
+              >
+                Create plan
+              </button>
             </div>
-            <div className="text-[12px] font-bold leading-snug text-[#EEF3FA]">{kpi.nextBestAction}</div>
-          </div>
-          <div className="rounded-xl border border-amber-400/20 bg-amber-500/10 p-3">
-            <div className="mb-1 flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-wide text-amber-200">
-              <AlertTriangle size={11} />
-              If ignored
-            </div>
-            <div className="text-[12px] font-bold leading-snug text-[#EEF3FA]">{kpi.ifIgnored}</div>
           </div>
         </div>
 
         <div className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#07111F] p-3">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-            <div className="text-[10px] font-bold uppercase tracking-wide text-[#8DBDFF]">{isSitesKpi ? 'Pressure zones' : 'Where to act first'}</div>
+            <div className="text-[10px] font-black uppercase tracking-wide text-[#8DBDFF]">{isSitesKpi ? 'Pressure zones' : 'Act first'}</div>
             <div className="rounded-full border border-[rgba(46,127,255,0.16)] bg-[#0A1628] px-2 py-0.5 text-[9px] text-[#7A94B4]">{kpi.sourceTrace}</div>
           </div>
-          <div className="space-y-2">
-            {kpi.focusRows.map(row => (
-              <div key={`${row.label}-${row.value}`} className="grid gap-2 rounded-xl border border-[rgba(46,127,255,0.10)] bg-[#0A1628] p-3 md:grid-cols-[1fr_auto] md:items-center">
+          <div className="space-y-1.5">
+            {kpi.focusRows.slice(0, 3).map((row, index) => (
+              <div key={`${row.label}-${row.value}`} className="grid gap-2 rounded-lg border border-[rgba(46,127,255,0.10)] bg-[#0A1628] px-3 py-2 md:grid-cols-[1fr_auto] md:items-center">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
+                    <span className="grid h-5 w-5 place-items-center rounded-md border border-white/10 bg-white/[0.04] text-[9px] font-black text-[#8DBDFF]">{index + 1}</span>
                     <div className="truncate text-[12px] font-black text-[#EEF3FA]">{row.label}</div>
                     <div className={`rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-bold ${row.tone}`}>{row.value}</div>
                   </div>
@@ -1637,36 +1648,44 @@ function PortfolioKpiModal({ kpi, onClose, onToast }: { kpi: PortfolioKpi; onClo
           </div>
         </div>
 
-        <div className="grid gap-2 md:grid-cols-2">
-          {kpi.actions.map(action => {
+        <div className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#07111F] p-3">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <div className="text-[10px] font-black uppercase tracking-wide text-[#8DBDFF]">Action checklist</div>
+            <div className="text-[9px] text-[#7A94B4]">{actionCount} selected</div>
+          </div>
+          <div className="grid gap-1.5 sm:grid-cols-2">
+            {kpi.actions.slice(0, 4).map(action => {
             const active = selectedActions.includes(action.label);
             return (
               <button
                 key={action.label}
                 type="button"
                 onClick={() => toggleAction(action.label)}
-                className={`rounded-xl border p-3 text-left transition-all ${
+                className={`rounded-lg border px-3 py-2 text-left transition-all ${
                   active
                     ? 'border-[#2E7FFF]/70 bg-[#2E7FFF]/18 shadow-[0_0_16px_rgba(46,127,255,0.16)]'
                     : 'border-[rgba(46,127,255,0.14)] bg-[#0A1628] hover:border-[#2E7FFF]/45 hover:bg-[#102544]'
                 }`}
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <div className="flex items-center gap-2 text-[12px] font-bold text-[#EEF3FA]">
-                      {active && <Check size={12} className="text-blue-200" />}
-                      {action.label}
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 text-[11px] font-black text-[#EEF3FA]">
+                      {active ? <Check size={12} className="shrink-0 text-blue-200" /> : <span className="h-3 w-3 shrink-0 rounded border border-white/20" />}
+                      <span className="truncate">{action.label}</span>
                     </div>
-                    <p className="mt-1 text-[10px] leading-relaxed text-[#8EA7C7]">{action.impact}</p>
+                    <p className="mt-1 truncate text-[9px] text-[#8EA7C7]">{action.owner} / {action.channel}</p>
                   </div>
-                  <span className="shrink-0 rounded-md border border-white/10 bg-white/5 px-2 py-0.5 text-[8px] font-bold uppercase tracking-wide text-[#9DB9E8]">
-                    {action.channel}
-                  </span>
+                  <ArrowRight size={11} className="shrink-0 text-[#7A94B4]" />
                 </div>
-                <div className="mt-2 text-[9px] font-semibold uppercase tracking-wide text-[#6F89AA]">Owner: {action.owner}</div>
               </button>
             );
           })}
+          </div>
+          {topFocusRow && (
+            <p className="mt-2 text-[10px] leading-4 text-[#7A94B4]">
+              First target: <span className="font-bold text-[#C8D6E8]">{topFocusRow.label}</span>. Use the row action above if the plan needs a property-specific task.
+            </p>
+          )}
         </div>
 
       </div>
@@ -1689,7 +1708,7 @@ function PortfolioKpiModal({ kpi, onClose, onToast }: { kpi: PortfolioKpi; onClo
           </div>
         )}
         <div className="flex items-center justify-between gap-3">
-          <div className="text-[10px] text-[#7A94B4]">{actionCount} useful action{actionCount === 1 ? '' : 's'} selected for the manager action plan</div>
+          <div className="text-[10px] text-[#7A94B4]">{actionCount} action{actionCount === 1 ? '' : 's'} in the manager plan</div>
           <div className="flex gap-2">
             <button
               onClick={reviewLater}
@@ -2838,9 +2857,20 @@ function PulseEventModal({ event, onClose, onToast }: { event: PulseEvent; onClo
 function PortfolioPulseFeed({ onToast }: { onToast: ToastFn }) {
   const [events, setEvents] = useState<PulseEvent[]>(PULSE_EVENTS.slice(0, 5));
   const [idx, setIdx] = useState(0);
-  const [filter, setFilter] = useState<'all' | PulseEvent['severity']>('all');
   const [simRunning, setSimRunning] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<PulseEvent | null>(null);
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [unseenCount, setUnseenCount] = useState(() => (
+    PULSE_EVENTS.slice(0, 5).filter(ev => ev.severity === 'critical' || ev.severity === 'high').length
+  ));
+  const [muted, setMuted] = useState(() => {
+    try {
+      const saved = window.sessionStorage.getItem('4c360-portfolio-pulses-inline-muted');
+      return saved === null ? true : saved === 'true';
+    } catch {
+      return true;
+    }
+  });
   const eventIdSeed = useRef(0);
 
   useEffect(() => {
@@ -2858,10 +2888,23 @@ function PortfolioPulseFeed({ onToast }: { onToast: ToastFn }) {
         const updated = [{ ...next, id: `${next.id}-${idx}-${eventIdSeed.current}`, time: 'Just now' }, ...prev];
         return updated.slice(0, 7);
       });
+      if (next && (next.severity === 'critical' || next.severity === 'high')) {
+        setUnseenCount(count => panelOpen ? 0 : Math.min(count + 1, 9));
+      }
     }
-  }, [idx]);
+  }, [idx, panelOpen]);
 
-  const visibleEvents = filter === 'all' ? events : events.filter(ev => ev.severity === filter);
+  useEffect(() => {
+    try {
+      window.sessionStorage.setItem('4c360-portfolio-pulses-inline-muted', muted ? 'true' : 'false');
+    } catch {
+      // Ignore blocked storage; muting still works for this render.
+    }
+  }, [muted]);
+
+  const attentionEvents = events
+    .filter(ev => ev.severity === 'critical' || ev.severity === 'high')
+    .slice(0, 4);
 
   function runSimulation() {
     if (simRunning) return;
@@ -2870,6 +2913,9 @@ function PortfolioPulseFeed({ onToast }: { onToast: ToastFn }) {
       window.setTimeout(() => {
         eventIdSeed.current += 1;
         setEvents(prev => [{ ...event, id: `${event.id}-${Date.now()}-${eventIdSeed.current}` }, ...prev].slice(0, 8));
+        if (event.severity === 'critical' || event.severity === 'high') {
+          setUnseenCount(count => panelOpen ? 0 : Math.min(count + 1, 9));
+        }
         if (step === SIMULATION_EVENTS.length - 1) {
           window.setTimeout(() => setSimRunning(false), 900);
         }
@@ -2877,85 +2923,132 @@ function PortfolioPulseFeed({ onToast }: { onToast: ToastFn }) {
     });
   }
 
+  const pulseBlinking = unseenCount > 0;
+
+  function togglePanel() {
+    setPanelOpen(open => {
+      const nextOpen = !open;
+      if (nextOpen) setUnseenCount(0);
+      return nextOpen;
+    });
+  }
+
   return (
-    <div className="mx-5 mb-3 rounded-xl border border-[rgba(46,127,255,0.2)] bg-[rgba(17,32,64,0.7)] overflow-hidden flex-shrink-0" data-demo-anchor="portfolio-pulse-feed">
-      <div className="flex items-center justify-between px-3 py-2 border-b border-[rgba(46,127,255,0.12)]">
-        <div className="flex items-center gap-2">
-          <div className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
-          <span className="text-[10px] font-bold text-[#EEF3FA] uppercase tracking-wide">Portfolio Pulse</span>
-          <span className="text-[9px] text-[#7A94B4]">Cross-property live events</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          {(['all', 'critical', 'high', 'info', 'ok'] as const).map(option => (
-            <button
-              key={option}
-              onClick={() => setFilter(option)}
-              className={`rounded-md px-2 py-1 text-[9px] font-semibold capitalize transition-colors ${filter === option ? 'bg-[#2E7FFF] text-white' : 'bg-[#0A1628] text-[#7A94B4] hover:text-[#EEF3FA]'}`}
+    <>
+      <div className="relative" data-demo-anchor="portfolio-pulse-feed">
+        <button
+          type="button"
+          onClick={togglePanel}
+          className={`relative flex min-w-[116px] items-center justify-center gap-1.5 rounded-lg border px-3 py-1.5 text-[11px] font-semibold transition-all ${
+            panelOpen
+              ? 'border-cyan-300/36 bg-cyan-300/12 text-cyan-100'
+              : 'border-[#2E7FFF]/22 bg-[#112040] text-[#BFD8FF] hover:border-[#2E7FFF]/45 hover:bg-[#17315A]'
+          } ${pulseBlinking ? 'animate-pulse shadow-[0_0_18px_rgba(34,211,238,0.28)]' : ''}`}
+          aria-expanded={panelOpen}
+          aria-label="Open portfolio pulse notifications"
+        >
+          {muted ? <BellOff size={13} /> : <BellRing size={13} />}
+          <span>Pulse</span>
+          <span className={`ml-0.5 rounded-full px-1.5 py-0.5 text-[9px] font-black ${pulseBlinking ? 'bg-red-400 text-white' : 'bg-[#0A1628] text-[#8DBDFF]'}`}>
+            {unseenCount > 0 ? unseenCount : attentionEvents.length}
+          </span>
+        </button>
+
+        <AnimatePresence>
+          {panelOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: 8, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 8, scale: 0.98 }}
+              transition={{ duration: 0.16 }}
+              className="absolute right-0 top-[calc(100%+8px)] z-[360] w-[min(360px,calc(100vw-32px))] overflow-hidden rounded-2xl border border-[#2E7FFF]/28 bg-[#07111F]/98 shadow-2xl shadow-black/45 backdrop-blur"
             >
-              {option}
-            </button>
-          ))}
-          <button
-            onClick={runSimulation}
-            disabled={simRunning}
-            className="rounded-md border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-1 text-[9px] font-bold text-cyan-300 transition-colors hover:bg-cyan-500/15 disabled:opacity-50"
-          >
-            {simRunning ? 'Running' : 'Run Live Simulation'}
-          </button>
-          <span className="text-[9px] text-[#7A94B4]">{visibleEvents.length} events</span>
-        </div>
-      </div>
-      <div className="flex overflow-x-auto custom-scrollbar">
-        <AnimatePresence initial={false}>
-          {visibleEvents.map((ev, eventIndex) => {
-            const border = PULSE_SEV_BORDER[ev.severity];
-            const cfg    = PULSE_SEV_ICON[ev.severity];
-            const plan = buildPulseCommandPlan(ev);
-            return (
-              <motion.div
-                key={`${ev.id}-${eventIndex}`}
-                initial={{ opacity: 0, x: -16 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.22 }}
-                className={`group relative flex min-w-[220px] flex-1 border-r border-l-2 border-[rgba(46,127,255,0.08)] ${border} transition-colors last:border-r-0 hover:bg-[#17315A]/55 lg:min-w-0`}
-              >
-                <button
-                  type="button"
-                  onClick={() => setSelectedEvent(ev)}
-                  className="flex w-full items-start gap-2 px-3 py-2 pr-9 text-left focus:outline-none focus:ring-1 focus:ring-[#2E7FFF]/70"
-                >
-                  <div className={`mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded ${cfg.cls}`}>
-                    {cfg.icon}
+              <div className="flex items-center justify-between gap-2 border-b border-[#2E7FFF]/14 px-3 py-2.5">
+                <div>
+                  <div className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-200">Portfolio Pulse</div>
+                  <div className="mt-0.5 text-[10px] font-semibold text-[#7A94B4]">
+                    {muted ? 'Quiet by default. Open when needed.' : 'Notifications enabled.'}
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-[10px] text-[#7A94B4]">{ev.client}</div>
-                    <div className="truncate text-[11px] font-medium leading-tight text-[#EEF3FA]">{ev.title}</div>
-                    <div className="mt-0.5 truncate text-[9px] text-[#7A94B4]">{ev.sub}</div>
-                    <div className="mt-0.5 text-[8px] text-[#7A94B4] opacity-60">{ev.time}</div>
-                  </div>
-                </button>
-                <button
-                  type="button"
-                  onClick={event => {
-                    event.stopPropagation();
-                    void shareCommandCard(
-                      `${ev.client}: ${ev.title}`,
-                      `${plan.decision}\nOwner: ${plan.owner}\nDeadline: ${plan.deadline}\nClient update: ${plan.updateDraft}`,
-                      onToast,
-                    );
-                  }}
-                  className="absolute right-2 top-2 rounded-md border border-white/10 bg-black/10 p-1.5 text-[#7A94B4] opacity-75 transition-colors hover:border-[#2E7FFF]/35 hover:bg-[#2E7FFF]/12 hover:text-[#BFD8FF] group-hover:opacity-100"
-                  aria-label={`Share ${ev.title} event summary`}
-                  title="Share event"
-                >
-                  <Share2 size={12} />
-                </button>
-              </motion.div>
-            );
-          })}
+                </div>
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setMuted(current => !current)}
+                    className="rounded-lg border border-[#2E7FFF]/18 bg-[#0A1628] px-2 py-1 text-[9px] font-black text-[#BFD8FF] transition-colors hover:bg-[#112040]"
+                  >
+                    {muted ? 'Unmute' : 'Mute'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={runSimulation}
+                    disabled={simRunning}
+                    className="rounded-lg border border-cyan-500/28 bg-cyan-500/10 px-2 py-1 text-[9px] font-black text-cyan-200 transition-colors hover:bg-cyan-500/15 disabled:opacity-50"
+                  >
+                    {simRunning ? 'Running' : 'Test'}
+                  </button>
+                </div>
+              </div>
+
+              <div className="max-h-[360px] space-y-2 overflow-y-auto p-2 custom-scrollbar">
+                {attentionEvents.map((ev, eventIndex) => {
+                  const border = PULSE_SEV_BORDER[ev.severity];
+                  const cfg = PULSE_SEV_ICON[ev.severity];
+                  const plan = buildPulseCommandPlan(ev);
+                  const urgentTone = ev.severity === 'critical'
+                    ? 'bg-red-500/12'
+                    : 'bg-amber-500/10';
+
+                  return (
+                    <motion.div
+                      key={`${ev.id}-${eventIndex}`}
+                      initial={{ opacity: 0, x: -16 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -16 }}
+                      transition={{ duration: 0.18, delay: eventIndex * 0.03 }}
+                      className={`group relative overflow-hidden rounded-xl border border-l-4 border-[#2E7FFF]/14 ${border} ${urgentTone}`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setSelectedEvent(ev)}
+                        className="flex w-full items-start gap-3 px-3 py-2.5 pr-10 text-left focus:outline-none focus:ring-1 focus:ring-[#2E7FFF]/70"
+                      >
+                        <div className={`mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg ${cfg.cls}`}>
+                          {cfg.icon}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <div className="truncate text-[10px] font-black uppercase tracking-[0.12em] text-[#8DBDFF]">{ev.client}</div>
+                            <span className="rounded-full border border-white/10 bg-black/15 px-1.5 py-0.5 text-[8px] font-black uppercase text-[#B8C7DB]">{ev.time}</span>
+                          </div>
+                          <div className="mt-1 text-[12px] font-black leading-snug text-[#EEF3FA]">{ev.title}</div>
+                          <div className="mt-1 line-clamp-2 text-[10px] leading-4 text-[#9DB9E8]">{ev.sub}</div>
+                        </div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={event => {
+                          event.stopPropagation();
+                          void shareCommandCard(
+                            `${ev.client}: ${ev.title}`,
+                            `${plan.decision}\nOwner: ${plan.owner}\nDeadline: ${plan.deadline}\nClient update: ${plan.updateDraft}`,
+                            onToast,
+                          );
+                        }}
+                        className="absolute right-2 top-2 rounded-lg border border-white/10 bg-black/10 p-1.5 text-[#7A94B4] opacity-75 transition-colors hover:border-[#2E7FFF]/35 hover:bg-[#2E7FFF]/12 hover:text-[#BFD8FF] group-hover:opacity-100"
+                        aria-label={`Share ${ev.title} event summary`}
+                        title="Share event"
+                      >
+                        <Share2 size={12} />
+                      </button>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </motion.div>
+          )}
         </AnimatePresence>
       </div>
+
       <AnimatePresence>
         {selectedEvent && (
           <>
@@ -2964,7 +3057,7 @@ function PortfolioPulseFeed({ onToast }: { onToast: ToastFn }) {
           </>
         )}
       </AnimatePresence>
-    </div>
+    </>
   );
 }
 
@@ -4108,8 +4201,8 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
 
   return (
     <div className="h-full flex flex-col overflow-hidden relative" data-demo-anchor="portfolio-command">
-      <div className="flex flex-col gap-3 px-5 py-3 border-b border-[rgba(46,127,255,0.15)] flex-shrink-0 xl:flex-row xl:items-center xl:justify-between">
-        <div className="min-w-0">
+      <div className="px-5 py-3 border-b border-[rgba(46,127,255,0.15)] flex-shrink-0">
+        <div className="hidden">
           <h2 className="text-[#EEF3FA] font-bold text-base" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
             {isMemberMode ? 'My Properties' : 'Properties'}
           </h2>
@@ -4119,7 +4212,7 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
               : `Portfolio command view · ${allClients.length} properties · Master Admin`}
           </p>
         </div>
-        <div className="flex min-w-0 flex-1 flex-wrap items-stretch gap-2 xl:justify-end">
+        <div className="flex min-w-0 flex-wrap items-stretch gap-2">
           <div className="flex min-w-[190px] flex-1 items-center gap-1.5 rounded-lg border border-[rgba(46,127,255,0.2)] bg-[#112040] px-2.5 py-1.5 xl:max-w-[240px]">
             <Search size={11} className="shrink-0 text-[#7A94B4]" />
             <input
@@ -4170,13 +4263,15 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
             {SORT_OPTS.map(s => <option key={s.key} value={s.key}>Sort: {s.label}</option>)}
           </select>
 
+          <PortfolioPulseFeed onToast={onToast} />
+
           <button
             onClick={() => setShowAddModal(true)}
-            className="flex min-w-[142px] items-center justify-center gap-1.5 rounded-lg bg-[#2E7FFF] px-3 py-1.5 text-[11px] font-semibold text-white shadow-[0_0_12px_rgba(46,127,255,0.35)] transition-colors hover:bg-blue-500"
+            className="flex min-w-[128px] items-center justify-center gap-1.5 rounded-lg bg-[#2E7FFF] px-3 py-1.5 text-[11px] font-semibold text-white shadow-[0_0_12px_rgba(46,127,255,0.35)] transition-colors hover:bg-blue-500"
             data-demo-anchor="property-onboarding-entry"
           >
             <Plus size={13} />
-            Add New Property
+            Add Property
           </button>
         </div>
       </div>
@@ -4186,8 +4281,6 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
       </div>
 
       <ExecutiveImpactStrip clients={allClients} onToast={onToast} />
-
-      <PortfolioPulseFeed onToast={onToast} />
 
       <div className="hidden">
         <select
