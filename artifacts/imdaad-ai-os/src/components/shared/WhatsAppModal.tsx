@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Send, Loader2, MessageSquare } from 'lucide-react';
+import { getStoredAuthToken } from '@/lib/api';
 
 interface Props {
   recipientName: string;
@@ -28,9 +29,13 @@ export function WhatsAppModal({
     setSending(true);
     try {
       const base = import.meta.env.BASE_URL?.replace(/\/$/, '') ?? '';
+      const token = getStoredAuthToken();
       const res = await fetch(`${base}/api/whatsapp/send`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ to: recipientPhone, message: message.trim() }),
       });
       if (res.ok) {

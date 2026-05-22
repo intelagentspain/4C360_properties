@@ -1,5 +1,22 @@
 const apiBase = (import.meta.env.VITE_API_URL ?? '/api') as string;
 
+const AUTH_SESSION_KEY = '4c360-auth-session';
+const LEGACY_AUTH_STATUS_KEY = '4c360-auth-status';
+
+export type AuthUser = {
+  id: string;
+  email: string;
+  role: string;
+  organizationId: string;
+  permissions: string[];
+};
+
+export type AuthSession = {
+  token: string;
+  refreshToken: string;
+  user: AuthUser;
+};
+
 type ProjectCommandEvent = {
   id: string;
   projectId: string;
@@ -17,11 +34,78 @@ type ProjectCommandEvent = {
   timestamp: string;
 };
 
+export function getStoredAuthSession(): AuthSession | null {
+  try {
+    const raw = window.sessionStorage.getItem(AUTH_SESSION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<AuthSession>;
+    if (!parsed.token || !parsed.refreshToken || !parsed.user) return null;
+    return parsed as AuthSession;
+  } catch {
+    return null;
+  }
+}
+
+export function getStoredAuthToken(): string | null {
+  return getStoredAuthSession()?.token ?? null;
+}
+
+export function setStoredAuthSession(session: AuthSession): void {
+  window.sessionStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(session));
+  window.sessionStorage.setItem(LEGACY_AUTH_STATUS_KEY, 'api-login');
+}
+
+export function clearStoredAuthSession(): void {
+  window.sessionStorage.removeItem(AUTH_SESSION_KEY);
+  window.sessionStorage.removeItem(LEGACY_AUTH_STATUS_KEY);
+  window.localStorage.removeItem(LEGACY_AUTH_STATUS_KEY);
+}
+
+function isPublicAppPath(pathname: string): boolean {
+  return (
+    pathname === '/login' ||
+    pathname.startsWith('/demo') ||
+    pathname.startsWith('/scan') ||
+    pathname.startsWith('/report') ||
+    pathname === '/field' ||
+    pathname.startsWith('/field/') ||
+    pathname.startsWith('/fieldops/survey') ||
+    pathname.startsWith('/brochure')
+  );
+}
+
+function redirectToLoginIfNeeded(): void {
+  if (typeof window === 'undefined') return;
+  if (isPublicAppPath(window.location.pathname)) return;
+  window.location.assign('/login');
+}
+
+function buildHeaders(options?: RequestInit): Headers {
+  const headers = new Headers(options?.headers);
+  const body = options?.body;
+  const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
+
+  if (!isFormData && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+
+  const token = getStoredAuthToken();
+  if (token && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
+  return headers;
+}
+
 export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${apiBase}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...(options?.headers ?? {}) },
     ...options,
+    headers: buildHeaders(options),
   });
+  if (res.status === 401) {
+    clearStoredAuthSession();
+    redirectToLoginIfNeeded();
+  }
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     throw new Error(`API ${options?.method ?? 'GET'} ${path} failed [${res.status}]: ${text}`);
@@ -30,6 +114,13 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
 }
 
 export const api = {
+  auth: {
+    login: (body: { email: string; password: string }) =>
+      apiFetch<AuthSession>('/auth/login', { method: 'POST', body: JSON.stringify(body) }),
+    refresh: (refreshToken: string) =>
+      apiFetch<AuthSession>('/auth/refresh', { method: 'POST', body: JSON.stringify({ refreshToken }) }),
+    me: () => apiFetch<{ user: AuthUser }>('/auth/me'),
+  },
   clients: {
     list: () => apiFetch<Record<string, unknown>[]>('/clients'),
     create: (body: Record<string, unknown>) => apiFetch<Record<string, unknown>>('/clients', { method: 'POST', body: JSON.stringify(body) }),
@@ -55,6 +146,7 @@ export const api = {
       if (uploadedBy) formData.append('uploadedBy', uploadedBy);
       const res = await fetch(`${apiBase}/workorders/${id}/evidence`, {
         method: 'POST',
+        headers: buildHeaders({ body: formData }),
         body: formData,
       });
       if (!res.ok) {

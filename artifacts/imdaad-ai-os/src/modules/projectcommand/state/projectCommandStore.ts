@@ -51,6 +51,10 @@ function emit() {
   listeners.forEach(listener => listener());
 }
 
+function isDemoRoute(): boolean {
+  return typeof window !== 'undefined' && window.location.pathname.startsWith('/demo/');
+}
+
 function setProjectEvents(
   projectId: string,
   events: ProjectEvent[],
@@ -100,6 +104,11 @@ function fallbackToLocal(projectId: string, events: ProjectEvent[]) {
 }
 
 async function persistProjectEvent(projectId: string, event: ProjectEvent) {
+  if (isDemoRoute()) {
+    fallbackToLocal(projectId, state.projectEventsByProjectId[projectId] ?? [event]);
+    return;
+  }
+
   try {
     const response = await api.projectCommand.createEvent(projectId, event);
     const saved = normalizeProjectEvent(response.event, projectId);
@@ -172,6 +181,11 @@ export function resetProjectCommandEvents(projectId: ProjectCommandProjectId) {
   };
   emit();
   void (async () => {
+    if (isDemoRoute()) {
+      fallbackToLocal(projectId, [baselineEvent]);
+      return;
+    }
+
     try {
       const clearResponse = await api.projectCommand.clearEvents(projectId);
       const createResponse = await api.projectCommand.createEvent(projectId, baselineEvent);
@@ -199,6 +213,33 @@ export function simulateProjectCommandEvent(projectId: ProjectCommandProjectId, 
   return event;
 }
 
+export function addProjectCommandEvent(projectId: ProjectCommandProjectId, event: ProjectEvent) {
+  const currentEvents = state.projectEventsByProjectId[projectId] ?? [];
+  const normalizedEvent = normalizeProjectEvent({ ...event, projectId }, projectId);
+  state = {
+    ...state,
+    projectEventsByProjectId: {
+      ...state.projectEventsByProjectId,
+      [projectId]: [
+        ...currentEvents.filter(item => item.id !== normalizedEvent.id),
+        normalizedEvent,
+      ],
+    },
+    eventLedgerStatusByProjectId: {
+      ...state.eventLedgerStatusByProjectId,
+      [projectId]: 'loading',
+    },
+    eventLedgerSourceByProjectId: {
+      ...state.eventLedgerSourceByProjectId,
+      [projectId]: state.eventLedgerSourceByProjectId[projectId] ?? 'unloaded',
+    },
+    activeScenario: 'base',
+  };
+  emit();
+  void persistProjectEvent(projectId, normalizedEvent);
+  return normalizedEvent;
+}
+
 export async function hydrateProjectCommandEvents(projectId: ProjectCommandProjectId) {
   const status = state.eventLedgerStatusByProjectId[projectId];
   if (status === 'loading' || status === 'ready') return;
@@ -211,6 +252,12 @@ export async function hydrateProjectCommandEvents(projectId: ProjectCommandProje
     },
   };
   emit();
+
+  if (isDemoRoute()) {
+    const existing = state.projectEventsByProjectId[projectId];
+    fallbackToLocal(projectId, existing?.length ? existing : [createProjectControlEvent(projectId, 'baseline-created')]);
+    return;
+  }
 
   try {
     const response = await api.projectCommand.listEvents(projectId);

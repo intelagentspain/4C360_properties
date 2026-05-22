@@ -980,6 +980,7 @@ export function StageGates({ onToast }: { onToast?: (message: string, type?: 'su
   const [selectedGate, setSelectedGate] = useState<StageGate | null>(null);
   const [selectedMetricInsight, setSelectedMetricInsight] = useState<StageGateMetricInsight | null>(null);
   const [queuedActions, setQueuedActions] = useState<Record<string, string>>({});
+  const [preparedGatePacks, setPreparedGatePacks] = useState<Record<string, boolean>>({});
   const [actionedRecommendations, setActionedRecommendations] = useState<Record<StageGateMetricName, boolean>>({
     'Total Gates': false,
     Approved: false,
@@ -1094,6 +1095,21 @@ export function StageGates({ onToast }: { onToast?: (message: string, type?: 'su
     actionedRecommendations[selectedMetricInsight.metricName] &&
     queuedActions[selectedRecommendationTarget.code] === getGateActionPlan(selectedRecommendationTarget).cta
   );
+  const recoveryGate = priorityGate;
+  const recoveryMissing = recoveryGate ? getIncompleteDeliverables(recoveryGate) : [];
+  const primaryGap = recoveryMissing[0];
+  const recoveryPackReady = recoveryGate ? Boolean(preparedGatePacks[recoveryGate.code]) : false;
+  const recoveryReadiness = recoveryGate
+    ? Math.min(100, recoveryGate.completion + (recoveryPackReady ? Math.max(12, recoveryMissing.length * 6) : 0))
+    : 0;
+
+  const prepareGateProofPack = () => {
+    if (!recoveryGate) return;
+    const action = getGateActionPlan(recoveryGate);
+    setPreparedGatePacks(previous => ({ ...previous, [recoveryGate.code]: true }));
+    setQueuedActions(previous => ({ ...previous, [recoveryGate.code]: action.cta }));
+    onToast?.(`Gate proof pack prepared for ${recoveryGate.code}`, recoveryGate.status === 'Blocked' ? 'warning' : 'success');
+  };
 
   return (
     <div className="custom-scrollbar h-full min-h-0 overflow-x-hidden overflow-y-auto px-5 py-4 text-[#EEF3FA]" data-demo-anchor="project-stage-gates">
@@ -1207,6 +1223,103 @@ export function StageGates({ onToast }: { onToast?: (message: string, type?: 'su
         <KpiCard icon={FileCheck2} label="Evidence Gaps" value={evidenceGaps} accent="#06B6D4" />
         <KpiCard icon={BarChart3} label="Avg Completion" value={`${avgCompletion}%`} accent="#60A5FA" delta="+5%" metricName="Avg Completion" onExplain={openMetricInsight} />
       </div>
+
+      {recoveryGate && (
+        <section
+          className="mt-4 overflow-hidden rounded-2xl border border-cyan-300/20 bg-[linear-gradient(135deg,rgba(6,182,212,0.13),rgba(124,58,237,0.10)_44%,rgba(7,17,31,0.92))] shadow-[0_18px_70px_rgba(0,0,0,0.22)]"
+          data-demo-anchor="project-stage-gate-loop"
+        >
+          <div className="grid gap-0 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1fr)_minmax(0,0.92fr)]">
+            <div className="border-b border-cyan-300/14 p-5 xl:border-b-0 xl:border-r" data-demo-anchor="project-stage-blocked-gate">
+              <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.17em] text-cyan-200">
+                <Target size={14} />
+                Gate to proof loop
+              </div>
+              <h2 className="mt-3 text-xl font-black leading-6 text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+                {recoveryGate.name}
+              </h2>
+              <p className="mt-2 text-[12px] leading-5 text-[#A8BCD8]">
+                This is the next governance decision: either the missing proof is closed or the stage remains exposed.
+              </p>
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <div className="rounded-xl border border-white/10 bg-[#07111F]/76 p-3">
+                  <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">Status</p>
+                  <div className="mt-2"><StatusBadge status={recoveryGate.status} /></div>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-[#07111F]/76 p-3">
+                  <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">Readiness</p>
+                  <p className="mt-2 font-mono text-2xl font-black text-white">{recoveryReadiness}%</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="border-b border-cyan-300/14 p-5 xl:border-b-0 xl:border-r" data-demo-anchor="project-stage-evidence-gaps">
+              <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.17em] text-amber-100">
+                <FileText size={14} />
+                Required proof
+              </div>
+              <h3 className="mt-3 text-lg font-black leading-6 text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+                {primaryGap ? primaryGap.name : 'Evidence pack complete'}
+              </h3>
+              <p className="mt-2 text-[12px] leading-5 text-[#B8C7DB]">
+                {primaryGap
+                  ? `${primaryGap.documentType} ${primaryGap.documentCode} is the proof item currently holding the gate discussion.`
+                  : 'Every listed deliverable is complete, so the approver conversation can focus on release.'}
+              </p>
+              <div className="mt-4 space-y-2">
+                {(recoveryMissing.length ? recoveryMissing : recoveryGate.deliverables.slice(0, 2)).map(deliverable => (
+                  <div key={deliverable.documentCode} className={`rounded-xl border p-3 ${deliverable.status === 'Complete' ? 'border-emerald-300/20 bg-emerald-300/10' : deliverable.status === 'Blocked' ? 'border-red-300/24 bg-red-400/10' : 'border-amber-300/24 bg-amber-300/10'}`}>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="truncate text-[12px] font-black text-[#EEF3FA]">{deliverable.name}</span>
+                      <span className="font-mono text-[10px] text-[#8EA7C7]">{deliverable.documentCode}</span>
+                    </div>
+                    <p className="mt-1 text-[10px] leading-4 text-[#8EA7C7]">{deliverable.previewSummary}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="p-5" data-demo-anchor="project-stage-recovery-actions">
+              <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.17em] text-emerald-100">
+                <ShieldCheck size={14} />
+                Recovery action
+              </div>
+              <h3 className="mt-3 text-lg font-black leading-6 text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+                {recoveryPackReady ? 'Proof pack ready for review' : 'Prepare the approver pack'}
+              </h3>
+              <p className="mt-2 text-[12px] leading-5 text-[#B8C7DB]">
+                {recoveryPackReady
+                  ? `The action is now queued to ${recoveryGate.approver} with the evidence gap and next owner visible.`
+                  : `Package the missing proof, owner, due date, and gate consequence for ${recoveryGate.approver}.`}
+              </p>
+              <div className="mt-4 rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#07111F]/78 p-3">
+                <div className="flex items-center justify-between gap-3 text-[10px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">
+                  <span>Unblock path</span>
+                  <span>{recoveryPackReady ? '+ readiness' : 'waiting'}</span>
+                </div>
+                <div className="mt-3 flex items-center gap-2">
+                  {['Identify', 'Package', 'Assign'].map((step, index) => (
+                    <div key={step} className="flex min-w-0 flex-1 items-center gap-2">
+                      <span className={`grid h-7 w-7 flex-shrink-0 place-items-center rounded-full border text-[10px] font-black ${recoveryPackReady || index === 0 ? 'border-emerald-300/30 bg-emerald-300/12 text-emerald-100' : 'border-[#2E7FFF]/22 bg-[#0A1628] text-[#7A94B4]'}`}>
+                        {recoveryPackReady || index === 0 ? <CheckCircle2 size={13} /> : index + 1}
+                      </span>
+                      <span className="truncate text-[11px] font-black text-[#DDE6F8]">{step}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={prepareGateProofPack}
+                className={`mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl px-4 text-[12px] font-black transition-colors ${recoveryPackReady ? 'border border-emerald-300/25 bg-emerald-300/12 text-emerald-100' : 'bg-[#2E7FFF] text-white shadow-lg shadow-blue-950/30 hover:bg-[#256BE0]'}`}
+              >
+                {recoveryPackReady ? <CheckCircle2 size={16} /> : <Send size={16} />}
+                {recoveryPackReady ? 'Proof pack prepared' : 'Prepare proof pack'}
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
 
       {filteredGates.length === 0 ? (
         <section className="mt-4 rounded-xl border border-dashed border-[rgba(46,127,255,0.24)] bg-[rgba(17,32,64,0.58)] p-8 text-center">

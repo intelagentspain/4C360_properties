@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Building2, CheckCircle2, Eye, EyeOff, LockKeyhole, Mail, ShieldCheck, UserRound, X } from 'lucide-react';
 import { SocialLoginButton } from './SocialLoginButton';
 import { UserTypeTags } from './UserTypeTags';
+import { api, setStoredAuthSession } from '../../lib/api';
 
 type LoginErrors = {
   identifier?: string;
@@ -55,25 +56,31 @@ export function LoginCard() {
     return Object.keys(nextErrors).length === 0;
   };
 
-  const submit = (event: React.FormEvent<HTMLFormElement>) => {
+  const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setNotice('');
     setErrors({});
 
     if (!validate()) return;
 
-    setLoading(true);
-    window.setTimeout(() => {
-      const normalized = identifier.trim().toLowerCase();
-      if (normalized === 'invalid' || password.toLowerCase() === 'invalid') {
-        setLoading(false);
-        setErrors({ form: 'We could not verify those credentials. Please check and try again.' });
-        return;
-      }
-
-      sessionStorage.setItem('4c360-auth-status', 'stubbed-local-login');
+    try {
+      setLoading(true);
+      const session = await api.auth.login({
+        email: identifier.trim(),
+        password,
+      });
+      setStoredAuthSession(session);
       window.location.assign('/');
-    }, 650);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '';
+      const isConfigError = message.includes('[503]');
+      setErrors({
+        form: isConfigError
+          ? 'Sign-in is not configured yet. Ask the administrator to set the ProjectCommand admin credentials.'
+          : 'We could not verify those credentials. Please check and try again.',
+      });
+      setLoading(false);
+    }
   };
 
   const requestMagicLink = () => {

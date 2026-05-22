@@ -1,8 +1,11 @@
 import { Router } from "express";
 import twilio from "twilio";
 import { logger } from "../lib/logger";
+import { requireRole } from "../middleware/rbac";
 
 const router = Router();
+
+router.use(requireRole("pmo", "admin"));
 
 function sanitizePhone(raw: string): string {
   return raw.replace(/\s/g, "");

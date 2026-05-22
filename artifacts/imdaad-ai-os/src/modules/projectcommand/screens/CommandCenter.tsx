@@ -752,6 +752,10 @@ function controlLogOutcome(event: ProjectControlContext['events'][number]) {
       label: 'Monitoring started',
       toast: 'Recovery monitoring started against float and confidence.',
     },
+    'portfolio-action-plan': {
+      label: 'Handoff opened',
+      toast: 'Portfolio action handoff opened in ProjectCommand.',
+    },
   };
   return outcomes[event.type] ?? {
     label: `${event.cta} ready`,
@@ -1449,6 +1453,7 @@ function SourceTracePanel({ context }: { context: ProjectControlContext }) {
 function controlSignalCopy(type: ProjectEventType) {
   const copy: Record<ProjectEventType, { label: string; detail: string }> = {
     'baseline-created': { label: 'Baseline captured', detail: 'Source controls active' },
+    'portfolio-action-plan': { label: 'Portfolio action plan', detail: 'Convert owner actions into project controls' },
     'facade-delay': { label: 'Log package delay', detail: 'Update programme and procurement risk' },
     'variation-submitted': { label: 'Add variation', detail: 'Assess cost and approval impact' },
     'evidence-rejected': { label: 'Reject evidence', detail: 'Open correction and resubmission path' },

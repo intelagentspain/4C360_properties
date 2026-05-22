@@ -3,6 +3,7 @@ import webpush from "web-push";
 import crypto from "node:crypto";
 import { logger } from "../lib/logger";
 import { db, teamMembersTable, pushSubscriptionsTable, eq } from "../lib/db";
+import { requireRole } from "../middleware/rbac";
 
 const router = Router();
 
@@ -150,7 +151,7 @@ export async function sendPushToEmail(email: string, payload: PushPayload): Prom
   return { sent, failed };
 }
 
-router.post("/push/send-test", async (req: Request, res: Response) => {
+router.post("/push/send-test", requireRole("admin"), async (req: Request, res: Response) => {
   const body = req.body as { email?: string };
   if (!body.email) {
     res.status(400).json({ error: "email is required" });

@@ -8,6 +8,7 @@ import { logger } from "../lib/logger";
 import { sendEmail } from "../lib/mailer";
 import { db, incidentsTable, teamMembersTable, workOrdersTable, photoEvidenceTable, eq, desc, sql, and } from "../lib/db";
 import { sendPushToEmail } from "./push";
+import { requireRole } from "../middleware/rbac";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const evidenceUploadsDir = path.resolve(__dirname, "../uploads/evidence");
@@ -1243,7 +1244,7 @@ async function autoAssignFmEngineer(
   return match ? { name: match.name, id: match.id, email: match.email } : null;
 }
 
-router.post("/workorders/notify", async (req: Request, res: Response) => {
+router.post("/workorders/notify", requireRole("pmo", "field_tech", "admin"), async (req: Request, res: Response) => {
   const body = req.body as Partial<WorkOrderNotifyBody>;
   const wo = body.workOrder;
 
@@ -1379,7 +1380,7 @@ router.post("/workorders/notify", async (req: Request, res: Response) => {
   res.json({ workOrderId: wo.id, incidentId, assignedFmEngineer: fmEngineer, results });
 });
 
-router.get("/incidents", async (_req: Request, res: Response) => {
+router.get("/incidents", requireRole("owner", "pmo", "field_tech", "admin"), async (_req: Request, res: Response) => {
   try {
     const rows = await db.select().from(incidentsTable).orderBy(desc(incidentsTable.createdAt));
     const enriched = rows.map(row => {
@@ -1403,7 +1404,7 @@ router.get("/incidents", async (_req: Request, res: Response) => {
   }
 });
 
-router.get("/incidents/:id", async (req: Request, res: Response) => {
+router.get("/incidents/:id", requireRole("owner", "pmo", "field_tech", "admin"), async (req: Request, res: Response) => {
   const id = String(req.params["id"]);
   try {
     const rows = await db.select().from(incidentsTable).where(eq(incidentsTable.id, id));
@@ -1460,7 +1461,7 @@ router.post("/incidents", async (req: Request, res: Response) => {
   }
 });
 
-router.patch("/incidents/:id", async (req: Request, res: Response) => {
+router.patch("/incidents/:id", requireRole("pmo", "field_tech", "admin"), async (req: Request, res: Response) => {
   const id = String(req.params["id"]);
   const updates = req.body as Record<string, unknown>;
 
@@ -1483,7 +1484,7 @@ router.patch("/incidents/:id", async (req: Request, res: Response) => {
   }
 });
 
-router.get("/team-members", async (_req: Request, res: Response) => {
+router.get("/team-members", requireRole("owner", "pmo", "admin"), async (_req: Request, res: Response) => {
   try {
     const rows = await db.select().from(teamMembersTable).orderBy(teamMembersTable.name);
     res.json(rows);
@@ -1493,7 +1494,7 @@ router.get("/team-members", async (_req: Request, res: Response) => {
   }
 });
 
-router.get("/workorders", async (_req: Request, res: Response) => {
+router.get("/workorders", requireRole("owner", "pmo", "field_tech", "admin"), async (_req: Request, res: Response) => {
   try {
     const rows = await db.select().from(workOrdersTable).orderBy(desc(workOrdersTable.createdAt));
     res.json(rows);
@@ -1503,7 +1504,7 @@ router.get("/workorders", async (_req: Request, res: Response) => {
   }
 });
 
-router.post("/workorders", async (req: Request, res: Response) => {
+router.post("/workorders", requireRole("pmo", "field_tech", "admin"), async (req: Request, res: Response) => {
   const body = req.body as Partial<WorkOrderPayload & { status?: string; assignedTo?: string; assignedToId?: string }>;
   if (!body.id || !body.title) {
     res.status(400).json({ error: "id and title are required" });
@@ -1541,7 +1542,7 @@ router.post("/workorders", async (req: Request, res: Response) => {
   }
 });
 
-router.get("/workorders/:id", async (req: Request, res: Response) => {
+router.get("/workorders/:id", requireRole("owner", "pmo", "field_tech", "admin"), async (req: Request, res: Response) => {
   const id = String(req.params["id"]);
   try {
     const rows = await db.select().from(workOrdersTable).where(eq(workOrdersTable.id, id));
@@ -1553,7 +1554,7 @@ router.get("/workorders/:id", async (req: Request, res: Response) => {
   }
 });
 
-router.patch("/workorders/:id", async (req: Request, res: Response) => {
+router.patch("/workorders/:id", requireRole("pmo", "field_tech", "admin"), async (req: Request, res: Response) => {
   const id = String(req.params["id"]);
   const updates = req.body as Record<string, unknown>;
 
@@ -1622,7 +1623,7 @@ router.patch("/workorders/:id", async (req: Request, res: Response) => {
   }
 });
 
-router.get("/workorders/:id/evidence", async (req: Request, res: Response) => {
+router.get("/workorders/:id/evidence", requireRole("owner", "pmo", "field_tech", "admin"), async (req: Request, res: Response) => {
   const id = String(req.params["id"]);
   try {
     const rows = await db.select().from(photoEvidenceTable).where(eq(photoEvidenceTable.ticketId, id));
@@ -1635,6 +1636,7 @@ router.get("/workorders/:id/evidence", async (req: Request, res: Response) => {
 
 router.post(
   "/workorders/:id/evidence",
+  requireRole("pmo", "field_tech", "admin"),
   evidenceUpload.single("photo"),
   async (req: Request, res: Response) => {
     const workOrderId = String(req.params["id"]);
@@ -1668,7 +1670,7 @@ router.post(
   },
 );
 
-router.get("/workorders/:id/messages", async (req: Request, res: Response) => {
+router.get("/workorders/:id/messages", requireRole("owner", "pmo", "field_tech", "admin"), async (req: Request, res: Response) => {
   const workOrderId = String(req.params["id"]);
   try {
     const [wo] = await db.select().from(workOrdersTable).where(eq(workOrdersTable.id, workOrderId));
@@ -1688,7 +1690,7 @@ router.get("/workorders/:id/messages", async (req: Request, res: Response) => {
   }
 });
 
-router.post("/workorders/:id/messages", async (req: Request, res: Response) => {
+router.post("/workorders/:id/messages", requireRole("pmo", "field_tech", "admin"), async (req: Request, res: Response) => {
   const workOrderId = String(req.params["id"]);
   const body = req.body as { text?: string; author?: string; authorId?: string };
   if (!body.text?.trim()) { res.status(400).json({ error: "text is required" }); return; }
@@ -1726,7 +1728,7 @@ router.post("/workorders/:id/messages", async (req: Request, res: Response) => {
   }
 });
 
-router.post("/incidents/notify", async (req: Request, res: Response) => {
+router.post("/incidents/notify", requireRole("pmo", "field_tech", "admin"), async (req: Request, res: Response) => {
   const body = req.body as Partial<NotifyBody>;
   const incident = body.incident;
 
@@ -2149,7 +2151,7 @@ interface ResolutionBody {
   clientName?: string;
 }
 
-router.post("/incidents/:id/resolve", async (req: Request, res: Response) => {
+router.post("/incidents/:id/resolve", requireRole("pmo", "field_tech", "admin"), async (req: Request, res: Response) => {
   const id = String(req.params["id"]);
   const body = req.body as Partial<ResolutionBody>;
 

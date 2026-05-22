@@ -6,12 +6,21 @@ import {
   CheckCircle2, Circle, TriangleAlert, PhoneCall,
 } from 'lucide-react';
 import { resolveExpert, type AssetExpert } from '@/lib/assetExperts';
+import { getStoredAuthToken } from '@/lib/api';
 
 const ICON_MAP: Record<string, React.ComponentType<{ size?: number; className?: string; style?: React.CSSProperties }>> = {
   Wind, Thermometer, ArrowUpDown, Flame, Droplets, Zap, Battery, Brain,
 };
 
 const API_BASE = (import.meta.env.VITE_API_URL ?? '/api') as string;
+
+function authJsonHeaders(): HeadersInit {
+  const token = getStoredAuthToken();
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
 
 interface ChatMessage {
   id: string;
@@ -209,7 +218,7 @@ export function AssetExpertCopilot({
 
       const res = await fetch(`${API_BASE}/ppm/expert-chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authJsonHeaders(),
         body: JSON.stringify({
           assetType,
           assetSubtype,

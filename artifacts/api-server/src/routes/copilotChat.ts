@@ -2,8 +2,11 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import OpenAI from "openai";
 import { logger } from "../lib/logger";
 import { db, clientsTable, incidentsTable, workOrdersTable, teamMembersTable, and, eq } from "../lib/db";
+import { requireRole } from "../middleware/rbac";
 
 const router: IRouter = Router();
+
+router.use(requireRole("owner", "pmo", "admin"));
 
 const COPILOT_SYSTEM_PROMPT = `You are Imdaad Copilot, an intelligent AI assistant embedded in the Imdaad AI-OS — the operational intelligence platform for Imdaad, a leading Facilities Management company in Dubai and the UAE.
 

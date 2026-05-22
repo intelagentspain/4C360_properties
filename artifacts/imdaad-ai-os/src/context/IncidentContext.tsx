@@ -144,6 +144,8 @@ export interface CreateWorkOrderInput {
   skill: string;
   description?: string;
   siteId?: string;
+  assignedTech?: string | null;
+  techId?: string | null;
 }
 
 interface IncidentContextValue {
@@ -326,8 +328,8 @@ function IncidentProviderInner({ children }: { children: ReactNode }) {
       location: incident.location,
       skill,
       priority,
-      status: 'new',
-      tech: null,
+      status: incident.assignedTech ? 'assigned' : 'new',
+      tech: incident.assignedTech ?? null,
       slaMinutes,
       elapsed: 0,
       reportedBy: incidentId,
@@ -360,6 +362,7 @@ function IncidentProviderInner({ children }: { children: ReactNode }) {
             approvedBy: approvedBy ?? 'Supervisor',
             activityLog: [
               ...inc.activityLog,
+              ...(incident.assignedTech ? [{ time: timeStr, event: `Technician assigned: ${incident.assignedTech}`, type: 'dispatch' }] : []),
               { time: timeStr, event: `Ticket approved by ${approvedBy ?? 'supervisor'}`, type: 'dispatch' },
               { time: timeStr, event: `Work Order ${woId} raised automatically on approval`, type: 'dispatch' },
             ],
@@ -496,8 +499,8 @@ function IncidentProviderInner({ children }: { children: ReactNode }) {
       location: data.location,
       skill: data.skill,
       priority: data.priority,
-      status: 'new',
-      tech: null,
+      status: data.assignedTech ? 'assigned' : 'new',
+      tech: data.assignedTech ?? null,
       slaMinutes,
       elapsed: 0,
       reportedBy: incidentId,
@@ -515,6 +518,8 @@ function IncidentProviderInner({ children }: { children: ReactNode }) {
       skill: data.skill,
       siteId,
       incidentId,
+      assignedTo: data.assignedTech,
+      techId: data.techId,
       description: data.description,
     }).catch(err => console.warn('[IncidentContext] Failed to persist work order to API:', err));
 
@@ -525,8 +530,11 @@ function IncidentProviderInner({ children }: { children: ReactNode }) {
             status: 'dispatched',
             ticketState: 'work_order_created' as TicketState,
             workOrderId: id,
+            assignedTech: data.assignedTech ?? inc.assignedTech,
+            techId: data.techId ?? inc.techId,
             activityLog: [
               ...inc.activityLog,
+              ...(data.assignedTech ? [{ time: timeStr, event: `Best-match technician assigned: ${data.assignedTech}`, type: 'dispatch' }] : []),
               { time: timeStr, event: `Work Order ${id} raised — promoted to formal work order`, type: 'dispatch' },
             ],
           }

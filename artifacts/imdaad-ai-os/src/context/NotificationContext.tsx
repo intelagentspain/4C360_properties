@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useCallback, useRef, type ReactNode } from 'react';
 import { mockNotifications } from '@/data/mockData';
 import { CURRENT_USER } from '@/lib/currentUser';
+import { getStoredAuthToken } from '@/lib/api';
 import type { Incident, WorkOrderTask } from './IncidentContext';
 
 export interface AppNotification {
@@ -60,6 +61,14 @@ const BASE_NOTIFICATIONS: AppNotification[] = mockNotifications.map(n => ({
 
 const apiBase = import.meta.env.VITE_API_URL ?? '/api';
 
+function authJsonHeaders(): HeadersInit {
+  const token = getStoredAuthToken();
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
+
 interface NotifyResultEntry {
   email: string;
   status: string;
@@ -118,7 +127,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
       fetch(`${apiBase}/incidents/notify`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authJsonHeaders(),
         body: JSON.stringify({ incident, inviteList }),
       })
         .then(r => r.json() as Promise<NotifyResponse>)
@@ -153,7 +162,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
       fetch(`${apiBase}/workorders/notify`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authJsonHeaders(),
         body: JSON.stringify({
           workOrder: {
             id: workOrder.id,

@@ -22,6 +22,7 @@ import {
   type CommandFilterKey,
   type CommandFilters,
 } from '@/lib/commandFilters';
+import { getStoredAuthToken } from '@/lib/api';
 
 export type AutomationMode = 'manual' | 'hybrid' | 'ai';
 
@@ -804,9 +805,13 @@ export function AddClientModal({ onClose, onSave, demoSection }: AddClientModalP
     const siteName = siteNames[siteIdx] ?? '';
     try {
       const base = import.meta.env.BASE_URL?.replace(/\/$/, '') ?? '';
+      const token = getStoredAuthToken();
       const res = await fetch(`${base}/api/suggest-assets`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           sector,
           industrySubtype,
@@ -1184,9 +1189,13 @@ export function AddClientModal({ onClose, onSave, demoSection }: AddClientModalP
     let failedCount = 0;
     try {
       const base = import.meta.env.BASE_URL?.replace(/\/$/, '') ?? '';
+      const token = getStoredAuthToken();
       const res = await fetch(`${base}/api/clients/invite`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           clientName: clientData.name,
           sector: clientData.sector,

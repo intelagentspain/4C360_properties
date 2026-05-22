@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { AssetExpertCopilot } from '@/components/shared/AssetExpertCopilot';
 import { mockParts, mockChecklist, mockIncidents } from '@/data/mockData';
+import { getStoredAuthToken } from '@/lib/api';
 
 const API_BASE = (import.meta.env.VITE_API_URL ?? '/api') as string;
 
@@ -143,7 +144,10 @@ export function FieldJobDeepLink({ jobId, openCopilotImmediately = false }: Prop
     const fetchJob = async () => {
       let resolved: DemoJob | null = null;
       try {
-        const res = await fetch(`${API_BASE}/workorders/${encodeURIComponent(jobId)}`);
+        const token = getStoredAuthToken();
+        const res = await fetch(`${API_BASE}/workorders/${encodeURIComponent(jobId)}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
         if (res.ok) {
           const data = await res.json() as Record<string, unknown>;
           const apiJob: DemoJob = {

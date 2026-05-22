@@ -15,6 +15,7 @@ import { useIncidents, type Incident, type CreateWorkOrderInput, type TicketStat
 import { WhatsAppModal } from '@/components/shared/WhatsAppModal';
 import { CURRENT_USER } from '@/lib/currentUser';
 import { useClients } from '@/context/ClientsContext';
+import { getStoredAuthToken } from '@/lib/api';
 
 const WO_ALLOWED_ROLES = new Set(['FM Engineer', 'Site Supervisor', 'FM Manager', 'Safety Officer', 'Project Manager', 'Account Manager', 'Executive']);
 const canCreateWorkOrder = WO_ALLOWED_ROLES.has(CURRENT_USER.role);
@@ -1514,9 +1515,13 @@ function NewIncidentModal({ onClose, onSubmit }: { onClose: () => void; onSubmit
     setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
 
     try {
+      const token = getStoredAuthToken();
       const res = await fetch(`${apiBase}/ai/incident-chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           messages: newMessages,
           formContext: {
