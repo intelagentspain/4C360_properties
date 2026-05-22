@@ -1,8 +1,11 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import OpenAI from "openai";
 import { logger } from "../lib/logger";
+import { requireRole } from "../middleware/rbac";
 
 const router: IRouter = Router();
+
+router.use(requireRole("pmo", "field_tech", "admin"));
 
 interface ExpertAgent {
   name: string;

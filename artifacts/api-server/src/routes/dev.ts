@@ -8,8 +8,11 @@ import {
   buildEndClientIncidentEmailForSupervisor,
   buildResolutionNotificationEmail,
 } from "./incidents";
+import { requireRole } from "../middleware/rbac";
 
 const router = Router();
+
+router.use(requireRole("admin"));
 
 const SAMPLE_TARGET = "gm@4cksa.com";
 const SAMPLE_RECIPIENT_NAME = "General Manager";

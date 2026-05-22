@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { sendEmail } from "../lib/mailer";
 import { logger } from "../lib/logger";
+import { requireRole } from "../middleware/rbac";
 
 function escapeHtml(str: string): string {
   return str
@@ -12,6 +13,8 @@ function escapeHtml(str: string): string {
 }
 
 const router = Router();
+
+router.use(requireRole("owner", "pmo", "admin"));
 
 interface ClientSnapshot {
   id: string;

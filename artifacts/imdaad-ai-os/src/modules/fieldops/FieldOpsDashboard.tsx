@@ -45,6 +45,7 @@ import {
   type SurveyType,
 } from './data';
 import { getLocalFieldOpsSubmissions, subscribeToLocalFieldOpsSubmissions } from './liveSubmissions';
+import { getStoredAuthToken } from '@/lib/api';
 
 type Tab = 'surveys' | 'assignments' | 'tracking' | 'templates' | 'ai';
 type Drawer = 'detail' | 'design' | 'assign' | 'share' | 'submission' | null;
@@ -1953,7 +1954,10 @@ function ShareSurveyPanel({ survey, onToast }: { survey: Survey; onToast: Props[
     try {
       const response = await fetch('/api/fieldops/share-survey-email', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(getStoredAuthToken() ? { Authorization: `Bearer ${getStoredAuthToken()}` } : {}),
+        },
         body: JSON.stringify({
           to: emailTo.trim(),
           surveyId: survey.id,

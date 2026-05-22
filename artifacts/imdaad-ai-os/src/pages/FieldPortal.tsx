@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { api } from '@/lib/api';
+import { api, getStoredAuthToken } from '@/lib/api';
 import { mockAssets, mockKBResources, mockIncidents, mockParts, mockChecklist, type KBResource, type KBCategory } from '@/data/mockData';
 import {
   ClipboardList, BookOpen, MessageSquare, ChevronLeft, Search, Upload,
@@ -129,8 +129,19 @@ function getInitialTab(initialWorkOrderId?: string): TabId {
 
 const API_BASE = (import.meta.env.VITE_API_URL ?? '/api') as string;
 
+function authJsonHeaders(): HeadersInit {
+  const token = getStoredAuthToken();
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
+
 async function fetchWorkOrderMessages(workOrderId: string): Promise<CommsMessage[]> {
-  const res = await fetch(`${API_BASE}/workorders/${encodeURIComponent(workOrderId)}/messages`);
+  const token = getStoredAuthToken();
+  const res = await fetch(`${API_BASE}/workorders/${encodeURIComponent(workOrderId)}/messages`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  });
   if (!res.ok) throw new Error(`Failed to fetch messages: ${res.status}`);
   const data = await res.json() as { messages: ActivityEntry[] };
   return (data.messages ?? []).map(activityToCommsMessage);
@@ -139,7 +150,7 @@ async function fetchWorkOrderMessages(workOrderId: string): Promise<CommsMessage
 async function postWorkOrderMessage(workOrderId: string, text: string, author = 'Field Staff'): Promise<CommsMessage> {
   const res = await fetch(`${API_BASE}/workorders/${encodeURIComponent(workOrderId)}/messages`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authJsonHeaders(),
     body: JSON.stringify({ text, author }),
   });
   if (!res.ok) throw new Error(`Failed to post message: ${res.status}`);
@@ -346,7 +357,7 @@ export function FieldPortal({ initialWorkOrderId }: FieldPortalProps) {
       if (incidentId) {
         const resolveRes = await fetch(`${API_BASE}/incidents/${encodeURIComponent(incidentId)}/resolve`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: authJsonHeaders(),
           body: JSON.stringify({
             resolvedBy: selectedWO.assignedTo ?? 'Field Engineer',
             resolutionNotes: resolutionNotes.trim(),

@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import fs from "node:fs";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { authMiddleware } from "./middleware/auth";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const uploadsDir = path.resolve(__dirname, "../uploads");
@@ -41,7 +42,7 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use("/api/uploads", express.static(uploadsDir));
 
-app.use("/api", router);
+app.use("/api", authMiddleware, router);
 
 const frontendDist = path.resolve(process.cwd(), "artifacts/imdaad-ai-os/dist/public");
 if (fs.existsSync(frontendDist)) {

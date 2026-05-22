@@ -30,6 +30,7 @@ import type { MetricName } from '../useMetricInsight';
 
 type SectionId = 'summary' | 'packages' | 'commitments' | 'variations' | 'cashflow' | 'risks' | 'ai';
 type ActionTone = 'good' | 'watch' | 'risk' | 'info';
+type CommercialChoiceId = 'approve-recovery' | 'hold-proof' | 'do-nothing';
 
 const sections: { id: SectionId; label: string }[] = [
   { id: 'summary', label: 'Summary' },
@@ -347,6 +348,151 @@ function CostPositionPanel({
   );
 }
 
+function CommercialDecisionBridge({
+  pendingVariations,
+  forecastDelta,
+  contingencyRemaining,
+  topPackage,
+  selectedChoice,
+  onSelect,
+  onOpenVariations,
+  onOpenPackages,
+}: {
+  pendingVariations: number;
+  forecastDelta: number;
+  contingencyRemaining: number;
+  topPackage: BudgetPackage;
+  selectedChoice: CommercialChoiceId;
+  onSelect: (choice: CommercialChoiceId) => void;
+  onOpenVariations: () => void;
+  onOpenPackages: () => void;
+}) {
+  const recoveryDays = Math.max(4, Math.round(topPackage.programmeDelayDays * 0.55));
+  const holdExposure = Math.max(topPackage.openClaims, pendingVariations * 0.35);
+  const choices: {
+    id: CommercialChoiceId;
+    title: string;
+    outcome: string;
+    cost: string;
+    programme: string;
+    owner: string;
+    tone: ActionTone;
+  }[] = [
+    {
+      id: 'approve-recovery',
+      title: 'Approve controlled recovery',
+      outcome: `Use ${money(topPackage.recoveryCost)} to protect handover and cap ${topPackage.name.toLowerCase()} drift.`,
+      cost: money(topPackage.recoveryCost),
+      programme: `Recovers up to ${recoveryDays} days`,
+      owner: 'Project Director + Commercial',
+      tone: 'good',
+    },
+    {
+      id: 'hold-proof',
+      title: 'Hold cash, demand proof',
+      outcome: `Keep ${money(holdExposure)} out of committed cost until vendor evidence and programme impact are confirmed.`,
+      cost: money(holdExposure),
+      programme: '72h evidence deadline',
+      owner: 'Commercial Manager',
+      tone: 'watch',
+    },
+    {
+      id: 'do-nothing',
+      title: 'Do nothing this cycle',
+      outcome: `Leave ${money(Math.max(forecastDelta, 0) + pendingVariations)} exposed in the forecast and let the next report absorb the movement.`,
+      cost: money(Math.max(forecastDelta, 0) + pendingVariations),
+      programme: `${topPackage.programmeDelayDays + 10} days exposed`,
+      owner: 'No accountable owner',
+      tone: 'risk',
+    },
+  ];
+
+  const selected = choices.find(choice => choice.id === selectedChoice) ?? choices[0];
+
+  return (
+    <section
+      data-demo-anchor="project-cost-bridge"
+      className="mt-4 rounded-xl border border-cyan-300/20 bg-[linear-gradient(135deg,rgba(8,47,73,0.88),rgba(17,32,64,0.88),rgba(7,17,31,0.94))] p-4"
+    >
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.35fr)]">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-300/24 bg-cyan-300/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-cyan-100">
+              <BrainCircuit size={13} />
+              Cost to forecast bridge
+            </span>
+            <StatusPill tone={forecastDelta > 0 ? 'amber' : 'green'}>{forecastDelta > 0 ? 'Decision needed' : 'Within plan'}</StatusPill>
+          </div>
+          <h2 className="mt-3 text-[22px] font-black leading-7 text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+            Turn commercial exposure into a board choice.
+          </h2>
+          <p className="mt-2 text-[13px] leading-6 text-[#B8C7DB]">
+            The page now connects forecast movement to the specific lever that can change it: approve recovery, hold cash until proof arrives, or accept the cost and programme consequence.
+          </p>
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+            {[
+              { label: 'Forecast delta', value: money(forecastDelta), tone: forecastDelta > 0 ? 'risk' : 'good' as ActionTone },
+              { label: 'Pending variations', value: money(pendingVariations), tone: pendingVariations > 0 ? 'watch' : 'good' as ActionTone },
+              { label: 'Top driver', value: topPackage.name, tone: topPackage.riskLevel === 'critical' ? 'risk' : 'watch' as ActionTone },
+              { label: 'Contingency left', value: money(contingencyRemaining), tone: contingencyRemaining < 0 ? 'risk' : 'good' as ActionTone },
+            ].map(item => (
+              <div key={item.label} className={`rounded-xl border p-3 ${toneClass(item.tone)}`}>
+                <p className="text-[9px] font-black uppercase tracking-[0.14em] opacity-75">{item.label}</p>
+                <p className="mt-1 line-clamp-2 text-[14px] font-black text-[#EEF3FA]">{item.value}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid gap-3 lg:grid-cols-3">
+          {choices.map(choice => {
+            const isSelected = selectedChoice === choice.id;
+            return (
+              <button
+                key={choice.id}
+                type="button"
+                onClick={() => onSelect(choice.id)}
+                className={`flex min-h-[230px] flex-col rounded-xl border p-3 text-left transition-all hover:-translate-y-0.5 ${
+                  isSelected ? 'border-cyan-200/60 bg-cyan-300/14 shadow-lg shadow-cyan-950/30' : toneClass(choice.tone)
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <h3 className="text-[13px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{choice.title}</h3>
+                  <span className={`rounded-full border px-2 py-1 text-[9px] font-black uppercase tracking-wide ${isSelected ? 'border-cyan-200/40 bg-cyan-300/18 text-cyan-100' : 'border-white/10 bg-[#07111F]/72 text-[#B8C7DB]'}`}>
+                    {isSelected ? 'Selected' : 'Option'}
+                  </span>
+                </div>
+                <p className="mt-3 flex-1 text-[12px] leading-5 text-[#DDE6F8]">{choice.outcome}</p>
+                <div className="mt-3 grid gap-2 text-[10px] leading-4 text-[#B8C7DB]">
+                  <div><span className="font-black uppercase tracking-wide text-[#7A94B4]">Cost:</span> {choice.cost}</div>
+                  <div><span className="font-black uppercase tracking-wide text-[#7A94B4]">Programme:</span> {choice.programme}</div>
+                  <div><span className="font-black uppercase tracking-wide text-[#7A94B4]">Owner:</span> {choice.owner}</div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <div className="mt-4 flex flex-col gap-3 rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#07111F]/74 p-3 md:flex-row md:items-center md:justify-between">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-200">Prepared board line</p>
+          <p className="mt-1 text-[13px] leading-5 text-[#DDE6F8]">
+            Recommendation: {selected.title.toLowerCase()} because it gives the client a named owner, cost boundary, and visible programme consequence.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={onOpenVariations} className="rounded-xl border border-[#2E7FFF]/25 bg-[#0A1628] px-3 py-2 text-[11px] font-black text-[#9FC6FF] hover:bg-[#122A49]">
+            Open variations
+          </button>
+          <button type="button" onClick={onOpenPackages} className="rounded-xl border border-cyan-300/25 bg-cyan-300/10 px-3 py-2 text-[11px] font-black text-cyan-100 hover:bg-cyan-300/16">
+            Inspect package
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function PackageDriverCard({ pkg, onOpen }: { pkg: BudgetPackage; onOpen: () => void }) {
   const pressure = Math.max(pkg.variance, pkg.programmeCostExposure, pkg.openClaims);
   const tone: ActionTone = pkg.riskLevel === 'critical' ? 'risk' : pkg.riskLevel === 'high' ? 'watch' : 'good';
@@ -501,6 +647,7 @@ export function CostIntelligence() {
   const [activeSection, setActiveSection] = useState<SectionId>('summary');
   const [selectedPackage, setSelectedPackage] = useState<BudgetPackage | null>(null);
   const [aiMetric, setAiMetric] = useState<{ name: MetricName; value: string | number } | null>(null);
+  const [selectedCommercialChoice, setSelectedCommercialChoice] = useState<CommercialChoiceId>('approve-recovery');
 
   const totals = useMemo(() => {
     const revisedBudget = data.packages.reduce((sum, item) => sum + item.revisedBudget, 0);
@@ -548,10 +695,12 @@ export function CostIntelligence() {
   const topExposurePackages = [...data.packages]
     .sort((a, b) => Math.max(b.variance, b.programmeCostExposure, b.openClaims) - Math.max(a.variance, a.programmeCostExposure, a.openClaims))
     .slice(0, 3);
+  const topExposurePackage = topExposurePackages[0] ?? data.packages[0];
   const riskExposure = data.risks.reduce((sum, risk) => sum + risk.exposure, 0);
   const contingencyUsedPct = percent(data.budget.contingency - totals.contingencyRemaining, data.budget.contingency);
   const committedPct = percent(totals.committed, totals.revisedBudget);
   const actualPct = percent(totals.actual, totals.revisedBudget);
+  const forecastDelta = data.evm.eac - data.budget.approvedBudget;
 
   const goToSection = (section: SectionId) => {
     setActiveSection(section);
@@ -625,6 +774,17 @@ export function CostIntelligence() {
         />
       </div>
 
+      <CommercialDecisionBridge
+        pendingVariations={totals.pendingVariations}
+        forecastDelta={forecastDelta}
+        contingencyRemaining={totals.contingencyRemaining}
+        topPackage={topExposurePackage}
+        selectedChoice={selectedCommercialChoice}
+        onSelect={setSelectedCommercialChoice}
+        onOpenVariations={() => goToSection('variations')}
+        onOpenPackages={() => goToSection('packages')}
+      />
+
       <div className="sticky top-0 z-20 mt-4 flex flex-wrap gap-2 border-b border-[rgba(46,127,255,0.12)] bg-[#0A1628]/95 py-2 backdrop-blur">
         {sections.map(section => (
           <button
@@ -679,7 +839,7 @@ export function CostIntelligence() {
 
       <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1fr)_390px]">
         <div className="space-y-4">
-          <section id="packages" className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
+          <section id="packages" data-demo-anchor="project-cost-package-drivers" className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
             <SectionHeader icon={ClipboardList} title="Cost Breakdown by Package" subtitle="Every row links baseline budget, approved changes, commitments, actual cost, forecast, programme phase, vendor, and risk. Click a package to drill into its source trail." badge={`${data.packages.length} cost codes`} />
             <div className="mb-4 grid gap-3 md:grid-cols-3">
               {topExposurePackages.map(pkg => (
@@ -801,7 +961,7 @@ export function CostIntelligence() {
         </div>
 
         <aside className="space-y-4">
-          <section id="variations" className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
+          <section id="variations" data-demo-anchor="project-cost-variations" className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
             <SectionHeader icon={RefreshCw} title="Variations / Change Orders" subtitle="Decision queue for commercial movement. Each VO links to package, vendor, risk, evidence, and programme impact." />
             <div className="grid grid-cols-3 gap-2 pb-3">
               <div className="rounded-lg bg-[#07111F] p-2"><div className="text-[9px] text-[#7A94B4]">Pending Exposure</div><div className="font-mono text-[12px] font-black text-amber-200">{money(totals.pendingVariations)}</div></div>

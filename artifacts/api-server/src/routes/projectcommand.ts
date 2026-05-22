@@ -8,6 +8,7 @@ import {
   projectsTable,
 } from "../lib/db";
 import { logger } from "../lib/logger";
+import { requireRole } from "../middleware/rbac";
 
 const router = Router();
 
@@ -172,8 +173,8 @@ async function ensureProject(projectId: string) {
     .onConflictDoNothing();
 }
 
-router.get("/projectcommand/projects/:projectId/events", async (req, res) => {
-  const { projectId } = req.params;
+router.get("/projectcommand/projects/:projectId/events", requireRole("owner", "pmo", "admin"), async (req, res) => {
+  const projectId = String(req.params["projectId"]);
 
   try {
     if (!hasDatabaseConnection) {
@@ -194,8 +195,8 @@ router.get("/projectcommand/projects/:projectId/events", async (req, res) => {
   }
 });
 
-router.post("/projectcommand/projects/:projectId/events", async (req, res) => {
-  const { projectId } = req.params;
+router.post("/projectcommand/projects/:projectId/events", requireRole("pmo", "admin"), async (req, res) => {
+  const projectId = String(req.params["projectId"]);
 
   try {
     const event = normalizeEventBody(projectId, req.body);
@@ -253,8 +254,8 @@ router.post("/projectcommand/projects/:projectId/events", async (req, res) => {
   }
 });
 
-router.delete("/projectcommand/projects/:projectId/events", async (req, res) => {
-  const { projectId } = req.params;
+router.delete("/projectcommand/projects/:projectId/events", requireRole("pmo", "admin"), async (req, res) => {
+  const projectId = String(req.params["projectId"]);
 
   try {
     if (!hasDatabaseConnection) {

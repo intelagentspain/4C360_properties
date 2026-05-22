@@ -7,14 +7,17 @@ import {
   FileText, Truck, Package, Wrench, Calendar, Share2, Link2, Mail, Send, Check, Mic,
   BellRing, BellOff,
 } from 'lucide-react';
-import { type PortfolioClient } from '@/data/mockData';
+import { mockTechnicians, type PortfolioClient } from '@/data/mockData';
 import { type ToastFn } from '@/lib/ui';
 import { AnimatedBar } from '@/components/shared/AnimatedBar';
 import { AddClientModal, type ClientData, type TeamMember } from './CommandBar';
 import { useMemberFilter, isFilterActive } from '@/context/MemberFilterContext';
 import { useMemberProfiles } from '@/context/MemberProfilesContext';
 import { useClients } from '@/context/ClientsContext';
-import { useIncidents } from '@/context/IncidentContext';
+import { useIncidents, type CreateWorkOrderInput, type Incident, type WorkOrderTask } from '@/context/IncidentContext';
+import { createPortfolioActionPlanEvent } from '@/core/control-twin/projectControlTwin';
+import { addProjectCommandEvent } from '@/modules/projectcommand/state/projectCommandStore';
+import { getStoredAuthToken } from '@/lib/api';
 
 const REGIONS   = ['All', 'Dubai East', 'Downtown', 'Business Bay', 'Dubai Marina', 'Jumeirah'];
 const SECTORS   = ['All', 'Real Estate', 'Mixed-Use Residential', 'Commercial Retail', 'Commercial Office', 'Residential Community', 'Luxury Residential'];
@@ -45,6 +48,8 @@ const STATUS_DOT: Record<string, string> = {
   warning:  'bg-amber-400 animate-pulse',
   critical: 'bg-red-400 animate-pulse',
 };
+const PORTFOLIO_HANDOFF_PROJECT_ID = 'sobha-pilot-tower';
+const PORTFOLIO_HANDOFF_PROJECT_LABEL = 'Sobha Pilot Tower / Main Construction';
 
 const STATUS_TEXT: Record<string, string> = {
   live:     'text-emerald-400',
@@ -582,7 +587,7 @@ interface PortfolioKpi {
   nextBestAction: string;
   ifIgnored: string;
   sourceTrace: string;
-  focusRows: Array<{ label: string; value: string; detail: string; action: string; tone: string }>;
+  focusRows: Array<{ label: string; value: string; detail: string; action: string; tone: string; itemType?: 'property' | 'zone' | 'incident'; incident?: Incident }>;
   actions: Array<{ label: string; owner: string; impact: string; channel: string }>;
 }
 
@@ -744,6 +749,347 @@ function buildActionPlanText(receipt: ActionPlanReceipt): string {
 
 function actionPlanButtonLabel(count: number): string {
   return count === 1 ? 'Create Action' : 'Create Action Plan';
+}
+
+function clearActionLabel(action: string): string {
+  const labels: Record<string, string> = {
+    'Open recovery actions': 'Fix now',
+    'Assign recovery owner': 'Assign owner',
+    'Use spare team capacity': 'Use spare team',
+    'Create work order': 'Create WO',
+    'Resolve incident': 'Resolve now',
+    'Escalate incident': 'Escalate now',
+    'Dispatch technician': 'Dispatch tech',
+    'Escalate overdue incident': 'Escalate now',
+    'Confirm lift safety': 'Confirm safety',
+    'Publish resident update': 'Update residents',
+    'Confirm field ETA': 'Update ETA',
+    'Review work order': 'Review WO',
+    'Move techs here': 'Move techs',
+    'Open zone view': 'View zone',
+    'Escalate backlog': 'Clear backlog',
+    'Tune dispatch': 'Tune dispatch',
+    'Assign supervisor': 'Assign owner',
+    'Keep watch': 'Watch',
+    'Start SLA recovery': 'Recover SLA',
+    'Protect next breach': 'Stop breach',
+    'Maintain standard': 'Monitor',
+    'Complete onboarding': 'Finish setup',
+    'Audit data quality': 'Audit data',
+  };
+  return labels[action] ?? action;
+}
+
+function incidentActionFor(incident: Incident) {
+  if (incident.workOrderId || incident.ticketState === 'work_order_created') return 'Review work order';
+  if (incident.status === 'overdue' || incident.elapsed >= incident.slaMinutes) return 'Escalate incident';
+  return 'Resolve incident';
+}
+
+function incidentSkillFor(incident: Incident) {
+  const rawText = `${incident.title} ${incident.description} ${incident.asset ?? ''}`.toLowerCase();
+  const text = ` ${rawText.replace(/[^a-z0-9]+/g, ' ')} `;
+  if (/\b(intercom|access|gate|barrier|entry|visitor|keypad|card reader)\b/.test(text)) return 'Access Control';
+  if (/\b(power|electrical|mcb|circuit|breaker|panel|generator|lighting|light)\b/.test(text)) return 'Electrical';
+  if (/\b(water|leak|pipe|pump|pool|drain|plumbing|sink)\b/.test(text)) return 'Plumbing';
+  if (/\b(lift|elevator)\b/.test(text)) return 'Lift Safety';
+  if (/\b(ac|hvac|chiller|cooling|refrigerant|evaporator|ahu|air conditioner|air conditioning)\b/.test(text)) return 'HVAC';
+  return 'General';
+}
+
+function incidentAssetFor(incident: Incident) {
+  const rawText = `${incident.title} ${incident.description}`.toLowerCase();
+  const text = ` ${rawText.replace(/[^a-z0-9]+/g, ' ')} `;
+  if (/\b(intercom|access|gate|barrier|entry|visitor|keypad|card reader)\b/.test(text)) return 'Access control';
+  if (/\b(power|electrical|mcb|circuit|breaker|panel|generator|lighting|light)\b/.test(text)) return 'Electrical panel';
+  if (/\b(water|leak|pipe|drain|plumbing|sink)\b/.test(text)) return 'Plumbing line';
+  if (/\b(pool|pump)\b/.test(text)) return 'Pool pump';
+  if (/\b(lift|elevator)\b/.test(text)) return 'Lift system';
+  if (/\b(ac|hvac|chiller|cooling|refrigerant|evaporator|ahu|air conditioner|air conditioning)\b/.test(text)) return 'HVAC unit';
+  return incident.asset ?? 'Site asset';
+}
+
+function bestTechnicianForIncident(incident: Incident) {
+  const skill = incidentSkillFor(incident);
+  const statusScore: Record<string, number> = { available: 40, active: 26, transit: 18, dispatched: 18, overdue: -20 };
+  const scored = mockTechnicians
+    .map(tech => {
+      const skillMatch = tech.skill.toLowerCase().includes(skill.toLowerCase())
+        || skill === 'Access Control' && tech.skill.toLowerCase().includes('electrical')
+        || skill === 'Lift Safety' && tech.skill.toLowerCase().includes('general')
+        || skill === 'General';
+      const currentAssignee = incident.assignedTech === tech.name && incident.status !== 'overdue';
+      return {
+        tech,
+        score: (skillMatch ? 60 : 12) + (statusScore[tech.status] ?? 10) + tech.rating + (currentAssignee ? 20 : 0),
+        skillMatch,
+        currentAssignee,
+      };
+    })
+    .sort((a, b) => b.score - a.score);
+  const best = scored[0]?.tech ?? mockTechnicians[0];
+  const score = scored[0];
+  const reason = score?.currentAssignee
+    ? 'Already assigned, skill fit confirmed, and continuity protects response time.'
+    : score?.skillMatch
+      ? `${skill} match with ${best.status === 'available' ? 'available capacity' : `${best.status} status`} and ${best.rating.toFixed(1)} rating.`
+      : `Best available responder by rating and current load; dispatch lead can reassign if specialist cover changes.`;
+
+  return {
+    id: best.id,
+    name: best.name,
+    skill,
+    status: best.status,
+    eta: best.status === 'available' ? '6 min' : best.status === 'transit' ? '9 min' : best.status === 'active' ? '12 min' : '18 min',
+    reason,
+  };
+}
+
+function ownerForAction(action: string, isCritical: boolean, isWarning: boolean) {
+  const owners: Record<string, string> = {
+    'Create work order': 'Dispatch Lead',
+    'Resolve incident': 'Dispatch Lead',
+    'Escalate incident': 'Operations Lead',
+    'Dispatch technician': 'Dispatch Lead',
+    'Escalate overdue incident': 'Operations Lead',
+    'Confirm lift safety': 'Lift Supervisor',
+    'Publish resident update': 'Community Manager',
+    'Confirm field ETA': 'Site Supervisor',
+    'Review work order': 'Dispatch Lead',
+  };
+  return owners[action] ?? (isCritical ? 'Operations Lead' : isWarning ? 'Property Manager' : 'Dispatch Lead');
+}
+
+interface PortfolioPropertyAction {
+  id: string;
+  property: string;
+  value: string;
+  detail: string;
+  tone: string;
+  action: string;
+  actionLabel: string;
+  owner: string;
+  due: string;
+  status: string;
+  brief: string;
+  itemType?: 'property' | 'zone' | 'incident';
+  incidentId?: string;
+  incidentTitle?: string;
+  location?: string;
+  priority?: string;
+  asset?: string;
+  skill?: string;
+  siteId?: string;
+  workOrderId?: string;
+  recommendedTech?: {
+    id: string;
+    name: string;
+    skill: string;
+    status: string;
+    eta: string;
+    reason: string;
+  };
+}
+
+function portfolioToneBadgeClass(tone: string) {
+  if (tone.includes('red')) return 'border-red-400/25 bg-red-500/12 text-red-200';
+  if (tone.includes('amber')) return 'border-amber-400/25 bg-amber-500/12 text-amber-200';
+  if (tone.includes('emerald')) return 'border-emerald-400/25 bg-emerald-500/12 text-emerald-200';
+  if (tone.includes('cyan')) return 'border-cyan-400/25 bg-cyan-500/12 text-cyan-200';
+  return 'border-[#2E7FFF]/25 bg-[#2E7FFF]/12 text-[#BFD8FF]';
+}
+
+function buildPortfolioPropertyAction(row: PortfolioKpi['focusRows'][number]): PortfolioPropertyAction {
+  const actionLabel = clearActionLabel(row.action);
+  const isCritical = row.tone.includes('red');
+  const isWarning = row.tone.includes('amber');
+  const owner = ownerForAction(row.action, isCritical, isWarning);
+  const due = isCritical ? 'Now' : isWarning ? 'Today' : 'This week';
+  const status = row.itemType === 'incident'
+    ? row.action === 'Review work order' ? 'Work order exists' : row.action === 'Escalate incident' ? 'Escalation ready' : 'Ready to resolve'
+    : isCritical ? 'Ready to assign' : isWarning ? 'Owner review' : 'Capacity review';
+  const brief = [
+    `${row.label}: ${actionLabel}`,
+    `Signal: ${row.value}. ${row.detail}`,
+    `Owner: ${owner}. Due: ${due}. Status: ${status}.`,
+    `Target: ${PORTFOLIO_HANDOFF_PROJECT_LABEL}.`,
+    `Manager action: ${row.action}.`,
+  ].join('\n');
+
+  return {
+    id: `${row.label}:${row.action}`,
+    property: row.label,
+    value: row.value,
+    detail: row.detail,
+    tone: row.tone,
+    action: row.action,
+    actionLabel,
+    owner,
+    due,
+    status,
+    brief,
+    itemType: row.itemType,
+    incidentId: row.incident?.id,
+    incidentTitle: row.incident?.title,
+    location: row.incident?.location,
+    priority: row.incident?.severity,
+    asset: row.incident ? incidentAssetFor(row.incident) : undefined,
+    skill: row.incident ? incidentSkillFor(row.incident) : undefined,
+    siteId: row.incident?.siteId,
+    workOrderId: row.incident?.workOrderId,
+    recommendedTech: row.incident ? bestTechnicianForIncident(row.incident) : undefined,
+  };
+}
+
+function buildPortfolioPriorityText(kpi: PortfolioKpi) {
+  return kpi.focusRows
+    .map((row, index) => `${index + 1}. ${row.label} - ${row.value}: ${row.detail} Action: ${clearActionLabel(row.action)}`)
+    .join('\n');
+}
+
+function PortfolioPropertyActionSheet({
+  action,
+  sent,
+  createdWorkOrderId,
+  onClose,
+  onCopy,
+  onSend,
+  onCreateWorkOrder,
+  onOpenProjectCommand,
+}: {
+  action: PortfolioPropertyAction;
+  sent: boolean;
+  createdWorkOrderId?: string | null;
+  onClose: () => void;
+  onCopy: () => void;
+  onSend: () => void;
+  onCreateWorkOrder?: () => void;
+  onOpenProjectCommand: () => void;
+}) {
+  const isIncident = action.itemType === 'incident';
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[340] grid place-items-center bg-black/34 px-4 backdrop-blur-[2px]"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`${action.actionLabel} for ${action.property}`}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96, y: 10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.96, y: 10 }}
+        transition={{ duration: 0.16 }}
+        className="w-[min(520px,100%)] overflow-hidden rounded-2xl border border-[rgba(46,127,255,0.26)] bg-[#0B172A] shadow-2xl"
+      >
+        <div className="flex items-start justify-between gap-3 border-b border-[rgba(46,127,255,0.14)] bg-[linear-gradient(90deg,rgba(46,127,255,0.16),rgba(17,32,64,0.98))] px-4 py-3">
+          <div>
+            <div className="text-[9px] font-black uppercase tracking-[0.18em] text-[#7A94B4]">
+              {action.itemType === 'incident' ? 'Incident Action' : action.itemType === 'zone' ? 'Zone Action' : 'Property Action'}
+            </div>
+            <h3 className="mt-1 text-base font-black leading-tight text-[#EEF3FA]">{action.actionLabel}: {action.property}</h3>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              <span className={`rounded-full border px-2 py-0.5 text-[10px] font-black ${portfolioToneBadgeClass(action.tone)}`}>{action.value}</span>
+              <span className="rounded-full border border-[#2E7FFF]/18 bg-[#07111F]/80 px-2 py-0.5 text-[10px] font-bold text-[#BFD8FF]">{action.status}</span>
+            </div>
+          </div>
+          <button onClick={onClose} className="rounded-lg p-1.5 text-[#7A94B4] transition-colors hover:bg-white/5 hover:text-white" aria-label="Close property action">
+            <X size={15} />
+          </button>
+        </div>
+
+        <div className="space-y-3 px-4 py-4">
+          <div className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#07111F] p-3">
+            <div className="text-[9px] font-black uppercase tracking-[0.16em] text-[#7A94B4]">Why this action</div>
+            <p className="mt-1 text-[12px] leading-relaxed text-[#C6D6EF]">{action.detail}</p>
+          </div>
+
+          <div className="grid gap-2 sm:grid-cols-3">
+            <div className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#07111F] p-3">
+              <div className="text-[9px] font-black uppercase tracking-[0.16em] text-[#7A94B4]">{isIncident ? 'Best match' : 'Owner'}</div>
+              <div className="mt-1 text-[12px] font-black text-[#EEF3FA]">{isIncident ? action.recommendedTech?.name ?? action.owner : action.owner}</div>
+            </div>
+            <div className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#07111F] p-3">
+              <div className="text-[9px] font-black uppercase tracking-[0.16em] text-[#7A94B4]">{isIncident ? 'ETA' : 'Due'}</div>
+              <div className="mt-1 text-[12px] font-black text-[#EEF3FA]">{isIncident ? action.recommendedTech?.eta ?? action.due : action.due}</div>
+            </div>
+            <div className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#07111F] p-3">
+              <div className="text-[9px] font-black uppercase tracking-[0.16em] text-[#7A94B4]">Target</div>
+              <div className="mt-1 text-[12px] font-black text-[#EEF3FA]">{isIncident ? 'Work Order' : 'ProjectCommand'}</div>
+            </div>
+          </div>
+
+          {isIncident && action.recommendedTech && (
+            <div className="rounded-xl border border-cyan-300/18 bg-cyan-400/10 p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <div className="text-[9px] font-black uppercase tracking-[0.16em] text-cyan-200">AI best match</div>
+                  <div className="mt-1 text-[13px] font-black text-[#EEF3FA]">{action.recommendedTech.name} / {action.recommendedTech.skill}</div>
+                </div>
+                <span className="rounded-full border border-cyan-300/22 bg-[#07111F]/70 px-2 py-0.5 text-[10px] font-black text-cyan-100">{action.recommendedTech.status}</span>
+              </div>
+              <p className="mt-2 text-[11px] leading-relaxed text-[#A9C4EA]">{action.recommendedTech.reason}</p>
+            </div>
+          )}
+
+          <div className="rounded-xl border border-emerald-400/18 bg-emerald-400/10 p-3">
+            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-wide text-emerald-200">
+              <Send size={12} />
+              Prepared brief
+            </div>
+            <p className="mt-2 whitespace-pre-line text-[12px] leading-relaxed text-emerald-50">{action.brief}</p>
+          </div>
+
+          {sent && (
+            <div className="flex items-center gap-2 rounded-xl border border-emerald-300/22 bg-emerald-300/10 px-3 py-2 text-[11px] font-bold text-emerald-100">
+              <Check size={13} />
+              Sent to {PORTFOLIO_HANDOFF_PROJECT_LABEL}
+            </div>
+          )}
+          {createdWorkOrderId && (
+            <div className="flex items-center gap-2 rounded-xl border border-emerald-300/22 bg-emerald-300/10 px-3 py-2 text-[11px] font-bold text-emerald-100">
+              <Check size={13} />
+              {createdWorkOrderId} created and assigned to {action.recommendedTech?.name ?? action.owner}
+            </div>
+          )}
+          {!createdWorkOrderId && action.workOrderId && (
+            <div className="flex items-center gap-2 rounded-xl border border-emerald-300/22 bg-emerald-300/10 px-3 py-2 text-[11px] font-bold text-emerald-100">
+              <Check size={13} />
+              {action.workOrderId} is already linked to this incident
+            </div>
+          )}
+        </div>
+
+        <div className="flex flex-wrap justify-end gap-2 border-t border-[rgba(46,127,255,0.12)] bg-[#0B172A]/96 px-4 py-3">
+          <button onClick={onCopy} className="rounded-lg border border-[rgba(46,127,255,0.18)] px-3 py-2 text-[11px] font-semibold text-[#BFD8FF] transition-colors hover:bg-white/5">
+            Copy brief
+          </button>
+          {isIncident ? (
+            <button
+              onClick={onCreateWorkOrder}
+              disabled={Boolean(createdWorkOrderId || action.workOrderId)}
+              className="rounded-lg bg-[#2E7FFF] px-3 py-2 text-[11px] font-bold text-white shadow-[0_0_14px_rgba(46,127,255,0.32)] transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-55"
+            >
+              {createdWorkOrderId || action.workOrderId ? 'Work order ready' : 'Create & assign work order'}
+            </button>
+          ) : sent ? (
+            <button onClick={onOpenProjectCommand} className="rounded-lg bg-[#2E7FFF] px-3 py-2 text-[11px] font-bold text-white shadow-[0_0_14px_rgba(46,127,255,0.32)] transition-colors hover:bg-blue-500">
+              Open ProjectCommand
+            </button>
+          ) : (
+            <button onClick={onSend} className="rounded-lg bg-[#2E7FFF] px-3 py-2 text-[11px] font-bold text-white shadow-[0_0_14px_rgba(46,127,255,0.32)] transition-colors hover:bg-blue-500">
+              Send to ProjectCommand
+            </button>
+          )}
+          <button onClick={onClose} className="rounded-lg border border-[rgba(46,127,255,0.18)] px-3 py-2 text-[11px] font-semibold text-[#9DB9E8] transition-colors hover:bg-white/5">
+            Close
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
 }
 
 function managedActionInitialStatus(channel: string, custom = false): ManagedActionStatus {
@@ -1481,74 +1827,101 @@ function StatusSummaryModal({
   );
 }
 
-function PortfolioKpiModal({ kpi, onClose, onToast }: { kpi: PortfolioKpi; onClose: () => void; onToast: ToastFn }) {
-  const [selectedActions, setSelectedActions] = useState<string[]>(kpi.actions.slice(0, 2).map(action => action.label));
-  const [selectedFocusActions, setSelectedFocusActions] = useState<string[]>([]);
-  const [reviewScheduled, setReviewScheduled] = useState(false);
-  const [actionPlanRoute, setActionPlanRoute] = useState<{ total: number; owners: number; channels: number } | null>(null);
-
-  const toggleAction = (action: string) => {
-    setSelectedActions(prev => prev.includes(action) ? prev.filter(item => item !== action) : [...prev, action]);
-    setActionPlanRoute(null);
-  };
-
-  const toggleFocusAction = (row: PortfolioKpi['focusRows'][number]) => {
-    const key = `${row.label}:${row.action}`;
-    setSelectedFocusActions(prev => {
-      const active = prev.includes(key);
-      if (!active) onToast(`${row.action} selected for ${row.label}`, 'success');
-      setActionPlanRoute(null);
-      return active ? prev.filter(item => item !== key) : [...prev, key];
-    });
-  };
-
-  const selectedFocusRows = kpi.focusRows.filter(row => selectedFocusActions.includes(`${row.label}:${row.action}`));
-  const selectedCommandActions = kpi.actions.filter(action => selectedActions.includes(action.label));
-  const actionCount = selectedActions.length + selectedFocusActions.length;
+function PortfolioKpiModal({
+  kpi,
+  onClose,
+  onToast,
+  onCreateIncidentWorkOrder,
+}: {
+  kpi: PortfolioKpi;
+  onClose: () => void;
+  onToast: ToastFn;
+  onCreateIncidentWorkOrder: (incidentId: string, data: CreateWorkOrderInput) => WorkOrderTask;
+}) {
+  const [activePropertyAction, setActivePropertyAction] = useState<PortfolioPropertyAction | null>(null);
+  const [sentActionId, setSentActionId] = useState<string | null>(null);
+  const [createdWorkOrderId, setCreatedWorkOrderId] = useState<string | null>(null);
   const isSitesKpi = kpi.key === 'sites';
-  const topFocusRow = kpi.focusRows[0];
+  const isIncidentsKpi = kpi.key === 'incidents';
+  const itemLabel = isIncidentsKpi ? 'incident' : isSitesKpi ? 'zone' : 'property';
+  const itemPlural = isIncidentsKpi ? 'incidents' : isSitesKpi ? 'zones' : 'properties';
+  const modalLabel = isIncidentsKpi ? 'Incident Actions' : isSitesKpi ? 'Zone Actions' : 'Property Actions';
+  const listLabel = isIncidentsKpi ? 'Incidents' : isSitesKpi ? 'Zones' : 'Properties';
 
-  const reviewLater = () => {
-    setReviewScheduled(true);
-    onToast(`${kpi.label}: review scheduled for the next command check-in`, 'info');
+  const openPropertyAction = (row: PortfolioKpi['focusRows'][number]) => {
+    setActivePropertyAction(buildPortfolioPropertyAction(row));
+    setSentActionId(null);
+    setCreatedWorkOrderId(null);
   };
 
-  const createKpiActionPlan = () => {
-    const owners = new Set([
-      ...selectedCommandActions.map(action => action.owner),
-      ...selectedFocusRows.map(row => row.label),
-    ]);
-    const channels = new Set([
-      ...selectedCommandActions.map(action => action.channel),
-      ...selectedFocusRows.map(row => row.action),
-    ]);
-    setActionPlanRoute({ total: actionCount, owners: owners.size, channels: channels.size });
-    onToast(`${kpi.label}: ${actionCount} action${actionCount === 1 ? '' : 's'} assigned to ${owners.size} owner${owners.size === 1 ? '' : 's'}`, 'success');
+  const sharePriorityList = () => {
+    void shareCommandCard(`${kpi.label} priority list`, buildPortfolioPriorityText(kpi), onToast);
+  };
+
+  const copyActiveBrief = () => {
+    if (!activePropertyAction) return;
+    void shareCommandCard(`${activePropertyAction.actionLabel}: ${activePropertyAction.property}`, activePropertyAction.brief, onToast);
+  };
+
+  const sendActiveToProjectCommand = () => {
+    if (!activePropertyAction) {
+      onToast(`Open a ${itemLabel} action first`, 'warning');
+      return;
+    }
+    const event = createPortfolioActionPlanEvent(PORTFOLIO_HANDOFF_PROJECT_ID, [activePropertyAction]);
+    addProjectCommandEvent(PORTFOLIO_HANDOFF_PROJECT_ID, event);
+    setSentActionId(activePropertyAction.id);
+    onToast(`${activePropertyAction.property} sent to ProjectCommand`, 'success');
+  };
+
+  const createIncidentWorkOrder = () => {
+    if (!activePropertyAction?.incidentId) {
+      onToast('Open an incident first', 'warning');
+      return;
+    }
+    const wo = onCreateIncidentWorkOrder(activePropertyAction.incidentId, {
+      title: `${activePropertyAction.incidentTitle ?? activePropertyAction.property} response`,
+      location: activePropertyAction.location ?? activePropertyAction.property,
+      priority: activePropertyAction.priority ?? 'high',
+      asset: activePropertyAction.asset ?? 'Site asset',
+      skill: activePropertyAction.skill ?? 'General',
+      siteId: activePropertyAction.siteId,
+      assignedTech: activePropertyAction.recommendedTech?.name ?? null,
+      techId: activePropertyAction.recommendedTech?.id ?? null,
+      description: `${activePropertyAction.brief}\n\nAI best match: ${activePropertyAction.recommendedTech?.name ?? 'Dispatch Lead'}${activePropertyAction.recommendedTech ? ` (${activePropertyAction.recommendedTech.reason})` : ''}`,
+    });
+    setCreatedWorkOrderId(wo.id);
+    onToast(`${wo.id} created and assigned to ${activePropertyAction.recommendedTech?.name ?? 'best match'}`, 'success');
+  };
+
+  const openProjectCommand = () => {
+    window.location.assign('/projectcommand/overview');
   };
 
   return (
+    <>
     <motion.div
       initial={{ opacity: 0, scale: 0.96, y: 12 }}
       animate={{ opacity: 1, scale: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.96, y: 12 }}
       transition={{ duration: 0.18 }}
-      className="fixed left-1/2 top-1/2 z-[320] flex max-h-[calc(100dvh-32px)] w-[min(720px,calc(100%-32px))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-[rgba(46,127,255,0.28)] bg-[#0B172A] shadow-2xl"
+      className="fixed left-1/2 top-1/2 z-[320] flex max-h-[calc(100dvh-32px)] w-[min(680px,calc(100%-32px))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-[rgba(46,127,255,0.28)] bg-[#0B172A] shadow-2xl"
       role="dialog"
       aria-modal="true"
       aria-label={`${kpi.label} details`}
     >
       <div className="flex flex-shrink-0 items-start justify-between gap-3 border-b border-[rgba(46,127,255,0.16)] bg-[linear-gradient(90deg,rgba(46,127,255,0.18),rgba(17,32,64,0.98))] px-4 py-3">
         <div className="flex items-start gap-3">
-          <div className={`mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg ${kpi.bg} ${kpi.color}`}>
-            {kpi.icon}
-          </div>
-          <div>
-            <div className="text-[9px] font-bold uppercase tracking-wide text-[#7A94B4]">
-              {isSitesKpi ? 'Coverage OS' : 'Command Decision'}
+            <div className={`mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg ${kpi.bg} ${kpi.color}`}>
+              {kpi.icon}
             </div>
+            <div>
+              <div className="text-[9px] font-bold uppercase tracking-wide text-[#7A94B4]">
+                {modalLabel}
+              </div>
             <h3 className="mt-0.5 text-sm font-bold leading-tight text-[#EEF3FA]">{kpi.label}</h3>
             <p className="mt-1 max-w-2xl text-[11px] leading-relaxed text-[#9DB9E8]">
-              {isSitesKpi ? 'Every job, asset, sensor, technician, and SLA clock needs a zone.' : kpi.summary}
+              Pick a {itemLabel} action to manage it.
             </p>
           </div>
         </div>
@@ -1557,185 +1930,96 @@ function PortfolioKpiModal({ kpi, onClose, onToast }: { kpi: PortfolioKpi; onClo
         </button>
       </div>
 
-      <div className="custom-scrollbar min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
-        {isSitesKpi && (
-          <div className="rounded-xl border border-cyan-300/22 bg-[linear-gradient(135deg,rgba(8,145,178,0.16),rgba(46,127,255,0.08))] p-3">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <div className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-200">Coverage OS</div>
-                <h4 className="mt-1 text-[15px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-                  {kpi.value} zones under command
-                </h4>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {['Techs', 'Assets', 'Sensors', 'Incidents', 'Evidence', 'SLA'].map(item => (
-                  <span key={item} className="rounded-full border border-cyan-300/18 bg-[#06101F]/80 px-3 py-1 text-[10px] font-black text-cyan-100">
-                    {item}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="grid gap-3 md:grid-cols-[150px_minmax(0,1fr)]">
-          <div className={`rounded-xl border p-3 ${kpi.bg}`}>
-            <div className="text-[9px] font-bold uppercase tracking-wide text-[#7A94B4]">{isSitesKpi ? 'Footprint' : 'Signal'}</div>
-            <div className={`mt-1 text-3xl font-black leading-none ${kpi.color}`}>{kpi.value}</div>
-            <div className="mt-1 text-[10px] text-[#8EA7C7]">{kpi.label}</div>
-          </div>
-          <div className="rounded-xl border border-emerald-400/20 bg-emerald-500/10 p-3">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="mb-1 flex items-center gap-1.5 text-[9px] font-black uppercase tracking-wide text-emerald-200">
-                  <Zap size={11} />
-                  Do this now
-                </div>
-                <div className="text-[13px] font-black leading-snug text-[#EEF3FA]">{kpi.nextBestAction}</div>
-                <div className="mt-2 flex items-start gap-1.5 text-[10px] leading-4 text-amber-100/90">
-                  <AlertTriangle size={11} className="mt-0.5 shrink-0 text-amber-200" />
-                  {kpi.ifIgnored}
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={createKpiActionPlan}
-                className="shrink-0 rounded-lg bg-[#2E7FFF] px-3 py-2 text-[10px] font-black text-white shadow-[0_0_14px_rgba(46,127,255,0.32)] transition-colors hover:bg-blue-500"
-              >
-                Create plan
-              </button>
-            </div>
-          </div>
-        </div>
-
+      <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto px-4 py-3">
         <div className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#07111F] p-3">
-          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-            <div className="text-[10px] font-black uppercase tracking-wide text-[#8DBDFF]">{isSitesKpi ? 'Pressure zones' : 'Act first'}</div>
-            <div className="rounded-full border border-[rgba(46,127,255,0.16)] bg-[#0A1628] px-2 py-0.5 text-[9px] text-[#7A94B4]">{kpi.sourceTrace}</div>
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <div className="text-[10px] font-black uppercase tracking-wide text-[#8DBDFF]">
+                {listLabel}
+              </div>
+            <div className="rounded-full border border-[rgba(46,127,255,0.16)] bg-[#0A1628] px-2 py-0.5 text-[9px] text-[#7A94B4]">
+              Sorted by priority
+            </div>
           </div>
           <div className="space-y-1.5">
-            {kpi.focusRows.slice(0, 3).map((row, index) => (
-              <div key={`${row.label}-${row.value}`} className="grid gap-2 rounded-lg border border-[rgba(46,127,255,0.10)] bg-[#0A1628] px-3 py-2 md:grid-cols-[1fr_auto] md:items-center">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="grid h-5 w-5 place-items-center rounded-md border border-white/10 bg-white/[0.04] text-[9px] font-black text-[#8DBDFF]">{index + 1}</span>
-                    <div className="truncate text-[12px] font-black text-[#EEF3FA]">{row.label}</div>
-                    <div className={`rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-bold ${row.tone}`}>{row.value}</div>
-                  </div>
-                  <div className="mt-1 text-[10px] leading-relaxed text-[#8EA7C7]">{row.detail}</div>
-                </div>
-                {(() => {
-                  const active = selectedFocusActions.includes(`${row.label}:${row.action}`);
-                  return (
-                    <button
-                      type="button"
-                      onClick={() => toggleFocusAction(row)}
-                      className={`inline-flex items-center justify-center gap-1 rounded-lg border px-2.5 py-1.5 text-[10px] font-bold transition-all ${
-                        active
-                          ? 'border-emerald-400/35 bg-emerald-400/14 text-emerald-200'
-                          : 'border-[#2E7FFF]/22 bg-[#2E7FFF]/10 text-[#BFD8FF] hover:border-[#2E7FFF]/55 hover:bg-[#2E7FFF]/18 hover:text-white'
-                      }`}
-                      aria-pressed={active}
-                    >
-                      {active ? <Check size={11} /> : null}
-                      {active ? 'Selected' : row.action}
-                      {!active && <ArrowRight size={11} />}
-                    </button>
-                  );
-                })()}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-[rgba(46,127,255,0.14)] bg-[#07111F] p-3">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <div className="text-[10px] font-black uppercase tracking-wide text-[#8DBDFF]">Action checklist</div>
-            <div className="text-[9px] text-[#7A94B4]">{actionCount} selected</div>
-          </div>
-          <div className="grid gap-1.5 sm:grid-cols-2">
-            {kpi.actions.slice(0, 4).map(action => {
-            const active = selectedActions.includes(action.label);
-            return (
-              <button
-                key={action.label}
-                type="button"
-                onClick={() => toggleAction(action.label)}
-                className={`rounded-lg border px-3 py-2 text-left transition-all ${
-                  active
-                    ? 'border-[#2E7FFF]/70 bg-[#2E7FFF]/18 shadow-[0_0_16px_rgba(46,127,255,0.16)]'
-                    : 'border-[rgba(46,127,255,0.14)] bg-[#0A1628] hover:border-[#2E7FFF]/45 hover:bg-[#102544]'
-                }`}
-              >
-                <div className="flex items-center justify-between gap-2">
+            {kpi.focusRows.map((row, index) => {
+              const buttonLabel = clearActionLabel(row.action);
+              return (
+                <div
+                  key={`${row.label}-${row.value}`}
+                  className="grid gap-2 rounded-lg border border-[rgba(46,127,255,0.10)] bg-[#0A1628] px-3 py-2 transition-all hover:border-[#2E7FFF]/28 hover:bg-[#0D1B31] md:grid-cols-[1fr_auto] md:items-center"
+                >
                   <div className="min-w-0">
-                    <div className="flex items-center gap-2 text-[11px] font-black text-[#EEF3FA]">
-                      {active ? <Check size={12} className="shrink-0 text-blue-200" /> : <span className="h-3 w-3 shrink-0 rounded border border-white/20" />}
-                      <span className="truncate">{action.label}</span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="grid h-5 w-5 place-items-center rounded-md border border-white/10 bg-white/[0.04] text-[9px] font-black text-[#8DBDFF]">{index + 1}</span>
+                      <div className="truncate text-[12px] font-black text-[#EEF3FA]">{row.label}</div>
+                      <div className={`rounded-full border px-2 py-0.5 text-[10px] font-black ${portfolioToneBadgeClass(row.tone)}`}>{row.value}</div>
                     </div>
-                    <p className="mt-1 truncate text-[9px] text-[#8EA7C7]">{action.owner} / {action.channel}</p>
+                    <div className="mt-1 text-[10px] leading-relaxed text-[#8EA7C7]">{row.detail}</div>
                   </div>
-                  <ArrowRight size={11} className="shrink-0 text-[#7A94B4]" />
+                  <button
+                    type="button"
+                    onClick={() => openPropertyAction(row)}
+                    className="inline-flex items-center justify-center gap-1 rounded-lg border border-[#2E7FFF]/22 bg-[#2E7FFF]/10 px-2.5 py-1.5 text-[10px] font-bold text-[#BFD8FF] transition-all hover:border-[#2E7FFF]/55 hover:bg-[#2E7FFF]/18 hover:text-white"
+                  >
+                    {buttonLabel}
+                    <ArrowRight size={11} />
+                  </button>
                 </div>
-              </button>
-            );
-          })}
+              );
+            })}
           </div>
-          {topFocusRow && (
-            <p className="mt-2 text-[10px] leading-4 text-[#7A94B4]">
-              First target: <span className="font-bold text-[#C8D6E8]">{topFocusRow.label}</span>. Use the row action above if the plan needs a property-specific task.
-            </p>
-          )}
         </div>
 
       </div>
 
       <div className="flex flex-shrink-0 flex-col gap-2 border-t border-[rgba(46,127,255,0.12)] bg-[#0B172A]/96 px-4 py-3">
-        {(reviewScheduled || actionPlanRoute) && (
-          <div className="grid gap-2 sm:grid-cols-2">
-            {reviewScheduled && (
-              <div className="flex items-center gap-2 rounded-lg border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-[10px] font-semibold text-amber-200">
-                <Calendar size={12} />
-                Review reminder set for the next command check-in.
-              </div>
-            )}
-            {actionPlanRoute && (
-              <div className="flex items-center gap-2 rounded-lg border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-[10px] font-semibold text-emerald-200">
-                <Send size={12} />
-                {actionPlanRoute.total} routed to {actionPlanRoute.owners} owner{actionPlanRoute.owners === 1 ? '' : 's'} across {actionPlanRoute.channels} channel{actionPlanRoute.channels === 1 ? '' : 's'}.
-              </div>
-            )}
-          </div>
-        )}
         <div className="flex items-center justify-between gap-3">
-          <div className="text-[10px] text-[#7A94B4]">{actionCount} action{actionCount === 1 ? '' : 's'} in the manager plan</div>
+          <div className="text-[10px] text-[#7A94B4]">{kpi.focusRows.length} {itemPlural} sorted by priority</div>
           <div className="flex gap-2">
             <button
-              onClick={reviewLater}
-              className={`rounded-lg border px-3 py-2 text-[11px] font-semibold transition-colors ${
-                reviewScheduled
-                  ? 'border-amber-400/25 bg-amber-400/10 text-amber-200'
-                  : 'border-[rgba(46,127,255,0.18)] text-[#9DB9E8] hover:bg-white/5'
-              }`}
+              onClick={sharePriorityList}
+              className="rounded-lg bg-[#2E7FFF] px-3 py-2 text-[11px] font-bold text-white shadow-[0_0_14px_rgba(46,127,255,0.32)] transition-colors hover:bg-blue-500"
             >
-              {reviewScheduled ? 'Review Scheduled' : 'Schedule Review'}
-            </button>
-            <button onClick={createKpiActionPlan} className="rounded-lg bg-[#2E7FFF] px-3 py-2 text-[11px] font-bold text-white shadow-[0_0_14px_rgba(46,127,255,0.32)] transition-colors hover:bg-blue-500">
-              {actionPlanRoute ? 'Update Action Plan' : actionPlanButtonLabel(actionCount)}
+              Share
             </button>
             <button onClick={onClose} className="rounded-lg border border-[rgba(46,127,255,0.18)] px-3 py-2 text-[11px] font-semibold text-[#9DB9E8] transition-colors hover:bg-white/5">Close</button>
           </div>
         </div>
       </div>
     </motion.div>
+    <AnimatePresence>
+      {activePropertyAction && (
+        <PortfolioPropertyActionSheet
+            action={activePropertyAction}
+            sent={sentActionId === activePropertyAction.id}
+            createdWorkOrderId={createdWorkOrderId}
+            onClose={() => setActivePropertyAction(null)}
+            onCopy={copyActiveBrief}
+            onSend={sendActiveToProjectCommand}
+            onCreateWorkOrder={createIncidentWorkOrder}
+            onOpenProjectCommand={openProjectCommand}
+          />
+      )}
+    </AnimatePresence>
+    </>
   );
 }
 
 function PortfolioSummaryStrip({ clients, onToast }: { clients: PortfolioClient[]; onToast: ToastFn }) {
   const totalSites       = clients.reduce((s, c) => s + c.sites, 0);
   const totalWO          = clients.reduce((s, c) => s + c.workOrders, 0);
-  const { incidents }    = useIncidents();
-  const criticalInc      = Math.max(6, incidents.filter(i => i.severity === 'critical' && i.status !== 'closed').length);
+  const { incidents, createWorkOrder } = useIncidents();
+  const flaggedIncidents = [...incidents]
+    .filter(i => i.status !== 'closed' && ['critical', 'high'].includes(i.severity))
+    .sort((a, b) => {
+      const severityScore = (incident: Incident) => incident.severity === 'critical' ? 0 : 1;
+      const statusScore = (incident: Incident) => incident.status === 'overdue' ? 0 : incident.assignedTech ? 2 : 1;
+      return severityScore(a) - severityScore(b)
+        || statusScore(a) - statusScore(b)
+        || (b.elapsed / Math.max(b.slaMinutes, 1)) - (a.elapsed / Math.max(a.slaMinutes, 1));
+    })
+    .slice(0, 6);
+  const criticalInc      = flaggedIncidents.length;
   const avgSLA           = Math.round(clients.reduce((s, c) => s + c.sla, 0) / clients.length);
   const totalDS          = clients.reduce((s, c) => s + c.dataSources.length, 0);
   const [selectedKpi, setSelectedKpi] = useState<PortfolioKpi | null>(null);
@@ -1758,12 +2042,11 @@ function PortfolioSummaryStrip({ clients, onToast }: { clients: PortfolioClient[
     client.incidents * 10 + client.overdueTasks * 6 + client.workOrders / Math.max(client.sites, 1) + (100 - client.sla);
   const statusFocusRows = [...clients]
     .sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status] || RISK_ORDER[a.riskLevel] - RISK_ORDER[b.riskLevel] || b.incidents - a.incidents)
-    .slice(0, 3)
     .map(client => ({
       label: client.name,
       value: `${client.status.toUpperCase()} · ${client.riskLevel.toUpperCase()}`,
       detail: `${client.sites} sites, ${client.incidents} incidents, ${client.overdueTasks} overdue tasks, ${client.sla}% SLA.`,
-      action: client.status === 'critical' ? 'Open recovery bridge' : client.status === 'warning' ? 'Stabilize next shift' : 'Use spare capacity',
+      action: client.status === 'critical' ? 'Open recovery actions' : client.status === 'warning' ? 'Assign recovery owner' : 'Use spare team capacity',
       tone: client.status === 'critical' ? 'text-red-200' : client.status === 'warning' ? 'text-amber-200' : 'text-emerald-200',
     }));
   const siteCoverageRows = [...clients]
@@ -1786,16 +2069,20 @@ function PortfolioSummaryStrip({ clients, onToast }: { clients: PortfolioClient[
       action: client.overdueTasks > 5 ? 'Escalate backlog' : 'Tune dispatch',
       tone: client.overdueTasks > 5 ? 'text-red-200' : client.workOrders > 50 ? 'text-amber-200' : 'text-emerald-200',
     }));
-  const incidentFocusRows = [...clients]
-    .sort((a, b) => b.incidents - a.incidents || a.sla - b.sla)
-    .slice(0, 3)
-    .map(client => ({
-      label: client.name,
-      value: `${client.incidents} incidents`,
-      detail: `${client.sla}% SLA, ${client.overdueTasks} overdue tasks, ${client.people.supervisors[0]?.name ?? 'Supervisor'} owns first response.`,
-      action: client.incidents > 0 ? 'Assign supervisor' : 'Keep watch',
-      tone: client.incidents > 8 ? 'text-red-200' : client.incidents > 0 ? 'text-amber-200' : 'text-emerald-200',
-    }));
+  const incidentFocusRows = flaggedIncidents.map(incident => {
+    const assigned = incident.assignedTech ? `${incident.assignedTech} assigned` : 'No technician assigned';
+    const elapsedShare = Math.round((incident.elapsed / Math.max(incident.slaMinutes, 1)) * 100);
+    const action = incidentActionFor(incident);
+    return {
+      label: `${incident.id} · ${incident.title}`,
+      value: `${incident.severity.toUpperCase()} · ${incident.status.toUpperCase()}`,
+      detail: `${incident.location} · ${elapsedShare}% of SLA used · ${assigned} · ${incident.source}.`,
+      action,
+      tone: incident.severity === 'critical' || incident.status === 'overdue' ? 'text-red-200' : 'text-amber-200',
+      itemType: 'incident' as const,
+      incident,
+    };
+  });
   const slaFocusRows = [...clients]
     .sort((a, b) => a.sla - b.sla || b.incidents - a.incidents)
     .slice(0, 3)
@@ -2015,7 +2302,12 @@ function PortfolioSummaryStrip({ clients, onToast }: { clients: PortfolioClient[
         {selectedKpi && (
           <>
             <div className="fixed inset-0 z-[300] bg-black/35 backdrop-blur-[1px]" onClick={() => setSelectedKpi(null)} />
-            <PortfolioKpiModal kpi={selectedKpi} onClose={() => setSelectedKpi(null)} onToast={onToast} />
+            <PortfolioKpiModal
+              kpi={selectedKpi}
+              onClose={() => setSelectedKpi(null)}
+              onToast={onToast}
+              onCreateIncidentWorkOrder={createWorkOrder}
+            />
           </>
         )}
       </AnimatePresence>
@@ -2854,7 +3146,7 @@ function PulseEventModal({ event, onClose, onToast }: { event: PulseEvent; onClo
   );
 }
 
-function PortfolioPulseFeed({ onToast }: { onToast: ToastFn }) {
+function PortfolioPulseFeed({ onToast, demoOpenRequest }: { onToast: ToastFn; demoOpenRequest?: number }) {
   const [events, setEvents] = useState<PulseEvent[]>(PULSE_EVENTS.slice(0, 5));
   const [idx, setIdx] = useState(0);
   const [simRunning, setSimRunning] = useState(false);
@@ -2932,6 +3224,12 @@ function PortfolioPulseFeed({ onToast }: { onToast: ToastFn }) {
       return nextOpen;
     });
   }
+
+  useEffect(() => {
+    if (!demoOpenRequest) return;
+    setPanelOpen(true);
+    setUnseenCount(0);
+  }, [demoOpenRequest]);
 
   return (
     <>
@@ -3088,7 +3386,7 @@ function CardActions({
       <button
         onClick={e => { e.stopPropagation(); onNavigateToCommand(client.id, client.name); }}
         data-demo-anchor="portfolio-command-path"
-        data-demo-action="portfolio-open-command"
+        data-demo-action="open-property-command"
         className="flex flex-col items-center gap-0.5 py-1.5 rounded-lg bg-[rgba(46,127,255,0.1)] hover:bg-[rgba(46,127,255,0.2)] text-cyan-400 transition-colors"
         title="Command Center"
       >
@@ -3404,9 +3702,13 @@ function ClientReportPanel({
     setEmailResult('idle');
     try {
       const apiBase = (import.meta.env.VITE_API_URL ?? '/api') as string;
+      const token = getStoredAuthToken();
       const res = await fetch(`${apiBase}/share-report`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           to: emailTo,
           client: {
@@ -4058,7 +4360,7 @@ function ClientDetailDrawer({
           <div className="p-4 border-t border-[rgba(46,127,255,0.15)] space-y-2">
             <button
               onClick={() => { onNavigateToCommand(client.id, client.name); onClose(); }}
-              data-demo-action="portfolio-open-command"
+              data-demo-action="open-property-command"
               className="w-full py-2.5 bg-[#2E7FFF] text-white text-[12px] font-semibold rounded-lg hover:bg-blue-500 transition-colors flex items-center justify-center gap-1.5"
             >
               Open Command Center <ArrowRight size={13} />
@@ -4083,9 +4385,10 @@ interface Props {
   onNavigateToCommand: (clientId: string, clientName?: string) => void;
   demoAddPropertySection?: 'wizard' | 'ai' | 'upload';
   demoPortfolioSection?: 'health-actions' | 'portfolio-map' | 'command-path';
+  demoActionRequest?: { actionId: string; nonce: number } | null;
 }
 
-export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onNavigateToCommand, demoAddPropertySection, demoPortfolioSection }: Props) {
+export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onNavigateToCommand, demoAddPropertySection, demoPortfolioSection, demoActionRequest }: Props) {
   const memberFilter  = useMemberFilter();
   const { addProfiles } = useMemberProfiles();
   const { clients: allClients, addClient } = useClients();
@@ -4187,17 +4490,29 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
   useEffect(() => {
     if (demoPortfolioSection !== 'command-path') {
       setReportClient(null);
+    }
+  }, [demoPortfolioSection]);
+
+  useEffect(() => {
+    if (!demoActionRequest) return;
+
+    if (demoActionRequest.actionId === 'open-property-command') {
+      if (!demoCommandPathClient) return;
+      setSelected(null);
+      setReportClient(demoCommandPathClient);
+      onToast(`Command path preview opened for ${demoCommandPathClient.name}`, 'info');
       return;
     }
 
-    if (!demoCommandPathClient) return;
-    const timer = window.setTimeout(() => {
-      setSelected(null);
-      setReportClient(demoCommandPathClient);
-    }, 500);
-
-    return () => window.clearTimeout(timer);
-  }, [demoCommandPathClient, demoCommandPathClient?.id, demoPortfolioSection]);
+    if (
+      demoActionRequest.actionId === 'open-add-property-wizard'
+      || demoActionRequest.actionId === 'open-ai-onboarding'
+      || demoActionRequest.actionId === 'open-upload-panel'
+    ) {
+      setShowAddModal(true);
+      onToast('Property onboarding workspace opened', 'info');
+    }
+  }, [demoActionRequest, demoCommandPathClient, onToast]);
 
   return (
     <div className="h-full flex flex-col overflow-hidden relative" data-demo-anchor="portfolio-command">
@@ -4263,7 +4578,10 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
             {SORT_OPTS.map(s => <option key={s.key} value={s.key}>Sort: {s.label}</option>)}
           </select>
 
-          <PortfolioPulseFeed onToast={onToast} />
+          <PortfolioPulseFeed
+            onToast={onToast}
+            demoOpenRequest={demoActionRequest?.actionId === 'show-portfolio-pulse' ? demoActionRequest.nonce : undefined}
+          />
 
           <button
             onClick={() => setShowAddModal(true)}

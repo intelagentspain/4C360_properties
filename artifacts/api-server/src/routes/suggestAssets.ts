@@ -1,6 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import OpenAI from "openai";
 import { z } from "zod";
+import { requireRole } from "../middleware/rbac";
 
 const AssetRowSchema = z.object({
   assetName: z.string(),
@@ -51,6 +52,8 @@ Rules:
 - Return only the JSON object, no markdown, no extra text.`;
 
 const router: IRouter = Router();
+
+router.use(requireRole("owner", "pmo", "admin"));
 
 router.post(
   "/suggest-assets",

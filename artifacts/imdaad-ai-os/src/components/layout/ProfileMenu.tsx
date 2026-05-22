@@ -13,6 +13,7 @@ import {
   Users,
   X,
 } from 'lucide-react';
+import { clearStoredAuthSession } from '../../lib/api';
 
 interface Props {
   open: boolean;
@@ -62,8 +63,7 @@ export function ProfileMenu({ open, onClose }: Props) {
   const [compactMode, setCompactMode] = useState(false);
 
   const handleSignOut = () => {
-    sessionStorage.removeItem('4c360-auth-status');
-    localStorage.removeItem('4c360-auth-status');
+    clearStoredAuthSession();
     const base = (import.meta.env.BASE_URL ?? '/').replace(/\/$/, '');
     window.location.assign(`${base}/login`);
   };

@@ -1,6 +1,6 @@
-import { createProjectControlEvent, type CrossModuleImpact, type ProjectEvent, type ProjectEventType } from './projectControlTwin';
+import { createProjectControlEvent, type ProjectEvent, type ProjectEventSourceModule, type ProjectEventType } from './projectControlTwin';
 
-export type ControlTwinSourceModule = CrossModuleImpact['module'] | 'ProjectCommand';
+export type ControlTwinSourceModule = ProjectEventSourceModule;
 
 export interface CrossModuleEventInput {
   projectId: string;

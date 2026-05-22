@@ -531,6 +531,10 @@ export function EvidenceRepository({ onToast }: { onToast?: (message: string, ty
     ...currentDocuments.filter(item => item.type === 'Report'),
     ...currentDocuments.filter(item => item.type !== 'Report'),
   ];
+  const packDocuments = [
+    ...(criticalDocument ? [criticalDocument] : []),
+    ...currentDocuments.filter(item => item.code !== criticalDocument?.code).slice(0, 3),
+  ];
   const completedCount = Object.keys(completedActions).length;
   const readinessPercent = Math.round((currentDocuments.length / Math.max(evidenceDocuments.length, 1)) * 100);
 
@@ -576,7 +580,7 @@ export function EvidenceRepository({ onToast }: { onToast?: (message: string, ty
         </div>
       </div>
 
-      <div className="mt-4">
+      <div className="mt-4" data-demo-anchor="project-evidence-readiness">
         <div className="grid gap-3 lg:grid-cols-4">
           <EvidenceDecisionCard
             icon={AlertTriangle}
@@ -609,8 +613,74 @@ export function EvidenceRepository({ onToast }: { onToast?: (message: string, ty
         </div>
       </div>
 
+      <section
+        className="mt-4 overflow-hidden rounded-2xl border border-cyan-300/20 bg-[linear-gradient(135deg,rgba(6,182,212,0.13),rgba(124,58,237,0.10)_42%,rgba(7,17,31,0.92))] p-5 shadow-[0_18px_70px_rgba(0,0,0,0.22)]"
+        data-demo-anchor="project-evidence-pack-prep"
+      >
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/24 bg-cyan-300/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100">
+              <ShieldCheck size={13} />
+              Gate evidence pack builder
+            </div>
+            <h2 className="mt-4 text-2xl font-black leading-7 text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+              Turn loose files into a review-ready proof pack.
+            </h2>
+            <p className="mt-2 max-w-2xl text-[13px] leading-6 text-[#B8C7DB]">
+              The pack builder pulls the current certificate set, flags expired proof, and gives the gate reviewer a clean decision file instead of another document chase.
+            </p>
+            <div className="mt-4 grid gap-2 sm:grid-cols-3">
+              {[
+                ['Current proof', `${metrics.current} usable`],
+                ['Blockers', `${metrics.expired} expired`],
+                ['Review pack', exportPrepared ? 'Ready' : 'Not prepared'],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-xl border border-white/10 bg-[#07111F]/76 p-3">
+                  <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">{label}</p>
+                  <p className="mt-2 text-lg font-black text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{value}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#07111F]/74 p-4">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="text-[14px] font-black text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Pack contents</h3>
+                <p className="mt-1 text-[11px] text-[#8EA7C7]">Current proof plus the blocker that must be renewed.</p>
+              </div>
+              <button
+                type="button"
+                onClick={prepareExport}
+                className={`inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-[12px] font-black transition-colors ${exportPrepared ? 'border border-emerald-300/25 bg-emerald-300/12 text-emerald-100' : 'bg-[#2E7FFF] text-white hover:bg-[#256BE0]'}`}
+              >
+                {exportPrepared ? <CheckCircle2 size={15} /> : <Download size={15} />}
+                {exportPrepared ? 'Pack ready' : 'Prepare gate pack'}
+              </button>
+            </div>
+            <div className="grid gap-2">
+              {packDocuments.map(document => (
+                <button
+                  key={document.code}
+                  type="button"
+                  onClick={() => setSelectedDocument(document)}
+                  className={`rounded-xl border p-3 text-left transition-colors hover:border-cyan-300/35 ${document.status === 'Expired' ? 'border-red-300/24 bg-red-400/10' : 'border-[rgba(46,127,255,0.14)] bg-[#0A1628]'}`}
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-mono text-[11px] font-black text-cyan-300">{document.code}</span>
+                    <StatusBadge status={document.status} />
+                  </div>
+                  <p className="mt-2 text-[13px] font-black leading-5 text-[#EEF3FA]">{document.title}</p>
+                  <p className="mt-1 text-[11px] leading-4 text-[#8EA7C7]">{document.linkedObligation} - {document.uploader}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
       <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(320px,0.75fr)]">
-        <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
+        <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4" data-demo-anchor="project-evidence-expired">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h2 className="text-lg font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Evidence Work Queue</h2>

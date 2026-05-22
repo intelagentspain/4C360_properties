@@ -2,9 +2,12 @@ import { Router } from "express";
 import { logger } from "../lib/logger";
 import { sendEmail, ensureResendConfigured } from "../lib/mailer";
 import { db, clientsTable, teamMembersTable, eq, desc } from "../lib/db";
+import { requireRole } from "../middleware/rbac";
 import crypto from "node:crypto";
 
 const router = Router();
+
+router.use(["/clients", "/team-members"], requireRole("owner", "pmo", "admin"));
 
 function escapeHtml(str: string): string {
   return str

@@ -54,6 +54,17 @@ type DemoSpotlightBeat = {
   label?: string;
 };
 
+type DemoTimelineCue =
+  | { atMs: number; type: 'spotlight'; anchor?: string; fallback: FallbackHotspot; durationMs?: number }
+  | { atMs: number; type: 'scrollTo'; anchor: string }
+  | { atMs: number; type: 'demoAction'; actionId: string }
+  | { atMs: number; type: 'chapterPause' };
+
+type DemoActionRequest = {
+  actionId: string;
+  nonce: number;
+};
+
 type DemoFrame = {
   id: string;
   label: string;
@@ -121,6 +132,7 @@ type DemoNarrationScript = {
   audioSrc: string;
   estimatedDurationMs: number;
   beats: DemoSpotlightBeat[];
+  timelineCues: DemoTimelineCue[];
   requiresChapterConfirmation?: boolean;
 };
 
@@ -506,16 +518,16 @@ const SECTION_NARRATION_SCRIPTS: Record<string, DemoNarration> = {
     presenterNote: 'Stress owner action, due timing, and readiness movement.',
   },
   'cost:forecast': {
-    caption: 'Cost starts with the movement from baseline to forecast. The board can immediately see whether exposure is a budget issue, a commitment issue, or a decision still waiting for approval.',
-    presenterNote: 'Keep the money story simple: where is exposure coming from, and what decision changes it?',
+    caption: 'Cost now resolves into a choice. You can see the forecast delta, pending variations, top package driver, and the three commercial paths available to the owner.',
+    presenterNote: 'Frame this as a board decision: approve recovery, hold proof, or accept the exposure.',
   },
   'cost:variations': {
-    caption: 'The variation queue shows commercial pressure before it becomes a surprise. Each pending item is connected to forecast movement and a needed response.',
-    presenterNote: 'This is where owners see that compare quotes and variations belong in one commercial view.',
+    caption: 'The variation queue shows which changes are still waiting for a commercial decision, who owns the approval, and how each item affects programme and forecast.',
+    presenterNote: 'Show that pending VOs are not admin noise. They are decision pressure.',
   },
   'cost:package-drivers': {
-    caption: 'Package drivers make the forecast explainable. Procurement, progress, and claims can be traced to the package that is actually moving final cost.',
-    presenterNote: 'Use this when the board asks, why is the number changing?',
+    caption: 'Package drivers make the forecast explainable. You can trace procurement, progress, claims, vendor score, and delay exposure back to the exact package moving final cost.',
+    presenterNote: 'Use this when the board asks why the number changed.',
   },
   'risk:risk-register': {
     caption: 'The risk register becomes useful because it is live. Probability, impact, trend, and owner are all visible, so risk review becomes an operating discipline.',
@@ -530,15 +542,15 @@ const SECTION_NARRATION_SCRIPTS: Record<string, DemoNarration> = {
     presenterNote: 'This is a strong board-level line: risk is shown as a future outcome, not a register entry.',
   },
   'forecast:scenarios': {
-    caption: 'Forecast scenarios show what happens if today’s blockers continue. Optimistic, base, and pessimistic paths give the board a way to discuss timing, cost, and readiness before the month closes.',
+    caption: 'Forecast scenarios compare the outcome paths side by side. You can see probability, completion date, final cost, assumptions, and cost movement before the board commits to an action.',
     presenterNote: 'Frame this as decision support, not prediction theatre.',
   },
   'forecast:confidence': {
-    caption: 'Confidence explains why the forecast should be trusted. The system exposes the signals and evidence behind the forecast, so the board understands what is strengthening or weakening it.',
+    caption: 'Confidence explains why the forecast should be trusted. The system exposes cost range, early warnings, ranked actions, and evidence basis so your team can challenge the forecast intelligently.',
     presenterNote: 'Make the trust point explicit. The forecast is only persuasive when the evidence basis is visible.',
   },
   'forecast:decisions': {
-    caption: 'Decision cards turn the forecast into a choice. The board sees which action improves the base case and which owner must move next.',
+    caption: 'Decision cards turn the forecast into a next move. The board sees which action improves the base case, the impact it protects, and the deadline for the accountable owner.',
     presenterNote: 'Close the forecast chapter on action, not charts.',
   },
   'obligations:register': {
@@ -1004,10 +1016,10 @@ const DEMO_FRAMES: Record<string, DemoFrame[]> = {
     {
       id: 'blocked-gate',
       label: 'Blocked Gate',
-      anchor: 'project-stage-gates',
-      fallback: { left: 7, top: 13, width: 56, height: 24 },
+      anchor: 'project-stage-gate-loop',
+      fallback: { left: 7, top: 31, width: 86, height: 26 },
       headline: 'Turn stage gates into owner actions',
-      story: 'Gate Control Board shows blocked gates, evidence gaps, approvers, and local recovery actions.',
+      story: 'Gate Control Board shows the priority gate, readiness, evidence blocker, approver, and recovery path together.',
       clientValue: 'Stage readiness becomes visible and assignable, not buried inside checklist files.',
       decisionQuestion: 'Which gate blocks the next value milestone?',
       nextAction: 'Queue the owner recovery action for the priority gate.',
@@ -1016,7 +1028,8 @@ const DEMO_FRAMES: Record<string, DemoFrame[]> = {
     {
       id: 'evidence-gaps',
       label: 'Evidence Gaps',
-      fallback: { left: 7, top: 42, width: 48, height: 24 },
+      anchor: 'project-stage-evidence-gaps',
+      fallback: { left: 36, top: 31, width: 30, height: 26 },
       headline: 'Expose the proof gap behind the blocked gate',
       story: 'Show how missing, expired, or rejected evidence keeps the gate from moving.',
       clientValue: 'The client sees exactly what proof is needed before approval can progress.',
@@ -1027,7 +1040,8 @@ const DEMO_FRAMES: Record<string, DemoFrame[]> = {
     {
       id: 'recovery-actions',
       label: 'Recovery Actions',
-      fallback: { left: 56, top: 42, width: 37, height: 25 },
+      anchor: 'project-stage-recovery-actions',
+      fallback: { left: 66, top: 31, width: 27, height: 26 },
       headline: 'Convert gate risk into a recovery queue',
       story: 'Use the gate action controls to show who must act, what they must provide, and when it is due.',
       clientValue: 'Gate review becomes a decision workflow instead of a static checkpoint.',
@@ -1040,18 +1054,19 @@ const DEMO_FRAMES: Record<string, DemoFrame[]> = {
     {
       id: 'forecast',
       label: 'Forecast',
-      anchor: 'project-cost',
+      anchor: 'project-cost-bridge',
       fallback: { left: 6, top: 13, width: 60, height: 28 },
-      headline: 'Connect budget, commitments, variations, and forecast',
-      story: 'Show how the project moves from baseline budget to live forecast exposure.',
-      clientValue: 'Owners see where cost pressure is coming from before it becomes a surprise.',
+      headline: 'Convert cost exposure into a board choice',
+      story: 'Show the commercial decision bridge: approve recovery, hold cash until proof arrives, or accept the cost and programme consequence.',
+      clientValue: 'Owners see the decision that changes final cost, not just the number that moved.',
       decisionQuestion: 'Which commercial decision changes the final cost forecast?',
-      nextAction: 'Open the top exposure and inspect the driver.',
+      nextAction: 'Select the preferred commercial path and inspect the supporting driver.',
       tryLabel: 'Show Cost Forecast',
     },
     {
       id: 'variations',
       label: 'Variations',
+      anchor: 'project-cost-variations',
       fallback: { left: 6, top: 36, width: 45, height: 25 },
       headline: 'Make variation exposure visible',
       story: 'Use the VO queue to connect pending approvals, contractor pressure, and forecast movement.',
@@ -1063,6 +1078,7 @@ const DEMO_FRAMES: Record<string, DemoFrame[]> = {
     {
       id: 'package-drivers',
       label: 'Package Drivers',
+      anchor: 'project-cost-package-drivers',
       fallback: { left: 52, top: 36, width: 40, height: 25 },
       headline: 'Explain cost movement by package',
       story: 'Package drivers show where procurement, progress, and claims affect final cost.',
@@ -1076,11 +1092,11 @@ const DEMO_FRAMES: Record<string, DemoFrame[]> = {
     {
       id: 'risk-register',
       label: 'Risk Register',
-      anchor: 'project-risk',
-      fallback: { left: 7, top: 14, width: 55, height: 26 },
-      headline: 'Make risk registers usable',
-      story: 'Show probability, impact, trend, and ownership in a live risk workspace.',
-      clientValue: 'Risk review becomes practical and current.',
+      anchor: 'project-risk-register',
+      fallback: { left: 64, top: 46, width: 28, height: 42 },
+      headline: 'Make risk registers decision-ready',
+      story: 'Show probability, impact, ownership, mitigation, and early warnings in one live register.',
+      clientValue: 'Risk review moves from status scoring to accountable operating decisions.',
       decisionQuestion: 'Which open risk is now driving cost or programme exposure?',
       nextAction: 'Open the top risk and inspect its mitigation plan.',
       tryLabel: 'Show Risk Register',
@@ -1088,23 +1104,25 @@ const DEMO_FRAMES: Record<string, DemoFrame[]> = {
     {
       id: 'mitigation',
       label: 'Mitigation',
-      fallback: { left: 7, top: 38, width: 42, height: 24 },
-      headline: 'Connect risk to mitigation ownership',
-      story: 'Show which risks have mitigation progress, stale ownership, or missing evidence.',
-      clientValue: 'The client can challenge action quality, not just risk scores.',
-      decisionQuestion: 'Which mitigation needs owner confirmation?',
-      nextAction: 'Assign the mitigation update to the accountable owner.',
+      anchor: 'project-risk-actions',
+      fallback: { left: 7, top: 30, width: 58, height: 24 },
+      headline: 'Convert risk into manager actions',
+      story: 'The action queue turns each risk condition into owner, due date, trigger, impact, and cost logic.',
+      clientValue: 'The client can challenge action quality, ownership, and timing from the same risk surface.',
+      decisionQuestion: 'Which mitigation is ready to assign now?',
+      nextAction: 'Prepare the action pack for the accountable owner.',
       tryLabel: 'Show Mitigation',
     },
     {
       id: 'risk-scenario',
       label: 'Scenario Impact',
-      fallback: { left: 52, top: 38, width: 40, height: 24 },
-      headline: 'Tie risk to programme and cost scenarios',
-      story: 'Scenario views show what happens if the risk remains open.',
-      clientValue: 'Risk becomes a board-level outcome conversation.',
-      decisionQuestion: 'What outcome changes if this risk is not closed?',
-      nextAction: 'Compare the scenario impact with the mitigation cost.',
+      anchor: 'project-risk-scenario',
+      fallback: { left: 7, top: 12, width: 86, height: 25 },
+      headline: 'Simulate risk before it becomes delay',
+      story: 'Trigger a facade delay, approval gap, contractor drift, or recovery decision and see cost, float, evidence, and confidence move together.',
+      clientValue: 'Risk becomes a board-level choice between mitigation cost and unresolved exposure.',
+      decisionQuestion: 'What changes if this risk is left open today?',
+      nextAction: 'Run a scenario and compare the action cost with the exposure.',
       tryLabel: 'Show Scenario Impact',
     },
   ],
@@ -1112,11 +1130,11 @@ const DEMO_FRAMES: Record<string, DemoFrame[]> = {
     {
       id: 'scenarios',
       label: 'Scenarios',
-      anchor: 'project-forecast',
+      anchor: 'project-forecast-scenarios',
       fallback: { left: 7, top: 13, width: 56, height: 27 },
       headline: 'Show outcomes before they happen',
-      story: 'Compare optimistic, base, and pessimistic outcomes from the same project signal.',
-      clientValue: 'Owners can discuss likely outcomes before month-end reports arrive.',
+      story: 'Compare optimistic, base, and pessimistic outcomes from the same project signal, including final cost, date, and assumptions.',
+      clientValue: 'Owners can compare the cost of action with the cost of waiting before month-end reports arrive.',
       decisionQuestion: 'What happens if current blockers are not resolved?',
       nextAction: 'Compare the scenarios and call out the decision that changes the curve.',
       tryLabel: 'Show Scenarios',
@@ -1124,6 +1142,7 @@ const DEMO_FRAMES: Record<string, DemoFrame[]> = {
     {
       id: 'confidence',
       label: 'Confidence',
+      anchor: 'project-forecast-confidence',
       fallback: { left: 7, top: 38, width: 42, height: 22 },
       headline: 'Explain confidence, not just prediction',
       story: 'Use confidence signals to show why the forecast is moving and what evidence supports it.',
@@ -1135,6 +1154,7 @@ const DEMO_FRAMES: Record<string, DemoFrame[]> = {
     {
       id: 'decisions',
       label: 'Decision Cards',
+      anchor: 'project-forecast-decisions',
       fallback: { left: 52, top: 38, width: 40, height: 22 },
       headline: 'Turn forecast movement into decisions',
       story: 'Decision cards show which action protects date, cost, or readiness.',
@@ -1184,8 +1204,8 @@ const DEMO_FRAMES: Record<string, DemoFrame[]> = {
     {
       id: 'readiness',
       label: 'Readiness',
-      anchor: 'project-evidence',
-      fallback: { left: 7, top: 14, width: 58, height: 24 },
+      anchor: 'project-evidence-readiness',
+      fallback: { left: 7, top: 19, width: 86, height: 18 },
       headline: 'Make proof part of the operating system',
       story: 'Evidence Control Centre separates current, expired, and action-required documents.',
       clientValue: 'Evidence becomes a readiness control, not just a file repository.',
@@ -1196,7 +1216,8 @@ const DEMO_FRAMES: Record<string, DemoFrame[]> = {
     {
       id: 'expired-docs',
       label: 'Expired Docs',
-      fallback: { left: 7, top: 39, width: 44, height: 24 },
+      anchor: 'project-evidence-expired',
+      fallback: { left: 7, top: 51, width: 56, height: 25 },
       headline: 'Call out documents that can block handover',
       story: 'Expired and rejected documents are shown as control signals with owners and dates.',
       clientValue: 'The client sees proof risk before it becomes an approval issue.',
@@ -1207,7 +1228,8 @@ const DEMO_FRAMES: Record<string, DemoFrame[]> = {
     {
       id: 'pack-prep',
       label: 'Pack Prep',
-      fallback: { left: 52, top: 39, width: 40, height: 24 },
+      anchor: 'project-evidence-pack-prep',
+      fallback: { left: 7, top: 38, width: 86, height: 22 },
       headline: 'Prepare evidence packs from the live register',
       story: 'Use the evidence pack flow to show how readiness proof is assembled for review.',
       clientValue: 'Document collection becomes a repeatable handover workflow.',
@@ -1405,6 +1427,79 @@ function spotlightBeat(
   };
 }
 
+function spotlightCue(atMs: number, anchor: string | undefined, fallback: FallbackHotspot, durationMs = 3600): DemoTimelineCue {
+  return { atMs, type: 'spotlight', anchor, fallback, durationMs };
+}
+
+function scrollCue(atMs: number, anchor: string): DemoTimelineCue {
+  return { atMs, type: 'scrollTo', anchor };
+}
+
+function actionCue(atMs: number, actionId: string): DemoTimelineCue {
+  return { atMs, type: 'demoAction', actionId };
+}
+
+function cuesFromBeats(beats: DemoSpotlightBeat[], estimatedDurationMs: number): DemoTimelineCue[] {
+  return beats.flatMap(beat => {
+    const atMs = Math.max(0, Math.round((beat.startPct / 100) * estimatedDurationMs));
+    const endMs = Math.max(atMs + 1000, Math.round((beat.endPct / 100) * estimatedDurationMs));
+    const cue = spotlightCue(atMs, beat.anchor, beat.fallback, endMs - atMs);
+    return beat.anchor ? [scrollCue(Math.max(0, atMs - 180), beat.anchor), cue] : [cue];
+  });
+}
+
+function getTimelineCues(chapterId: string, segmentId: string, estimatedDurationMs: number, beats: DemoSpotlightBeat[]): DemoTimelineCue[] {
+  const key = `${chapterId}:${segmentId}`;
+  const portfolioIntroFallback = { left: 3, top: 3, width: 94, height: 90 };
+  const timelineMap: Record<string, DemoTimelineCue[]> = {
+    'portfolio:intro': [
+      scrollCue(0, 'portfolio-command'),
+      spotlightCue(5400, 'portfolio-command', portfolioIntroFallback, 3200),
+    ],
+    'portfolio:health-actions': [
+      scrollCue(0, 'portfolio-health-actions'),
+      spotlightCue(600, 'portfolio-health-actions', { left: 4, top: 7, width: 92, height: 15 }, 4200),
+      spotlightCue(5200, 'portfolio-kpi-cards', { left: 4, top: 16, width: 92, height: 17 }, 5200),
+      spotlightCue(10800, 'portfolio-impact-cards', { left: 4, top: 34, width: 92, height: 14 }, 5200),
+    ],
+    'portfolio:portfolio-map': [
+      scrollCue(0, 'portfolio-command'),
+      spotlightCue(500, 'portfolio-command', portfolioIntroFallback, 3800),
+      spotlightCue(4700, 'portfolio-pulse-feed', { left: 72, top: 5, width: 10, height: 8 }, 4400),
+      actionCue(5600, 'show-portfolio-pulse'),
+      spotlightCue(9400, 'portfolio-property-grid', { left: 4, top: 58, width: 92, height: 34 }, 5600),
+    ],
+    'portfolio:command-path': [
+      scrollCue(0, 'portfolio-property-grid'),
+      spotlightCue(500, 'portfolio-primary-card', { left: 4, top: 58, width: 44, height: 34 }, 4200),
+      spotlightCue(5200, 'portfolio-command-path', { left: 6, top: 74, width: 38, height: 12 }, 3600),
+      actionCue(7200, 'open-property-command'),
+      spotlightCue(9300, 'portfolio-command-path', { left: 6, top: 74, width: 38, height: 12 }, 4200),
+    ],
+    'propertysetup:wizard': [
+      scrollCue(0, 'property-onboarding-entry'),
+      spotlightCue(500, 'property-onboarding-entry', { left: 76, top: 5, width: 18, height: 8 }, 3800),
+      actionCue(2800, 'open-add-property-wizard'),
+    ],
+    'propertysetup:ai': [
+      scrollCue(0, 'property-onboarding-entry'),
+      spotlightCue(500, 'property-onboarding-entry', { left: 76, top: 5, width: 18, height: 8 }, 3600),
+      actionCue(2400, 'open-ai-onboarding'),
+    ],
+    'propertysetup:upload': [
+      scrollCue(0, 'property-onboarding-entry'),
+      spotlightCue(500, 'property-onboarding-entry', { left: 76, top: 5, width: 18, height: 8 }, 3600),
+      actionCue(2400, 'open-upload-panel'),
+    ],
+  };
+
+  const explicitCues = timelineMap[key] ?? cuesFromBeats(beats, estimatedDurationMs);
+  return [
+    ...explicitCues,
+    { atMs: Math.max(0, estimatedDurationMs - 250), type: 'chapterPause' as const },
+  ].sort((a, b) => a.atMs - b.atMs);
+}
+
 function makeNarrationScript(
   chapterId: string,
   segmentId: string,
@@ -1413,13 +1508,15 @@ function makeNarrationScript(
   beats: DemoSpotlightBeat[] = [],
   requiresChapterConfirmation = false,
 ): DemoNarrationScript {
+  const estimatedDurationMs = estimateNarrationDurationMs(audio);
   return {
     caption: audio,
     audio,
     presenterNote,
     audioSrc: getDemoAudioSrc(chapterId, segmentId),
-    estimatedDurationMs: estimateNarrationDurationMs(audio),
+    estimatedDurationMs,
     beats,
+    timelineCues: getTimelineCues(chapterId, segmentId, estimatedDurationMs, beats),
     requiresChapterConfirmation,
   };
 }
@@ -1527,13 +1624,46 @@ function getActiveNarrationScript(section: DemoSection, phase: DemoNarrationPhas
   return section.sectionScript;
 }
 
-function getActiveSpotlightBeat(script: DemoNarrationScript, progress: number, fallbackTarget: HotspotTarget): DemoSpotlightBeat {
-  const fallbackBeat = spotlightBeat(fallbackTarget.anchor, fallbackTarget.fallback, 0, 100);
-  if (script.beats.length === 0) return fallbackBeat;
-  const boundedProgress = Math.max(0, Math.min(100, progress));
-  return script.beats.find(beat => boundedProgress >= beat.startPct && boundedProgress < beat.endPct)
-    ?? script.beats[script.beats.length - 1]
-    ?? fallbackBeat;
+function getActiveTimelineSpotlight(script: DemoNarrationScript, elapsedMs: number): HotspotTarget | null {
+  const boundedElapsed = Math.max(0, elapsedMs);
+  const activeCue = script.timelineCues.find(cue => (
+    cue.type === 'spotlight'
+    && boundedElapsed >= cue.atMs
+    && boundedElapsed < cue.atMs + (cue.durationMs ?? 3600)
+  ));
+
+  if (!activeCue || activeCue.type !== 'spotlight') return null;
+  return {
+    anchor: activeCue.anchor,
+    fallback: activeCue.fallback,
+  };
+}
+
+function getDemoActionAnchor(actionId: string): HotspotTarget | null {
+  const actionAnchors: Record<string, HotspotTarget> = {
+    'open-property-command': {
+      anchor: 'portfolio-command-path',
+      fallback: { left: 6, top: 74, width: 38, height: 12 },
+    },
+    'show-portfolio-pulse': {
+      anchor: 'portfolio-pulse-feed',
+      fallback: { left: 72, top: 5, width: 10, height: 8 },
+    },
+    'open-add-property-wizard': {
+      anchor: 'property-onboarding-entry',
+      fallback: { left: 76, top: 5, width: 18, height: 8 },
+    },
+    'open-ai-onboarding': {
+      anchor: 'property-onboarding-entry',
+      fallback: { left: 76, top: 5, width: 18, height: 8 },
+    },
+    'open-upload-panel': {
+      anchor: 'property-onboarding-entry',
+      fallback: { left: 76, top: 5, width: 18, height: 8 },
+    },
+  };
+
+  return actionAnchors[actionId] ?? null;
 }
 
 function getActForChapter(chapterId: string) {
@@ -1585,7 +1715,7 @@ function resolveFrameId(chapter: DemoChapter, requested?: string | null) {
 }
 
 function missionTriggerForFrame(chapterId: string, frameId: string): DemoMissionTrigger {
-  if (chapterId === 'portfolio' && frameId === 'command-path') return { type: 'demoAction', action: 'portfolio-open-command' };
+  if (chapterId === 'portfolio' && frameId === 'command-path') return { type: 'demoAction', action: 'open-property-command' };
   if (chapterId === 'projectcommand' && frameId === 'control-tabs') return { type: 'demoAction', action: 'projectcommand-tab-cost' };
   if (chapterId === 'fieldops' && frameId === 'capture-methods') return { type: 'demoAction', action: 'fieldops-apply-survey' };
   if (chapterId === 'resident' && frameId === 'intake') return { type: 'demoAction', action: 'resident-mode-camera' };
@@ -1964,6 +2094,28 @@ function StageSpotlight({ box, fallback }: { box: AnchorBox | null; fallback: Fa
         style={targetStyle}
       />
     </>
+  );
+}
+
+function DemoActionPulse({ box }: { box: AnchorBox | null }) {
+  if (!box) return null;
+  const size = 46;
+  const style: CSSProperties = {
+    left: Math.max(12, box.left + box.width / 2 - size / 2),
+    top: Math.max(12, box.top + box.height / 2 - size / 2),
+    width: size,
+    height: size,
+  };
+
+  return (
+    <div
+      aria-hidden="true"
+      className="pointer-events-none absolute z-50 rounded-full border border-cyan-100/90 bg-cyan-200/15 shadow-[0_0_26px_rgba(34,211,238,0.52)]"
+      style={style}
+    >
+      <div className="absolute inset-0 animate-ping rounded-full bg-cyan-300/35" />
+      <div className="absolute inset-3 rounded-full bg-cyan-200" />
+    </div>
   );
 }
 
@@ -2822,18 +2974,20 @@ function DemoVoiceAdvisor({
   );
 }
 
-function DemoNarrationPlayer({
+function DemoTimelinePlayer({
   script,
   status,
   playbackKey,
   onEnded,
   onProgress,
+  onCue,
 }: {
   script: DemoNarrationScript;
   status: DemoAutopilotState['status'];
   playbackKey: string;
   onEnded: () => void;
-  onProgress: (progress: number) => void;
+  onProgress: (progress: number, elapsedMs: number) => void;
+  onCue: (cue: DemoTimelineCue) => void;
 }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const fallbackTimerRef = useRef<number | null>(null);
@@ -2841,13 +2995,20 @@ function DemoNarrationPlayer({
   const fallbackStartedAtRef = useRef<number | null>(null);
   const fallbackElapsedRef = useRef(0);
   const endedRef = useRef(false);
+  const firedCuesRef = useRef<Set<string>>(new Set());
   const onEndedRef = useRef(onEnded);
   const onProgressRef = useRef(onProgress);
+  const onCueRef = useRef(onCue);
   const statusRef = useRef(status);
+  const scriptRef = useRef(script);
 
   useEffect(() => {
     statusRef.current = status;
   }, [status]);
+
+  useEffect(() => {
+    scriptRef.current = script;
+  }, [script]);
 
   useEffect(() => {
     onEndedRef.current = onEnded;
@@ -2857,6 +3018,10 @@ function DemoNarrationPlayer({
     onProgressRef.current = onProgress;
   }, [onProgress]);
 
+  useEffect(() => {
+    onCueRef.current = onCue;
+  }, [onCue]);
+
   const clearFallback = useCallback(() => {
     if (fallbackTimerRef.current) window.clearTimeout(fallbackTimerRef.current);
     if (fallbackProgressRef.current) window.clearInterval(fallbackProgressRef.current);
@@ -2865,14 +3030,35 @@ function DemoNarrationPlayer({
     fallbackStartedAtRef.current = null;
   }, []);
 
+  const cueKey = useCallback((cue: DemoTimelineCue) => {
+    if (cue.type === 'spotlight') return `${cue.atMs}:spotlight:${cue.anchor ?? 'fallback'}`;
+    if (cue.type === 'scrollTo') return `${cue.atMs}:scrollTo:${cue.anchor}`;
+    if (cue.type === 'demoAction') return `${cue.atMs}:demoAction:${cue.actionId}`;
+    return `${cue.atMs}:chapterPause`;
+  }, []);
+
+  const emitTimeline = useCallback((elapsedMs: number, durationMs = scriptRef.current.estimatedDurationMs) => {
+    const safeDuration = Math.max(1000, durationMs);
+    const boundedElapsed = Math.max(0, Math.min(safeDuration, elapsedMs));
+    onProgressRef.current(Math.min(100, (boundedElapsed / safeDuration) * 100), boundedElapsed);
+
+    scriptRef.current.timelineCues.forEach(cue => {
+      if (boundedElapsed < cue.atMs) return;
+      const key = cueKey(cue);
+      if (firedCuesRef.current.has(key)) return;
+      firedCuesRef.current.add(key);
+      onCueRef.current(cue);
+    });
+  }, [cueKey]);
+
   const finishNarration = useCallback(() => {
     if (endedRef.current) return;
     endedRef.current = true;
     clearFallback();
     audioRef.current?.pause();
-    onProgressRef.current(100);
+    emitTimeline(scriptRef.current.estimatedDurationMs, scriptRef.current.estimatedDurationMs);
     onEndedRef.current();
-  }, [clearFallback]);
+  }, [clearFallback, emitTimeline]);
 
   const startFallbackTiming = useCallback(() => {
     if (endedRef.current || fallbackStartedAtRef.current) return;
@@ -2881,12 +3067,12 @@ function DemoNarrationPlayer({
     const updateProgress = () => {
       const startedAt = fallbackStartedAtRef.current ?? Date.now();
       fallbackElapsedRef.current = Math.min(estimatedDuration, Math.max(0, Date.now() - startedAt));
-      onProgressRef.current(Math.min(100, (fallbackElapsedRef.current / estimatedDuration) * 100));
+      emitTimeline(fallbackElapsedRef.current, estimatedDuration);
     };
     updateProgress();
     fallbackProgressRef.current = window.setInterval(updateProgress, 250);
     fallbackTimerRef.current = window.setTimeout(finishNarration, Math.max(0, estimatedDuration - fallbackElapsedRef.current));
-  }, [finishNarration, script.estimatedDurationMs]);
+  }, [emitTimeline, finishNarration, script.estimatedDurationMs]);
 
   const pauseFallbackTiming = useCallback(() => {
     if (fallbackStartedAtRef.current !== null) {
@@ -2897,8 +3083,9 @@ function DemoNarrationPlayer({
 
   useEffect(() => {
     endedRef.current = false;
+    firedCuesRef.current = new Set();
     fallbackElapsedRef.current = 0;
-    onProgressRef.current(0);
+    emitTimeline(0, script.estimatedDurationMs);
     clearFallback();
 
     const audio = new Audio(script.audioSrc);
@@ -2907,7 +3094,7 @@ function DemoNarrationPlayer({
 
     const handleTimeUpdate = () => {
       if (!Number.isFinite(audio.duration) || audio.duration <= 0) return;
-      onProgressRef.current(Math.min(100, (audio.currentTime / audio.duration) * 100));
+      emitTimeline(audio.currentTime * 1000, audio.duration * 1000);
     };
     const handleError = () => {
       if (statusRef.current === 'playing') startFallbackTiming();
@@ -2930,7 +3117,7 @@ function DemoNarrationPlayer({
       audio.load();
       if (audioRef.current === audio) audioRef.current = null;
     };
-  }, [clearFallback, finishNarration, playbackKey, script.audioSrc, startFallbackTiming]);
+  }, [clearFallback, emitTimeline, finishNarration, playbackKey, script.audioSrc, script.estimatedDurationMs, startFallbackTiming]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -3043,6 +3230,7 @@ function DemoStage({
   onOpenChapter,
   totals,
   onCopySummary,
+  demoActionRequest,
 }: {
   chapter: DemoChapter;
   section: DemoSection;
@@ -3050,6 +3238,7 @@ function DemoStage({
   onOpenChapter: (chapterId: string) => void;
   totals: ReturnType<typeof getOutcomeTotals>;
   onCopySummary: () => void;
+  demoActionRequest: DemoActionRequest | null;
 }) {
   if (chapter.screen === 'portfolio') {
     return (
@@ -3060,6 +3249,7 @@ function DemoStage({
         onNavigateToCommand={() => onOpenChapter('projectcommand')}
         demoAddPropertySection={chapter.id === 'propertysetup' ? section.id as 'wizard' | 'ai' | 'upload' : undefined}
         demoPortfolioSection={chapter.id === 'portfolio' ? section.id as 'health-actions' | 'portfolio-map' | 'command-path' : undefined}
+        demoActionRequest={demoActionRequest}
       />
     );
   }
@@ -3113,9 +3303,14 @@ export function InteractiveDemoWalkthrough() {
   const [sharePanelOpen, setSharePanelOpen] = useState(false);
   const [narrationPhase, setNarrationPhase] = useState<DemoNarrationPhase>('section');
   const [chapterEndOpen, setChapterEndOpen] = useState(false);
+  const [timelineElapsedMs, setTimelineElapsedMs] = useState(0);
+  const [playbackRunId, setPlaybackRunId] = useState(0);
+  const [demoActionRequest, setDemoActionRequest] = useState<DemoActionRequest | null>(null);
+  const [actionPulseTarget, setActionPulseTarget] = useState<HotspotTarget | null>(null);
   const [progressState, setProgressState] = useState<DemoProgressState>(loadDemoProgressState);
   const shareInputRef = useRef<HTMLInputElement>(null);
   const sectionElapsedRef = useRef(0);
+  const actionPulseTimerRef = useRef<number | null>(null);
 
   const activeIndex = Math.max(0, DEMO_CHAPTERS.findIndex(chapter => chapter.id === activeId));
   const chapter = DEMO_CHAPTERS[activeIndex] ?? DEMO_CHAPTERS[0];
@@ -3134,19 +3329,17 @@ export function InteractiveDemoWalkthrough() {
     anchor: activeFrame.anchor ?? chapter.anchor,
     fallback: activeFrame.fallback ?? chapter.fallback,
   }), [activeFrame, chapter.anchor, chapter.fallback]);
-  const activeSpotlightBeat = useMemo(
-    () => getActiveSpotlightBeat(activeNarrationScript, sectionProgress, baseHotspotTarget),
-    [activeNarrationScript, baseHotspotTarget, sectionProgress],
+  const activeSpotlightTarget = useMemo(
+    () => getActiveTimelineSpotlight(activeNarrationScript, timelineElapsedMs),
+    [activeNarrationScript, timelineElapsedMs],
   );
-  const hotspotTarget = useMemo<HotspotTarget>(() => ({
-    anchor: activeSpotlightBeat.anchor,
-    fallback: activeSpotlightBeat.fallback,
-  }), [activeSpotlightBeat]);
+  const hotspotTarget = activeSpotlightTarget ?? baseHotspotTarget;
   const anchorBox = useAnchorBox(stageRef, hotspotTarget);
+  const actionPulseBox = useAnchorBox(stageRef, actionPulseTarget ?? baseHotspotTarget);
   const sectionControlProgress = autopilot.status === 'playing'
     ? sectionProgress
     : Math.round(((activeFrameIndex + 1) / frames.length) * 100);
-  const narrationPlaybackKey = `${chapter.id}:${activeFrame.id}:${narrationPhase}`;
+  const narrationPlaybackKey = `${chapter.id}:${activeFrame.id}:${narrationPhase}:${playbackRunId}`;
   const shareUrl = useMemo(
     () => buildShareUrl(chapter.id, activeFrame.sectionId, showMode, autopilot.status === 'playing'),
     [activeFrame.sectionId, autopilot.status, chapter.id, showMode],
@@ -3230,6 +3423,10 @@ export function InteractiveDemoWalkthrough() {
     setNarrationPhase('section');
     setChapterEndOpen(false);
     setSectionProgress(0);
+    setTimelineElapsedMs(0);
+    setPlaybackRunId(current => current + 1);
+    setDemoActionRequest(null);
+    setActionPulseTarget(null);
     sectionElapsedRef.current = 0;
     try {
       window.sessionStorage.removeItem(DEMO_PROGRESS_STORAGE_KEY);
@@ -3251,6 +3448,49 @@ export function InteractiveDemoWalkthrough() {
     window.setTimeout(() => setStatusMessage('Guided demo ready'), 3200);
   }, [allMissionFrames, completeMission]);
 
+  const scrollToDemoAnchor = useCallback((anchor: string) => {
+    const root = stageRef.current;
+    if (!root) return;
+    const target = root.querySelector(`[data-demo-anchor="${anchor}"]`) as HTMLElement | null;
+    target?.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' });
+  }, []);
+
+  const runDemoAction = useCallback((actionId: string) => {
+    const target = getDemoActionAnchor(actionId);
+    if (target) {
+      setActionPulseTarget(target);
+      if (actionPulseTimerRef.current) window.clearTimeout(actionPulseTimerRef.current);
+      actionPulseTimerRef.current = window.setTimeout(() => setActionPulseTarget(null), 1300);
+    }
+
+    setDemoActionRequest({ actionId, nonce: Date.now() });
+    const matchedFrame = allMissionFrames.find(frame => (
+      frame.mission.trigger.type === 'demoAction' && frame.mission.trigger.action === actionId
+    ));
+    if (matchedFrame) completeMission(matchedFrame.mission.id);
+  }, [allMissionFrames, completeMission]);
+
+  const handleTimelineCue = useCallback((cue: DemoTimelineCue) => {
+    if (cue.type === 'scrollTo') {
+      scrollToDemoAnchor(cue.anchor);
+      return;
+    }
+
+    if (cue.type === 'spotlight' && cue.anchor) {
+      scrollToDemoAnchor(cue.anchor);
+      return;
+    }
+
+    if (cue.type === 'demoAction') {
+      runDemoAction(cue.actionId);
+    }
+  }, [runDemoAction, scrollToDemoAnchor]);
+
+  const handleTimelineProgress = useCallback((progress: number, elapsedMs: number) => {
+    setSectionProgress(progress);
+    setTimelineElapsedMs(elapsedMs);
+  }, []);
+
   const advanceMissionOrFrame = useCallback(() => {
     if (!isMissionComplete(activeFrame.mission.id)) completeMission(activeFrame.mission.id);
     advanceFrame();
@@ -3267,6 +3507,10 @@ export function InteractiveDemoWalkthrough() {
     setChapterEndOpen(false);
     setAutopilot({ status: 'playing', started: true });
     setSectionProgress(0);
+    setTimelineElapsedMs(0);
+    setPlaybackRunId(current => current + 1);
+    setDemoActionRequest(null);
+    setActionPulseTarget(null);
     sectionElapsedRef.current = 0;
     updateChapterUrl(firstChapter.id, firstSection.id, { showMode: DEFAULT_SHOW_MODE, autoplay: true });
     setStatusMessage('SUCCESS: Board demo running');
@@ -3284,6 +3528,10 @@ export function InteractiveDemoWalkthrough() {
     setChapterEndOpen(false);
     setAutopilot({ status: 'playing', started: true });
     setSectionProgress(0);
+    setTimelineElapsedMs(0);
+    setPlaybackRunId(current => current + 1);
+    setDemoActionRequest(null);
+    setActionPulseTarget(null);
     sectionElapsedRef.current = 0;
     updateChapterUrl(firstChapter.id, firstSection.id, { showMode: DEFAULT_SHOW_MODE, autoplay: true });
   }, []);
@@ -3294,13 +3542,27 @@ export function InteractiveDemoWalkthrough() {
       setChapterEndOpen(false);
       setNarrationPhase('closing');
       setAutopilot({ status: 'playing', started: true });
+      setPlaybackRunId(current => current + 1);
       updateChapterUrl(chapter.id, activeFrame.id, { showMode, autoplay: true });
       return;
     }
     const playing = autopilot.status !== 'playing';
+    if (playing && !autopilot.started) {
+      const firstSection = frames[0] ?? activeFrame;
+      setActiveFrameId(firstSection.id);
+      setNarrationPhase('intro');
+      setSectionProgress(0);
+      setTimelineElapsedMs(0);
+      setPlaybackRunId(current => current + 1);
+      setDemoActionRequest(null);
+      setActionPulseTarget(null);
+      setAutopilot({ status: 'playing', started: true });
+      updateChapterUrl(chapter.id, firstSection.id, { showMode, autoplay: true });
+      return;
+    }
     setAutopilot(current => ({ status: playing ? 'playing' : 'paused', started: current.started || playing }));
     updateChapterUrl(chapter.id, activeFrame.id, { showMode, autoplay: playing });
-  }, [activeFrame.id, autopilot.status, chapter.id, chapterEndOpen, showMode]);
+  }, [activeFrame, autopilot.started, autopilot.status, chapter.id, chapterEndOpen, frames, showMode]);
 
   const copyLink = useCallback(async () => {
     setSharePanelOpen(true);
@@ -3348,8 +3610,15 @@ export function InteractiveDemoWalkthrough() {
     saveDemoProgressState(progressState);
   }, [progressState]);
 
+  useEffect(() => () => {
+    if (actionPulseTimerRef.current) window.clearTimeout(actionPulseTimerRef.current);
+  }, []);
+
   useEffect(() => {
     setSectionProgress(0);
+    setTimelineElapsedMs(0);
+    setDemoActionRequest(null);
+    setActionPulseTarget(null);
     sectionElapsedRef.current = 0;
   }, [activeFrame.id, narrationPhase, showMode]);
 
@@ -3536,6 +3805,11 @@ export function InteractiveDemoWalkthrough() {
     setActiveFrameId(firstSection.id);
     setNarrationPhase('intro');
     setAutopilot({ status: 'playing', started: true });
+    setSectionProgress(0);
+    setTimelineElapsedMs(0);
+    setPlaybackRunId(current => current + 1);
+    setDemoActionRequest(null);
+    setActionPulseTarget(null);
     updateChapterUrl(targetChapter.id, firstSection.id, { showMode, autoplay: true });
   }, [activeIndex, showMode]);
 
@@ -3546,6 +3820,11 @@ export function InteractiveDemoWalkthrough() {
     setActiveFrameId(firstSection.id);
     setNarrationPhase('intro');
     setAutopilot({ status: 'playing', started: true });
+    setSectionProgress(0);
+    setTimelineElapsedMs(0);
+    setPlaybackRunId(current => current + 1);
+    setDemoActionRequest(null);
+    setActionPulseTarget(null);
     updateChapterUrl(chapter.id, firstSection.id, { showMode, autoplay: true });
   }, [chapter.id, frames, showMode]);
 
@@ -3554,6 +3833,11 @@ export function InteractiveDemoWalkthrough() {
     setChapterEndOpen(false);
     setNarrationPhase('section');
     setAutopilot({ status: 'playing', started: true });
+    setSectionProgress(0);
+    setTimelineElapsedMs(0);
+    setPlaybackRunId(current => current + 1);
+    setDemoActionRequest(null);
+    setActionPulseTarget(null);
     updateChapterUrl(chapter.id, activeFrame.id, { showMode, autoplay: true });
   }, [activeFrame.id, chapter.id, showMode]);
 
@@ -3752,16 +4036,18 @@ export function InteractiveDemoWalkthrough() {
               <ValueSpine totals={outcomeTotals} />
             </div>
             <div ref={stageRef} className="relative min-h-0 flex-1 overflow-hidden">
-              <DemoNarrationPlayer
+              <DemoTimelinePlayer
                 script={activeNarrationScript}
                 status={chapterEndOpen ? 'paused' : autopilot.status}
                 playbackKey={narrationPlaybackKey}
                 onEnded={handleNarrationEnded}
-                onProgress={setSectionProgress}
+                onProgress={handleTimelineProgress}
+                onCue={handleTimelineCue}
               />
-              <DemoStage key={`${chapter.id}:${activeFrame.id}`} chapter={chapter} section={activeFrame} onToast={onToast} onOpenChapter={selectChapter} totals={outcomeTotals} onCopySummary={copyOutcomeSummary} />
+              <DemoStage key={`${chapter.id}:${activeFrame.id}`} chapter={chapter} section={activeFrame} onToast={onToast} onOpenChapter={selectChapter} totals={outcomeTotals} onCopySummary={copyOutcomeSummary} demoActionRequest={demoActionRequest} />
               {!chapterEndOpen && autopilot.started && narrationPhase === 'intro' && <IntroDashboardReveal progress={sectionProgress} />}
-              {!chapterEndOpen && autopilot.started && narrationPhase !== 'intro' && chapter.id !== 'portfolio' && <StageSpotlight box={anchorBox} fallback={hotspotTarget.fallback} />}
+              {!chapterEndOpen && autopilot.started && narrationPhase !== 'intro' && activeSpotlightTarget && <StageSpotlight box={anchorBox} fallback={hotspotTarget.fallback} />}
+              {!chapterEndOpen && actionPulseTarget && <DemoActionPulse box={actionPulseBox} />}
               {chapterEndOpen && (
                 <ChapterEndPanel
                   chapter={chapter}

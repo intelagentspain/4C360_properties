@@ -2,6 +2,7 @@ import type { ProjectCommandDataset } from '@/modules/projectcommand/data/portfo
 
 export type ProjectEventType =
   | 'baseline-created'
+  | 'portfolio-action-plan'
   | 'facade-delay'
   | 'crane-loss'
   | 'missing-approval'
@@ -14,6 +15,17 @@ export type ProjectEventType =
 
 export type ProjectControlStatus = 'on-track' | 'watch' | 'at-risk' | 'critical';
 export type ProjectSeverity = 'low' | 'medium' | 'high' | 'critical' | 'positive';
+export type ProjectEventSourceModule =
+  | 'VendorIQ'
+  | 'Workforce Intelligence'
+  | 'InspectPro'
+  | 'FieldOps'
+  | 'Evidence'
+  | 'Cost'
+  | 'Approvals'
+  | 'ResidentPortal'
+  | 'ProjectCommand'
+  | 'PortfolioCommand';
 
 export interface ProjectControlBaseline {
   projectId: string;
@@ -70,7 +82,7 @@ export interface ProjectEvent {
   cta: string;
   severity: ProjectSeverity;
   impacts: ProjectImpact;
-  sourceModule?: CrossModuleImpact['module'] | 'ProjectCommand';
+  sourceModule?: ProjectEventSourceModule;
   sourceObjectId?: string | null;
   timestamp: string;
 }
@@ -159,7 +171,7 @@ export interface ConsequenceSimulation {
 }
 
 export interface CrossModuleImpact {
-  module: 'VendorIQ' | 'Workforce Intelligence' | 'InspectPro' | 'FieldOps' | 'Evidence' | 'Cost' | 'Approvals' | 'ResidentPortal';
+  module: Exclude<ProjectEventSourceModule, 'ProjectCommand' | 'PortfolioCommand'>;
   status: ProjectControlStatus;
   impact: string;
   linkedObject: string;
@@ -365,6 +377,17 @@ const eventTemplates: Record<ProjectEventType, Omit<ProjectEvent, 'id' | 'projec
     severity: 'positive',
     impacts: { healthDelta: 0, cpiDelta: 0, spiDelta: 0, floatDelta: 0, eacDelta: 0, riskDelta: 0, evidenceChange: 0 },
   },
+  'portfolio-action-plan': {
+    type: 'portfolio-action-plan',
+    title: 'Portfolio action plan received',
+    description: 'Portfolio Command sent selected property actions into the ProjectCommand control twin for owner tracking and risk traceability.',
+    affectedAreas: ['Portfolio', 'Workforce', 'Risk', 'Project controls'],
+    affectedModule: 'PortfolioCommand + Project controls',
+    impactLabel: 'Portfolio ownership trace connected to ProjectCommand; no spend, schedule, or external dispatch was triggered.',
+    cta: 'Open action workbench',
+    severity: 'medium',
+    impacts: { healthDelta: 0, cpiDelta: 0, spiDelta: 0, floatDelta: 0, eacDelta: 0, riskDelta: -1, evidenceChange: 0 },
+  },
   'facade-delay': {
     type: 'facade-delay',
     title: 'Facade procurement delay',
@@ -478,6 +501,15 @@ export const projectEventOptions: { type: ProjectEventType; label: string }[] = 
   { type: 'recovery-approved', label: 'Approve Recovery Action' },
 ];
 
+export interface PortfolioActionPlanHandoff {
+  property: string;
+  action: string;
+  actionLabel: string;
+  owner: string;
+  due: string;
+  status: string;
+}
+
 export function createProjectControlEvent(projectId: string, type: ProjectEventType, sequence = 0): ProjectEvent {
   const template = eventTemplates[type];
   const timestamp = new Date(Date.now() - sequence * 60_000).toISOString();
@@ -487,6 +519,30 @@ export function createProjectControlEvent(projectId: string, type: ProjectEventT
     projectId,
     sourceModule: 'ProjectCommand',
     timestamp,
+  };
+}
+
+export function createPortfolioActionPlanEvent(projectId: string, actions: PortfolioActionPlanHandoff[]): ProjectEvent {
+  const event = createProjectControlEvent(projectId, 'portfolio-action-plan');
+  const actionSummary = actions
+    .map(action => `${action.property}: ${action.actionLabel} (${action.owner}, ${action.due})`)
+    .join('; ');
+  const actionCount = actions.length;
+
+  return {
+    ...event,
+    id: `${projectId}-portfolio-action-plan-${Date.now().toString(36)}`,
+    title: 'Portfolio action plan received',
+    description: actionCount > 0
+      ? `${actionCount} portfolio action${actionCount === 1 ? '' : 's'} linked to ProjectCommand: ${actionSummary}.`
+      : 'Portfolio Command linked an empty action plan to ProjectCommand for review.',
+    impactLabel: 'Portfolio ownership is now traceable against the project control twin; project cost and schedule remain unchanged.',
+    cta: 'Open action workbench',
+    severity: actions.some(action => action.due === 'Now') ? 'high' : 'medium',
+    sourceModule: 'PortfolioCommand',
+    sourceObjectId: `portfolio-action-plan-${Date.now().toString(36)}`,
+    affectedAreas: ['Portfolio', 'Workforce', 'Risk', 'Project controls'],
+    affectedModule: 'PortfolioCommand + Project controls',
   };
 }
 
@@ -891,9 +947,26 @@ function buildManagerActions(dataset: ProjectCommandDataset, events: ProjectEven
   const triggerFor = (types: ProjectEventType[], fallback: string) => [...events].reverse().find(event => types.includes(event.type))?.title ?? fallback;
   const baselineMode = !latest || latest.type === 'baseline-created';
   const hasVariation = events.some(event => event.type === 'variation-submitted');
+  const portfolioHandoff = [...events].reverse().find(event => event.type === 'portfolio-action-plan');
 
   if (baselineMode) {
     return buildBaselineManagerActions(dataset, linkedEvent, metrics);
+  }
+
+  if (portfolioHandoff) {
+    actions.push({
+      id: `${dataset.id}-action-portfolio-handoff`,
+      projectId: dataset.id,
+      title: 'Convert portfolio recovery actions into project controls',
+      linkedEvent: portfolioHandoff.id,
+      triggerLabel: portfolioHandoff.title,
+      priority: portfolioHandoff.severity === 'high' || portfolioHandoff.severity === 'critical' ? 'high' : 'medium',
+      whyItMatters: 'Portfolio actions only create value when they become named project-control follow-ups with owner, date, and evidence trail.',
+      expectedImpact: 'Connects portfolio recovery ownership to project controls without changing approved cost or schedule.',
+      costImplication: 'No spend committed; this creates accountable follow-up for the selected project team.',
+      status: 'Draft',
+      cta: 'Open portfolio handoff',
+    });
   }
 
   const pushVariationAction = () => {
@@ -1192,6 +1265,7 @@ function cascadeChainForEvent(event: ProjectEvent | null): string[] {
 
   const chains: Record<ProjectEventType, string[]> = {
     'baseline-created': ['LOA/project summary imported', 'AI created baseline controls', 'Project twin connected controls', 'Ready for event simulation'],
+    'portfolio-action-plan': ['Portfolio action plan created', 'Selected property actions receive owner and due time', 'ProjectCommand receives the control event', 'AI action queue converts it into project follow-up'],
     'facade-delay': ['Facade procurement delay', 'Envelope release slips', 'Fit-out start is exposed', 'MEP congestion increases', 'Handover confidence drops'],
     'crane-loss': ['Tower crane productivity loss', 'Superstructure cycle slows', 'Facade and MEP hoists queue', 'CPI and SPI deteriorate', 'Recovery action required'],
     'missing-approval': ['Authority approval delay', 'Commissioning Ready gate blocked', 'Handover gate cannot clear', 'Occupancy permit window is exposed'],

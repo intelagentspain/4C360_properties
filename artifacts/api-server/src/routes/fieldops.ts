@@ -3,6 +3,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { sendEmail } from "../lib/mailer";
 import { logger } from "../lib/logger";
+import { requireRole } from "../middleware/rbac";
 
 const router = Router();
 
@@ -71,7 +72,7 @@ function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
-router.post("/fieldops/share-survey-email", async (req, res) => {
+router.post("/fieldops/share-survey-email", requireRole("pmo", "field_tech", "admin"), async (req, res) => {
   const { to, surveyId, surveyName, surveyLink, message } = req.body as ShareSurveyEmailBody;
 
   if (!to || !isValidEmail(to)) {
