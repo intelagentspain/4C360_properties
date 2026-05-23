@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, CircleMarker, Circle, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -117,17 +117,40 @@ function escapeSvgText(str: string): string {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-function createClientMarkerIcon(name: string, riskLevel: string, marketLabel?: string) {
+function createClientMarkerIcon(name: string, riskLevel: string, marketLabel?: string, compact = false, pulsing = false) {
   const color = riskLevel === 'critical' ? '#FF4B4B' : riskLevel === 'high' ? '#FF7A38' : riskLevel === 'medium' ? '#FF9B38' : '#38D98A';
   const initials = name.split(' ').map(w => w[0]).join('').substring(0, 3).toUpperCase();
   const displayLabel = escapeSvgText(marketLabel ?? initials);
+  const demoAnchor = name === 'JLT North Cluster'
+    ? ' data-demo-anchor="gis-jlt-map-pin"'
+    : name === 'Sobha Realty'
+      ? ' data-demo-anchor="gis-sobha-map-pin"'
+      : '';
+  const wholePinPulse = pulsing
+    ? '<animateTransform attributeName="transform" type="scale" values="1;1.16;1" dur="0.7s" repeatCount="indefinite"/><animate attributeName="opacity" values="1;0.82;1" dur="0.7s" repeatCount="indefinite"/>'
+    : '';
+
+  if (compact) {
+    const width = 30;
+    const height = 36;
+    const svg = `<div${demoAnchor} style="width:${width}px;height:${height}px;display:block;"><svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" style="overflow:visible">
+      <g transform-origin="15 19">
+        ${wholePinPulse}
+        <circle cx="15" cy="15" r="12" fill="#07111F" stroke="${color}" stroke-width="2"/>
+        <circle cx="15" cy="15" r="7" fill="${color}" fill-opacity="0.92"/>
+        <polygon points="10,26 20,26 15,35" fill="${color}"/>
+      </g>
+    </svg></div>`;
+    return L.divIcon({ html: svg, className: '', iconSize: [width, height], iconAnchor: [width / 2, height - 1] });
+  }
+
   const width = Math.max(52, (marketLabel ?? initials).length * 7 + 24);
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="44" viewBox="0 0 ${width} 44">
+  const svg = `<div${demoAnchor} style="width:${width}px;height:44px;display:block;"><svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="44" viewBox="0 0 ${width} 44">
     <rect x="1" y="1" width="${width - 2}" height="30" rx="8" fill="#0A1628" stroke="${color}" stroke-width="1.5"/>
     <rect x="1" y="1" width="${width - 2}" height="30" rx="8" fill="${color}" fill-opacity="0.18"/>
     <text x="${width / 2}" y="21" text-anchor="middle" fill="${color}" font-size="10" font-weight="700" font-family="sans-serif" letter-spacing="0.5">${displayLabel}</text>
     <polygon points="${width / 2 - 5},31 ${width / 2 + 5},31 ${width / 2},42" fill="${color}"/>
-  </svg>`;
+  </svg></div>`;
   return L.divIcon({ html: svg, className: '', iconSize: [width, 44], iconAnchor: [width / 2, 42] });
 }
 
@@ -146,9 +169,11 @@ interface MapDrawerProps {
   onToast: (msg: string, type?: 'success' | 'warning' | 'error' | 'info') => void;
   onViewHistory: (asset: typeof mockAssets[0]) => void;
   onActivateLayers: (keys: LayerKey[]) => void;
+  demoPropertyCommandScrollActive?: boolean;
+  demoManagerActionActive?: boolean;
 }
 
-function MapDrawer({ item, onClose, onToast, onViewHistory, onActivateLayers }: MapDrawerProps) {
+function MapDrawer({ item, onClose, onToast, onViewHistory, onActivateLayers, demoPropertyCommandScrollActive = false, demoManagerActionActive = false }: MapDrawerProps) {
   return (
     <AnimatePresence>
       {item && (
@@ -171,7 +196,16 @@ function MapDrawer({ item, onClose, onToast, onViewHistory, onActivateLayers }: 
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
-            {item.kind === 'client' && <ClientDetail data={item.data} onToast={onToast} onClose={onClose} onActivateLayers={onActivateLayers} />}
+            {item.kind === 'client' && (
+              <ClientDetail
+                data={item.data}
+                onToast={onToast}
+                onClose={onClose}
+                onActivateLayers={onActivateLayers}
+                demoPropertyCommandScrollActive={demoPropertyCommandScrollActive}
+                demoManagerActionActive={demoManagerActionActive}
+              />
+            )}
             {item.kind === 'tech' && <TechDetail data={item.data} onToast={onToast} onClose={onClose} />}
             {item.kind === 'incident' && <IncidentDetail data={item.data} onToast={onToast} onClose={onClose} />}
             {item.kind === 'asset' && <AssetDetail data={item.data} onToast={onToast} onClose={onClose} onViewHistory={onViewHistory} />}
@@ -235,12 +269,17 @@ function ClientDetail({
   onToast,
   onClose,
   onActivateLayers,
+  demoPropertyCommandScrollActive = false,
+  demoManagerActionActive = false,
 }: {
   data: ClientWithCoordinates;
   onToast: (m: string, t?: any) => void;
   onClose: () => void;
   onActivateLayers: (keys: LayerKey[]) => void;
+  demoPropertyCommandScrollActive?: boolean;
+  demoManagerActionActive?: boolean;
 }) {
+  const managerActionsRef = useRef<HTMLDivElement | null>(null);
   const riskTone = data.riskLevel === 'critical' || data.riskLevel === 'high' ? 'critical' : data.riskLevel === 'medium' ? 'warning' : 'ok';
   const budgetPct = Math.round((data.resources.budgetUsed / data.resources.budgetTotal) * 100);
   const equipmentAtRisk = data.resources.equipment.filter(e => e.condition < 85);
@@ -251,6 +290,73 @@ function ClientDetail({
     onToast(message, 'info');
   };
   const queueAction = (message: string) => onToast(message, 'success');
+
+  useEffect(() => {
+    if (!demoPropertyCommandScrollActive || demoManagerActionActive) return undefined;
+    let animationFrame = 0;
+    const timer = window.setTimeout(() => {
+      const target = managerActionsRef.current;
+      const scroller = target?.closest('.custom-scrollbar') as HTMLElement | null;
+
+      if (!target || !scroller) return;
+
+      const startTop = scroller.scrollTop;
+      const targetTop = Math.max(0, target.offsetTop - Math.max(18, scroller.clientHeight * 0.16));
+      const distance = targetTop - startTop;
+      const duration = 26000;
+      const startedAt = performance.now();
+
+      const step = (now: number) => {
+        const elapsed = Math.min(1, (now - startedAt) / duration);
+        scroller.scrollTop = startTop + distance * elapsed;
+        if (elapsed < 1) {
+          animationFrame = window.requestAnimationFrame(step);
+        }
+      };
+
+      animationFrame = window.requestAnimationFrame(step);
+    }, 160);
+
+    return () => {
+      window.clearTimeout(timer);
+      if (animationFrame) window.cancelAnimationFrame(animationFrame);
+    };
+  }, [data.id, demoManagerActionActive, demoPropertyCommandScrollActive]);
+
+  useEffect(() => {
+    if (!demoManagerActionActive) return undefined;
+    let animationFrame = 0;
+    const timer = window.setTimeout(() => {
+      const target = managerActionsRef.current;
+      const scroller = target?.closest('.custom-scrollbar') as HTMLElement | null;
+
+      if (!target || !scroller) {
+        target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
+
+      const startTop = scroller.scrollTop;
+      const targetTop = Math.max(0, target.offsetTop - 18);
+      const distance = targetTop - startTop;
+      const duration = 2200;
+      const startedAt = performance.now();
+
+      const step = (now: number) => {
+        const elapsed = Math.min(1, (now - startedAt) / duration);
+        const eased = 1 - Math.pow(1 - elapsed, 3);
+        scroller.scrollTop = startTop + distance * eased;
+        if (elapsed < 1) {
+          animationFrame = window.requestAnimationFrame(step);
+        }
+      };
+
+      animationFrame = window.requestAnimationFrame(step);
+    }, 120);
+    return () => {
+      window.clearTimeout(timer);
+      if (animationFrame) window.cancelAnimationFrame(animationFrame);
+    };
+  }, [data.id, demoManagerActionActive]);
 
   return (
     <>
@@ -388,13 +494,29 @@ function ClientDetail({
         </div>
       </div>
 
-      <div className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#0A1628] p-3">
+      <div
+        ref={managerActionsRef}
+        data-demo-anchor="gis-manager-actions"
+        className={`rounded-xl border bg-[#0A1628] p-3 transition-all duration-500 ${
+          demoManagerActionActive
+            ? 'border-cyan-200/55 shadow-[0_0_34px_rgba(34,211,238,0.20)]'
+            : 'border-[rgba(46,127,255,0.18)]'
+        }`}
+      >
         <div className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-[#7A94B4]">
           <ClipboardList size={12} />
           Manager Actions
         </div>
         <div className="grid gap-2">
-          <button onClick={() => queueAction('Site response team dispatch plan prepared')} className="flex items-center justify-between rounded-lg bg-[#12305A] px-3 py-2 text-left text-[11px] font-semibold text-[#EEF3FA] hover:bg-[#173B70]">
+          <button
+            data-demo-anchor="gis-dispatch-site-team"
+            onClick={() => queueAction('Site response team dispatch plan prepared')}
+            className={`flex items-center justify-between rounded-lg px-3 py-2 text-left text-[11px] font-semibold text-[#EEF3FA] transition-all ${
+              demoManagerActionActive
+                ? 'bg-cyan-400/18 ring-2 ring-cyan-200/70 shadow-[0_0_24px_rgba(34,211,238,0.34)]'
+                : 'bg-[#12305A] hover:bg-[#173B70]'
+            }`}
+          >
             Dispatch site team <ChevronRight size={12} />
           </button>
           <button onClick={() => queueAction('Inspection task draft created for Sobha Pilot Tower')} className="flex items-center justify-between rounded-lg bg-[#12305A] px-3 py-2 text-left text-[11px] font-semibold text-[#EEF3FA] hover:bg-[#173B70]">
@@ -404,12 +526,19 @@ function ClientDetail({
             Request evidence pack <ChevronRight size={12} />
           </button>
           <button
+            disabled={demoManagerActionActive}
+            aria-disabled={demoManagerActionActive}
             onClick={() => {
+              if (demoManagerActionActive) return;
               onToast('Opening ProjectCommand for Sobha Pilot Tower', 'info');
               onClose();
               window.location.assign('/projectcommand/overview');
             }}
-            className="flex items-center justify-between rounded-lg bg-[#2E7FFF] px-3 py-2 text-left text-[11px] font-bold text-white hover:bg-blue-500"
+            className={`flex items-center justify-between rounded-lg px-3 py-2 text-left text-[11px] font-bold transition-all ${
+              demoManagerActionActive
+                ? 'cursor-not-allowed bg-[#163457] text-[#7A94B4] opacity-55'
+                : 'bg-[#2E7FFF] text-white hover:bg-blue-500'
+            }`}
           >
             Open ProjectCommand <ChevronRight size={12} />
           </button>
@@ -645,6 +774,11 @@ interface Props {
   selectedClientId?: string | null;
   commandFilters?: CommandFilters;
   onFiltersChange?: (filters: CommandFilters) => void;
+  compactClientMarkers?: boolean;
+  pulsingClientIds?: string[];
+  demoOpenClientId?: string | null;
+  demoPropertyCommandScrollActive?: boolean;
+  demoManagerActionActive?: boolean;
 }
 
 function matchesZone(location: string, zones: string[]): boolean {
@@ -653,7 +787,7 @@ function matchesZone(location: string, zones: string[]): boolean {
   return zones.some(z => loc.includes(z.toLowerCase()) || z.toLowerCase().includes(loc));
 }
 
-export function CommunityMap({ onToast, selectedClientId, commandFilters, onFiltersChange }: Props) {
+export function CommunityMap({ onToast, selectedClientId, commandFilters, onFiltersChange, compactClientMarkers = false, pulsingClientIds = [], demoOpenClientId = null, demoPropertyCommandScrollActive = false, demoManagerActionActive = false }: Props) {
   const memberFilter = useMemberFilter();
   const isMemberMode = isFilterActive(memberFilter);
   const { clients } = useClients();
@@ -819,6 +953,13 @@ export function CommunityMap({ onToast, selectedClientId, commandFilters, onFilt
     }
     setDrawer({ kind: 'client', data: client });
   };
+
+  useEffect(() => {
+    if (!demoOpenClientId) return;
+    const client = clients.find((item): item is ClientWithCoordinates => item.id === demoOpenClientId && hasCoordinates(item));
+    if (!client) return;
+    setDrawer({ kind: 'client', data: client });
+  }, [clients, demoOpenClientId]);
   const mapStats = focusedClient
     ? [
       {
@@ -863,14 +1004,17 @@ export function CommunityMap({ onToast, selectedClientId, commandFilters, onFilt
 
         {clients
           .filter((c): c is ClientWithCoordinates => hasCoordinates(c) && (!filterClientId || c.id === filterClientId))
-          .map(c => (
-            <Marker
-              key={`client-${c.id}`}
-              position={[c.lat, c.lng]}
-              icon={createClientMarkerIcon(c.name, c.riskLevel, c.marketLabel)}
-              eventHandlers={{ click: () => openClient(c) }}
-            />
-          ))}
+          .map(c => {
+            const pulsing = pulsingClientIds.includes(c.id);
+            return (
+              <Marker
+                key={`client-${c.id}-${compactClientMarkers ? 'compact' : 'label'}-${pulsing ? 'pulse' : 'idle'}`}
+                position={[c.lat, c.lng]}
+                icon={createClientMarkerIcon(c.name, c.riskLevel, c.marketLabel, compactClientMarkers, pulsing)}
+                eventHandlers={{ click: () => openClient(c) }}
+              />
+            );
+          })}
 
         {activeLayers.slaZones && mockSLAZones.map(zone => (
           <Circle
@@ -1076,6 +1220,8 @@ export function CommunityMap({ onToast, selectedClientId, commandFilters, onFilt
         onToast={onToast ?? (() => {})}
         onViewHistory={asset => setHistoryAsset(asset)}
         onActivateLayers={activateLayers}
+        demoPropertyCommandScrollActive={demoPropertyCommandScrollActive}
+        demoManagerActionActive={demoManagerActionActive}
       />
 
       <PPMHistoryDrawer

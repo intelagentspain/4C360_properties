@@ -55,13 +55,21 @@ interface Props {
   onPrefilledTaskConsumed?: () => void;
 }
 
-function Dashboard({ onToast, selectedClientId, onNavigateToIncident, onNavigateToTasks, onMarkPPMCreated, ppmCreatedTasks }: {
+export function Dashboard({ onToast, selectedClientId, onNavigateToIncident, onNavigateToTasks, onMarkPPMCreated, ppmCreatedTasks, compactClientMarkers = false, pulsingClientIds = [], demoOpenClientId = null, demoPropertyCommandScrollActive = false, demoManagerActionActive = false, demoSmartDispatchScrollActive = false, demoSmartDispatchActive = false, demoSmartDispatchAssigned = false }: {
   onToast: ToastFn;
   selectedClientId: string | null;
   onNavigateToIncident?: (incidentId: string) => void;
   onNavigateToTasks: (risk: PPMRiskPayload) => void;
   onMarkPPMCreated: (risk: PPMRiskPayload) => void;
   ppmCreatedTasks: Record<string, PPMRiskPayload>;
+  compactClientMarkers?: boolean;
+  pulsingClientIds?: string[];
+  demoOpenClientId?: string | null;
+  demoPropertyCommandScrollActive?: boolean;
+  demoManagerActionActive?: boolean;
+  demoSmartDispatchScrollActive?: boolean;
+  demoSmartDispatchActive?: boolean;
+  demoSmartDispatchAssigned?: boolean;
 }) {
   const [mode, setMode] = useState<AutomationMode>('hybrid');
   const { clients } = useClients();
@@ -111,6 +119,11 @@ function Dashboard({ onToast, selectedClientId, onNavigateToIncident, onNavigate
               selectedClientId={selectedClientId}
               commandFilters={commandFilters}
               onFiltersChange={setCommandFilters}
+              compactClientMarkers={compactClientMarkers}
+              pulsingClientIds={pulsingClientIds}
+              demoOpenClientId={demoOpenClientId}
+              demoPropertyCommandScrollActive={demoPropertyCommandScrollActive}
+              demoManagerActionActive={demoManagerActionActive}
             />
           </div>
           <div className="flex-[35] bg-[rgba(17,32,64,0.85)] border border-[rgba(46,127,255,0.22)] rounded-xl overflow-hidden">
@@ -119,7 +132,13 @@ function Dashboard({ onToast, selectedClientId, onNavigateToIncident, onNavigate
         </div>
         <div className="flex-[38] p-3 pl-1.5 overflow-y-auto custom-scrollbar">
           <KPIPanel onToast={onToast} onNavigateToIncident={onNavigateToIncident} filters={commandFilters} />
-          <SmartDispatchPanel onToast={onToast} filters={commandFilters} />
+          <SmartDispatchPanel
+            onToast={onToast}
+            filters={commandFilters}
+            demoScrollActive={demoSmartDispatchScrollActive}
+            demoActive={demoSmartDispatchActive}
+            demoAssigned={demoSmartDispatchAssigned}
+          />
           <AIInsightsPanel onToast={onToast} />
           <PPMRiskPanel
             onNavigateToWorkOrders={onNavigateToTasks}

@@ -160,7 +160,7 @@ export function Programme() {
 
   return (
     <div className="custom-scrollbar h-full overflow-x-hidden overflow-y-auto px-5 py-4 text-[#EEF3FA]" data-demo-anchor="project-programme">
-      <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-3">
+      <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-3" data-demo-anchor="programme-contractor-accountability">
         <div className="rounded-lg border border-[rgba(46,127,255,0.18)] bg-[#0A1628] px-3 py-2 text-[12px] font-bold text-[#B8C7DB]">{formatMonthRange(project.startDate, project.targetHandover)}</div>
         <div className="flex rounded-lg border border-[rgba(46,127,255,0.18)] bg-[#0A1628] p-1">
           {(['Week', 'Month', 'Quarter'] as const).map(item => <button key={item} onClick={() => setZoom(item)} className={`rounded-md px-3 py-1.5 text-[11px] font-bold ${zoom === item ? 'bg-[#7C3AED]/25 text-[#C4B5FD]' : 'text-[#7A94B4]'}`}>{item}</button>)}
@@ -219,7 +219,7 @@ export function Programme() {
       </div>
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(340px,0.9fr)]">
         <div className="space-y-4">
-          <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
+          <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4" data-demo-anchor="programme-critical-path">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-lg font-black" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Construction Programme</h2>
               <span className="rounded-full border border-[rgba(46,127,255,0.35)] bg-[#0A1628] px-3 py-1 text-[11px] font-bold text-[#B8C7DB]">Zoom: {zoom}</span>
@@ -237,10 +237,12 @@ export function Programme() {
             />
           </section>
           <div className="grid gap-4 2xl:grid-cols-2">
-            <AIPanel title="Recovery Suggestion">
-              <p className="text-[12px] leading-5 text-[#DDE6F8]">{recoverySuggestion}</p>
-            </AIPanel>
-            <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
+            <div data-demo-anchor="programme-recovery-window">
+              <AIPanel title="Recovery Suggestion">
+                <p className="text-[12px] leading-5 text-[#DDE6F8]">{recoverySuggestion}</p>
+              </AIPanel>
+            </div>
+            <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4" data-demo-anchor="programme-delayed-activities">
               <h3 className="mb-3 text-sm font-black" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Critical Path Focus</h3>
               <div className="grid gap-2 sm:grid-cols-2">
                 {varianceEntries.map(([phase, days]) => (
@@ -259,7 +261,7 @@ export function Programme() {
           </div>
         </div>
         <aside className="sticky top-0 space-y-4 self-start">
-          <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
+          <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4" data-demo-anchor="programme-handover-risk">
             <div className="mb-3">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
@@ -345,7 +347,7 @@ export function Programme() {
                 <BarChart data={resourceData}><XAxis dataKey="month" tick={{ fill: '#7A94B4', fontSize: 10 }} /><YAxis tick={{ fill: '#7A94B4', fontSize: 10 }} /><Bar dataKey="workers" fill="#00B894" radius={[6, 6, 0, 0]} /></BarChart>
               </ResponsiveContainer>
             </div>
-            <button onClick={() => setWhatIfOpen(true)} className="mt-3 w-full rounded-lg border border-[#7C3AED]/35 bg-[#7C3AED]/15 px-3 py-2 text-[12px] font-bold text-[#C4B5FD]">Open What-if panel</button>
+            <button onClick={() => setWhatIfOpen(true)} className="mt-3 w-full rounded-lg border border-[#7C3AED]/35 bg-[#7C3AED]/15 px-3 py-2 text-[12px] font-bold text-[#C4B5FD]" data-demo-anchor="programme-recovery-action">Open What-if panel</button>
           </section>
         </aside>
       </div>

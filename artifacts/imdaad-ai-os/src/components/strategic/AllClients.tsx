@@ -3146,7 +3146,7 @@ function PulseEventModal({ event, onClose, onToast }: { event: PulseEvent; onClo
   );
 }
 
-function PortfolioPulseFeed({ onToast, demoOpenRequest }: { onToast: ToastFn; demoOpenRequest?: number }) {
+function PortfolioPulseFeed({ onToast, demoOpenRequest, demoPlaying = false }: { onToast: ToastFn; demoOpenRequest?: number; demoPlaying?: boolean }) {
   const [events, setEvents] = useState<PulseEvent[]>(PULSE_EVENTS.slice(0, 5));
   const [idx, setIdx] = useState(0);
   const [simRunning, setSimRunning] = useState(false);
@@ -3167,10 +3167,11 @@ function PortfolioPulseFeed({ onToast, demoOpenRequest }: { onToast: ToastFn; de
 
   useEffect(() => {
     const t = setInterval(() => {
+      if (demoPlaying) return;
       setIdx(i => i + 1);
     }, 12000);
     return () => clearInterval(t);
-  }, []);
+  }, [demoPlaying]);
 
   useEffect(() => {
     if (idx > 0) {
@@ -3215,7 +3216,7 @@ function PortfolioPulseFeed({ onToast, demoOpenRequest }: { onToast: ToastFn; de
     });
   }
 
-  const pulseBlinking = unseenCount > 0;
+  const pulseBlinking = !demoPlaying && unseenCount > 0;
 
   function togglePanel() {
     setPanelOpen(open => {
@@ -3230,6 +3231,12 @@ function PortfolioPulseFeed({ onToast, demoOpenRequest }: { onToast: ToastFn; de
     setPanelOpen(true);
     setUnseenCount(0);
   }, [demoOpenRequest]);
+
+  useEffect(() => {
+    if (!demoPlaying) return;
+    setPanelOpen(false);
+    setSelectedEvent(null);
+  }, [demoPlaying]);
 
   return (
     <>
@@ -3382,9 +3389,12 @@ function CardActions({
   onReport: (c: PortfolioClient) => void;
 }) {
   return (
-    <div className="grid grid-cols-3 gap-1 pt-2 border-t border-[rgba(46,127,255,0.1)]">
+    <div className="grid grid-cols-3 gap-1 pt-2 border-t border-[rgba(46,127,255,0.1)]" data-demo-anchor="priority-property-actions">
       <button
-        onClick={e => { e.stopPropagation(); onNavigateToCommand(client.id, client.name); }}
+        onClick={e => {
+          e.stopPropagation();
+          onNavigateToCommand(client.id, client.name);
+        }}
         data-demo-anchor="portfolio-command-path"
         data-demo-action="open-property-command"
         className="flex flex-col items-center gap-0.5 py-1.5 rounded-lg bg-[rgba(46,127,255,0.1)] hover:bg-[rgba(46,127,255,0.2)] text-cyan-400 transition-colors"
@@ -3395,6 +3405,7 @@ function CardActions({
       </button>
       <button
         onClick={e => { e.stopPropagation(); onNavigateToIncidents(client.id); }}
+        data-demo-anchor="portfolio-incidents-action"
         className="flex flex-col items-center gap-0.5 py-1.5 rounded-lg bg-[rgba(46,127,255,0.1)] hover:bg-[rgba(46,127,255,0.2)] text-amber-400 transition-colors"
         title="View Incidents"
       >
@@ -3403,6 +3414,7 @@ function CardActions({
       </button>
       <button
         onClick={e => { e.stopPropagation(); onReport(client); }}
+        data-demo-anchor="portfolio-report-action"
         className="flex flex-col items-center gap-0.5 py-1.5 rounded-lg bg-[rgba(46,127,255,0.1)] hover:bg-[rgba(46,127,255,0.2)] text-emerald-400 transition-colors"
         title="Generate Report"
       >
@@ -3466,7 +3478,7 @@ function ClientPortfolioCard({
               <div className="text-[9px] text-[#7A94B4]">{client.region} · {client.sector}</div>
             </div>
           </div>
-          <div className="grid w-full grid-cols-2 gap-2 sm:grid-cols-3 xl:flex xl:flex-1">
+          <div className="grid w-full grid-cols-2 gap-2 sm:grid-cols-3 xl:flex xl:flex-1" data-demo-anchor="priority-property-risk-signals">
             <MetricPill label="Sites"   value={client.sites}      color="text-[#EEF3FA]" />
             <MetricPill label="WOs"     value={client.workOrders} color="text-blue-400" />
             <MetricPill label="Incidents" value={client.incidents} color={client.incidents > 5 ? 'text-red-400' : client.incidents > 2 ? 'text-amber-400' : 'text-emerald-400'} />
@@ -3527,7 +3539,7 @@ function ClientPortfolioCard({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-1 sm:grid-cols-3 2xl:grid-cols-5">
+        <div className="grid grid-cols-2 gap-1 sm:grid-cols-3 2xl:grid-cols-5" data-demo-anchor="priority-property-risk-signals">
           <MetricPill label="Sites"    value={client.sites}      color="text-[#EEF3FA]" />
           <MetricPill label="WOs"      value={client.workOrders} color="text-blue-400" />
           <MetricPill label="Inc."     value={client.incidents}  color={client.incidents > 5 ? 'text-red-400' : client.incidents > 2 ? 'text-amber-400' : 'text-emerald-400'} />
@@ -4386,9 +4398,10 @@ interface Props {
   demoAddPropertySection?: 'wizard' | 'ai' | 'upload';
   demoPortfolioSection?: 'health-actions' | 'portfolio-map' | 'command-path';
   demoActionRequest?: { actionId: string; nonce: number } | null;
+  demoPlaying?: boolean;
 }
 
-export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onNavigateToCommand, demoAddPropertySection, demoPortfolioSection, demoActionRequest }: Props) {
+export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onNavigateToCommand, demoAddPropertySection, demoPortfolioSection, demoActionRequest, demoPlaying = false }: Props) {
   const memberFilter  = useMemberFilter();
   const { addProfiles } = useMemberProfiles();
   const { clients: allClients, addClient } = useClients();
@@ -4410,10 +4423,12 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
   const [selected,      setSelected]      = useState<PortfolioClient | null>(null);
   const [reportClient,  setReportClient]  = useState<PortfolioClient | null>(null);
   const [showAddModal,  setShowAddModal]  = useState(false);
+  const [demoModalSection, setDemoModalSection] = useState<'wizard' | 'ai' | 'upload' | undefined>(demoAddPropertySection);
   const [hiddenClientIds, setHiddenClientIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (!demoAddPropertySection) return;
+    setDemoModalSection(demoAddPropertySection);
     setShowAddModal(true);
   }, [demoAddPropertySection]);
 
@@ -4498,9 +4513,6 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
 
     if (demoActionRequest.actionId === 'open-property-command') {
       if (!demoCommandPathClient) return;
-      setSelected(null);
-      setReportClient(demoCommandPathClient);
-      onToast(`Command path preview opened for ${demoCommandPathClient.name}`, 'info');
       return;
     }
 
@@ -4509,6 +4521,13 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
       || demoActionRequest.actionId === 'open-ai-onboarding'
       || demoActionRequest.actionId === 'open-upload-panel'
     ) {
+      setDemoModalSection(
+        demoActionRequest.actionId === 'open-ai-onboarding'
+          ? 'ai'
+          : demoActionRequest.actionId === 'open-upload-panel'
+          ? 'upload'
+          : 'wizard',
+      );
       setShowAddModal(true);
       onToast('Property onboarding workspace opened', 'info');
     }
@@ -4580,7 +4599,8 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
 
           <PortfolioPulseFeed
             onToast={onToast}
-            demoOpenRequest={demoActionRequest?.actionId === 'show-portfolio-pulse' ? demoActionRequest.nonce : undefined}
+            demoOpenRequest={demoPortfolioSection === 'portfolio-map' && demoActionRequest?.actionId === 'show-portfolio-pulse' ? demoActionRequest.nonce : undefined}
+            demoPlaying={demoPlaying}
           />
 
           <button
@@ -4726,7 +4746,7 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
           <AddClientModal
             onClose={() => setShowAddModal(false)}
             onSave={handleAddClient}
-            demoSection={demoAddPropertySection}
+            demoSection={demoModalSection ?? demoAddPropertySection}
           />
         )}
       </AnimatePresence>

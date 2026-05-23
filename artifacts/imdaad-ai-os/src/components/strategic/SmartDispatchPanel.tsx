@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bot, MapPin, Clock, ChevronDown, UserCheck, RotateCcw, CheckCircle, QrCode, MessageSquare } from 'lucide-react';
 import { mockSmartDispatch } from '@/data/mockData';
@@ -37,11 +37,15 @@ const TECH_WHATSAPP: Record<string, string> = {
 interface Props {
   onToast: ToastFn;
   filters?: CommandFilters;
+  demoScrollActive?: boolean;
+  demoActive?: boolean;
+  demoAssigned?: boolean;
 }
 
-export function SmartDispatchPanel({ onToast, filters }: Props) {
+export function SmartDispatchPanel({ onToast, filters, demoScrollActive = false, demoActive = false, demoAssigned = false }: Props) {
   const { incidents } = useIncidents();
   const { clients } = useClients();
+  const panelRef = useRef<HTMLDivElement | null>(null);
 
   const allDispatch = useMemo(() => {
     const existingIncidentIds = new Set(mockSmartDispatch.map(dispatch => dispatch.incidentId));
@@ -93,6 +97,66 @@ export function SmartDispatchPanel({ onToast, filters }: Props) {
 
   const current = visibleDispatch.find(d => d.incidentId === activeIncident) ?? visibleDispatch[0];
 
+  useEffect(() => {
+    if (!demoScrollActive) return undefined;
+    let animationFrame = 0;
+    const timer = window.setTimeout(() => {
+      const target = panelRef.current;
+      const scroller = target?.closest('.custom-scrollbar') as HTMLElement | null;
+
+      if (!target || !scroller) {
+        target?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+        return;
+      }
+
+      const targetRect = target.getBoundingClientRect();
+      const scrollerRect = scroller.getBoundingClientRect();
+      const startTop = scroller.scrollTop;
+      const targetTop = targetRect.top - scrollerRect.top + scroller.scrollTop - Math.max(24, scroller.clientHeight * 0.14);
+      const maxTop = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+      const endTop = Math.max(0, Math.min(maxTop, targetTop));
+      const distance = endTop - startTop;
+      const duration = 28000;
+      const startedAt = performance.now();
+
+      const step = (now: number) => {
+        const elapsed = Math.min(1, (now - startedAt) / duration);
+        const eased = elapsed < 0.5
+          ? 4 * elapsed * elapsed * elapsed
+          : 1 - Math.pow(-2 * elapsed + 2, 3) / 2;
+        scroller.scrollTop = startTop + distance * eased;
+        if (elapsed < 1) {
+          animationFrame = window.requestAnimationFrame(step);
+        }
+      };
+
+      animationFrame = window.requestAnimationFrame(step);
+    }, 160);
+    return () => {
+      window.clearTimeout(timer);
+      if (animationFrame) window.cancelAnimationFrame(animationFrame);
+    };
+  }, [demoScrollActive]);
+
+  useEffect(() => {
+    if (!demoAssigned) {
+      setAssigned(prev => {
+        if (!prev['INC-SI-001']) return prev;
+        const next = { ...prev };
+        delete next['INC-SI-001'];
+        return next;
+      });
+      return;
+    }
+
+    setActiveIncident('INC-SI-001');
+    setAssigned(prev => (
+      prev['INC-SI-001'] === 'Karim R.'
+        ? prev
+        : { ...prev, 'INC-SI-001': 'Karim R.' }
+    ));
+  }, [demoAssigned]);
+
   const handleAssign = (incId: string, techName: string) => {
     setAssigned(prev => ({ ...prev, [incId]: techName }));
     onToast(`${techName} assigned to ${incId}`, 'success');
@@ -104,7 +168,13 @@ export function SmartDispatchPanel({ onToast, filters }: Props) {
   };
 
   return (
-    <div className="mb-4">
+    <div
+      ref={panelRef}
+      data-demo-anchor="ai-smart-dispatch-panel"
+      className={`mb-4 rounded-xl transition-all duration-500 ${
+        demoActive ? 'ring-2 ring-cyan-100/70 shadow-[0_0_46px_rgba(34,211,238,0.28)]' : ''
+      }`}
+    >
       {whatsappTarget && (
         <WhatsAppModal
           recipientName={whatsappTarget.name}
@@ -117,7 +187,12 @@ export function SmartDispatchPanel({ onToast, filters }: Props) {
       )}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
-          <h3 className="text-[#EEF3FA] text-xs font-semibold uppercase tracking-wide" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+          <h3
+            className={`text-xs font-semibold uppercase tracking-wide ${
+              demoActive ? 'text-white drop-shadow-[0_0_10px_rgba(103,232,249,0.45)]' : 'text-[#EEF3FA]'
+            }`}
+            style={{ fontFamily: 'Space Grotesk, sans-serif' }}
+          >
             AI Smart Dispatch
           </h3>
           <span className="px-1.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-400 text-[10px] font-bold border border-cyan-500/30">
@@ -182,7 +257,12 @@ export function SmartDispatchPanel({ onToast, filters }: Props) {
 
           {assigned[activeIncident] ? (
             <div className="p-3">
-              <div className="flex items-center gap-2 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl mb-3">
+              <div
+                data-demo-anchor="ai-smart-dispatch-assigned"
+                className={`flex items-center gap-2 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl mb-3 transition-all duration-500 ${
+                  demoAssigned ? 'ring-2 ring-emerald-200/70 shadow-[0_0_28px_rgba(16,185,129,0.32)]' : ''
+                }`}
+              >
                 <CheckCircle size={14} className="text-emerald-400 flex-shrink-0" />
                 <div>
                   <div className="text-[11px] text-emerald-400 font-semibold">Assigned to {assigned[activeIncident]}</div>
@@ -264,6 +344,7 @@ export function SmartDispatchPanel({ onToast, filters }: Props) {
                     {idx === 0 && (
                       <div className="flex gap-2">
                         <button
+                          data-demo-anchor="ai-smart-dispatch-assign"
                           onClick={() => handleAssign(activeIncident, rec.tech)}
                           className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-[#2E7FFF] text-white text-[11px] font-semibold rounded-lg hover:bg-blue-500 transition-colors"
                         >

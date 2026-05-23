@@ -31,6 +31,16 @@ const tabs: { id: ProjectCommandScreen; label: string; icon: ComponentType<{ siz
   { id: 'forecast', label: 'AI Forecast', icon: BrainCircuit },
 ];
 
+const tabDemoAnchors: Partial<Record<ProjectCommandScreen, string>> = {
+  programme: 'programme-control-tab',
+  stagegates: 'stage-gates-control-tab',
+  cost: 'cost-control-tab',
+  risk: 'risk-control-tab',
+  forecast: 'forecast-control-tab',
+  obligations: 'obligations-control-tab',
+  evidence: 'evidence-control-tab',
+};
+
 function screenFromPath(): ProjectCommandScreen {
   const match = window.location.pathname.match(/\/projectcommand\/([^/]+)/);
   const value = match?.[1] as ProjectCommandScreen | undefined;
@@ -171,6 +181,7 @@ export function ProjectCommand({
                 key={tab.id}
                 onClick={() => goTo(tab.id)}
                 data-demo-action={`projectcommand-tab-${tab.id}`}
+                data-demo-anchor={tabDemoAnchors[tab.id]}
                 className={`flex h-9 flex-shrink-0 items-center gap-1.5 rounded-lg border px-3 text-[11px] font-bold transition-all ${
                   active
                     ? 'border-[#7C3AED]/45 bg-[#7C3AED]/18 text-[#DDD6FE] shadow-[0_0_18px_rgba(124,58,237,0.14)]'

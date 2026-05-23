@@ -12,6 +12,7 @@ import {
 
 interface KPI {
   label: string;
+  demoAnchor: string;
   value: string;
   color: string;
   trend: 'up' | 'down' | 'flat';
@@ -50,6 +51,7 @@ export function KPIPanel({ onToast, onNavigateToIncident, filters }: Props) {
   const kpis: KPI[] = [
     {
       label: 'Critical Incidents',
+      demoAnchor: 'gis-critical-incidents-card',
       value: String(criticalCount),
       color: 'text-red-400',
       trend: 'down',
@@ -60,6 +62,7 @@ export function KPIPanel({ onToast, onNavigateToIncident, filters }: Props) {
     },
     {
       label: 'SLA Alerts',
+      demoAnchor: 'gis-sla-alerts-card',
       value: String(openCount),
       color: 'text-amber-400',
       trend: openCount > 4 ? 'up' : 'flat',
@@ -70,6 +73,7 @@ export function KPIPanel({ onToast, onNavigateToIncident, filters }: Props) {
     },
     {
       label: 'Compliance',
+      demoAnchor: 'gis-compliance-card',
       value: selectedClient ? `${selectedClient.sla}%` : '94%',
       color: 'text-emerald-400',
       trend: selectedClient && selectedClient.sla < 90 ? 'down' : 'up',
@@ -80,6 +84,7 @@ export function KPIPanel({ onToast, onNavigateToIncident, filters }: Props) {
     },
     {
       label: 'Active Engineers',
+      demoAnchor: 'gis-active-engineers-card',
       value: String(engineerCount),
       color: 'text-[#EEF3FA]',
       trend: 'flat',
@@ -107,6 +112,7 @@ export function KPIPanel({ onToast, onNavigateToIncident, filters }: Props) {
               onClick={() => handleClick(kpi)}
               onMouseEnter={() => setHoveredKpi(kpi.label)}
               onMouseLeave={() => setHoveredKpi(null)}
+              data-demo-anchor={kpi.demoAnchor}
               whileHover={{ y: -2 }}
               whileTap={{ scale: 0.97 }}
               transition={{ duration: 0.15 }}

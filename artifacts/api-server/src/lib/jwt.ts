@@ -27,6 +27,15 @@ const ROLE_PERMISSIONS: Record<AuthRole, string[]> = {
   admin: ["*"],
 };
 
+export function isDemoAuthEnabled(): boolean {
+  return (
+    process.env.ENABLE_DEMO_AUTH === "true"
+    || process.env.DEMO_AUTH === "true"
+    || process.env.NODE_ENV === "development"
+    || process.env.NODE_ENV === "test"
+  );
+}
+
 function requireEnv(name: string): string {
   const value = process.env[name]?.trim();
   if (!value) {
@@ -36,7 +45,11 @@ function requireEnv(name: string): string {
 }
 
 function getSecret(tokenType: "access" | "refresh"): Secret {
-  return requireEnv(tokenType === "access" ? "JWT_SECRET" : "JWT_REFRESH_SECRET");
+  const envName = tokenType === "access" ? "JWT_SECRET" : "JWT_REFRESH_SECRET";
+  const configured = process.env[envName]?.trim();
+  if (configured) return configured;
+  if (isDemoAuthEnabled()) return `4c360-local-demo-${tokenType}-secret`;
+  return requireEnv(envName);
 }
 
 function assertRole(value: string | undefined): AuthRole {
@@ -96,11 +109,12 @@ export function verifyRefreshToken(token: string): AuthTokenPayload {
 
 export function getConfiguredAdminIdentity(): AuthUser {
   const role = assertRole(process.env.ADMIN_ROLE);
-  const email = requireEnv("ADMIN_EMAIL").toLowerCase();
-  requireEnv("ADMIN_PASSWORD_HASH");
+  const email = (process.env.ADMIN_EMAIL?.trim() || (isDemoAuthEnabled() ? "karim.assad@mokadigital.net" : "")).toLowerCase();
+  if (!email) requireEnv("ADMIN_EMAIL");
+  if (!process.env.ADMIN_PASSWORD_HASH?.trim() && !isDemoAuthEnabled()) requireEnv("ADMIN_PASSWORD_HASH");
 
   return {
-    userId: process.env.ADMIN_USER_ID?.trim() || "env-admin",
+    userId: process.env.ADMIN_USER_ID?.trim() || (isDemoAuthEnabled() ? "demo-admin" : "env-admin"),
     email,
     organizationId: process.env.ADMIN_ORGANIZATION_ID?.trim() || "developmentx",
     role,

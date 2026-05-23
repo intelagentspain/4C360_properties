@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type RefObject, type SyntheticEvent } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from 'react';
 import {
   BarChart3,
   BrainCircuit,
@@ -15,6 +15,7 @@ import {
   Mic,
   MicOff,
   MonitorPlay,
+  MousePointer2,
   Pause,
   Play,
   Plus,
@@ -30,6 +31,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { AllClients } from '@/components/strategic/AllClients';
+import { Dashboard as StrategicDashboard } from '@/components/strategic/StrategicView';
 import { VendorIntelligence } from '@/components/strategic/VendorIntelligence';
 import { HospitalityClientView } from '@/components/client/hospitality/HospitalityClientView';
 import { FieldOpsDashboard } from '@/modules/fieldops/FieldOpsDashboard';
@@ -57,8 +59,18 @@ type DemoSpotlightBeat = {
 type DemoTimelineCue =
   | { atMs: number; type: 'spotlight'; anchor?: string; fallback: FallbackHotspot; durationMs?: number }
   | { atMs: number; type: 'scrollTo'; anchor: string }
+  | { atMs: number; type: 'slowScrollTo'; anchor: string; durationMs: number }
+  | { atMs: number; type: 'pulse'; anchor?: string; fallback: FallbackHotspot; durationMs?: number }
+  | { atMs: number; type: 'pinPulse'; anchor?: string; fallback: FallbackHotspot; durationMs?: number }
+  | { atMs: number; type: 'flash'; anchor?: string; fallback: FallbackHotspot; durationMs?: number }
   | { atMs: number; type: 'demoAction'; actionId: string }
+  | { atMs: number; type: 'clearDemoAction' }
   | { atMs: number; type: 'chapterPause' };
+
+type DemoSeekRequest = {
+  id: number;
+  elapsedMs: number;
+};
 
 type DemoActionRequest = {
   actionId: string;
@@ -87,6 +99,11 @@ type DemoMissionTrigger =
   | { type: 'frameVisit' }
   | { type: 'toastIncludes'; value: string }
   | { type: 'demoAction'; action: string };
+
+const DEMO_SPOTLIGHTS_ENABLED = false;
+const PORTFOLIO_CLARITY_REVEAL_MS = 13_300;
+const PORTFOLIO_GIS_HANDOFF_MS = 25_200;
+const PORTFOLIO_GIS_ZOOM_OUT_MS = 35_700;
 
 type DemoMission = {
   id: string;
@@ -266,7 +283,10 @@ function buildShareUrl(chapterId?: string, sectionId?: string, showMode?: DemoSh
   if (sectionId) url.searchParams.set('section', sectionId);
   if (showMode) url.searchParams.set('duration', showModeToQuery(showMode));
   url.searchParams.set('mode', 'board');
-  if (autoplay) url.searchParams.set('autoplay', 'true');
+  if (autoplay) {
+    url.searchParams.set('autoplay', 'true');
+    if (sectionId) url.searchParams.set('phase', 'section');
+  }
   return url.toString();
 }
 
@@ -388,10 +408,486 @@ const EMPTY_PROGRESS_STATE: DemoProgressState = {
   completedAtByMissionId: {},
 };
 
+const PORTFOLIO_CHAPTER_ONE_SCRIPT = [
+  'Before teams open spreadsheets, prepare reports, or explain delays, leadership needs one thing first: clarity.',
+  'Across a large property portfolio, the real challenge is not lack of data.',
+  'It is knowing where attention is required now.',
+  '4C360 brings operational health, compliance exposure, incidents, SLA pressure, open actions, and asset risk into one live command environment.',
+  'Instead of reviewing disconnected updates from multiple departments, leadership can immediately identify which properties are stable, which are deteriorating, and which require intervention.',
+  'In this example, one property immediately surfaces above the rest.',
+  'That property is Sobha Pilot Tower.',
+  'The platform detects increasing operational pressure: unresolved incidents, service degradation, compliance exposure, and handover readiness concerns.',
+  'The objective is not simply to display risk.',
+  'The objective is to direct action.',
+  'This is where most systems stop.',
+  'They report the issue.',
+  '4C360 continues further.',
+  'From the portfolio signal, leadership can move directly into the operational command layer behind the property: programme controls, commercial exposure, readiness status, evidence gaps, vendor performance, field operations, and accountable ownership.',
+  'For leadership, this changes the operating model completely.',
+  'Instead of reacting after escalation, the organization gains early visibility, operational alignment, accountable workflows, and faster decision cycles.',
+  'The result is not just better reporting.',
+  'It is better control.',
+  'Now that the priority asset has been identified, the next step is understanding how the property enters the system operationally.',
+  'We move from portfolio oversight into intelligent property onboarding.',
+].join('\n\n');
+
+const PROPERTYSETUP_CHAPTER_TWO_SCRIPT = [
+  'Once leadership identifies Sobha Pilot Tower as the priority asset, the next question becomes operational:',
+  'How does the property enter the system in a structured, scalable way?',
+  '4C360 is designed to onboard operational environments quickly, while preserving governance, accountability, and operational context from day one.',
+  'The onboarding process begins with a guided property setup workflow.',
+  'Teams can define the property profile, service scope, operational ownership, SLA structure, locations, teams, budgets, inventory, and supporting operational context.',
+  'This creates a clean operational baseline before daily activity begins.',
+  '4C360 can then accelerate setup using AI-assisted operational modeling.',
+  'Based on the property type, asset category, and operational environment, the platform can suggest typical assets, maintenance structures, compliance references, service assumptions, and operational relationships.',
+  'Teams remain fully in control.',
+  'AI accelerates setup without replacing operational oversight.',
+  'The platform also supports direct onboarding from existing property documentation.',
+  'Teams can upload handover packs, asset registers, contracts, SOPs, authority documents, warranties, technical reports, and spreadsheets.',
+  'Those materials become part of the operational knowledge layer, transforming disconnected files into structured operational intelligence.',
+  'This becomes especially powerful across large portfolios.',
+  'Instead of repeating onboarding manually for every property, teams can standardize operational structures while still adapting each asset to its real operating conditions.',
+  'The result is faster deployment, better governance, cleaner operational data, and a stronger foundation for portfolio-wide intelligence.',
+  'Once the property is operationally established, leadership can move beyond onboarding and into live project execution.',
+  'We now enter the Project Command environment.',
+].join('\n\n');
+
+const PROJECTCOMMAND_CHAPTER_THREE_SCRIPT = [
+  'Once Sobha Pilot Tower is operationally established, leadership needs a live control environment.',
+  'This is where Project Command begins.',
+  'Instead of moving between separate reports, meetings, spreadsheets, and email updates, 4C360 brings the project into one connected command surface.',
+  'The board can see the project context immediately:',
+  'budget,',
+  'progress,',
+  'current status,',
+  'key owners,',
+  'active blockers,',
+  'and the decisions required to keep delivery moving.',
+  'This is not a static project dashboard.',
+  'It is a live operating layer.',
+  'From here, leadership can move across every control lens without losing the project story:',
+  'programme,',
+  'stage gates,',
+  'cost,',
+  'risk,',
+  'forecast,',
+  'obligations,',
+  'and evidence.',
+  'Each view answers a different executive question.',
+  'Is the schedule recoverable?',
+  'Is the next gate ready?',
+  'Where is cost exposure building?',
+  'Which risks need owner action?',
+  'What outcome is now most likely?',
+  'Which obligations are approaching?',
+  'And what evidence is still missing?',
+  'The value is continuity.',
+  'The conversation does not restart every time the topic changes.',
+  'Every control area remains connected to the same property, the same project, and the same accountable action path.',
+  'Project Command gives leadership one place to understand what is happening, what is blocking progress, who owns the next move, and which decisions matter now.',
+  'This is how 4C360 turns project complexity into executive control.',
+  'From here, we move into the first major control lens:',
+  'the programme.',
+].join('\n\n');
+
+const PROGRAMME_CHAPTER_FOUR_SCRIPT = [
+  'Now we move into the programme view for the same Sobha Pilot Tower handover path.',
+  'At this stage, leadership does not need a complex scheduling file.',
+  'They need to understand whether the delivery path is still recoverable.',
+  '4C360 translates programme complexity into an executive control view.',
+  'The board can see the critical path, delayed activities, contractor responsibility, recovery windows, and the milestones most likely to affect handover.',
+  'This changes the schedule discussion.',
+  'Instead of asking for another update, leadership can see where time is being lost, which package is creating pressure, and who owns the recovery path.',
+  'The programme view connects delay to accountability.',
+  'If a contractor activity is slipping, the impact is visible immediately.',
+  'If a milestone is under pressure, the required recovery action is shown in context.',
+  'If the handover date is at risk, the board can see the trade-off before the issue becomes irreversible.',
+  'The value is not simply knowing that a project is late.',
+  'The value is knowing where intervention still matters.',
+  '4C360 helps leadership move from schedule reporting to schedule control.',
+  'The programme becomes a decision tool: what can still be recovered, who must act, what must be approved, and what happens if the organization waits.',
+  'From here, we move to the next readiness question:',
+  'Is the next stage gate actually ready to pass?',
+].join('\n\n');
+
+const STAGEGATES_CHAPTER_FIVE_SCRIPT = [
+  'Now that schedule pressure is visible on Sobha Pilot Tower, the next question is readiness.',
+  'A milestone is not ready simply because the date has arrived.',
+  'It is ready when the required work, approvals, documents, inspections, and evidence are complete.',
+  'This is where the stage gates view becomes critical.',
+  '4C360 shows which gates are open, which are approaching, and which are blocked.',
+  'For each blocked gate, leadership can see the reason:',
+  'missing evidence,',
+  'expired documentation,',
+  'unresolved inspections,',
+  'authority dependencies,',
+  'or owner decisions still pending.',
+  'This changes the readiness conversation.',
+  'Instead of discovering blockers late, the board can see exactly what prevents the next gate from moving forward.',
+  'The issue becomes specific,',
+  'assignable,',
+  'and recoverable.',
+  'The stage gates view connects every readiness blocker to an owner, a required action, and the evidence needed to close it.',
+  'This means leadership can challenge progress with proof, not assumptions.',
+  'For handover, commissioning, and owner approvals, this is essential.',
+  '4C360 turns stage gates from a checklist into a control mechanism.',
+  'It shows whether the project is truly ready to proceed, what is holding it back, and what action protects the next milestone.',
+  'From here, we move into the commercial question:',
+  'What is this delay or readiness gap costing us?',
+].join('\n\n');
+
+const COST_CHAPTER_SIX_SCRIPT = [
+  'Once readiness gaps and schedule pressure are visible on the same handover path, the next question is commercial exposure.',
+  'What is this delay costing us?',
+  'Where is the budget moving?',
+  'And which decisions can still reduce the impact?',
+  '4C360 brings cost control into the same project command environment.',
+  'Leadership can see the current forecast, approved budget, pending variations, package-level drivers, and the commercial pressure linked to delays, vendors, and unresolved decisions.',
+  'This makes cost movement explainable.',
+  'The board can see whether exposure is coming from procurement,',
+  'claims,',
+  'scope changes,',
+  'delayed approvals,',
+  'contractor performance,',
+  'or unresolved readiness blockers.',
+  'Instead of reviewing cost as a separate finance report, 4C360 connects commercial exposure directly to the operational reality behind it.',
+  'This changes the discussion.',
+  'The question is no longer only, “Are we over budget?”',
+  'The better question is:',
+  '“What action can still protect the forecast?”',
+  'Cost control becomes a decision framework.',
+  'Approve recovery.',
+  'Hold payment until evidence is complete.',
+  'Escalate a variation.',
+  'Challenge a package driver.',
+  'Or accept the exposure with full visibility.',
+  '4C360 helps leadership compare the cost of action with the cost of delay.',
+  'That is where commercial reporting becomes commercial control.',
+  'From here, we move into the risk view:',
+  'Which risks are most likely to affect delivery, cost, and readiness next?',
+].join('\n\n');
+
+const RISK_CHAPTER_SEVEN_SCRIPT = [
+  'Now we move from commercial exposure into delivery risk for Sobha Pilot Tower.',
+  'The question is no longer only what has happened.',
+  'The question is what could still damage the outcome.',
+  '4C360 brings the project risk register into the same command environment as programme, cost, stage gates, obligations, and evidence.',
+  'Leadership can see the highest priority risks, their probability, impact, trend, owner, mitigation status, and consequence.',
+  'This makes risk operational.',
+  'A risk is not just a line in a register.',
+  'It is a live management question: who owns it, what action is underway, whether the mitigation is strong enough, and what happens if the risk materializes.',
+  'This gives the board a better way to challenge delivery confidence.',
+  'Instead of asking whether risks have been reviewed, leadership can ask whether the right risks are being controlled.',
+  '4C360 connects each risk to the parts of the project it can affect: schedule, cost, readiness, vendors, obligations, and evidence.',
+  'That connection matters.',
+  'Because the most dangerous risks are not always the loudest.',
+  'They are the ones that quietly weaken confidence until recovery becomes expensive.',
+  'The risk view helps leadership act before exposure becomes reality.',
+  'It turns risk management from a compliance exercise into an operating discipline.',
+  'From here, we move into the forecast view:',
+  'Given what we now know, what outcome is most likely?',
+].join('\n\n');
+
+const FORECAST_CHAPTER_EIGHT_SCRIPT = [
+  'After reviewing Sobha Pilot Tower programme, readiness, cost, and risk, leadership needs a forward view.',
+  'Not just what happened.',
+  'What is likely to happen next?',
+  'This is where the forecast view becomes powerful.',
+  '4C360 brings together project signals from schedule, cost, risk, obligations, evidence, and delivery performance to compare possible outcomes.',
+  'The board can see the base case, upside case, and downside case in one view.',
+  'Each scenario is supported by assumptions: expected completion, final cost, risk pressure, confidence level, and the actions that could shift the outcome.',
+  'This makes forecasting explainable.',
+  'Leadership can understand not only the projected outcome, but why that outcome is becoming more or less likely.',
+  'That is the difference between a prediction and a decision tool.',
+  'If confidence is weakening, the board can see the causes.',
+  'If the downside case is growing, the required intervention becomes visible.',
+  'If the base case can still be protected, the action path is clear.',
+  '4C360 helps leadership move from reactive reporting to forward control.',
+  'The forecast view shows what could happen, what is driving that movement, and which decisions can still change the result.',
+  'From here, we move into obligations:',
+  'Which contractual, regulatory, and authority duties must be controlled before they create exposure?',
+].join('\n\n');
+
+const OBLIGATIONS_CHAPTER_NINE_SCRIPT = [
+  'After forecast, leadership needs to understand obligation exposure around the same handover risk.',
+  'Because delivery risk does not only come from schedule, cost, or vendors.',
+  'It also comes from missed duties.',
+  '4C360 brings contractual, regulatory, authority, and owner obligations into the same project command environment.',
+  'Leadership can see what is due, what is overdue, what is approaching, who owns it, and what evidence is required to prove completion.',
+  'This changes obligation management.',
+  'Instead of treating obligations as disconnected legal or compliance records, 4C360 connects them directly to delivery progress, stage gates, evidence, and owner decisions.',
+  'A missed obligation is not just an administrative issue.',
+  'It can delay approvals, weaken handover readiness, increase commercial exposure, or create regulatory risk.',
+  'That is why obligations need to be visible before they become problems.',
+  'The obligations view helps leadership prioritize by consequence, not just by due date.',
+  'The board can see which duties matter most, which owners need to act, and which proof is still missing.',
+  'This creates a stronger governance model.',
+  'Duties become traceable.',
+  'Owners become accountable.',
+  'Evidence becomes connected.',
+  '4C360 turns obligation management from a passive register into an active control layer.',
+  'From here, we move into evidence:',
+  'What proof is still missing, expired, or blocking readiness?',
+].join('\n\n');
+
+const EVIDENCE_CHAPTER_TEN_SCRIPT = [
+  'Now we arrive at the evidence layer for Sobha Pilot Tower.',
+  'This is where readiness becomes provable.',
+  'A project may look on track in meetings, but handover, approvals, compliance, and owner confidence depend on proof.',
+  '4C360 brings evidence into the same operating environment as programme, stage gates, cost, risk, forecast, and obligations.',
+  'Leadership can see which documents are current, which are expired, which are missing, and which evidence items are blocking readiness.',
+  'This changes the role of documentation.',
+  'Evidence is no longer passive storage.',
+  'It becomes an active control signal.',
+  'Expired certificates, missing inspection records, incomplete handover packs, authority submissions, warranties, test reports, and compliance documents are surfaced before they delay the next decision.',
+  'The board can see what proof is required, who owns it, when it is due, and which milestone or obligation depends on it.',
+  'This creates confidence.',
+  'Not because someone says the project is ready.',
+  'But because the evidence supports it.',
+  '4C360 turns evidence into operational intelligence.',
+  'It helps teams prepare approval packs, resolve readiness blockers, and protect handover confidence before issues escalate.',
+  'From here, the project control journey moves beyond internal readiness.',
+  'We now look at vendor performance:',
+  'Which external partners are helping execution, and which ones are creating risk?',
+].join('\n\n');
+
+const VENDORIQ_CHAPTER_ELEVEN_SCRIPT = [
+  'Now we move from internal project control into vendor intelligence for the same handover risk.',
+  'Because delivery performance depends heavily on external partners.',
+  'A vendor may look competitive on price, but still create risk through poor service, weak documentation, slow response times, repeated failures, or incomplete evidence.',
+  'VendorIQ gives leadership a defensible view of partner performance.',
+  '4C360 brings together vendor score, SLA performance, quality history, evidence completeness, cost pressure, and repeat issues into one decision layer.',
+  'This changes vendor management.',
+  'The conversation is no longer based only on opinion, price, or isolated complaints.',
+  'Leadership can see which vendors are performing, which are under pressure, and which ones need corrective action.',
+  'The platform also connects vendor performance back to the project.',
+  'If a vendor is delaying evidence, affecting readiness, increasing cost exposure, or weakening service performance, that impact is visible.',
+  'This creates better procurement and operational decisions.',
+  'The lowest quote is not always the best decision.',
+  'The best vendor decision is the one that balances price, risk, quality, evidence, and delivery confidence.',
+  '4C360 turns vendor review into an accountable action path: compare performance, identify risk, prepare corrective notices, and protect the project outcome.',
+  'From here, we move into FieldOps:',
+  'How does the operating model reach the teams on site?',
+].join('\n\n');
+
+const FIELDOPS_CHAPTER_TWELVE_SCRIPT = [
+  'Now we move from vendor intelligence into field operations at the Sobha Pilot Tower site.',
+  'Because executive control only works if site activity is connected to the command layer.',
+  'FieldOps brings the operating model to the teams closest to the work.',
+  'Survey tasks, inspections, field updates, issue capture, progress checks, and evidence collection can all be managed from the field.',
+  'This closes the gap between what leadership sees and what is actually happening on site.',
+  '4C360 gives field teams a clear work queue: what needs to be checked, where it needs to happen, who owns it, what proof must be captured, and what status needs to be updated.',
+  'This means field activity becomes structured, traceable, and connected.',
+  'When a survey is completed, evidence can support stage gates.',
+  'When an issue is captured, it can feed risk, cost, vendor, or programme decisions.',
+  'When progress is updated, the project command layer becomes more accurate.',
+  'This is where the operating system becomes real.',
+  'Not just dashboards.',
+  'Not just executive views.',
+  'But field execution connected back to leadership control.',
+  'FieldOps helps organizations reduce reporting delay, improve evidence quality, and create a live connection between site teams and owner decisions.',
+  'From here, we move into the resident and service experience:',
+  'How does 4C360 connect operational control to the people receiving the service?',
+].join('\n\n');
+
+const RESIDENT_CHAPTER_THIRTEEN_SCRIPT = [
+  'Now we move from field execution into the resident and service experience connected to the same operating model.',
+  'Because the final test of any property operating model is not only what leadership sees.',
+  'It is what residents, tenants, guests, or end users experience every day.',
+  '4C360 connects service requests, resident intake, complaints, updates, SLA tracking, and operational follow-through into the same command environment.',
+  'This means service issues do not disappear into disconnected inboxes, call logs, or manual follow-ups.',
+  'Every request can be captured, categorized, assigned, tracked, and connected to the right operational owner.',
+  'Leadership can see whether service demand is increasing, whether response times are slipping, whether repeated issues are appearing, and whether the operating team is closing the loop.',
+  'This creates a better service model.',
+  'Residents get clearer follow-up.',
+  'Operations teams get accountable workflows.',
+  'Owners get visibility into service quality and recurring pressure.',
+  'And the organization gets a stronger connection between front-line experience and executive control.',
+  '4C360 helps transform resident service from reactive complaint handling into measurable operational intelligence.',
+  'From here, we move into the final chapter:',
+  'What is the overall value of this operating system, and how should the pilot scale?',
+].join('\n\n');
+
+const VALUE_CHAPTER_FOURTEEN_SCRIPT = [
+  'Now we close the walkthrough with the value view for the Sobha Pilot Tower pilot story.',
+  'Across the journey, 4C360 has followed one operating thread:',
+  'from portfolio signal,',
+  'to property onboarding,',
+  'to project command,',
+  'to programme, cost, risk, forecast, obligations, evidence, vendors, field execution, and resident experience.',
+  'The value is not in any single dashboard.',
+  'The value is in the connected operating system.',
+  'Leadership can see where attention is needed.',
+  'Teams can understand what action is required.',
+  'Owners can see who is accountable.',
+  'And the organization can move from reporting problems to controlling outcomes.',
+  'For a pilot, this creates a practical path.',
+  'Start with a focused portfolio or priority asset group.',
+  'Measure faster decision cycles, reduced reporting effort, clearer evidence readiness, stronger vendor accountability, better field visibility, and improved service follow-through.',
+  'Then scale the model across more properties, more workflows, and more operating teams.',
+  '4C360 gives the organization a foundation for portfolio intelligence, project control, service quality, and AI-assisted operational decision-making.',
+  'The result is a smarter property operating model:',
+  'more transparent,',
+  'more accountable,',
+  'more predictive,',
+  'and more controlled.',
+  'This is the shift from property management software...',
+  'to an AI-powered operating system for real estate performance.',
+].join('\n\n');
+
+const NARRATION_DURATION_OVERRIDES_MS: Record<string, number> = {
+  'portfolio:intro': 123_071,
+  'propertysetup:intro': 131_686,
+  'projectcommand:intro': 108_738,
+  'programme:intro': 89_810,
+  'stagegates:intro': 87_780,
+  'cost:intro': 104_752,
+  'risk:intro': 97_117,
+  'forecast:intro': 99_725,
+  'obligations:intro': 101_107,
+  'evidence:intro': 93_667,
+  'vendoriq:intro': 98_037,
+  'fieldops:intro': 96_316,
+  'resident:intro': 95_355,
+  'value:intro': 109_461,
+};
+
+const TIMELINE_DESIGN_DURATIONS_MS: Record<string, number> = {
+  'portfolio:intro': 123_071,
+  'propertysetup:intro': 95_000,
+  'projectcommand:intro': 90_000,
+  'programme:intro': 80_000,
+  'stagegates:intro': 80_000,
+  'cost:intro': 85_000,
+  'risk:intro': 85_000,
+  'forecast:intro': 85_000,
+  'obligations:intro': 80_000,
+  'evidence:intro': 85_000,
+  'vendoriq:intro': 85_000,
+  'fieldops:intro': 85_000,
+  'resident:intro': 80_000,
+  'value:intro': 85_000,
+};
+
+const FULL_CHAPTER_NARRATION_IDS = [
+  'portfolio',
+  'propertysetup',
+  'projectcommand',
+  'programme',
+  'stagegates',
+  'cost',
+  'risk',
+  'forecast',
+  'obligations',
+  'evidence',
+  'vendoriq',
+  'fieldops',
+  'resident',
+  'value',
+] as const;
+
+const CHAPTER_CINEMATIC_META: Record<string, { title: string; question: string }> = {
+  portfolio: {
+    title: 'Portfolio Control',
+    question: 'Where should leadership attention go right now?',
+  },
+  propertysetup: {
+    title: 'Intelligent Property Onboarding',
+    question: 'How does a property enter the operating system?',
+  },
+  projectcommand: {
+    title: 'Project Command',
+    question: 'How does leadership control execution?',
+  },
+  programme: {
+    title: 'Programme Recovery',
+    question: 'Is the schedule recoverable, and where should recovery focus?',
+  },
+  stagegates: {
+    title: 'Readiness Gates',
+    question: 'Is the next milestone ready, or blocked by missing proof?',
+  },
+  cost: {
+    title: 'Commercial Exposure',
+    question: 'What is the exposure, and which decision can still reduce it?',
+  },
+  risk: {
+    title: 'Delivery Risk',
+    question: 'Which risks are most likely to affect delivery, cost, and readiness?',
+  },
+  forecast: {
+    title: 'Outcome Forecast',
+    question: 'Given what we now know, what outcome is most likely?',
+  },
+  obligations: {
+    title: 'Obligation Control',
+    question: 'Which contractual and authority duties must be controlled?',
+  },
+  evidence: {
+    title: 'Evidence Readiness',
+    question: 'What proof is missing, expired, or blocking readiness?',
+  },
+  vendoriq: {
+    title: 'Vendor Intelligence',
+    question: 'Which partners are helping execution, and which ones create risk?',
+  },
+  fieldops: {
+    title: 'Field Execution',
+    question: 'How does the operating model reach the teams on site?',
+  },
+  resident: {
+    title: 'Resident Follow-through',
+    question: 'How does operational control reach the people receiving the service?',
+  },
+  value: {
+    title: 'Value And Scale',
+    question: 'How should the pilot scale into an operating-system model?',
+  },
+};
+
+function hasFullChapterNarration(chapterId: string) {
+  return (FULL_CHAPTER_NARRATION_IDS as readonly string[]).includes(chapterId);
+}
+
+const INTRO_SECTION_SYNC_MS: Record<string, { sectionId: string; atMs: number }[]> = {
+  portfolio: [
+    { sectionId: 'health-actions', atMs: 0 },
+    { sectionId: 'portfolio-map', atMs: 35_700 },
+    { sectionId: 'command-path', atMs: 66_000 },
+  ],
+  propertysetup: [
+    { sectionId: 'wizard', atMs: 0 },
+    { sectionId: 'ai', atMs: 38_000 },
+    { sectionId: 'upload', atMs: 66_000 },
+  ],
+};
+
+function getSyncedIntroSectionId(
+  chapterId: string,
+  frames: DemoSection[],
+  elapsedMs: number,
+  estimatedDurationMs: number,
+  fallbackFrameId: string,
+) {
+  if (frames.length === 0) return fallbackFrameId;
+  const explicitSync = INTRO_SECTION_SYNC_MS[chapterId];
+  if (explicitSync) {
+    return explicitSync.reduce((current, item) => (
+      elapsedMs >= item.atMs ? item.sectionId : current
+    ), explicitSync[0]?.sectionId ?? fallbackFrameId);
+  }
+
+  const sectionIndex = Math.min(
+    frames.length - 1,
+    Math.floor((Math.max(0, elapsedMs) / Math.max(1, estimatedDurationMs)) * frames.length),
+  );
+  return frames[sectionIndex]?.id ?? fallbackFrameId;
+}
+
 const CHAPTER_FEATURES: Record<string, string[]> = {
   propertysetup: ['Guided property wizard', 'AI asset setup', 'Document upload'],
   portfolio: ['Portfolio health signals', 'Asset prioritization', 'Command routing'],
-  projectcommand: ['Project twin context', 'Control module navigation', 'Owner action queue'],
+  projectcommand: ['Owner decision surface', 'Live control lanes', 'Impact-to-action chain'],
   programme: ['Critical path view', 'Contractor accountability', 'Recovery planning'],
   stagegates: ['Gate status board', 'Evidence dependencies', 'Recovery ownership'],
   cost: ['Forecast exposure', 'Variation queue', 'Package drivers'],
@@ -408,7 +904,7 @@ const CHAPTER_FEATURES: Record<string, string[]> = {
 const CHAPTER_ARTIFACTS: Record<string, DemoArtifact> = {
   propertysetup: { id: 'property-onboarding-pack', label: 'Property onboarding pack', detail: 'Property profile, AI asset baseline, and uploaded source documents prepared.' },
   portfolio: { id: 'owner-action-plan', label: 'Owner action plan', detail: 'Priority property, control route, and first owner decision captured.' },
-  projectcommand: { id: 'project-control-note', label: 'Project control note', detail: 'Project twin context and review path prepared for the owner.' },
+  projectcommand: { id: 'project-control-note', label: 'Owner command note', detail: 'What changed, next decision, and accountable review path prepared for the owner.' },
   programme: { id: 'recovery-path-note', label: 'Programme recovery note', detail: 'Critical path risk and recovery owner summarized.' },
   stagegates: { id: 'gate-blocker-note', label: 'Gate blocker note', detail: 'Blocked gate, evidence gap, and next unblock owner documented.' },
   cost: { id: 'cost-exposure-summary', label: 'Cost exposure summary', detail: 'Variation/package pressure and forecast action captured.' },
@@ -440,20 +936,20 @@ const CHAPTER_OUTCOMES: Record<string, DemoOutcome> = {
 };
 
 const CHAPTER_NARRATION_OPENERS: Record<string, string> = {
-  propertysetup: 'Before portfolio control can work, a property needs to enter the system cleanly. 4C360 supports a guided setup path where your team can create the property manually, use AI to suggest assets and operating context, or start from uploaded property documents.',
-  portfolio: 'Before we open a project file, start with the owner question: where does leadership attention need to go today? This portfolio command view brings property health, risk, incidents, SLA pressure, and open actions into one operating picture. The point is not another dashboard. The point is knowing which asset needs action, why it matters, and where to go next.',
-  projectcommand: 'You move from portfolio risk into one live project control surface with budget, progress, ownership, and current blockers in context.',
-  programme: 'You can translate schedule complexity into a practical handover decision, with critical path and recovery focus visible in the same place.',
-  stagegates: 'You can see whether the next milestone is actually ready, which gate is blocked, and what evidence or owner action is missing.',
-  cost: 'You can connect budget movement to the specific commercial decisions that still reduce exposure.',
-  risk: 'You can turn risk review into an ownership discussion, with mitigation quality and consequence visible together.',
-  forecast: 'You can compare likely outcomes before month-end and see which signals are strengthening or weakening confidence.',
-  obligations: 'You can keep regulatory, contractual, and authority duties connected to delivery progress and proof.',
-  evidence: 'You can control readiness by seeing current, expired, and missing proof before it blocks handover.',
-  vendoriq: 'You can move vendor decisions from opinion to measurable performance, evidence, and corrective action.',
-  fieldops: 'You can see whether site teams are creating the proof and updates needed to keep executive controls current.',
-  resident: 'You can connect resident service intake to accountable work, updates, and operational follow-through.',
-  value: 'You can close the review with a practical pilot path and the value created across decisions, actions, and evidence.',
+  propertysetup: PROPERTYSETUP_CHAPTER_TWO_SCRIPT,
+  portfolio: PORTFOLIO_CHAPTER_ONE_SCRIPT,
+  projectcommand: PROJECTCOMMAND_CHAPTER_THREE_SCRIPT,
+  programme: PROGRAMME_CHAPTER_FOUR_SCRIPT,
+  stagegates: STAGEGATES_CHAPTER_FIVE_SCRIPT,
+  cost: COST_CHAPTER_SIX_SCRIPT,
+  risk: RISK_CHAPTER_SEVEN_SCRIPT,
+  forecast: FORECAST_CHAPTER_EIGHT_SCRIPT,
+  obligations: OBLIGATIONS_CHAPTER_NINE_SCRIPT,
+  evidence: EVIDENCE_CHAPTER_TEN_SCRIPT,
+  vendoriq: VENDORIQ_CHAPTER_ELEVEN_SCRIPT,
+  fieldops: FIELDOPS_CHAPTER_TWELVE_SCRIPT,
+  resident: RESIDENT_CHAPTER_THIRTEEN_SCRIPT,
+  value: VALUE_CHAPTER_FOURTEEN_SCRIPT,
 };
 
 const SECTION_NARRATION_SCRIPTS: Record<string, DemoNarration> = {
@@ -482,16 +978,16 @@ const SECTION_NARRATION_SCRIPTS: Record<string, DemoNarration> = {
     presenterNote: 'Spotlight the command action. This is the handoff from portfolio signal to accountable project control.',
   },
   'projectcommand:project-context': {
-    caption: 'The project twin gives the board the essential context: budget, progress, owner route, and current control state. It replaces fragmented status packs with one live project surface.',
-    presenterNote: 'Make clear that ProjectCommand is not a dashboard island. It is the entry point into all project control lenses.',
+    caption: 'This opening surface answers the owner question before anyone opens a report: what changed, what is now at risk, and what decision needs attention? Programme, cost, risk, evidence, and forecast are already connected behind the same project signal.',
+    presenterNote: 'Spotlight the owner command surface. Emphasize that this is a decision entry point, not a status page.',
   },
   'projectcommand:control-tabs': {
-    caption: 'These tabs are the control model. Programme, stage gates, cost, risk, obligations, evidence, and forecast stay in the same project context, so the conversation does not reset every time the topic changes.',
-    presenterNote: 'Explain that the board can ask any control question without leaving the project story.',
+    caption: 'The command path turns the decision into a practical review route. If the issue is programme, cost, risk, or evidence, your team opens that lane from the same owner context instead of rebuilding the story in separate files.',
+    presenterNote: 'Show the control-lane buttons. The benefit is continuity between executive review and detailed operating work.',
   },
   'projectcommand:action-queue': {
-    caption: 'The action queue is where the review earns its value. The system surfaces what changed, who owns the next move, and which action protects delivery confidence this week.',
-    presenterNote: 'Anchor this on action accountability. This is the difference between reporting and operating.',
+    caption: 'The impact chain shows why the decision matters. If leadership waits, delay, cost, and confidence move together. If the action is taken now, the system shows the recovery effect and prepares the owner action with a named owner and due window.',
+    presenterNote: 'Spotlight the impact chain and next-decision card. This is the so-what of ProjectCommand.',
   },
   'programme:critical-path': {
     caption: 'Critical path is shown in language the board can use. Instead of decoding programme files, leaders see which phase can move handover and where recovery effort should focus.',
@@ -638,7 +1134,7 @@ const DEMO_CHAPTERS: DemoChapter[] = [
     fallback: { left: 66, top: 8, width: 25, height: 10 },
     livePath: '/',
     headline: 'Start with the portfolio view',
-    story: 'Prospects see every property, status, risk level, and the fastest path into a command view.',
+    story: 'The portfolio view surfaces Sobha Pilot Tower as the priority handover risk and shows the fastest path into control.',
     clientValue: 'Leadership gets one operating picture before diving into projects, incidents, vendors, or evidence.',
     decisionQuestion: 'Which properties need leadership attention today?',
     nextAction: 'Open the highest-risk property and inspect the connected command context.',
@@ -654,7 +1150,7 @@ const DEMO_CHAPTERS: DemoChapter[] = [
     fallback: { left: 70, top: 8, width: 22, height: 10 },
     livePath: '/',
     headline: 'Add a new property into the operating model',
-    story: 'The owner can create a property through a guided wizard, accelerate setup with AI, or start from existing handover and asset files.',
+    story: 'The owner sees how Sobha Pilot Tower could enter 4C360 through a guided wizard, AI-assisted setup, or existing handover files.',
     clientValue: 'New properties enter 4C360 with enough context to support operations, evidence, budgets, teams, and portfolio control from day one.',
     decisionQuestion: 'How quickly can a new property become operationally usable?',
     nextAction: 'Choose the fastest onboarding route for the property context.',
@@ -667,15 +1163,15 @@ const DEMO_CHAPTERS: DemoChapter[] = [
     screen: 'projectcommand',
     projectScreen: 'overview',
     icon: Sparkles,
-    anchor: 'projectcommand-context',
-    fallback: { left: 4, top: 8, width: 39, height: 13 },
+    anchor: 'project-overview-command-strip',
+    fallback: { left: 4, top: 8, width: 88, height: 34 },
     livePath: '/projectcommand/overview',
-    headline: 'Move from property view into project control',
-    story: 'The overview ties health, blockers, manager actions, live events, and forecast movement to one project twin.',
-    clientValue: 'Owners can stop reading fragmented reports and start reviewing the decisions that change delivery confidence.',
-    decisionQuestion: 'What changed since baseline and who needs to act?',
-    nextAction: 'Review the top manager action before looking at programme and cost detail.',
-    tryLabel: 'Show project twin signal',
+    headline: 'Turn the portfolio signal into an owner decision',
+    story: 'ProjectCommand opens the control layer behind Sobha Pilot Tower: what changed, what is at risk, and which decision matters now.',
+    clientValue: 'Owners move from reporting to action without losing the context behind cost, risk, evidence, or programme pressure.',
+    decisionQuestion: 'What changed, what happens if we wait, and who owns the next move?',
+    nextAction: 'Review the command decision before opening the detailed control lanes.',
+    tryLabel: 'Show owner command',
   },
   {
     id: 'programme',
@@ -688,7 +1184,7 @@ const DEMO_CHAPTERS: DemoChapter[] = [
     fallback: { left: 6, top: 15, width: 58, height: 28 },
     livePath: '/projectcommand/programme',
     headline: 'Explain the schedule in business language',
-    story: 'Programme view exposes critical path, delay risk, contractor filters, and AI recovery suggestions.',
+    story: 'Programme view exposes the Sobha Pilot Tower critical path, delay risk, contractor accountability, and recovery suggestions.',
     clientValue: 'Commercial and delivery teams see the same schedule risk, instead of debating whose report is current.',
     decisionQuestion: 'Which phase is most likely to move handover?',
     nextAction: 'Use contractor and critical-path controls to isolate the recovery discussion.',
@@ -705,7 +1201,7 @@ const DEMO_CHAPTERS: DemoChapter[] = [
     fallback: { left: 7, top: 13, width: 56, height: 24 },
     livePath: '/projectcommand/stagegates',
     headline: 'Turn stage gates into owner actions',
-    story: 'Gate Control Board shows blocked gates, evidence gaps, approvers, and local recovery actions.',
+    story: 'Gate Control Board shows which Sobha Pilot Tower readiness gate is blocked by evidence, approvals, or owner action.',
     clientValue: 'Stage readiness becomes visible and assignable, not buried inside checklist files.',
     decisionQuestion: 'Which gate blocks the next value milestone?',
     nextAction: 'Queue the owner recovery action for the priority gate.',
@@ -722,7 +1218,7 @@ const DEMO_CHAPTERS: DemoChapter[] = [
     fallback: { left: 6, top: 13, width: 60, height: 28 },
     livePath: '/projectcommand/cost',
     headline: 'Connect budget, commitments, variations, and forecast',
-    story: 'Cost Intelligence shows the money flow from baseline to forecast, with manager actions tied to live exposure.',
+    story: 'Cost Intelligence shows how the handover risk moves from readiness pressure into forecast exposure and commercial action.',
     clientValue: 'Owners can see where cost pressure is coming from and which decision reduces exposure.',
     decisionQuestion: 'Which commercial decision changes the final cost forecast?',
     nextAction: 'Open the VO queue or package driver behind the top exposure.',
@@ -739,7 +1235,7 @@ const DEMO_CHAPTERS: DemoChapter[] = [
     fallback: { left: 7, top: 14, width: 55, height: 26 },
     livePath: '/projectcommand/risk',
     headline: 'Make risk registers usable',
-    story: 'Risk Command combines probability, impact, trends, Monte Carlo completion, and AI warnings in one workspace.',
+    story: 'Risk Command shows which future threats could still weaken Sobha Pilot Tower delivery confidence.',
     clientValue: 'Risk review moves from static scoring to practical mitigation and scenario awareness.',
     decisionQuestion: 'Which open risk is now driving cost or programme exposure?',
     nextAction: 'Open the risk register and inspect the AI early warning.',
@@ -756,7 +1252,7 @@ const DEMO_CHAPTERS: DemoChapter[] = [
     fallback: { left: 7, top: 13, width: 56, height: 27 },
     livePath: '/projectcommand/forecast',
     headline: 'Show outcomes before they happen',
-    story: 'AI Forecast compares optimistic, base, and pessimistic outcomes, then turns them into top decisions.',
+    story: 'AI Forecast compares likely Sobha Pilot Tower outcomes and turns the scenario movement into board decisions.',
     clientValue: 'Potential clients can see how the system supports board-level judgement before month-end reports arrive.',
     decisionQuestion: 'What happens if the current blockers are not resolved?',
     nextAction: 'Compare scenarios and use the chat panel to explain the forecast.',
@@ -773,7 +1269,7 @@ const DEMO_CHAPTERS: DemoChapter[] = [
     fallback: { left: 7, top: 13, width: 58, height: 25 },
     livePath: '/projectcommand/obligations',
     headline: 'Keep obligations connected to delivery',
-    story: 'The obligations register makes authority, owner, deadline, project, and status visible in one action queue.',
+    story: 'The obligations register keeps contractual, authority, and owner duties connected to the same handover path.',
     clientValue: 'Compliance and commercial duties stay connected to the project plan and evidence trail.',
     decisionQuestion: 'Which obligation is overdue or missing proof?',
     nextAction: 'Open the obligation detail and link the required evidence.',
@@ -790,7 +1286,7 @@ const DEMO_CHAPTERS: DemoChapter[] = [
     fallback: { left: 7, top: 14, width: 58, height: 24 },
     livePath: '/projectcommand/evidence',
     headline: 'Make proof part of the operating system',
-    story: 'Evidence Control Centre separates current, expired, and action-required documents before they block handover.',
+    story: 'Evidence Control Centre shows which Sobha Pilot Tower proof is current, expired, missing, or blocking readiness.',
     clientValue: 'Evidence stops being a file repository and becomes a readiness control.',
     decisionQuestion: 'Which proof gap could delay approval or handover?',
     nextAction: 'Prepare the evidence pack and close the expired document action.',
@@ -806,7 +1302,7 @@ const DEMO_CHAPTERS: DemoChapter[] = [
     fallback: { left: 6, top: 12, width: 56, height: 25 },
     livePath: '/vendorintelligence',
     headline: 'Prove vendor performance with operational data',
-    story: 'VendorIQ connects SLA, quality, evidence, cost, repeat failures, and procurement actions.',
+    story: 'VendorIQ connects external partner performance to Sobha Pilot Tower readiness, evidence, cost, and service risk.',
     clientValue: 'Clients can defend vendor decisions with measurable performance instead of anecdotal feedback.',
     decisionQuestion: 'Which vendor should be corrected, renewed, or replaced?',
     nextAction: 'Open the procurement copilot and generate an action pack.',
@@ -822,7 +1318,7 @@ const DEMO_CHAPTERS: DemoChapter[] = [
     fallback: { left: 6, top: 25, width: 56, height: 18 },
     livePath: '/fieldops',
     headline: 'Show how the field closes the loop',
-    story: 'FieldOps creates, assigns, shares, and tracks mobile surveys, inspections, and evidence capture.',
+    story: 'FieldOps shows how site teams create the survey updates and evidence needed to close the Sobha Pilot Tower loop.',
     clientValue: 'Execution teams create the proof and action data that ProjectCommand depends on.',
     decisionQuestion: 'How does the system turn site work into verified evidence?',
     nextAction: 'Create or assign a survey and track live submissions.',
@@ -838,7 +1334,7 @@ const DEMO_CHAPTERS: DemoChapter[] = [
     fallback: { left: 10, top: 13, width: 38, height: 35 },
     livePath: '/residentportal',
     headline: 'Show the client-facing service layer',
-    story: 'The resident experience captures issues by camera, upload, voice, or AI chat and connects them to operations.',
+    story: 'The resident experience shows how service requests become structured work connected back to the operating model.',
     clientValue: 'Property teams can show both executive control and a calmer front-door experience for residents.',
     decisionQuestion: 'How quickly can a resident request become structured work?',
     nextAction: 'Open the reporting options and show how the request is classified.',
@@ -854,7 +1350,7 @@ const DEMO_CHAPTERS: DemoChapter[] = [
     fallback: { left: 8, top: 18, width: 56, height: 28 },
     livePath: '/',
     headline: 'Close with the operating model',
-    story: 'The demo ends by tying portfolio visibility, project controls, evidence, vendors, field execution, and residents into one owner story.',
+    story: 'The demo closes by tying the Sobha Pilot Tower handover risk to portfolio visibility, project controls, evidence, vendors, field execution, and service follow-through.',
     clientValue: 'Prospects leave with a clear map of how 4C360 changes decisions, accountability, and delivery confidence.',
     decisionQuestion: 'Which workflow should the client pilot first?',
     nextAction: 'Choose the first pilot path and schedule a tailored walkthrough.',
@@ -942,38 +1438,39 @@ const DEMO_FRAMES: Record<string, DemoFrame[]> = {
   projectcommand: [
     {
       id: 'project-context',
-      label: 'Project Context',
-      anchor: 'projectcommand-context',
-      fallback: { left: 4, top: 8, width: 39, height: 13 },
-      headline: 'Move from property view into project control',
-      story: 'Show the project twin, budget, completion, ownership context, and route into detailed controls.',
-      clientValue: 'Owners stop reading disconnected reports and enter the live control surface.',
-      decisionQuestion: 'What changed since baseline and who needs to act?',
-      nextAction: 'Start with the project twin before diving into programme, cost, and risk.',
-      tryLabel: 'Show Project Twin',
+      label: 'Owner Decision',
+      anchor: 'project-overview-command-strip',
+      fallback: { left: 4, top: 8, width: 88, height: 34 },
+      headline: 'Show the decision surface',
+      story: 'The opening view ties health, float, EAC, confidence, and the latest signal into one owner decision surface.',
+      clientValue: 'The board immediately sees why the project needs attention and what action path is available.',
+      decisionQuestion: 'What changed, what is at risk, and what decision is required?',
+      nextAction: 'Use the command surface to choose the right control lane.',
+      tryLabel: 'Show Owner Decision',
     },
     {
       id: 'control-tabs',
-      label: 'Control Tabs',
-      anchor: 'projectcommand-tabs',
-      fallback: { left: 6, top: 22, width: 62, height: 10 },
-      headline: 'Show the connected command modules',
-      story: 'Programme, stage gates, cost, risk, obligations, evidence, and forecast stay in one project context.',
-      clientValue: 'The client sees that the project view is not another isolated dashboard.',
-      decisionQuestion: "Which control lens explains today's decision best?",
-      nextAction: 'Use the tabs to move from overview into the relevant control lane.',
-      tryLabel: 'Show Control Tabs',
+      label: 'Control Lanes',
+      anchor: 'project-overview-what-changed',
+      fallback: { left: 5, top: 20, width: 52, height: 16 },
+      headline: 'Keep the story connected',
+      story: 'The same project signal can be reviewed through programme, cost, risk, and evidence without rebuilding context.',
+      clientValue: 'Teams stay aligned because every detailed review starts from the same owner-level decision.',
+      decisionQuestion: 'Which control lane explains the decision fastest?',
+      nextAction: 'Open the lane that proves the decision.',
+      tryLabel: 'Show Control Lanes',
     },
     {
       id: 'action-queue',
-      label: 'Action Queue',
-      fallback: { left: 6, top: 42, width: 58, height: 28 },
-      headline: 'Turn insight into owner-ready actions',
-      story: 'Use the command surface to show manager actions, blockers, and local recovery moves.',
-      clientValue: 'A project review ends with assigned actions, not just commentary.',
-      decisionQuestion: 'Which action changes delivery confidence this week?',
-      nextAction: 'Open the next project control module with the highest signal.',
-      tryLabel: 'Show Action Queue',
+      label: 'Impact Chain',
+      anchor: 'project-overview-impact-chain',
+      fallback: { left: 63, top: 14, width: 32, height: 30 },
+      headline: 'Make the consequence visible',
+      story: 'The impact chain compares waiting against acting now, then ties the response to a named owner and due window.',
+      clientValue: 'The review ends with an accountable path, not another open discussion.',
+      decisionQuestion: 'What happens if leadership waits?',
+      nextAction: 'Prepare the owner action or open the detailed control lane.',
+      tryLabel: 'Show Impact Chain',
     },
   ],
   programme: [
@@ -1402,13 +1899,41 @@ function getShowModeOption(showMode: DemoShowMode) {
   return SHOW_MODE_OPTIONS.find(option => option.id === showMode) ?? SHOW_MODE_OPTIONS[0];
 }
 
-function getDemoAudioSrc(chapterId: string, segmentId: string) {
-  return `/demo-audio/properties/${chapterId}/${segmentId}.mp3`;
+const CHAPTER_AUDIO_FILES: Record<string, string> = {
+  portfolio: 'chapter-01-portfolio-control.mp3',
+  propertysetup: 'chapter-02-property-onboarding.mp3',
+  projectcommand: 'chapter-03-project-command.mp3',
+  programme: 'chapter-04-programme.mp3',
+  stagegates: 'chapter-05-stage-gates.mp3',
+  cost: 'chapter-06-cost.mp3',
+  risk: 'chapter-07-risk.mp3',
+  forecast: 'chapter-08-forecast.mp3',
+  obligations: 'chapter-09-obligations.mp3',
+  evidence: 'chapter-10-evidence.mp3',
+  vendoriq: 'chapter-11-vendoriq.mp3',
+  fieldops: 'chapter-12-fieldops.mp3',
+  resident: 'chapter-13-resident-experience.mp3',
+  value: 'chapter-14-value-and-scale.mp3',
+};
+
+function getDemoAudioSrc(chapterId: string, _segmentId: string) {
+  if (CHAPTER_AUDIO_FILES[chapterId]) {
+    return `/audio/demo/4c360/${CHAPTER_AUDIO_FILES[chapterId]}`;
+  }
+
+  return `/demo-audio/properties/${chapterId}/${_segmentId}.mp3`;
 }
 
 function estimateNarrationDurationMs(script: string) {
   const words = script.trim().split(/\s+/).filter(Boolean).length;
   return Math.max(9000, Math.round((words / 2.25) * 1000));
+}
+
+function formatDemoTimecode(ms: number) {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 }
 
 function spotlightBeat(
@@ -1435,8 +1960,20 @@ function scrollCue(atMs: number, anchor: string): DemoTimelineCue {
   return { atMs, type: 'scrollTo', anchor };
 }
 
-function actionCue(atMs: number, actionId: string): DemoTimelineCue {
-  return { atMs, type: 'demoAction', actionId };
+function slowScrollCue(atMs: number, anchor: string, durationMs = 3800): DemoTimelineCue {
+  return { atMs, type: 'slowScrollTo', anchor, durationMs };
+}
+
+function pulseCue(atMs: number, anchor: string | undefined, fallback: FallbackHotspot, durationMs = 1400): DemoTimelineCue {
+  return { atMs, type: 'pulse', anchor, fallback, durationMs };
+}
+
+function pinPulseCue(atMs: number, anchor: string | undefined, fallback: FallbackHotspot, durationMs = 1800): DemoTimelineCue {
+  return { atMs, type: 'pinPulse', anchor, fallback, durationMs };
+}
+
+function flashCue(atMs: number, anchor: string | undefined, fallback: FallbackHotspot, durationMs = 1150): DemoTimelineCue {
+  return { atMs, type: 'flash', anchor, fallback, durationMs };
 }
 
 function cuesFromBeats(beats: DemoSpotlightBeat[], estimatedDurationMs: number): DemoTimelineCue[] {
@@ -1448,13 +1985,254 @@ function cuesFromBeats(beats: DemoSpotlightBeat[], estimatedDurationMs: number):
   });
 }
 
+function scaleTimelineCue(cue: DemoTimelineCue, scale: number): DemoTimelineCue {
+  const atMs = Math.round(cue.atMs * scale);
+  if (cue.type === 'spotlight' || cue.type === 'pulse' || cue.type === 'pinPulse' || cue.type === 'flash') {
+    return {
+      ...cue,
+      atMs,
+      durationMs: cue.durationMs === undefined ? undefined : Math.round(cue.durationMs * scale),
+    };
+  }
+  if (cue.type === 'slowScrollTo') {
+    return {
+      ...cue,
+      atMs,
+      durationMs: Math.round(cue.durationMs * scale),
+    };
+  }
+  return { ...cue, atMs };
+}
+
 function getTimelineCues(chapterId: string, segmentId: string, estimatedDurationMs: number, beats: DemoSpotlightBeat[]): DemoTimelineCue[] {
   const key = `${chapterId}:${segmentId}`;
   const portfolioIntroFallback = { left: 3, top: 3, width: 94, height: 90 };
   const timelineMap: Record<string, DemoTimelineCue[]> = {
     'portfolio:intro': [
       scrollCue(0, 'portfolio-command'),
-      spotlightCue(5400, 'portfolio-command', portfolioIntroFallback, 3200),
+      slowScrollCue(15000, 'portfolio-command-path', 7200),
+      pulseCue(23400, 'portfolio-command-path', { left: 6, top: 74, width: 12, height: 10 }, 1900),
+      { atMs: PORTFOLIO_GIS_HANDOFF_MS, type: 'demoAction', actionId: 'open-property-command' },
+      flashCue(29000, 'gis-critical-incidents-card', { left: 64, top: 20, width: 16, height: 14 }, 1150),
+      flashCue(30300, 'gis-sla-alerts-card', { left: 82, top: 20, width: 16, height: 14 }, 1150),
+      flashCue(31600, 'gis-compliance-card', { left: 64, top: 36, width: 16, height: 14 }, 1150),
+      flashCue(32900, 'gis-active-engineers-card', { left: 82, top: 36, width: 16, height: 14 }, 1800),
+      pinPulseCue(41000, 'gis-jlt-map-pin', { left: 8, top: 49, width: 8, height: 8 }, 2000),
+      flashCue(48000, 'gis-jlt-map-pin', { left: 8, top: 49, width: 8, height: 8 }, 1500),
+      pulseCue(82400, 'ai-smart-dispatch-assign', { left: 75, top: 50, width: 16, height: 8 }, 1500),
+      flashCue(84800, 'ai-smart-dispatch-assigned', { left: 64, top: 36, width: 28, height: 12 }, 1900),
+      scrollCue(116800, 'property-onboarding-entry'),
+      { atMs: 123071, type: 'chapterPause' },
+    ],
+    'propertysetup:intro': [
+      scrollCue(0, 'property-onboarding-entry'),
+      spotlightCue(3000, 'property-onboarding-entry', { left: 10, top: 14, width: 80, height: 70 }, 9000),
+      scrollCue(11800, 'property-onboarding-wizard'),
+      spotlightCue(12000, 'property-onboarding-wizard', { left: 14, top: 18, width: 72, height: 62 }, 10000),
+      { atMs: 12400, type: 'demoAction', actionId: 'open-add-property-wizard' },
+      spotlightCue(22000, 'property-onboarding-tabs', { left: 18, top: 28, width: 64, height: 38 }, 8000),
+      spotlightCue(30000, 'property-onboarding-wizard', { left: 12, top: 18, width: 76, height: 58 }, 8000),
+      scrollCue(37800, 'property-onboarding-ai'),
+      spotlightCue(38000, 'property-onboarding-ai', { left: 60, top: 18, width: 24, height: 12 }, 10000),
+      { atMs: 38400, type: 'demoAction', actionId: 'open-ai-onboarding' },
+      spotlightCue(48000, 'property-onboarding-ai', { left: 12, top: 34, width: 76, height: 36 }, 10000),
+      spotlightCue(58000, 'property-onboarding-ai', { left: 16, top: 28, width: 68, height: 44 }, 8000),
+      scrollCue(65800, 'property-onboarding-upload'),
+      spotlightCue(66000, 'property-onboarding-upload', { left: 12, top: 20, width: 76, height: 24 }, 10000),
+      { atMs: 66400, type: 'demoAction', actionId: 'open-upload-panel' },
+      spotlightCue(76000, 'property-onboarding-upload', { left: 10, top: 38, width: 80, height: 34 }, 8000),
+      scrollCue(83800, 'portfolio-command'),
+      spotlightCue(84000, 'portfolio-command', { left: 8, top: 14, width: 84, height: 68 }, 6000),
+      scrollCue(89800, 'projectcommand-context'),
+      spotlightCue(90000, 'projectcommand-context', { left: 58, top: 68, width: 28, height: 12 }, 5000),
+      { atMs: 95000, type: 'chapterPause' },
+    ],
+    'projectcommand:intro': [
+      scrollCue(0, 'projectcommand-shell'),
+      spotlightCue(4000, 'projectcommand-shell', { left: 8, top: 12, width: 84, height: 74 }, 10000),
+      scrollCue(13800, 'projectcommand-context'),
+      spotlightCue(14000, 'projectcommand-context', { left: 12, top: 16, width: 76, height: 24 }, 12000),
+      scrollCue(25800, 'project-overview-command-strip'),
+      spotlightCue(26000, 'project-overview-command-strip', { left: 10, top: 24, width: 80, height: 20 }, 12000),
+      scrollCue(39800, 'projectcommand-tabs'),
+      spotlightCue(40000, 'projectcommand-tabs', { left: 10, top: 10, width: 82, height: 12 }, 16000),
+      scrollCue(57800, 'project-overview-impact-chain'),
+      spotlightCue(58000, 'project-overview-impact-chain', { left: 8, top: 18, width: 84, height: 60 }, 12000),
+      scrollCue(71800, 'project-overview-next-decision'),
+      spotlightCue(72000, 'project-overview-next-decision', { left: 16, top: 50, width: 68, height: 22 }, 10000),
+      scrollCue(83800, 'projectcommand-tabs'),
+      spotlightCue(84000, 'programme-control-tab', { left: 58, top: 68, width: 28, height: 12 }, 6000),
+      { atMs: 90000, type: 'chapterPause' },
+    ],
+    'programme:intro': [
+      scrollCue(0, 'project-programme'),
+      spotlightCue(3000, 'project-programme', { left: 8, top: 12, width: 84, height: 74 }, 9000),
+      spotlightCue(12000, 'programme-critical-path', { left: 10, top: 20, width: 80, height: 22 }, 12000),
+      spotlightCue(24000, 'programme-delayed-activities', { left: 12, top: 38, width: 76, height: 22 }, 10000),
+      spotlightCue(34000, 'programme-contractor-accountability', { left: 14, top: 46, width: 72, height: 20 }, 10000),
+      spotlightCue(44000, 'programme-recovery-window', { left: 16, top: 28, width: 68, height: 24 }, 10000),
+      spotlightCue(54000, 'programme-handover-risk', { left: 12, top: 56, width: 76, height: 18 }, 10000),
+      spotlightCue(64000, 'programme-recovery-action', { left: 58, top: 66, width: 28, height: 12 }, 10000),
+      spotlightCue(74000, 'stage-gates-control-tab', { left: 58, top: 68, width: 28, height: 12 }, 6000),
+      { atMs: 80000, type: 'chapterPause' },
+    ],
+    'stagegates:intro': [
+      scrollCue(0, 'project-stage-gates'),
+      spotlightCue(3000, 'project-stage-gates', { left: 8, top: 12, width: 84, height: 74 }, 9000),
+      scrollCue(11800, 'project-stage-gate-loop'),
+      spotlightCue(12000, 'project-stage-gate-loop', { left: 10, top: 18, width: 80, height: 16 }, 10000),
+      scrollCue(21800, 'project-stage-blocked-gate'),
+      spotlightCue(22000, 'project-stage-blocked-gate', { left: 18, top: 34, width: 64, height: 24 }, 12000),
+      spotlightCue(34000, 'project-stage-blocked-gate', { left: 16, top: 42, width: 68, height: 24 }, 10000),
+      scrollCue(43800, 'project-stage-recovery-actions'),
+      spotlightCue(44000, 'project-stage-recovery-actions', { left: 14, top: 56, width: 72, height: 18 }, 10000),
+      scrollCue(53800, 'project-stage-evidence-gaps'),
+      spotlightCue(54000, 'project-stage-evidence-gaps', { left: 12, top: 24, width: 76, height: 22 }, 10000),
+      scrollCue(63800, 'project-stage-gate-loop'),
+      spotlightCue(64000, 'project-stage-gate-loop', { left: 10, top: 18, width: 80, height: 56 }, 10000),
+      scrollCue(73800, 'projectcommand-tabs'),
+      spotlightCue(74000, 'cost-control-tab', { left: 58, top: 68, width: 28, height: 12 }, 6000),
+      { atMs: 80000, type: 'chapterPause' },
+    ],
+    'cost:intro': [
+      scrollCue(0, 'project-cost'),
+      spotlightCue(3000, 'project-cost', { left: 8, top: 12, width: 84, height: 74 }, 9000),
+      scrollCue(11800, 'project-cost-bridge'),
+      spotlightCue(12000, 'project-cost-bridge', { left: 10, top: 18, width: 80, height: 18 }, 10000),
+      scrollCue(21800, 'project-cost-variations'),
+      spotlightCue(22000, 'project-cost-variations', { left: 14, top: 36, width: 72, height: 20 }, 10000),
+      scrollCue(31800, 'project-cost-package-drivers'),
+      spotlightCue(32000, 'project-cost-package-drivers', { left: 12, top: 44, width: 76, height: 20 }, 10000),
+      scrollCue(41800, 'project-cost-bridge'),
+      spotlightCue(42000, 'project-cost-bridge', { left: 10, top: 24, width: 80, height: 42 }, 12000),
+      spotlightCue(54000, 'project-cost-bridge', { left: 16, top: 56, width: 68, height: 16 }, 10000),
+      spotlightCue(64000, 'project-cost-bridge', { left: 18, top: 28, width: 64, height: 28 }, 10000),
+      scrollCue(73800, 'projectcommand-tabs'),
+      spotlightCue(74000, 'risk-control-tab', { left: 58, top: 68, width: 28, height: 12 }, 7000),
+      { atMs: 85000, type: 'chapterPause' },
+    ],
+    'risk:intro': [
+      scrollCue(0, 'project-risk'),
+      spotlightCue(3000, 'project-risk', { left: 8, top: 12, width: 84, height: 74 }, 9000),
+      scrollCue(11800, 'project-risk-register'),
+      spotlightCue(12000, 'project-risk-register', { left: 10, top: 20, width: 80, height: 24 }, 10000),
+      scrollCue(21800, 'project-risk-metrics'),
+      spotlightCue(22000, 'project-risk-metrics', { left: 12, top: 34, width: 76, height: 20 }, 10000),
+      scrollCue(31800, 'project-risk-actions'),
+      spotlightCue(32000, 'project-risk-actions', { left: 14, top: 46, width: 72, height: 20 }, 10000),
+      scrollCue(41800, 'project-risk-board-decision'),
+      spotlightCue(42000, 'project-risk-board-decision', { left: 12, top: 26, width: 76, height: 36 }, 12000),
+      scrollCue(53800, 'project-risk-scenario'),
+      spotlightCue(54000, 'project-risk-scenario', { left: 10, top: 38, width: 80, height: 26 }, 10000),
+      scrollCue(63800, 'project-risk'),
+      spotlightCue(64000, 'project-risk', { left: 12, top: 18, width: 76, height: 56 }, 10000),
+      scrollCue(73800, 'projectcommand-tabs'),
+      spotlightCue(74000, 'forecast-control-tab', { left: 58, top: 68, width: 28, height: 12 }, 7000),
+      { atMs: 85000, type: 'chapterPause' },
+    ],
+    'forecast:intro': [
+      scrollCue(0, 'project-forecast'),
+      spotlightCue(3000, 'project-forecast', { left: 8, top: 12, width: 84, height: 74 }, 9000),
+      scrollCue(11800, 'project-forecast-scenarios'),
+      spotlightCue(12000, 'project-forecast-scenarios', { left: 10, top: 18, width: 80, height: 18 }, 10000),
+      spotlightCue(22000, 'project-forecast-scenarios', { left: 10, top: 30, width: 80, height: 28 }, 12000),
+      spotlightCue(34000, 'project-forecast-scenarios', { left: 12, top: 44, width: 76, height: 20 }, 10000),
+      scrollCue(43800, 'project-forecast-confidence'),
+      spotlightCue(44000, 'project-forecast-confidence', { left: 14, top: 22, width: 72, height: 22 }, 10000),
+      scrollCue(53800, 'project-forecast-decisions'),
+      spotlightCue(54000, 'project-forecast-decisions', { left: 16, top: 56, width: 68, height: 18 }, 10000),
+      spotlightCue(64000, 'project-forecast-decisions', { left: 12, top: 24, width: 76, height: 44 }, 10000),
+      scrollCue(73800, 'projectcommand-tabs'),
+      spotlightCue(74000, 'obligations-control-tab', { left: 58, top: 68, width: 28, height: 12 }, 7000),
+      { atMs: 85000, type: 'chapterPause' },
+    ],
+    'obligations:intro': [
+      scrollCue(0, 'project-obligations'),
+      spotlightCue(3000, 'project-obligations', { left: 8, top: 12, width: 84, height: 74 }, 9000),
+      spotlightCue(12000, 'project-obligations', { left: 10, top: 20, width: 80, height: 24 }, 10000),
+      spotlightCue(22000, 'obligation-due-overdue-upcoming', { left: 12, top: 30, width: 76, height: 22 }, 10000),
+      spotlightCue(32000, 'obligation-owner-accountability', { left: 14, top: 44, width: 72, height: 20 }, 10000),
+      spotlightCue(42000, 'obligation-evidence-requirements', { left: 12, top: 52, width: 76, height: 18 }, 10000),
+      spotlightCue(52000, 'obligations-linked-to-delivery', { left: 10, top: 24, width: 80, height: 42 }, 10000),
+      spotlightCue(62000, 'obligation-consequence-priority', { left: 12, top: 18, width: 76, height: 56 }, 10000),
+      scrollCue(71800, 'projectcommand-tabs'),
+      spotlightCue(72000, 'evidence-control-tab', { left: 58, top: 68, width: 28, height: 12 }, 6000),
+      { atMs: 80000, type: 'chapterPause' },
+    ],
+    'evidence:intro': [
+      scrollCue(0, 'project-evidence'),
+      spotlightCue(3000, 'project-evidence', { left: 8, top: 12, width: 84, height: 74 }, 9000),
+      scrollCue(11800, 'project-evidence-readiness'),
+      spotlightCue(12000, 'project-evidence-readiness', { left: 10, top: 18, width: 80, height: 18 }, 10000),
+      spotlightCue(22000, 'project-evidence-readiness', { left: 12, top: 30, width: 76, height: 22 }, 10000),
+      scrollCue(31800, 'project-evidence-expired'),
+      spotlightCue(32000, 'project-evidence-expired', { left: 14, top: 42, width: 72, height: 22 }, 10000),
+      spotlightCue(42000, 'project-evidence-expired', { left: 12, top: 50, width: 76, height: 20 }, 10000),
+      scrollCue(51800, 'project-evidence-pack-prep'),
+      spotlightCue(52000, 'project-evidence-pack-prep', { left: 10, top: 28, width: 80, height: 34 }, 10000),
+      spotlightCue(62000, 'project-evidence-pack-prep', { left: 14, top: 22, width: 72, height: 38 }, 10000),
+      scrollCue(71800, 'projectcommand-tabs'),
+      spotlightCue(72000, 'vendoriq-module-entry', { left: 58, top: 68, width: 28, height: 12 }, 8000),
+      { atMs: 85000, type: 'chapterPause' },
+    ],
+    'vendoriq:intro': [
+      scrollCue(0, 'vendoriq-command'),
+      spotlightCue(3000, 'vendoriq-command', { left: 8, top: 12, width: 84, height: 74 }, 9000),
+      spotlightCue(12000, 'vendor-performance-scorecard', { left: 10, top: 18, width: 80, height: 22 }, 10000),
+      spotlightCue(22000, 'vendor-sla-quality-evidence', { left: 12, top: 30, width: 76, height: 24 }, 10000),
+      spotlightCue(32000, 'vendor-risk-repeat-issues', { left: 14, top: 44, width: 72, height: 22 }, 10000),
+      spotlightCue(42000, 'vendor-comparison-context', { left: 10, top: 24, width: 80, height: 38 }, 10000),
+      spotlightCue(52000, 'vendor-project-impact-link', { left: 12, top: 40, width: 76, height: 24 }, 10000),
+      spotlightCue(62000, 'vendor-corrective-action-pack', { left: 14, top: 54, width: 72, height: 18 }, 10000),
+      spotlightCue(72000, 'fieldops-module-entry', { left: 58, top: 68, width: 28, height: 12 }, 8000),
+      { atMs: 85000, type: 'chapterPause' },
+    ],
+    'fieldops:intro': [
+      scrollCue(0, 'fieldops-command'),
+      spotlightCue(3000, 'fieldops-command', { left: 8, top: 12, width: 84, height: 74 }, 9000),
+      scrollCue(11800, 'fieldops-kpis'),
+      spotlightCue(12000, 'fieldops-kpis', { left: 10, top: 20, width: 80, height: 24 }, 10000),
+      spotlightCue(22000, 'fieldops-surveys-inspections', { left: 12, top: 32, width: 76, height: 22 }, 10000),
+      spotlightCue(32000, 'fieldops-issue-capture', { left: 14, top: 44, width: 72, height: 22 }, 10000),
+      spotlightCue(42000, 'fieldops-evidence-capture', { left: 12, top: 52, width: 76, height: 18 }, 10000),
+      spotlightCue(52000, 'fieldops-command-link', { left: 10, top: 26, width: 80, height: 38 }, 10000),
+      spotlightCue(62000, 'fieldops-progress-status-update', { left: 14, top: 54, width: 72, height: 18 }, 10000),
+      spotlightCue(72000, 'resident-module-entry', { left: 58, top: 68, width: 28, height: 12 }, 8000),
+      { atMs: 85000, type: 'chapterPause' },
+    ],
+    'resident:intro': [
+      scrollCue(0, 'resident-experience'),
+      spotlightCue(3000, 'resident-experience', { left: 8, top: 12, width: 84, height: 74 }, 9000),
+      scrollCue(11800, 'resident-report-options'),
+      spotlightCue(12000, 'resident-report-options', { left: 10, top: 20, width: 80, height: 22 }, 10000),
+      spotlightCue(22000, 'resident-report-options', { left: 12, top: 32, width: 76, height: 22 }, 10000),
+      scrollCue(31800, 'resident-service-sla'),
+      spotlightCue(32000, 'resident-service-sla', { left: 14, top: 44, width: 72, height: 20 }, 10000),
+      scrollCue(41800, 'resident-action-links'),
+      spotlightCue(42000, 'resident-action-links', { left: 12, top: 52, width: 76, height: 18 }, 10000),
+      spotlightCue(52000, 'resident-service-sla', { left: 10, top: 24, width: 80, height: 40 }, 10000),
+      spotlightCue(62000, 'resident-action-links', { left: 14, top: 54, width: 72, height: 18 }, 10000),
+      spotlightCue(72000, 'value-module-entry', { left: 58, top: 68, width: 28, height: 12 }, 6000),
+      { atMs: 80000, type: 'chapterPause' },
+    ],
+    'value:intro': [
+      scrollCue(0, 'demo-value-recap'),
+      spotlightCue(3000, 'value-overview', { left: 8, top: 12, width: 84, height: 74 }, 11000),
+      scrollCue(14800, 'connected-operating-journey'),
+      spotlightCue(15000, 'connected-operating-journey', { left: 10, top: 18, width: 80, height: 26 }, 9000),
+      scrollCue(25800, 'leadership-team-accountability'),
+      spotlightCue(26000, 'leadership-team-accountability', { left: 12, top: 32, width: 76, height: 22 }, 10000),
+      scrollCue(37800, 'pilot-success-metrics'),
+      spotlightCue(38000, 'pilot-success-metrics', { left: 12, top: 54, width: 76, height: 18 }, 12000),
+      scrollCue(51800, 'ai-operating-system-summary'),
+      spotlightCue(52000, 'ai-operating-system-summary', { left: 12, top: 20, width: 76, height: 46 }, 10000),
+      scrollCue(62800, 'pilot-rollout-strategy'),
+      spotlightCue(63000, 'pilot-rollout-strategy', { left: 14, top: 44, width: 72, height: 22 }, 9000),
+      scrollCue(72800, 'portfolio-scale-expansion'),
+      spotlightCue(73000, 'portfolio-scale-expansion', { left: 10, top: 24, width: 80, height: 40 }, 7000),
+      scrollCue(81800, 'walkthrough-complete'),
+      spotlightCue(82000, 'walkthrough-complete', { left: 24, top: 28, width: 52, height: 24 }, 6000),
+      { atMs: 85000, type: 'chapterPause' },
     ],
     'portfolio:health-actions': [
       scrollCue(0, 'portfolio-health-actions'),
@@ -1466,34 +2244,34 @@ function getTimelineCues(chapterId: string, segmentId: string, estimatedDuration
       scrollCue(0, 'portfolio-command'),
       spotlightCue(500, 'portfolio-command', portfolioIntroFallback, 3800),
       spotlightCue(4700, 'portfolio-pulse-feed', { left: 72, top: 5, width: 10, height: 8 }, 4400),
-      actionCue(5600, 'show-portfolio-pulse'),
       spotlightCue(9400, 'portfolio-property-grid', { left: 4, top: 58, width: 92, height: 34 }, 5600),
     ],
     'portfolio:command-path': [
       scrollCue(0, 'portfolio-property-grid'),
       spotlightCue(500, 'portfolio-primary-card', { left: 4, top: 58, width: 44, height: 34 }, 4200),
       spotlightCue(5200, 'portfolio-command-path', { left: 6, top: 74, width: 38, height: 12 }, 3600),
-      actionCue(7200, 'open-property-command'),
       spotlightCue(9300, 'portfolio-command-path', { left: 6, top: 74, width: 38, height: 12 }, 4200),
     ],
     'propertysetup:wizard': [
       scrollCue(0, 'property-onboarding-entry'),
       spotlightCue(500, 'property-onboarding-entry', { left: 76, top: 5, width: 18, height: 8 }, 3800),
-      actionCue(2800, 'open-add-property-wizard'),
     ],
     'propertysetup:ai': [
       scrollCue(0, 'property-onboarding-entry'),
       spotlightCue(500, 'property-onboarding-entry', { left: 76, top: 5, width: 18, height: 8 }, 3600),
-      actionCue(2400, 'open-ai-onboarding'),
     ],
     'propertysetup:upload': [
       scrollCue(0, 'property-onboarding-entry'),
       spotlightCue(500, 'property-onboarding-entry', { left: 76, top: 5, width: 18, height: 8 }, 3600),
-      actionCue(2400, 'open-upload-panel'),
     ],
   };
 
   const explicitCues = timelineMap[key] ?? cuesFromBeats(beats, estimatedDurationMs);
+  if (key === 'portfolio:intro' || key === 'propertysetup:intro' || key === 'projectcommand:intro' || key === 'programme:intro' || key === 'stagegates:intro' || key === 'cost:intro' || key === 'risk:intro' || key === 'forecast:intro' || key === 'obligations:intro' || key === 'evidence:intro' || key === 'vendoriq:intro' || key === 'fieldops:intro' || key === 'resident:intro' || key === 'value:intro') {
+    const designDuration = TIMELINE_DESIGN_DURATIONS_MS[key] ?? estimatedDurationMs;
+    const scale = designDuration > 0 ? estimatedDurationMs / designDuration : 1;
+    return explicitCues.map(cue => scaleTimelineCue(cue, scale)).sort((a, b) => a.atMs - b.atMs);
+  }
   return [
     ...explicitCues,
     { atMs: Math.max(0, estimatedDurationMs - 250), type: 'chapterPause' as const },
@@ -1508,7 +2286,7 @@ function makeNarrationScript(
   beats: DemoSpotlightBeat[] = [],
   requiresChapterConfirmation = false,
 ): DemoNarrationScript {
-  const estimatedDurationMs = estimateNarrationDurationMs(audio);
+  const estimatedDurationMs = NARRATION_DURATION_OVERRIDES_MS[`${chapterId}:${segmentId}`] ?? estimateNarrationDurationMs(audio);
   return {
     caption: audio,
     audio,
@@ -1570,6 +2348,160 @@ function getSectionSpotlightBeats(chapter: DemoChapter, frame: EnrichedDemoFrame
 }
 
 function buildChapterIntroScript(chapter: DemoChapter) {
+  if (chapter.id === 'portfolio') {
+    return makeNarrationScript(
+      chapter.id,
+      'intro',
+      PORTFOLIO_CHAPTER_ONE_SCRIPT,
+      'Play the full Chapter 1 portfolio-control narration and let the timeline drive the portfolio spotlights.',
+      getChapterIntroBeats(chapter, getChapterFrames(chapter)),
+      true,
+    );
+  }
+
+  if (chapter.id === 'propertysetup') {
+    return makeNarrationScript(
+      chapter.id,
+      'intro',
+      PROPERTYSETUP_CHAPTER_TWO_SCRIPT,
+      'Play the full Chapter 2 onboarding narration and let the timeline drive the property setup spotlights.',
+      getChapterIntroBeats(chapter, getChapterFrames(chapter)),
+      true,
+    );
+  }
+
+  if (chapter.id === 'projectcommand') {
+    return makeNarrationScript(
+      chapter.id,
+      'intro',
+      PROJECTCOMMAND_CHAPTER_THREE_SCRIPT,
+      'Play the full Chapter 3 ProjectCommand narration and let the timeline drive the executive control spotlights.',
+      getChapterIntroBeats(chapter, getChapterFrames(chapter)),
+      true,
+    );
+  }
+
+  if (chapter.id === 'programme') {
+    return makeNarrationScript(
+      chapter.id,
+      'intro',
+      PROGRAMME_CHAPTER_FOUR_SCRIPT,
+      'Play the full Chapter 4 programme narration and let the timeline drive the schedule recovery spotlights.',
+      getChapterIntroBeats(chapter, getChapterFrames(chapter)),
+      true,
+    );
+  }
+
+  if (chapter.id === 'stagegates') {
+    return makeNarrationScript(
+      chapter.id,
+      'intro',
+      STAGEGATES_CHAPTER_FIVE_SCRIPT,
+      'Play the full Chapter 5 stage-gates narration and let the timeline drive the readiness and evidence spotlights.',
+      getChapterIntroBeats(chapter, getChapterFrames(chapter)),
+      true,
+    );
+  }
+
+  if (chapter.id === 'cost') {
+    return makeNarrationScript(
+      chapter.id,
+      'intro',
+      COST_CHAPTER_SIX_SCRIPT,
+      'Play the full Chapter 6 cost narration and let the timeline drive the commercial exposure spotlights.',
+      getChapterIntroBeats(chapter, getChapterFrames(chapter)),
+      true,
+    );
+  }
+
+  if (chapter.id === 'risk') {
+    return makeNarrationScript(
+      chapter.id,
+      'intro',
+      RISK_CHAPTER_SEVEN_SCRIPT,
+      'Play the full Chapter 7 risk narration and let the timeline drive the risk register and mitigation spotlights.',
+      getChapterIntroBeats(chapter, getChapterFrames(chapter)),
+      true,
+    );
+  }
+
+  if (chapter.id === 'forecast') {
+    return makeNarrationScript(
+      chapter.id,
+      'intro',
+      FORECAST_CHAPTER_EIGHT_SCRIPT,
+      'Play the full Chapter 8 forecast narration and let the timeline drive the scenario and decision spotlights.',
+      getChapterIntroBeats(chapter, getChapterFrames(chapter)),
+      true,
+    );
+  }
+
+  if (chapter.id === 'obligations') {
+    return makeNarrationScript(
+      chapter.id,
+      'intro',
+      OBLIGATIONS_CHAPTER_NINE_SCRIPT,
+      'Play the full Chapter 9 obligations narration and let the timeline drive the governance and proof spotlights.',
+      getChapterIntroBeats(chapter, getChapterFrames(chapter)),
+      true,
+    );
+  }
+
+  if (chapter.id === 'evidence') {
+    return makeNarrationScript(
+      chapter.id,
+      'intro',
+      EVIDENCE_CHAPTER_TEN_SCRIPT,
+      'Play the full Chapter 10 evidence narration and let the timeline drive the readiness proof spotlights.',
+      getChapterIntroBeats(chapter, getChapterFrames(chapter)),
+      true,
+    );
+  }
+
+  if (chapter.id === 'vendoriq') {
+    return makeNarrationScript(
+      chapter.id,
+      'intro',
+      VENDORIQ_CHAPTER_ELEVEN_SCRIPT,
+      'Play the full Chapter 11 VendorIQ narration and let the timeline drive the vendor performance and corrective action spotlights.',
+      getChapterIntroBeats(chapter, getChapterFrames(chapter)),
+      true,
+    );
+  }
+
+  if (chapter.id === 'fieldops') {
+    return makeNarrationScript(
+      chapter.id,
+      'intro',
+      FIELDOPS_CHAPTER_TWELVE_SCRIPT,
+      'Play the full Chapter 12 FieldOps narration and let the timeline drive the site execution and evidence capture spotlights.',
+      getChapterIntroBeats(chapter, getChapterFrames(chapter)),
+      true,
+    );
+  }
+
+  if (chapter.id === 'resident') {
+    return makeNarrationScript(
+      chapter.id,
+      'intro',
+      RESIDENT_CHAPTER_THIRTEEN_SCRIPT,
+      'Play the full Chapter 13 resident experience narration and let the timeline drive the service intake and follow-through spotlights.',
+      getChapterIntroBeats(chapter, getChapterFrames(chapter)),
+      true,
+    );
+  }
+
+  if (chapter.id === 'value') {
+    return makeNarrationScript(
+      chapter.id,
+      'intro',
+      VALUE_CHAPTER_FOURTEEN_SCRIPT,
+      'Play the full Chapter 14 value narration and let the timeline drive the operating model, pilot, and completion spotlights.',
+      getChapterIntroBeats(chapter, getChapterFrames(chapter)),
+      true,
+    );
+  }
+
   const frames = getChapterFrames(chapter);
   const sectionList = frames.map(frame => frame.label).join(', ');
   const opener = CHAPTER_NARRATION_OPENERS[chapter.id] ?? chapter.story;
@@ -1603,7 +2535,9 @@ function buildChapterClosingPrompt(chapter: DemoChapter) {
   const nextChapter = DEMO_CHAPTERS[(DEMO_CHAPTERS.findIndex(item => item.id === chapter.id) + 1) % DEMO_CHAPTERS.length];
   const frames = getChapterFrames(chapter);
   const sectionList = frames.map(frame => frame.label).join(', ');
-  const audio = `That closes ${chapter.label}. You have seen ${sectionList}, and the key question is now ready for discussion: ${chapter.decisionQuestion} Would you like to ask a question about this chapter, replay it, or move to ${nextChapter.label}?`;
+  const audio = chapter.id === 'value'
+    ? `That closes the 4C360 board walkthrough. You have seen ${sectionList}, and the pilot question is now ready for discussion: ${chapter.decisionQuestion} You can ask a question, replay the value chapter, or replay the full walkthrough.`
+    : `That closes ${chapter.label}. You have seen ${sectionList}, and the key question is now ready for discussion: ${chapter.decisionQuestion} Would you like to ask a question about this chapter, replay it, or move to ${nextChapter.label}?`;
   return makeNarrationScript(
     chapter.id,
     'closing',
@@ -1948,7 +2882,7 @@ function resolveInitialFrame(chapterId: string) {
 function updateChapterUrl(
   chapterId: string,
   frameId?: string,
-  options: { showMode?: DemoShowMode; autoplay?: boolean } = {},
+  options: { showMode?: DemoShowMode; autoplay?: boolean; phase?: 'intro' | 'section' } = {},
 ) {
   const currentUrl = new URL(window.location.href);
   const url = new URL('/demo/properties', window.location.origin);
@@ -1959,6 +2893,9 @@ function updateChapterUrl(
   if (options.autoplay) {
     url.searchParams.set('autoplay', 'true');
   }
+  if (options.phase) {
+    url.searchParams.set('phase', options.phase);
+  }
   if (currentUrl.searchParams.get('voiceSetup') === 'true') url.searchParams.set('voiceSetup', 'true');
   window.history.replaceState({}, '', `${url.pathname}?${url.searchParams.toString()}${url.hash}`);
 }
@@ -1966,10 +2903,11 @@ function updateChapterUrl(
 function useAnchorBox(stageRef: RefObject<HTMLDivElement | null>, target: HotspotTarget) {
   const [box, setBox] = useState<AnchorBox | null>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     let frame = 0;
     const stage = stageRef.current;
     if (!stage) return undefined;
+    setBox(null);
 
     const measure = () => {
       window.cancelAnimationFrame(frame);
@@ -2042,15 +2980,15 @@ function useAnchorBox(stageRef: RefObject<HTMLDivElement | null>, target: Hotspo
   return box;
 }
 
-function StageSpotlight({ box, fallback }: { box: AnchorBox | null; fallback: FallbackHotspot }) {
+function StageSpotlight({ box, fallback, variant = 'standard' }: { box: AnchorBox | null; fallback: FallbackHotspot; variant?: 'standard' | 'frame' }) {
   const fallbackStyle: CSSProperties = { left: `${fallback.left}%`, top: `${fallback.top}%`, width: `${fallback.width}%`, height: `${fallback.height}%` };
-  const inset = 8;
+  const inset = variant === 'frame' ? 34 : 14;
   const target = box
     ? {
-        left: Math.max(8, box.left - inset),
-        top: Math.max(8, box.top - inset),
-        width: Math.min(box.stageWidth - Math.max(8, box.left - inset) - 8, box.width + inset * 2),
-        height: Math.min(box.stageHeight - Math.max(8, box.top - inset) - 8, box.height + inset * 2),
+        left: Math.max(14, box.left - inset),
+        top: Math.max(14, box.top - inset),
+        width: Math.min(box.stageWidth - Math.max(14, box.left - inset) - 14, box.width + inset * 2),
+        height: Math.min(box.stageHeight - Math.max(14, box.top - inset) - 14, box.height + inset * 2),
         stageWidth: box.stageWidth,
         stageHeight: box.stageHeight,
       }
@@ -2062,35 +3000,45 @@ function StageSpotlight({ box, fallback }: { box: AnchorBox | null; fallback: Fa
         top: target.top,
         width: target.width,
         height: target.height,
-        transition: 'left 360ms ease, top 360ms ease, width 360ms ease, height 360ms ease',
+        transition: 'left 760ms cubic-bezier(0.22, 1, 0.36, 1), top 760ms cubic-bezier(0.22, 1, 0.36, 1), width 760ms cubic-bezier(0.22, 1, 0.36, 1), height 760ms cubic-bezier(0.22, 1, 0.36, 1)',
       }
     : fallbackStyle;
 
-  const dim = 'rgba(1, 8, 18, 0.56)';
-  const panels: CSSProperties[] = target
-    ? [
-        { left: 0, top: 0, width: target.stageWidth, height: target.top },
-        { left: 0, top: target.top, width: target.left, height: target.height },
-        { left: target.left + target.width, top: target.top, width: Math.max(0, target.stageWidth - target.left - target.width), height: target.height },
-        { left: 0, top: target.top + target.height, width: target.stageWidth, height: Math.max(0, target.stageHeight - target.top - target.height) },
-      ]
-    : [];
+  if (variant === 'frame') {
+    return (
+      <div
+        aria-hidden="true"
+        data-demo-frame-spotlight="true"
+        className="pointer-events-none absolute z-40 rounded-[26px] border border-cyan-100/85 bg-cyan-200/[0.018] shadow-[0_0_0_9999px_rgba(1,8,20,0.76),0_0_58px_rgba(34,211,238,0.44),0_0_150px_rgba(46,127,255,0.26),inset_0_0_30px_rgba(34,211,238,0.13)]"
+        style={targetStyle}
+      />
+    );
+  }
+
+  const centerX = target ? target.left + target.width / 2 : `calc(${fallback.left}% + ${fallback.width / 2}%)`;
+  const centerY = target ? target.top + target.height / 2 : `calc(${fallback.top}% + ${fallback.height / 2}%)`;
+  const radiusX = target ? Math.max(160, target.width / 2 + 48) : '34%';
+  const radiusY = target ? Math.max(110, target.height / 2 + 42) : '28%';
+  const maskImage = target
+    ? `radial-gradient(ellipse ${radiusX}px ${radiusY}px at ${centerX}px ${centerY}px, transparent 0%, transparent 48%, rgba(0,0,0,0.22) 61%, #000 100%)`
+    : `radial-gradient(ellipse ${radiusX} ${radiusY} at ${centerX} ${centerY}, transparent 0%, transparent 48%, rgba(0,0,0,0.22) 61%, #000 100%)`;
 
   return (
     <>
-      {panels.map((panel, index) => (
-        <div
-          // eslint-disable-next-line react/no-array-index-key
-          key={index}
-          aria-hidden="true"
-          className="pointer-events-none absolute z-30 backdrop-blur-[1px] transition-all duration-300"
-          style={{ ...panel, backgroundColor: dim }}
-        />
-      ))}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 z-30 bg-[#010814]/72 backdrop-blur-[1.5px] transition-all duration-700"
+        style={{
+          WebkitMaskImage: maskImage,
+          maskImage,
+          WebkitMaskRepeat: 'no-repeat',
+          maskRepeat: 'no-repeat',
+        }}
+      />
       <div
         aria-hidden="true"
         data-demo-spotlight="true"
-        className="pointer-events-none absolute z-40 rounded-2xl border border-cyan-100/80 bg-cyan-200/[0.02] shadow-[0_0_26px_rgba(34,211,238,0.28),inset_0_0_18px_rgba(34,211,238,0.12)]"
+        className="pointer-events-none absolute z-40 rounded-[22px] border border-cyan-100/70 bg-cyan-200/[0.025] shadow-[0_0_44px_rgba(34,211,238,0.30),0_0_110px_rgba(46,127,255,0.18),inset_0_0_26px_rgba(34,211,238,0.11)]"
         style={targetStyle}
       />
     </>
@@ -2099,10 +3047,10 @@ function StageSpotlight({ box, fallback }: { box: AnchorBox | null; fallback: Fa
 
 function DemoActionPulse({ box }: { box: AnchorBox | null }) {
   if (!box) return null;
-  const size = 46;
+  const size = 54;
   const style: CSSProperties = {
-    left: Math.max(12, box.left + box.width / 2 - size / 2),
-    top: Math.max(12, box.top + box.height / 2 - size / 2),
+    left: Math.max(12, box.left + box.width / 2 - 47),
+    top: Math.max(12, box.top + box.height / 2 - 25),
     width: size,
     height: size,
   };
@@ -2110,11 +3058,33 @@ function DemoActionPulse({ box }: { box: AnchorBox | null }) {
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none absolute z-50 rounded-full border border-cyan-100/90 bg-cyan-200/15 shadow-[0_0_26px_rgba(34,211,238,0.52)]"
+      data-demo-action-pulse="true"
+      className="pointer-events-none absolute z-[950] text-white drop-shadow-[0_10px_24px_rgba(0,0,0,0.7)]"
       style={style}
     >
-      <div className="absolute inset-0 animate-ping rounded-full bg-cyan-300/35" />
-      <div className="absolute inset-3 rounded-full bg-cyan-200" />
+      <div className="absolute left-5 top-4 h-9 w-9 animate-ping rounded-full border border-cyan-200/80 bg-cyan-300/20" />
+      <MousePointer2 size={30} className="relative z-10 -rotate-12 fill-[#EAF6FF] text-[#06101F]" />
+    </div>
+  );
+}
+
+function DemoCardFlash({ box }: { box: AnchorBox | null }) {
+  if (!box) return null;
+  const style: CSSProperties = {
+    left: Math.max(0, box.left - 3),
+    top: Math.max(0, box.top - 3),
+    width: box.width + 6,
+    height: box.height + 6,
+  };
+
+  return (
+    <div
+      aria-hidden="true"
+      data-demo-card-flash="true"
+      className="pointer-events-none absolute z-50 rounded-xl border border-cyan-100/90 bg-cyan-200/10 shadow-[0_0_32px_rgba(34,211,238,0.70),0_0_74px_rgba(46,127,255,0.35),inset_0_0_28px_rgba(34,211,238,0.18)]"
+      style={style}
+    >
+      <div className="absolute inset-0 animate-ping rounded-xl border border-cyan-200/70 bg-cyan-300/10" />
     </div>
   );
 }
@@ -2146,6 +3116,87 @@ function IntroDashboardReveal({ progress }: { progress: number }) {
   );
 }
 
+function PortfolioClarityReveal({ elapsedMs }: { elapsedMs: number }) {
+  const fadeWindowMs = 620;
+  const revealProgress = Math.max(0, Math.min(1, (elapsedMs - PORTFOLIO_CLARITY_REVEAL_MS) / fadeWindowMs));
+  const dimOpacity = Math.max(0, 0.97 * (1 - revealProgress));
+  const glowProgress = Math.max(0, Math.min(1, (elapsedMs - PORTFOLIO_CLARITY_REVEAL_MS) / 2200));
+  const glowOpacity = Math.max(0, Math.sin(glowProgress * Math.PI) * 0.62);
+
+  if (elapsedMs > PORTFOLIO_CLARITY_REVEAL_MS + 4200) return null;
+
+  return (
+    <>
+      <div
+        aria-hidden="true"
+        data-demo-clarity-reveal="true"
+        className="pointer-events-none absolute inset-0 z-30 transition-opacity duration-200"
+        style={{
+          opacity: dimOpacity,
+          background: 'radial-gradient(circle at 50% 36%, rgba(7,20,42,0.72), rgba(1,6,16,0.99) 62%, rgba(0,0,0,1) 100%)',
+        }}
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 z-30 transition-opacity duration-300"
+        style={{
+          opacity: glowOpacity,
+          background: 'radial-gradient(circle at 50% 38%, rgba(34,211,238,0.28), rgba(46,127,255,0.13) 28%, transparent 58%)',
+        }}
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-4 z-30 rounded-[28px] border border-cyan-200/35 transition-opacity duration-300"
+        style={{
+          opacity: glowOpacity,
+          boxShadow: '0 0 48px rgba(34,211,238,0.22), inset 0 0 54px rgba(46,127,255,0.14)',
+        }}
+      />
+    </>
+  );
+}
+
+function ChapterTitleOverlay({ chapter, progress }: { chapter: DemoChapter; progress: number }) {
+  const chapterIndex = Math.max(0, FULL_CHAPTER_NARRATION_IDS.indexOf(chapter.id as (typeof FULL_CHAPTER_NARRATION_IDS)[number]));
+  const meta = CHAPTER_CINEMATIC_META[chapter.id] ?? { title: chapter.label, question: chapter.decisionQuestion };
+  const fadeOut = Math.max(0, Math.min(1, (progress - 6) / 5));
+  const opacity = Math.max(0, 1 - fadeOut);
+
+  if (opacity <= 0.02) return null;
+
+  return (
+    <div
+      aria-hidden="true"
+      className="pointer-events-none absolute inset-0 z-50 flex items-center justify-center bg-[#010714]/92 px-8 backdrop-blur-[2px] transition-all duration-700"
+      style={{
+        opacity,
+      }}
+    >
+      <div
+        className="w-[min(760px,100%)] rounded-[28px] border border-cyan-200/18 bg-[#06101F]/82 px-8 py-8 text-center shadow-[0_30px_90px_rgba(0,0,0,0.45),0_0_70px_rgba(46,127,255,0.14)]"
+        style={{
+          transform: `translateY(${(1 - opacity) * -10}px) scale(${0.985 + opacity * 0.015})`,
+        }}
+      >
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <span className="rounded-full border border-cyan-200/24 bg-cyan-200/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100">
+            Chapter {String(chapterIndex + 1).padStart(2, '0')}
+          </span>
+          <span className="rounded-full border border-[#2E7FFF]/24 bg-[#2E7FFF]/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-[#9CC8FF]">
+            Sobha Pilot Tower handover risk
+          </span>
+        </div>
+        <h2 className="mt-5 text-[clamp(34px,5vw,64px)] font-black leading-none text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+          {meta.title}
+        </h2>
+        <p className="mx-auto mt-4 max-w-[620px] text-[clamp(16px,2vw,22px)] font-semibold leading-8 text-[#CFE6FF]">
+          {meta.question}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function ValueRecap({ totals, onCopySummary }: { totals: ReturnType<typeof getOutcomeTotals>; onCopySummary: () => void }) {
   const outcomes = [
     ['Portfolio', 'One view of property health, risk, and next actions.'],
@@ -2158,20 +3209,20 @@ function ValueRecap({ totals, onCopySummary }: { totals: ReturnType<typeof getOu
   return (
     <div className="custom-scrollbar h-full overflow-y-auto bg-[#07111F] px-6 py-6 text-[#EEF3FA]" data-demo-anchor="demo-value-recap">
       <div className="mx-auto flex max-w-5xl flex-col gap-5">
-        <div className="rounded-2xl border border-[#2E7FFF]/24 bg-[linear-gradient(135deg,rgba(46,127,255,0.18),rgba(124,58,237,0.14),rgba(7,17,31,0.98))] p-6">
+        <div className="rounded-2xl border border-[#2E7FFF]/24 bg-[linear-gradient(135deg,rgba(46,127,255,0.18),rgba(124,58,237,0.14),rgba(7,17,31,0.98))] p-6" data-demo-anchor="value-overview">
           <div className="flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-200">
             <Sparkles size={14} />
             Client demo close
           </div>
-          <h2 className="mt-4 max-w-3xl text-3xl font-black leading-tight text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+          <h2 className="mt-4 max-w-3xl text-3xl font-black leading-tight text-white" data-demo-anchor="final-value-statement" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
             One connected operating model from owner signal to field proof.
           </h2>
-          <p className="mt-3 max-w-3xl text-[14px] leading-6 text-[#B8C7DB]">
+          <p className="mt-3 max-w-3xl text-[14px] leading-6 text-[#B8C7DB]" data-demo-anchor="connected-operating-journey">
             The walkthrough shows how a property owner can discover portfolio risk, open a project twin, trace cost and evidence blockers, act on vendor performance, and see field or resident activity flow back into the same system.
           </p>
         </div>
 
-        <section className="grid gap-3 lg:grid-cols-[1fr_1.2fr]">
+        <section className="grid gap-3 lg:grid-cols-[1fr_1.2fr]" data-demo-anchor="leadership-team-accountability">
           <div className="rounded-2xl border border-[#E11D2E]/22 bg-[#E11D2E]/10 p-4">
             <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[#FFB4BC]">Before 4C360</div>
             <h3 className="mt-2 text-xl font-black text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Board risk was trapped in reports.</h3>
@@ -2184,7 +3235,7 @@ function ValueRecap({ totals, onCopySummary }: { totals: ReturnType<typeof getOu
           </div>
         </section>
 
-        <section className="rounded-2xl border border-emerald-300/18 bg-emerald-300/8 p-4">
+        <section className="rounded-2xl border border-emerald-300/18 bg-emerald-300/8 p-4" data-demo-anchor="pilot-success-metrics">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <div className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-200">Outcome scorecard</div>
@@ -2225,7 +3276,7 @@ function ValueRecap({ totals, onCopySummary }: { totals: ReturnType<typeof getOu
           </div>
         </section>
 
-        <div className="grid gap-3 lg:grid-cols-5">
+        <div className="grid gap-3 lg:grid-cols-5" data-demo-anchor="ai-operating-system-summary">
           {outcomes.map(([label, detail]) => (
             <div key={label} className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.82)] p-4">
               <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg border border-cyan-300/24 bg-cyan-300/10 text-cyan-200">
@@ -2237,13 +3288,17 @@ function ValueRecap({ totals, onCopySummary }: { totals: ReturnType<typeof getOu
           ))}
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-3">
+        <div className="grid gap-4 lg:grid-cols-3" data-demo-anchor="pilot-rollout-strategy">
           {[
             ['Pilot path', 'Start with ProjectCommand on one active handover or DLP project.'],
             ['Success proof', 'Show avoided delay, closed evidence gaps, and action ownership in the first review cycle.'],
             ['Expansion path', 'Add VendorIQ, FieldOps capture, and resident intake once the control twin is trusted.'],
           ].map(([title, body]) => (
-            <section key={title} className="rounded-xl border border-[#7C3AED]/22 bg-[#7C3AED]/10 p-4">
+            <section
+              key={title}
+              className="rounded-xl border border-[#7C3AED]/22 bg-[#7C3AED]/10 p-4"
+              data-demo-anchor={title === 'Expansion path' ? 'portfolio-scale-expansion' : title === 'Pilot path' ? 'walkthrough-complete' : undefined}
+            >
               <h3 className="text-[14px] font-black text-[#DDD6FE]">{title}</h3>
               <p className="mt-2 text-[12px] leading-5 text-[#C4B5FD]">{body}</p>
             </section>
@@ -2978,27 +4033,28 @@ function DemoTimelinePlayer({
   script,
   status,
   playbackKey,
+  seekRequest,
   onEnded,
   onProgress,
   onCue,
+  onPlaybackBlocked,
 }: {
   script: DemoNarrationScript;
   status: DemoAutopilotState['status'];
   playbackKey: string;
+  seekRequest: DemoSeekRequest | null;
   onEnded: () => void;
   onProgress: (progress: number, elapsedMs: number) => void;
   onCue: (cue: DemoTimelineCue) => void;
+  onPlaybackBlocked: () => void;
 }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const fallbackTimerRef = useRef<number | null>(null);
-  const fallbackProgressRef = useRef<number | null>(null);
-  const fallbackStartedAtRef = useRef<number | null>(null);
-  const fallbackElapsedRef = useRef(0);
   const endedRef = useRef(false);
   const firedCuesRef = useRef<Set<string>>(new Set());
   const onEndedRef = useRef(onEnded);
   const onProgressRef = useRef(onProgress);
   const onCueRef = useRef(onCue);
+  const onPlaybackBlockedRef = useRef(onPlaybackBlocked);
   const statusRef = useRef(status);
   const scriptRef = useRef(script);
 
@@ -3022,20 +4078,29 @@ function DemoTimelinePlayer({
     onCueRef.current = onCue;
   }, [onCue]);
 
-  const clearFallback = useCallback(() => {
-    if (fallbackTimerRef.current) window.clearTimeout(fallbackTimerRef.current);
-    if (fallbackProgressRef.current) window.clearInterval(fallbackProgressRef.current);
-    fallbackTimerRef.current = null;
-    fallbackProgressRef.current = null;
-    fallbackStartedAtRef.current = null;
-  }, []);
+  useEffect(() => {
+    onPlaybackBlockedRef.current = onPlaybackBlocked;
+  }, [onPlaybackBlocked]);
 
   const cueKey = useCallback((cue: DemoTimelineCue) => {
     if (cue.type === 'spotlight') return `${cue.atMs}:spotlight:${cue.anchor ?? 'fallback'}`;
     if (cue.type === 'scrollTo') return `${cue.atMs}:scrollTo:${cue.anchor}`;
+    if (cue.type === 'slowScrollTo') return `${cue.atMs}:slowScrollTo:${cue.anchor}`;
+    if (cue.type === 'pulse') return `${cue.atMs}:pulse:${cue.anchor ?? 'fallback'}`;
+    if (cue.type === 'pinPulse') return `${cue.atMs}:pinPulse:${cue.anchor ?? 'fallback'}`;
+    if (cue.type === 'flash') return `${cue.atMs}:flash:${cue.anchor ?? 'fallback'}`;
     if (cue.type === 'demoAction') return `${cue.atMs}:demoAction:${cue.actionId}`;
+    if (cue.type === 'clearDemoAction') return `${cue.atMs}:clearDemoAction`;
     return `${cue.atMs}:chapterPause`;
   }, []);
+
+  const markCuesThrough = useCallback((elapsedMs: number) => {
+    const nextFired = new Set<string>();
+    scriptRef.current.timelineCues.forEach(cue => {
+      if (cue.atMs <= elapsedMs) nextFired.add(cueKey(cue));
+    });
+    firedCuesRef.current = nextFired;
+  }, [cueKey]);
 
   const emitTimeline = useCallback((elapsedMs: number, durationMs = scriptRef.current.estimatedDurationMs) => {
     const safeDuration = Math.max(1000, durationMs);
@@ -3043,6 +4108,7 @@ function DemoTimelinePlayer({
     onProgressRef.current(Math.min(100, (boundedElapsed / safeDuration) * 100), boundedElapsed);
 
     scriptRef.current.timelineCues.forEach(cue => {
+      if (cue.type === 'chapterPause') return;
       if (boundedElapsed < cue.atMs) return;
       const key = cueKey(cue);
       if (firedCuesRef.current.has(key)) return;
@@ -3054,39 +4120,20 @@ function DemoTimelinePlayer({
   const finishNarration = useCallback(() => {
     if (endedRef.current) return;
     endedRef.current = true;
-    clearFallback();
     audioRef.current?.pause();
     emitTimeline(scriptRef.current.estimatedDurationMs, scriptRef.current.estimatedDurationMs);
     onEndedRef.current();
-  }, [clearFallback, emitTimeline]);
+  }, [emitTimeline]);
 
-  const startFallbackTiming = useCallback(() => {
-    if (endedRef.current || fallbackStartedAtRef.current) return;
-    const estimatedDuration = Math.max(1000, script.estimatedDurationMs);
-    fallbackStartedAtRef.current = Date.now() - fallbackElapsedRef.current;
-    const updateProgress = () => {
-      const startedAt = fallbackStartedAtRef.current ?? Date.now();
-      fallbackElapsedRef.current = Math.min(estimatedDuration, Math.max(0, Date.now() - startedAt));
-      emitTimeline(fallbackElapsedRef.current, estimatedDuration);
-    };
-    updateProgress();
-    fallbackProgressRef.current = window.setInterval(updateProgress, 250);
-    fallbackTimerRef.current = window.setTimeout(finishNarration, Math.max(0, estimatedDuration - fallbackElapsedRef.current));
-  }, [emitTimeline, finishNarration, script.estimatedDurationMs]);
-
-  const pauseFallbackTiming = useCallback(() => {
-    if (fallbackStartedAtRef.current !== null) {
-      fallbackElapsedRef.current = Math.min(script.estimatedDurationMs, Math.max(0, Date.now() - fallbackStartedAtRef.current));
-    }
-    clearFallback();
-  }, [clearFallback, script.estimatedDurationMs]);
+  const handlePlaybackFailure = useCallback(() => {
+    audioRef.current?.pause();
+    onPlaybackBlockedRef.current();
+  }, []);
 
   useEffect(() => {
     endedRef.current = false;
     firedCuesRef.current = new Set();
-    fallbackElapsedRef.current = 0;
     emitTimeline(0, script.estimatedDurationMs);
-    clearFallback();
 
     const audio = new Audio(script.audioSrc);
     audio.preload = 'auto';
@@ -3097,18 +4144,17 @@ function DemoTimelinePlayer({
       emitTimeline(audio.currentTime * 1000, audio.duration * 1000);
     };
     const handleError = () => {
-      if (statusRef.current === 'playing') startFallbackTiming();
+      if (statusRef.current === 'playing') handlePlaybackFailure();
     };
     audio.addEventListener('timeupdate', handleTimeUpdate);
     audio.addEventListener('ended', finishNarration);
     audio.addEventListener('error', handleError);
 
     if (statusRef.current === 'playing') {
-      audio.play().catch(() => startFallbackTiming());
+      audio.play().catch(handlePlaybackFailure);
     }
 
     return () => {
-      clearFallback();
       audio.pause();
       audio.removeEventListener('timeupdate', handleTimeUpdate);
       audio.removeEventListener('ended', finishNarration);
@@ -3117,24 +4163,37 @@ function DemoTimelinePlayer({
       audio.load();
       if (audioRef.current === audio) audioRef.current = null;
     };
-  }, [clearFallback, emitTimeline, finishNarration, playbackKey, script.audioSrc, script.estimatedDurationMs, startFallbackTiming]);
+  }, [emitTimeline, finishNarration, handlePlaybackFailure, playbackKey, script.audioSrc, script.estimatedDurationMs]);
 
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio || endedRef.current) return;
 
     if (status === 'playing') {
-      if (fallbackElapsedRef.current > 0 || audio.error) {
-        startFallbackTiming();
+      if (audio.error) {
+        handlePlaybackFailure();
         return;
       }
-      audio.play().catch(() => startFallbackTiming());
+      audio.play().catch(handlePlaybackFailure);
       return;
     }
 
     audio.pause();
-    pauseFallbackTiming();
-  }, [pauseFallbackTiming, startFallbackTiming, status]);
+  }, [handlePlaybackFailure, status]);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio || !seekRequest) return;
+
+    const safeDurationMs = Number.isFinite(audio.duration) && audio.duration > 0
+      ? audio.duration * 1000
+      : scriptRef.current.estimatedDurationMs;
+    const boundedElapsed = Math.max(0, Math.min(safeDurationMs, seekRequest.elapsedMs));
+    endedRef.current = false;
+    markCuesThrough(boundedElapsed);
+    audio.currentTime = boundedElapsed / 1000;
+    onProgressRef.current(Math.min(100, (boundedElapsed / Math.max(1000, safeDurationMs)) * 100), boundedElapsed);
+  }, [markCuesThrough, seekRequest]);
 
   return null;
 }
@@ -3158,13 +4217,27 @@ function ChapterEndPanel({
   onReplaySection: () => void;
   onToast: ToastFn;
 }) {
+  const isFinalChapter = chapter.id === 'value';
+  const [dismissed, setDismissed] = useState(false);
+
+  const handleNextChapter = () => {
+    setDismissed(true);
+    window.requestAnimationFrame(onNextChapter);
+  };
+
+  if (dismissed) return null;
+
   return (
-    <div className="absolute inset-x-3 bottom-3 z-40 rounded-2xl border border-cyan-300/28 bg-[#07111F]/96 p-3 shadow-2xl shadow-black/50 backdrop-blur md:inset-x-auto md:right-3 md:w-[min(460px,calc(100%-24px))]">
+    <div className="absolute inset-0 z-50 flex items-center justify-center bg-[#010814]/62 p-4 backdrop-blur-[2px]">
+      <div
+        data-demo-chapter-end-panel="true"
+        className="w-[min(560px,calc(100vw-40px))] rounded-2xl border border-cyan-300/28 bg-[#07111F]/97 p-4 shadow-2xl shadow-black/60"
+      >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-200">Chapter pause</div>
+          <div className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-200">{isFinalChapter ? 'Walkthrough complete' : 'Chapter pause'}</div>
           <h2 className="mt-1 text-[17px] font-black leading-tight text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-            {chapter.label} is ready for questions.
+            {isFinalChapter ? '4C360 board walkthrough is complete.' : `${chapter.label} is ready for questions.`}
           </h2>
           <p className="mt-2 text-[12px] leading-5 text-[#B8C7DB]">{section.chapterClosingPrompt.caption}</p>
         </div>
@@ -3180,10 +4253,10 @@ function ChapterEndPanel({
       <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_1fr]">
         <button
           type="button"
-          onClick={onNextChapter}
+          onClick={handleNextChapter}
           className="flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#2E7FFF] px-3 py-2 text-[12px] font-black text-white hover:bg-[#4B91FF]"
         >
-          Next chapter: {nextChapter.shortLabel}
+          {isFinalChapter ? 'Replay walkthrough' : `Next chapter: ${nextChapter.shortLabel}`}
           <ChevronRight size={15} />
         </button>
         <div className="grid grid-cols-2 gap-2">
@@ -3208,7 +4281,7 @@ function ChapterEndPanel({
       <div className="mt-2 flex items-center justify-between gap-2 rounded-xl border border-[#2E7FFF]/16 bg-[#06101F] px-3 py-2">
         <div className="min-w-0">
           <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#7A94B4]">Board Q&A</div>
-          <div className="mt-0.5 truncate text-[12px] font-bold text-[#DCEBFF]">Ask about this chapter before moving on.</div>
+          <div className="mt-0.5 truncate text-[12px] font-bold text-[#DCEBFF]">{isFinalChapter ? 'Discuss pilot scope, rollout, and next steps.' : 'Ask about this chapter before moving on.'}</div>
         </div>
         <DemoVoiceAdvisor
           chapter={chapter}
@@ -3218,6 +4291,7 @@ function ChapterEndPanel({
           onToast={onToast}
           purpose="qna"
         />
+      </div>
       </div>
     </div>
   );
@@ -3231,6 +4305,16 @@ function DemoStage({
   totals,
   onCopySummary,
   demoActionRequest,
+  demoPlaying,
+  portfolioGisActive,
+  portfolioGisZoomedOut,
+  portfolioJltPinPulsing,
+  portfolioJltDrawerOpen,
+  portfolioPropertyCommandScrollActive,
+  portfolioManagerActionActive,
+  portfolioSmartDispatchScrollActive,
+  portfolioSmartDispatchActive,
+  portfolioSmartDispatchAssigned,
 }: {
   chapter: DemoChapter;
   section: DemoSection;
@@ -3239,7 +4323,43 @@ function DemoStage({
   totals: ReturnType<typeof getOutcomeTotals>;
   onCopySummary: () => void;
   demoActionRequest: DemoActionRequest | null;
+  demoPlaying: boolean;
+  portfolioGisActive: boolean;
+  portfolioGisZoomedOut: boolean;
+  portfolioJltPinPulsing: boolean;
+  portfolioJltDrawerOpen: boolean;
+  portfolioPropertyCommandScrollActive: boolean;
+  portfolioManagerActionActive: boolean;
+  portfolioSmartDispatchScrollActive: boolean;
+  portfolioSmartDispatchActive: boolean;
+  portfolioSmartDispatchAssigned: boolean;
 }) {
+  if (chapter.id === 'portfolio' && portfolioGisActive) {
+    return (
+      <div className="h-full min-h-0" data-demo-anchor="portfolio-gis-page">
+          <StrategicDashboard
+            key={portfolioGisZoomedOut ? 'portfolio-gis-all' : 'portfolio-gis-jlt'}
+            onToast={onToast}
+            selectedClientId={portfolioGisZoomedOut ? null : 'CLT-004'}
+            compactClientMarkers={portfolioGisZoomedOut}
+            pulsingClientIds={[
+              ...(portfolioJltPinPulsing ? ['CLT-004'] : []),
+            ]}
+            demoOpenClientId={portfolioJltDrawerOpen ? 'CLT-004' : null}
+            demoPropertyCommandScrollActive={portfolioPropertyCommandScrollActive}
+            demoManagerActionActive={portfolioManagerActionActive}
+            demoSmartDispatchScrollActive={portfolioSmartDispatchScrollActive}
+            demoSmartDispatchActive={portfolioSmartDispatchActive}
+            demoSmartDispatchAssigned={portfolioSmartDispatchAssigned}
+            onNavigateToIncident={() => onToast('Incident focus ready for JLT North Cluster', 'info')}
+            onNavigateToTasks={() => onToast('Field task queue ready for JLT North Cluster', 'info')}
+            onMarkPPMCreated={() => onToast('PPM recovery action prepared for JLT North Cluster', 'success')}
+          ppmCreatedTasks={{}}
+        />
+      </div>
+    );
+  }
+
   if (chapter.screen === 'portfolio') {
     return (
       <AllClients
@@ -3250,6 +4370,7 @@ function DemoStage({
         demoAddPropertySection={chapter.id === 'propertysetup' ? section.id as 'wizard' | 'ai' | 'upload' : undefined}
         demoPortfolioSection={chapter.id === 'portfolio' ? section.id as 'health-actions' | 'portfolio-map' | 'command-path' : undefined}
         demoActionRequest={demoActionRequest}
+        demoPlaying={demoPlaying}
       />
     );
   }
@@ -3304,13 +4425,19 @@ export function InteractiveDemoWalkthrough() {
   const [narrationPhase, setNarrationPhase] = useState<DemoNarrationPhase>('section');
   const [chapterEndOpen, setChapterEndOpen] = useState(false);
   const [timelineElapsedMs, setTimelineElapsedMs] = useState(0);
+  const [seekRequest, setSeekRequest] = useState<DemoSeekRequest | null>(null);
   const [playbackRunId, setPlaybackRunId] = useState(0);
   const [demoActionRequest, setDemoActionRequest] = useState<DemoActionRequest | null>(null);
   const [actionPulseTarget, setActionPulseTarget] = useState<HotspotTarget | null>(null);
+  const [cardFlashTarget, setCardFlashTarget] = useState<HotspotTarget | null>(null);
   const [progressState, setProgressState] = useState<DemoProgressState>(loadDemoProgressState);
   const shareInputRef = useRef<HTMLInputElement>(null);
   const sectionElapsedRef = useRef(0);
   const actionPulseTimerRef = useRef<number | null>(null);
+  const cardFlashTimerRef = useRef<number | null>(null);
+  const scrollAnimationRef = useRef<number | null>(null);
+  const scrollAnimationTargetRef = useRef<HTMLElement | null>(null);
+  const scrollAnimationBehaviorRef = useRef('');
 
   const activeIndex = Math.max(0, DEMO_CHAPTERS.findIndex(chapter => chapter.id === activeId));
   const chapter = DEMO_CHAPTERS[activeIndex] ?? DEMO_CHAPTERS[0];
@@ -3325,6 +4452,9 @@ export function InteractiveDemoWalkthrough() {
   const activeAct = useMemo(() => getActForChapter(chapter.id), [chapter.id]);
   const activeActProgress = useMemo(() => getActProgress(activeAct, completedMissionSet), [activeAct, completedMissionSet]);
   const activeNarrationScript = useMemo(() => getActiveNarrationScript(activeFrame, narrationPhase), [activeFrame, narrationPhase]);
+  const syncedActiveFrameId = narrationPhase === 'intro' && hasFullChapterNarration(chapter.id)
+    ? getSyncedIntroSectionId(chapter.id, frames, timelineElapsedMs, activeNarrationScript.estimatedDurationMs, activeFrame.id)
+    : activeFrame.id;
   const baseHotspotTarget = useMemo<HotspotTarget>(() => ({
     anchor: activeFrame.anchor ?? chapter.anchor,
     fallback: activeFrame.fallback ?? chapter.fallback,
@@ -3333,9 +4463,31 @@ export function InteractiveDemoWalkthrough() {
     () => getActiveTimelineSpotlight(activeNarrationScript, timelineElapsedMs),
     [activeNarrationScript, timelineElapsedMs],
   );
+  const chapterTitleVisible = DEMO_SPOTLIGHTS_ENABLED && autopilot.started && narrationPhase === 'intro' && sectionProgress < 12;
+  const portfolioClarityRevealVisible = !chapterEndOpen
+    && autopilot.started
+    && chapter.id === 'portfolio'
+    && narrationPhase === 'intro'
+    && timelineElapsedMs < PORTFOLIO_CLARITY_REVEAL_MS + 4200;
+  const spotlightVisible = DEMO_SPOTLIGHTS_ENABLED
+    && !chapterEndOpen
+    && autopilot.started
+    && activeSpotlightTarget
+    && (narrationPhase !== 'intro' || (hasFullChapterNarration(chapter.id) && !chapterTitleVisible));
   const hotspotTarget = activeSpotlightTarget ?? baseHotspotTarget;
+  const smartDispatchSpotlightTarget = useMemo<HotspotTarget>(() => ({
+    anchor: 'ai-smart-dispatch-panel',
+    fallback: { left: 61, top: 8, width: 36, height: 64 },
+  }), []);
+  const jltPinClickTarget = useMemo<HotspotTarget>(() => ({
+    anchor: 'gis-jlt-map-pin',
+    fallback: { left: 8, top: 49, width: 8, height: 8 },
+  }), []);
   const anchorBox = useAnchorBox(stageRef, hotspotTarget);
+  const smartDispatchSpotlightBox = useAnchorBox(stageRef, smartDispatchSpotlightTarget);
+  const jltPinClickBox = useAnchorBox(stageRef, jltPinClickTarget);
   const actionPulseBox = useAnchorBox(stageRef, actionPulseTarget ?? baseHotspotTarget);
+  const cardFlashBox = useAnchorBox(stageRef, cardFlashTarget ?? baseHotspotTarget);
   const sectionControlProgress = autopilot.status === 'playing'
     ? sectionProgress
     : Math.round(((activeFrameIndex + 1) / frames.length) * 100);
@@ -3346,10 +4498,43 @@ export function InteractiveDemoWalkthrough() {
   );
   const nextChapter = DEMO_CHAPTERS[(activeIndex + 1) % DEMO_CHAPTERS.length];
   const nextSectionLabel = nextFrame ? `Next: ${nextFrame.label}` : `Next: ${nextChapter.shortLabel}`;
+  const timecodeElapsed = formatDemoTimecode(timelineElapsedMs);
+  const timecodeTotal = formatDemoTimecode(activeNarrationScript.estimatedDurationMs);
+  const timecodeSeekPercent = Math.round(
+    (Math.max(0, Math.min(activeNarrationScript.estimatedDurationMs, timelineElapsedMs))
+      / Math.max(1, activeNarrationScript.estimatedDurationMs)) * 100,
+  );
+  const timecodePhaseLabel = narrationPhase === 'intro'
+    ? 'Chapter audio'
+    : narrationPhase === 'closing' || narrationPhase === 'chapterEnd'
+    ? 'Chapter pause'
+    : 'Section audio';
+  const timecodeChapterLabel = `CH ${String(activeIndex + 1).padStart(2, '0')}`;
+  const portfolioGisActive = chapter.id === 'portfolio'
+    && narrationPhase === 'intro'
+    && timelineElapsedMs >= PORTFOLIO_GIS_HANDOFF_MS;
+  const portfolioGisZoomedOut = portfolioGisActive && timelineElapsedMs >= PORTFOLIO_GIS_ZOOM_OUT_MS;
+  const portfolioJltPinPulsing = portfolioGisZoomedOut && timelineElapsedMs >= 41000;
+  const portfolioJltPinClickActive = portfolioGisZoomedOut && timelineElapsedMs >= 48000 && timelineElapsedMs < 50100;
+  const portfolioJltDrawerOpen = portfolioGisZoomedOut && timelineElapsedMs >= 48600;
+  const portfolioPropertyCommandScrollActive = portfolioGisZoomedOut && timelineElapsedMs >= 52000 && timelineElapsedMs < 66000;
+  const portfolioManagerActionActive = portfolioGisZoomedOut && timelineElapsedMs >= 66000;
+  const portfolioSmartDispatchScrollActive = false;
+  const portfolioSmartDispatchActive = portfolioGisZoomedOut && timelineElapsedMs >= 80000 && timelineElapsedMs < 118000;
+  const portfolioSmartDispatchAssigned = portfolioGisZoomedOut && timelineElapsedMs >= 83500;
   const activeMissionComplete = activeSectionComplete;
   const primaryActionLabel = nextSectionLabel;
   const demoInteractionLocked = autopilot.status === 'playing' && !chapterEndOpen;
   const [presenterNotesOpen, setPresenterNotesOpen] = useState(false);
+
+  const seekToTimecodePercent = useCallback((percent: number) => {
+    const boundedPercent = Math.max(0, Math.min(100, percent));
+    const elapsedMs = Math.round((boundedPercent / 100) * activeNarrationScript.estimatedDurationMs);
+    setChapterEndOpen(false);
+    setTimelineElapsedMs(elapsedMs);
+    setSectionProgress(boundedPercent);
+    setSeekRequest(current => ({ id: (current?.id ?? 0) + 1, elapsedMs }));
+  }, [activeNarrationScript.estimatedDurationMs]);
 
   const selectChapter = useCallback((chapterId: string, frameId?: string) => {
     const nextChapter = getChapterById(chapterId);
@@ -3359,8 +4544,16 @@ export function InteractiveDemoWalkthrough() {
     setNarrationPhase(frameId ? 'section' : 'intro');
     setActiveId(chapterId);
     setActiveFrameId(nextFrameId);
-    updateChapterUrl(chapterId, nextFrameId, { showMode, autoplay: autopilot.status === 'playing' });
-  }, [autopilot.status, showMode]);
+    setAutopilot({ status: 'playing', started: true });
+    setSectionProgress(0);
+    setTimelineElapsedMs(0);
+    setPlaybackRunId(current => current + 1);
+    setDemoActionRequest(null);
+    setActionPulseTarget(null);
+    setCardFlashTarget(null);
+    sectionElapsedRef.current = 0;
+    updateChapterUrl(chapterId, nextFrameId, { showMode, autoplay: true, phase: frameId ? 'section' : 'intro' });
+  }, [showMode]);
 
   const selectFrame = useCallback((frameId: string) => {
     const nextFrameId = resolveFrameId(chapter, frameId);
@@ -3368,8 +4561,16 @@ export function InteractiveDemoWalkthrough() {
     setChapterEndOpen(false);
     setNarrationPhase('section');
     setActiveFrameId(nextFrameId);
-    updateChapterUrl(chapter.id, nextFrameId, { showMode, autoplay: autopilot.status === 'playing' });
-  }, [autopilot.status, chapter, showMode]);
+    setAutopilot({ status: 'playing', started: true });
+    setSectionProgress(0);
+    setTimelineElapsedMs(0);
+    setPlaybackRunId(current => current + 1);
+    setDemoActionRequest(null);
+    setActionPulseTarget(null);
+    setCardFlashTarget(null);
+    sectionElapsedRef.current = 0;
+    updateChapterUrl(chapter.id, nextFrameId, { showMode, autoplay: true, phase: 'section' });
+  }, [chapter, showMode]);
 
   const advanceFrame = useCallback(() => {
     if (nextFrame) {
@@ -3427,6 +4628,7 @@ export function InteractiveDemoWalkthrough() {
     setPlaybackRunId(current => current + 1);
     setDemoActionRequest(null);
     setActionPulseTarget(null);
+    setCardFlashTarget(null);
     sectionElapsedRef.current = 0;
     try {
       window.sessionStorage.removeItem(DEMO_PROGRESS_STORAGE_KEY);
@@ -3455,9 +4657,91 @@ export function InteractiveDemoWalkthrough() {
     target?.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' });
   }, []);
 
+  const cancelSlowScroll = useCallback(() => {
+    if (scrollAnimationRef.current !== null) {
+      window.cancelAnimationFrame(scrollAnimationRef.current);
+      scrollAnimationRef.current = null;
+    }
+    if (scrollAnimationTargetRef.current) {
+      scrollAnimationTargetRef.current.style.scrollBehavior = scrollAnimationBehaviorRef.current;
+      scrollAnimationTargetRef.current = null;
+    }
+  }, []);
+
+  const slowScrollToDemoAnchor = useCallback((anchor: string, durationMs: number) => {
+    const root = stageRef.current;
+    if (!root) return;
+    const target = root.querySelector(`[data-demo-anchor="${anchor}"]`) as HTMLElement | null;
+    if (!target) return;
+
+    let scroller: HTMLElement | null = target.parentElement;
+    while (scroller && scroller !== root) {
+      const styles = window.getComputedStyle(scroller);
+      const canScroll = /(auto|scroll)/.test(styles.overflowY) && scroller.scrollHeight > scroller.clientHeight;
+      if (canScroll) break;
+      scroller = scroller.parentElement;
+    }
+
+    if (!scroller || scroller === root) {
+      target.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' });
+      return;
+    }
+
+    cancelSlowScroll();
+
+    const targetRect = target.getBoundingClientRect();
+    const scrollerRect = scroller.getBoundingClientRect();
+    const startTop = scroller.scrollTop;
+    const targetTop = targetRect.top - scrollerRect.top + scroller.scrollTop - Math.max(16, scroller.clientHeight * 0.08);
+    const maxTop = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+    const endTop = Math.max(0, Math.min(maxTop, targetTop));
+    const distance = endTop - startTop;
+    const startedAt = performance.now();
+    const safeDuration = Math.max(300, durationMs);
+    const originalScrollBehavior = scroller.style.scrollBehavior;
+    scrollAnimationTargetRef.current = scroller;
+    scrollAnimationBehaviorRef.current = originalScrollBehavior;
+    scroller.style.scrollBehavior = 'auto';
+
+    const animate = (now: number) => {
+      const progress = Math.max(0, Math.min(1, (now - startedAt) / safeDuration));
+      const eased = progress < 0.5
+        ? 4 * progress * progress * progress
+        : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+      scroller.scrollTop = startTop + distance * eased;
+      if (progress < 1) {
+        scrollAnimationRef.current = window.requestAnimationFrame(animate);
+        return;
+      }
+      scroller.scrollTop = endTop;
+      scroller.style.scrollBehavior = originalScrollBehavior;
+      scrollAnimationRef.current = null;
+      scrollAnimationTargetRef.current = null;
+    };
+
+    scrollAnimationRef.current = window.requestAnimationFrame(animate);
+  }, [cancelSlowScroll]);
+
   const runDemoAction = useCallback((actionId: string) => {
+    const root = stageRef.current;
+    const demoControl = root?.querySelector(`[data-demo-action="${actionId}"]`) as HTMLElement | null;
+    if (root && demoControl) {
+      const rect = demoControl.getBoundingClientRect();
+      const rootRect = root.getBoundingClientRect();
+      setActionPulseTarget({
+        fallback: {
+          left: ((rect.left - rootRect.left) / Math.max(1, rootRect.width)) * 100,
+          top: ((rect.top - rootRect.top) / Math.max(1, rootRect.height)) * 100,
+          width: (rect.width / Math.max(1, rootRect.width)) * 100,
+          height: (rect.height / Math.max(1, rootRect.height)) * 100,
+        },
+      });
+      if (actionPulseTimerRef.current) window.clearTimeout(actionPulseTimerRef.current);
+      actionPulseTimerRef.current = window.setTimeout(() => setActionPulseTarget(null), 1700);
+    }
+
     const target = getDemoActionAnchor(actionId);
-    if (target) {
+    if (!demoControl && target) {
       setActionPulseTarget(target);
       if (actionPulseTimerRef.current) window.clearTimeout(actionPulseTimerRef.current);
       actionPulseTimerRef.current = window.setTimeout(() => setActionPulseTarget(null), 1300);
@@ -3470,26 +4754,82 @@ export function InteractiveDemoWalkthrough() {
     if (matchedFrame) completeMission(matchedFrame.mission.id);
   }, [allMissionFrames, completeMission]);
 
+  const pulseDemoAnchor = useCallback((target: HotspotTarget, durationMs = 1400) => {
+    setActionPulseTarget(target);
+    if (actionPulseTimerRef.current) window.clearTimeout(actionPulseTimerRef.current);
+    actionPulseTimerRef.current = window.setTimeout(() => setActionPulseTarget(null), durationMs);
+  }, []);
+
+  const flashDemoAnchor = useCallback((target: HotspotTarget, durationMs = 1150) => {
+    setCardFlashTarget(target);
+    if (cardFlashTimerRef.current) window.clearTimeout(cardFlashTimerRef.current);
+    cardFlashTimerRef.current = window.setTimeout(() => setCardFlashTarget(null), durationMs);
+  }, []);
+
   const handleTimelineCue = useCallback((cue: DemoTimelineCue) => {
     if (cue.type === 'scrollTo') {
       scrollToDemoAnchor(cue.anchor);
       return;
     }
 
+    if (cue.type === 'slowScrollTo') {
+      slowScrollToDemoAnchor(cue.anchor, cue.durationMs);
+      return;
+    }
+
     if (cue.type === 'spotlight' && cue.anchor) {
-      scrollToDemoAnchor(cue.anchor);
+      if (DEMO_SPOTLIGHTS_ENABLED) scrollToDemoAnchor(cue.anchor);
+      return;
+    }
+
+    if (cue.type === 'pulse') {
+      pulseDemoAnchor({ anchor: cue.anchor, fallback: cue.fallback }, cue.durationMs);
+      return;
+    }
+
+    if (cue.type === 'pinPulse') {
+      return;
+    }
+
+    if (cue.type === 'flash') {
+      flashDemoAnchor({ anchor: cue.anchor, fallback: cue.fallback }, cue.durationMs);
       return;
     }
 
     if (cue.type === 'demoAction') {
       runDemoAction(cue.actionId);
+      return;
     }
-  }, [runDemoAction, scrollToDemoAnchor]);
+
+    if (cue.type === 'clearDemoAction') {
+      setDemoActionRequest(null);
+      return;
+    }
+
+    if (cue.type === 'chapterPause' && narrationPhase === 'intro' && activeNarrationScript.requiresChapterConfirmation) {
+      getDemoSections(chapter).forEach(section => {
+        if (!isMissionComplete(section.mission.id)) completeMission(section.mission.id);
+      });
+      setNarrationPhase('chapterEnd');
+      setChapterEndOpen(true);
+      setAutopilot(current => ({ status: 'paused', started: current.started }));
+      updateChapterUrl(chapter.id, activeFrame.id, { showMode, autoplay: false });
+    }
+  }, [activeFrame.id, activeNarrationScript.requiresChapterConfirmation, chapter, completeMission, flashDemoAnchor, isMissionComplete, narrationPhase, pulseDemoAnchor, runDemoAction, scrollToDemoAnchor, showMode, slowScrollToDemoAnchor]);
 
   const handleTimelineProgress = useCallback((progress: number, elapsedMs: number) => {
     setSectionProgress(progress);
     setTimelineElapsedMs(elapsedMs);
   }, []);
+
+  const handlePlaybackBlocked = useCallback(() => {
+    setAutopilot(current => current.status === 'playing'
+      ? { status: 'paused', started: current.started }
+      : current);
+    updateChapterUrl(chapter.id, activeFrame.id, { showMode, autoplay: false });
+    setStatusMessage('Audio did not start. Press Play once to continue with sound.');
+    window.setTimeout(() => setStatusMessage('Guided demo ready'), 4200);
+  }, [activeFrame.id, chapter.id, showMode]);
 
   const advanceMissionOrFrame = useCallback(() => {
     if (!isMissionComplete(activeFrame.mission.id)) completeMission(activeFrame.mission.id);
@@ -3511,8 +4851,9 @@ export function InteractiveDemoWalkthrough() {
     setPlaybackRunId(current => current + 1);
     setDemoActionRequest(null);
     setActionPulseTarget(null);
+    setCardFlashTarget(null);
     sectionElapsedRef.current = 0;
-    updateChapterUrl(firstChapter.id, firstSection.id, { showMode: DEFAULT_SHOW_MODE, autoplay: true });
+    updateChapterUrl(firstChapter.id, firstSection.id, { showMode: DEFAULT_SHOW_MODE, autoplay: true, phase: 'intro' });
     setStatusMessage('SUCCESS: Board demo running');
     window.setTimeout(() => setStatusMessage('Guided demo ready'), 2400);
   }, []);
@@ -3532,8 +4873,9 @@ export function InteractiveDemoWalkthrough() {
     setPlaybackRunId(current => current + 1);
     setDemoActionRequest(null);
     setActionPulseTarget(null);
+    setCardFlashTarget(null);
     sectionElapsedRef.current = 0;
-    updateChapterUrl(firstChapter.id, firstSection.id, { showMode: DEFAULT_SHOW_MODE, autoplay: true });
+    updateChapterUrl(firstChapter.id, firstSection.id, { showMode: DEFAULT_SHOW_MODE, autoplay: true, phase: 'intro' });
   }, []);
 
   const toggleAutopilot = useCallback(() => {
@@ -3556,8 +4898,9 @@ export function InteractiveDemoWalkthrough() {
       setPlaybackRunId(current => current + 1);
       setDemoActionRequest(null);
       setActionPulseTarget(null);
+      setCardFlashTarget(null);
       setAutopilot({ status: 'playing', started: true });
-      updateChapterUrl(chapter.id, firstSection.id, { showMode, autoplay: true });
+      updateChapterUrl(chapter.id, firstSection.id, { showMode, autoplay: true, phase: 'intro' });
       return;
     }
     setAutopilot(current => ({ status: playing ? 'playing' : 'paused', started: current.started || playing }));
@@ -3612,6 +4955,7 @@ export function InteractiveDemoWalkthrough() {
 
   useEffect(() => () => {
     if (actionPulseTimerRef.current) window.clearTimeout(actionPulseTimerRef.current);
+    if (cardFlashTimerRef.current) window.clearTimeout(cardFlashTimerRef.current);
   }, []);
 
   useEffect(() => {
@@ -3619,6 +4963,7 @@ export function InteractiveDemoWalkthrough() {
     setTimelineElapsedMs(0);
     setDemoActionRequest(null);
     setActionPulseTarget(null);
+    setCardFlashTarget(null);
     sectionElapsedRef.current = 0;
   }, [activeFrame.id, narrationPhase, showMode]);
 
@@ -3677,20 +5022,25 @@ export function InteractiveDemoWalkthrough() {
       }
 
       setShowIntro(false);
+      const shouldPlay = params.get('autoplay') === 'true';
+      const phaseParam = params.get('phase');
+      const nextNarrationPhase: DemoNarrationPhase = phaseParam === 'intro' || phaseParam === 'section'
+        ? phaseParam
+        : hasFullChapterNarration(next.chapterId) && shouldPlay ? 'intro' : 'section';
       setActiveId(current => {
         if (current === next.chapterId) return current;
         setChapterEndOpen(false);
-        setNarrationPhase('section');
+        setNarrationPhase(nextNarrationPhase);
         return next.chapterId;
       });
       setActiveFrameId(current => {
         if (current === next.frameId) return current;
         setChapterEndOpen(false);
-        setNarrationPhase('section');
+        setNarrationPhase(nextNarrationPhase);
         return next.frameId;
       });
+      if (shouldPlay) setNarrationPhase(nextNarrationPhase);
       setAutopilot(current => {
-        const shouldPlay = params.get('autoplay') === 'true';
         if (shouldPlay && current.status !== 'playing') return { status: 'playing', started: true };
         if (!shouldPlay && current.status === 'playing') return { status: 'paused', started: current.started };
         return current;
@@ -3706,17 +5056,12 @@ export function InteractiveDemoWalkthrough() {
     };
   }, []);
 
-  const swallowDemoInteraction = useCallback((event: SyntheticEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    event.stopPropagation();
-  }, []);
-
   useEffect(() => {
     if (!demoInteractionLocked) return undefined;
 
     const blockInteraction = (event: Event) => {
       const target = event.target instanceof Element ? event.target : null;
-      if (target?.closest('[data-demo-pause-control="true"]')) return;
+      if (target?.closest('[data-demo-pause-control="true"], [data-demo-navigation-control="true"], [data-demo-timecode-control="true"]')) return;
       event.preventDefault();
       event.stopImmediatePropagation();
     };
@@ -3738,6 +5083,28 @@ export function InteractiveDemoWalkthrough() {
       lockedEvents.forEach(eventName => document.removeEventListener(eventName, blockInteraction, true));
     };
   }, [demoInteractionLocked]);
+
+  useEffect(() => {
+    if (autopilot.status === 'playing') return;
+    cancelSlowScroll();
+  }, [autopilot.status, cancelSlowScroll]);
+
+  useEffect(() => {
+    return () => cancelSlowScroll();
+  }, [cancelSlowScroll]);
+
+  useEffect(() => {
+    if (chapter.id !== 'portfolio' || narrationPhase !== 'intro') return;
+
+    if (timelineElapsedMs < PORTFOLIO_GIS_HANDOFF_MS) {
+      if (demoActionRequest?.actionId === 'open-property-command') setDemoActionRequest(null);
+      return;
+    }
+
+    if (timelineElapsedMs >= PORTFOLIO_GIS_HANDOFF_MS && demoActionRequest?.actionId !== 'open-property-command') {
+      setDemoActionRequest({ actionId: 'open-property-command', nonce: Date.now() });
+    }
+  }, [chapter.id, demoActionRequest?.actionId, narrationPhase, timelineElapsedMs]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -3773,6 +5140,17 @@ export function InteractiveDemoWalkthrough() {
     if (autopilot.status !== 'playing') return;
 
     if (narrationPhase === 'intro') {
+      if (activeNarrationScript.requiresChapterConfirmation) {
+        getDemoSections(chapter).forEach(section => {
+          if (!isMissionComplete(section.mission.id)) completeMission(section.mission.id);
+        });
+        setNarrationPhase('chapterEnd');
+        setChapterEndOpen(true);
+        setAutopilot(current => ({ status: 'paused', started: current.started }));
+        updateChapterUrl(chapter.id, activeFrame.id, { showMode, autoplay: false });
+        return;
+      }
+
       setNarrationPhase('section');
       return;
     }
@@ -3793,7 +5171,7 @@ export function InteractiveDemoWalkthrough() {
       setAutopilot(current => ({ status: 'paused', started: current.started }));
       updateChapterUrl(chapter.id, activeFrame.id, { showMode, autoplay: false });
     }
-  }, [activeFrame.id, activeFrame.mission.id, autopilot.status, chapter.id, completeMission, narrationPhase, nextFrame, selectFrame, showMode]);
+  }, [activeFrame.id, activeFrame.mission.id, activeNarrationScript.requiresChapterConfirmation, autopilot.status, chapter, completeMission, isMissionComplete, narrationPhase, nextFrame, selectFrame, showMode]);
 
   const continueToNextChapter = useCallback(() => {
     const nextIndex = (activeIndex + 1) % DEMO_CHAPTERS.length;
@@ -3810,7 +5188,8 @@ export function InteractiveDemoWalkthrough() {
     setPlaybackRunId(current => current + 1);
     setDemoActionRequest(null);
     setActionPulseTarget(null);
-    updateChapterUrl(targetChapter.id, firstSection.id, { showMode, autoplay: true });
+    setCardFlashTarget(null);
+    updateChapterUrl(targetChapter.id, firstSection.id, { showMode, autoplay: true, phase: 'intro' });
   }, [activeIndex, showMode]);
 
   const replayChapter = useCallback(() => {
@@ -3825,7 +5204,8 @@ export function InteractiveDemoWalkthrough() {
     setPlaybackRunId(current => current + 1);
     setDemoActionRequest(null);
     setActionPulseTarget(null);
-    updateChapterUrl(chapter.id, firstSection.id, { showMode, autoplay: true });
+    setCardFlashTarget(null);
+    updateChapterUrl(chapter.id, firstSection.id, { showMode, autoplay: true, phase: 'intro' });
   }, [chapter.id, frames, showMode]);
 
   const replaySection = useCallback(() => {
@@ -3838,7 +5218,8 @@ export function InteractiveDemoWalkthrough() {
     setPlaybackRunId(current => current + 1);
     setDemoActionRequest(null);
     setActionPulseTarget(null);
-    updateChapterUrl(chapter.id, activeFrame.id, { showMode, autoplay: true });
+    setCardFlashTarget(null);
+    updateChapterUrl(chapter.id, activeFrame.id, { showMode, autoplay: true, phase: 'section' });
   }, [activeFrame.id, chapter.id, showMode]);
 
   const closeChapterEndPanel = useCallback(() => {
@@ -3861,24 +5242,61 @@ export function InteractiveDemoWalkthrough() {
 
   return (
     <div className="h-screen overflow-hidden bg-[#030A15] text-[#EEF3FA]">
-      {demoInteractionLocked && (
-        <div
-          data-demo-click-shield="true"
-          aria-hidden="true"
-          className="fixed inset-0 z-[1000] cursor-default bg-transparent"
-          onClick={swallowDemoInteraction}
-          onContextMenu={swallowDemoInteraction}
-          onDoubleClick={swallowDemoInteraction}
-          onPointerDown={swallowDemoInteraction}
-          onPointerUp={swallowDemoInteraction}
-        />
-      )}
       <header className="flex h-16 flex-shrink-0 items-center justify-between gap-3 border-b border-[#2E7FFF]/18 bg-[#07111F] px-4">
         <div className="flex min-w-0 items-center gap-3">
           <img src="/4c-logo.png" alt="4C logo" className="h-9 w-9 rounded-lg object-contain" />
           <div className="min-w-0">
             <div className="truncate text-[15px] font-black text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>DevelopmentX</div>
             <div className="truncate text-[11px] font-semibold text-[#7A94B4]">Powered by 4C360</div>
+          </div>
+        </div>
+        <div
+          data-demo-timecode="true"
+          data-demo-timecode-control="true"
+          className="hidden h-12 min-w-0 max-w-[560px] flex-1 items-center gap-3 rounded-xl border border-cyan-300/20 bg-[#030A15]/74 px-3 py-1 shadow-lg shadow-black/20 md:flex"
+        >
+          <div className="min-w-[88px]">
+            <div className="font-mono text-[17px] font-black leading-none text-white">{timecodeElapsed}</div>
+            <div className="mt-0.5 font-mono text-[10px] font-bold text-[#8EA7C7]">/ {timecodeTotal}</div>
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="mb-1 flex min-w-0 items-center gap-2 text-[9px] font-black uppercase tracking-[0.16em] text-cyan-200">
+              <span>{timecodeChapterLabel}</span>
+              <span className="h-1 w-1 rounded-full bg-cyan-200/70" />
+              <span className="truncate">{timecodePhaseLabel}</span>
+              <span className="hidden min-w-0 truncate text-[#7A94B4] lg:block">{chapter.label} · {activeFrame.title}</span>
+            </div>
+            <input
+              data-demo-timecode-control="true"
+              type="range"
+              min={0}
+              max={100}
+              value={timecodeSeekPercent}
+              onInput={event => seekToTimecodePercent(Number(event.currentTarget.value))}
+              onChange={event => seekToTimecodePercent(Number(event.target.value))}
+              className="h-1.5 w-full cursor-pointer accent-cyan-300"
+              aria-label="Demo audio timeline"
+            />
+          </div>
+          <div className="flex shrink-0 items-center gap-1.5">
+            <button
+              type="button"
+              data-demo-timecode-control="true"
+              onClick={() => seekToTimecodePercent(timecodeSeekPercent - Math.round((10000 / Math.max(1, activeNarrationScript.estimatedDurationMs)) * 100))}
+              className="flex h-7 w-9 items-center justify-center rounded-lg border border-[#2E7FFF]/24 bg-[#06101F] font-mono text-[10px] font-black text-cyan-100 transition-colors hover:border-cyan-300/45 hover:bg-cyan-300/10"
+              aria-label="Rewind 10 seconds"
+            >
+              -10
+            </button>
+            <button
+              type="button"
+              data-demo-timecode-control="true"
+              onClick={() => seekToTimecodePercent(timecodeSeekPercent + Math.round((10000 / Math.max(1, activeNarrationScript.estimatedDurationMs)) * 100))}
+              className="flex h-7 w-9 items-center justify-center rounded-lg border border-[#2E7FFF]/24 bg-[#06101F] font-mono text-[10px] font-black text-cyan-100 transition-colors hover:border-cyan-300/45 hover:bg-cyan-300/10"
+              aria-label="Forward 10 seconds"
+            >
+              +10
+            </button>
           </div>
         </div>
         <div className="relative flex shrink-0 items-center gap-2">
@@ -3985,6 +5403,7 @@ export function InteractiveDemoWalkthrough() {
                 <div key={item.id} className="min-w-[170px] md:min-w-0">
                   <button
                     type="button"
+                    data-demo-navigation-control="true"
                     onClick={() => selectChapter(item.id)}
                     className={`flex w-full items-center gap-2 rounded-xl border px-3 py-2 text-left transition-all md:justify-center md:px-2 2xl:justify-start 2xl:px-3 ${
                       active
@@ -4004,13 +5423,16 @@ export function InteractiveDemoWalkthrough() {
                   {active && (
                     <div className="mt-1.5 hidden space-y-1 pl-10 2xl:block">
                       {itemFrames.map((frame, frameIndex) => {
-                        const frameActive = activeFrame.id === frame.id;
+                        const frameActive = active && syncedActiveFrameId === frame.id;
                         const complete = completedMissionSet.has(frame.mission.id);
                         return (
                           <button
                             key={frame.id}
                             type="button"
-                            onClick={() => selectFrame(frame.id)}
+                            data-demo-navigation-control="true"
+                            data-demo-chapter-id={item.id}
+                            data-demo-section-id={frame.id}
+                            onClick={() => selectChapter(item.id, frame.id)}
                             className={`flex w-full items-center justify-between gap-2 rounded-lg border px-2 py-1.5 text-left text-[11px] font-bold transition-colors ${
                               frameActive
                                 ? 'border-cyan-300/32 bg-cyan-300/12 text-cyan-100'
@@ -4035,18 +5457,74 @@ export function InteractiveDemoWalkthrough() {
             <div className="hidden flex-shrink-0 border-b border-[#2E7FFF]/14 bg-[#07111F] px-4 py-2">
               <ValueSpine totals={outcomeTotals} />
             </div>
+            <div className="flex flex-shrink-0 items-center gap-2 overflow-x-auto border-b border-[#2E7FFF]/14 bg-[#07111F] px-3 py-2 2xl:hidden">
+              <div className="hidden shrink-0 text-[10px] font-black uppercase tracking-[0.16em] text-cyan-200 sm:block">
+                Sections
+              </div>
+              {frames.map((frame, frameIndex) => {
+                const frameActive = syncedActiveFrameId === frame.id;
+                const complete = completedMissionSet.has(frame.mission.id);
+                return (
+                  <button
+                    key={frame.id}
+                    type="button"
+                    data-demo-navigation-control="true"
+                    data-demo-chapter-id={chapter.id}
+                    data-demo-section-id={frame.id}
+                    onClick={() => selectFrame(frame.id)}
+                    className={`inline-flex h-9 shrink-0 items-center gap-2 rounded-lg border px-3 text-[11px] font-black transition-colors ${
+                      frameActive
+                        ? 'border-cyan-300/38 bg-cyan-300/14 text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.12)]'
+                        : 'border-[#2E7FFF]/14 bg-[#06101F] text-[#8EA7C7] hover:border-[#2E7FFF]/30 hover:bg-[#112040] hover:text-white'
+                    }`}
+                    aria-label={`Play ${chapter.label} section ${frameIndex + 1}: ${frame.title}`}
+                  >
+                    <span>{frameIndex + 1}. {frame.title}</span>
+                    {complete && <CheckCircle2 size={12} className="shrink-0 text-emerald-200" />}
+                  </button>
+                );
+              })}
+            </div>
             <div ref={stageRef} className="relative min-h-0 flex-1 overflow-hidden">
               <DemoTimelinePlayer
                 script={activeNarrationScript}
                 status={chapterEndOpen ? 'paused' : autopilot.status}
                 playbackKey={narrationPlaybackKey}
+                seekRequest={seekRequest}
                 onEnded={handleNarrationEnded}
                 onProgress={handleTimelineProgress}
                 onCue={handleTimelineCue}
+                onPlaybackBlocked={handlePlaybackBlocked}
               />
-              <DemoStage key={`${chapter.id}:${activeFrame.id}`} chapter={chapter} section={activeFrame} onToast={onToast} onOpenChapter={selectChapter} totals={outcomeTotals} onCopySummary={copyOutcomeSummary} demoActionRequest={demoActionRequest} />
-              {!chapterEndOpen && autopilot.started && narrationPhase === 'intro' && <IntroDashboardReveal progress={sectionProgress} />}
-              {!chapterEndOpen && autopilot.started && narrationPhase !== 'intro' && activeSpotlightTarget && <StageSpotlight box={anchorBox} fallback={hotspotTarget.fallback} />}
+              <DemoStage
+                key={`${chapter.id}:${activeFrame.id}`}
+                chapter={chapter}
+                section={activeFrame}
+                onToast={onToast}
+                onOpenChapter={selectChapter}
+                totals={outcomeTotals}
+                onCopySummary={copyOutcomeSummary}
+                demoActionRequest={demoActionRequest}
+                demoPlaying={autopilot.status === 'playing'}
+                portfolioGisActive={portfolioGisActive}
+                portfolioGisZoomedOut={portfolioGisZoomedOut}
+                portfolioJltPinPulsing={portfolioJltPinPulsing}
+                portfolioJltDrawerOpen={portfolioJltDrawerOpen}
+                portfolioPropertyCommandScrollActive={portfolioPropertyCommandScrollActive}
+                portfolioManagerActionActive={portfolioManagerActionActive}
+                portfolioSmartDispatchScrollActive={portfolioSmartDispatchScrollActive}
+                portfolioSmartDispatchActive={portfolioSmartDispatchActive}
+                portfolioSmartDispatchAssigned={portfolioSmartDispatchAssigned}
+              />
+              {portfolioClarityRevealVisible && <PortfolioClarityReveal elapsedMs={timelineElapsedMs} />}
+              {!chapterEndOpen && autopilot.started && narrationPhase === 'intro' && !hasFullChapterNarration(chapter.id) && <IntroDashboardReveal progress={sectionProgress} />}
+              {spotlightVisible && <StageSpotlight box={anchorBox} fallback={hotspotTarget.fallback} />}
+              {!chapterEndOpen && portfolioSmartDispatchActive && (
+                <StageSpotlight box={smartDispatchSpotlightBox} fallback={smartDispatchSpotlightTarget.fallback} variant="frame" />
+              )}
+              {!chapterEndOpen && chapterTitleVisible && <ChapterTitleOverlay chapter={chapter} progress={sectionProgress} />}
+              {!chapterEndOpen && cardFlashTarget && <DemoCardFlash box={cardFlashBox} />}
+              {!chapterEndOpen && portfolioJltPinClickActive && <DemoActionPulse box={jltPinClickBox} />}
               {!chapterEndOpen && actionPulseTarget && <DemoActionPulse box={actionPulseBox} />}
               {chapterEndOpen && (
                 <ChapterEndPanel
@@ -4191,6 +5669,9 @@ export function InteractiveDemoWalkthrough() {
                   <button
                     key={frame.id}
                     type="button"
+                    data-demo-navigation-control="true"
+                    data-demo-chapter-id={chapter.id}
+                    data-demo-section-id={frame.id}
                     onClick={() => selectFrame(frame.id)}
                     className={`min-w-0 rounded-xl border px-2 py-2 text-left transition-colors ${
                       active

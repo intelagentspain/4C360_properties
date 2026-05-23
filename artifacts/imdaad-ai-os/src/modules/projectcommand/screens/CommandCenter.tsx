@@ -714,6 +714,194 @@ function ProjectPositionBrief({
   );
 }
 
+function OwnerCommandSurface({
+  context,
+  onPrepare,
+  onAddUpdate,
+  goTo,
+}: {
+  context: ProjectControlContext;
+  onPrepare: (action: ManagerAction) => void;
+  onAddUpdate: () => void;
+  goTo: (screen: ProjectCommandScreen) => void;
+}) {
+  const latest = latestLiveEvent(context);
+  const topAction = context.managerActions[0];
+  const topException = context.controlExceptions[0];
+  const unresolved = context.consequenceSimulation.ifUnresolved.slice(0, 3);
+  const resolved = context.consequenceSimulation.ifResolvedToday.slice(0, 3);
+  const currentSignal = latest
+    ? latest.title
+    : context.projectControlStatus === 'on-track'
+      ? 'Baseline is active and ready for the next control signal'
+      : context.topThreat;
+  const signalDetail = latest
+    ? `${latest.impactLabel} ProjectCommand has recalculated programme, cost, risk, evidence, forecast, and manager actions from the same event.`
+    : `The owner sees ${context.metrics.completion}% progress, ${context.metrics.floatRemaining} days of float, ${formatProjectCurrency(context.metrics.eac)} forecast cost, and ${context.metrics.handoverConfidence}% handover confidence before opening detailed reports.`;
+  const ownerQuestion = topException
+    ? `Do we accept, recover, or escalate ${topException.linkedObject}?`
+    : 'What should leadership review before the next project meeting?';
+  const commandPath: Array<{
+    label: string;
+    value: string;
+    screen: ProjectCommandScreen;
+    tone: string;
+  }> = [
+    { label: 'Programme', value: `${context.metrics.floatRemaining}d float`, screen: 'programme', tone: 'text-cyan-100' },
+    { label: 'Cost', value: formatProjectCurrency(context.metrics.eac), screen: 'cost', tone: 'text-[#FFCD57]' },
+    { label: 'Risk', value: formatProjectCurrency(context.metrics.riskExposure), screen: 'risk', tone: 'text-red-100' },
+    { label: 'Evidence', value: `${context.metrics.evidenceCompleteness}% ready`, screen: 'evidence', tone: 'text-emerald-100' },
+  ];
+
+  return (
+    <motion.section
+      data-demo-anchor="project-overview-command-strip"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="overflow-hidden rounded-2xl border border-cyan-300/22 bg-[linear-gradient(135deg,rgba(7,17,31,0.98),rgba(17,32,64,0.92)_54%,rgba(38,16,80,0.74))] shadow-[0_24px_70px_rgba(0,0,0,0.28)]"
+    >
+      <div className="grid gap-0 xl:grid-cols-[minmax(0,1.25fr)_minmax(360px,0.75fr)]">
+        <div className="p-4 md:p-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100">
+                <Brain size={14} />
+                Owner command decision
+                <span className={`rounded-full border px-2 py-0.5 tracking-normal ${statusClass(context.projectControlStatus)}`}>
+                  {projectStatusLabel(context.projectControlStatus)}
+                </span>
+              </div>
+              <h3 className="mt-2 max-w-4xl text-[24px] font-black leading-[1.08] text-white md:text-[30px]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+                {latest ? 'One project signal has become an owner decision.' : 'One surface tells the owner where the project needs attention.'}
+              </h3>
+              <p className="mt-2 max-w-5xl text-[13px] leading-6 text-[#B8C7DB]">{signalDetail}</p>
+            </div>
+            <div className="grid shrink-0 grid-cols-2 gap-2 sm:grid-cols-4 lg:w-[520px]">
+              {[
+                ['Health', `${context.metrics.healthScore}/100`, 'text-emerald-100'],
+                ['Float', `${context.metrics.floatRemaining}d`, context.metrics.floatRemaining <= 14 ? 'text-red-100' : 'text-cyan-100'],
+                ['EAC', formatProjectCurrency(context.metrics.eac), 'text-[#FFCD57]'],
+                ['Confidence', `${context.metrics.handoverConfidence}%`, 'text-[#DDD6FE]'],
+              ].map(([label, value, tone]) => (
+                <div key={label} className="rounded-xl border border-white/10 bg-[#07111F]/76 px-3 py-2.5">
+                  <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">{label}</p>
+                  <p className={`mt-1 text-[16px] font-black ${tone}`} style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{value}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(300px,0.7fr)]">
+            <div data-demo-anchor="project-overview-what-changed" className="rounded-xl border border-[#2E7FFF]/18 bg-[#07111F]/72 p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#7A94B4]">What changed</p>
+                  <h4 className="mt-1 text-[17px] font-black leading-5 text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{currentSignal}</h4>
+                </div>
+                <span className="shrink-0 rounded-full border border-cyan-300/22 bg-cyan-300/10 px-2 py-1 text-[9px] font-black uppercase text-cyan-100">
+                  Live twin
+                </span>
+              </div>
+              <p className="mt-2 text-[11px] leading-5 text-[#AFC2DC]">
+                {latest
+                  ? `Source: ${latest.affectedModule}. The same signal now updates cost, forecast, gate readiness, risk pressure, and action ownership.`
+                  : `Source: approved baseline. The next site, procurement, commercial, or evidence update will change this decision surface immediately.`}
+              </p>
+              {latest && <div className="mt-3"><EventImpactChips event={latest} compact /></div>}
+            </div>
+
+            <div data-demo-anchor="project-overview-next-decision" className="rounded-xl border border-[#7C3AED]/24 bg-[#7C3AED]/10 p-3">
+              <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#DDD6FE]">Next owner decision</p>
+              <h4 className="mt-1 text-[16px] font-black leading-5 text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+                {topAction?.title ?? ownerQuestion}
+              </h4>
+              <p className="mt-2 text-[11px] leading-5 text-[#D8CDFE]">
+                {topAction
+                  ? `${topAction.expectedImpact} Owner: ${managerActionOwner(topAction)}. Due: ${managerActionDue(topAction)}.`
+                  : ownerQuestion}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {topAction && (
+                  <button
+                    type="button"
+                    onClick={() => onPrepare(topAction)}
+                    className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#7C3AED] px-3 text-[10px] font-black text-white shadow-[0_0_22px_rgba(124,58,237,0.24)] hover:bg-[#6D28D9]"
+                  >
+                    Prepare owner action
+                    <ArrowRight size={12} />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={onAddUpdate}
+                  className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#2E7FFF]/24 bg-[#2E7FFF]/12 px-3 text-[10px] font-black text-[#BFD8FF] hover:bg-[#2E7FFF]/20"
+                >
+                  <Zap size={12} />
+                  Add update
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <aside data-demo-anchor="project-overview-impact-chain" className="border-t border-cyan-300/16 bg-[#07111F]/68 p-4 xl:border-l xl:border-t-0 md:p-5">
+          <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-[#FFB4BC]">
+            <ShieldAlert size={14} />
+            If leadership waits
+          </div>
+          <div className="mt-3 grid gap-2">
+            {unresolved.map(item => (
+              <div key={`${item.label}-${item.value}`} className="rounded-xl border border-red-300/18 bg-red-400/8 px-3 py-2.5">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-[8px] font-black uppercase tracking-[0.14em] text-red-100">{item.label}</p>
+                  <p className="shrink-0 text-[12px] font-black text-[#FFE4E6]">{item.value}</p>
+                </div>
+                <p className="mt-1 text-[10px] leading-4 text-[#FBC5C9]">{item.detail}</p>
+              </div>
+            ))}
+          </div>
+          <div className="mt-3 rounded-xl border border-emerald-300/18 bg-emerald-300/8 p-3">
+            <p className="text-[9px] font-black uppercase tracking-[0.16em] text-emerald-100">If action is taken now</p>
+            <div className="mt-2 grid gap-2 sm:grid-cols-3 xl:grid-cols-1 2xl:grid-cols-3">
+              {resolved.map(item => (
+                <div key={`${item.label}-${item.value}`} className="rounded-lg bg-[#07111F]/72 px-2.5 py-2">
+                  <p className="text-[8px] font-black uppercase text-emerald-100">{item.label}</p>
+                  <p className="mt-0.5 text-[10px] font-bold leading-4 text-[#DDFBEA]">{item.value}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      <div className="border-t border-[#2E7FFF]/18 bg-[#07111F]/76 px-4 py-3 md:px-5">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <div>
+            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#7A94B4]">Command path</p>
+            <p className="mt-1 text-[11px] leading-5 text-[#AFC2DC]">Open the control lane that explains the decision instead of sending the team back to separate reports.</p>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-4 xl:w-[760px]">
+            {commandPath.map(item => (
+              <button
+                key={item.label}
+                type="button"
+                onClick={() => goTo(item.screen)}
+                className="group flex min-h-[58px] items-center justify-between gap-3 rounded-xl border border-[#2E7FFF]/18 bg-[#112040]/76 px-3 py-2 text-left transition-colors hover:border-cyan-300/32 hover:bg-[#16315A]"
+              >
+                <span>
+                  <span className="block text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">{item.label}</span>
+                  <span className={`mt-0.5 block text-[12px] font-black ${item.tone}`}>{item.value}</span>
+                </span>
+                <ArrowRight size={13} className="shrink-0 text-[#8EA7C7] transition-transform group-hover:translate-x-0.5 group-hover:text-cyan-100" />
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </motion.section>
+  );
+}
+
 function controlLogOutcome(event: ProjectControlContext['events'][number]) {
   const outcomes: Partial<Record<ProjectEventType, { label: string; toast: string }>> = {
     'facade-delay': {
@@ -2635,11 +2823,11 @@ export function CommandCenter({
   return (
     <div className="custom-scrollbar h-full overflow-x-hidden overflow-y-auto px-5 py-4 text-[#EEF3FA]">
       <div className="space-y-4">
-        <ProjectPulse context={context} onExplain={() => setSelectedInsight({ metricName: 'Float Remaining', value: `${context.metrics.floatRemaining}d` })} />
-        <ProjectPositionBrief
+        <OwnerCommandSurface
           context={context}
           onPrepare={handleQueueAction}
           onAddUpdate={() => setIsUpdateDrawerOpen(true)}
+          goTo={goTo}
         />
 
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-start">

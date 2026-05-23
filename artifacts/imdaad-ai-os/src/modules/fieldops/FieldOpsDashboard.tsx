@@ -2314,13 +2314,13 @@ export function FieldOpsDashboard({ onToast }: Props) {
         </div>
 
         {tab === 'surveys' && (
-          <div className="mt-4 rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)]">
+          <div className="mt-4 rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)]" data-demo-anchor="fieldops-work-queue">
             <div className="flex flex-col gap-3 border-b border-[rgba(46,127,255,0.12)] p-4 lg:flex-row lg:items-center lg:justify-between">
-              <div>
+              <div data-demo-anchor="fieldops-surveys-inspections">
                 <h2 className="text-sm font-black" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Active Surveys</h2>
                 <p className="mt-1 text-[11px] text-[#7A94B4]">{activeSurveyCount} active surveys ready to design, assign, share, duplicate, archive, and track.</p>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2" data-demo-anchor="fieldops-issue-capture">
                 <div className="relative">
                   <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#7A94B4]" />
                   <input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search surveys" className={`${fieldInput} w-64 pl-9`} />
@@ -2343,17 +2343,19 @@ export function FieldOpsDashboard({ onToast }: Props) {
                         </button>
                       </td>
                       <td className="px-4 py-3 text-[#B8C7DB]">{survey.type}</td>
-                      <td className="px-4 py-3"><Badge tone={survey.status}>{survey.status}</Badge></td>
+                      <td className="px-4 py-3" data-demo-anchor="fieldops-progress-status-update"><Badge tone={survey.status}>{survey.status}</Badge></td>
                       <td className="px-4 py-3 text-[#B8C7DB]">{survey.assignedTo}</td>
                       <td className="px-4 py-3 text-[#B8C7DB]">{survey.captureMethod}</td>
                       <td className="px-4 py-3 font-mono font-bold">{survey.responses}</td>
                       <td className="px-4 py-3 text-[#7A94B4]">{survey.lastUpdated}</td>
                       <td className="px-4 py-3">
-                        <div className="flex flex-wrap gap-1">
+                        <div className="flex flex-wrap gap-1" data-demo-anchor="fieldops-evidence-capture">
                           {actionButton('Edit', 'design', survey, PencilRuler, survey.status === 'Completed')}
                           {actionButton('Assign', 'assign', survey, Users)}
                           {actionButton('Share', 'share', survey, Link2)}
-                          <ActionIconButton label="Track" icon={RadioTower} onClick={() => setTab('tracking')} />
+                          <span data-demo-anchor="fieldops-command-link">
+                            <ActionIconButton label="Track" icon={RadioTower} onClick={() => setTab('tracking')} />
+                          </span>
                           <ActionIconButton label="Duplicate" icon={Copy} onClick={() => onToast('Survey duplicated as draft', 'success')} />
                           <ActionIconButton label="Archive" icon={Archive} danger onClick={() => onToast('Archive action queued', 'info')} />
                         </div>
