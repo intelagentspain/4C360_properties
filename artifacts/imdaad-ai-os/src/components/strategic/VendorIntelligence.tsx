@@ -6351,9 +6351,9 @@ export function VendorIntelligence({ onToast }: Props) {
 
       <div className="flex-1 overflow-y-auto custom-scrollbar px-5 py-4">
         {filterTab === 'copilot' && (
-        <div className="overflow-hidden rounded-2xl border border-[#2E7FFF]/28 bg-[linear-gradient(135deg,rgba(17,32,64,0.96),rgba(7,17,31,0.98))] shadow-[0_18px_50px_rgba(0,0,0,0.22)]">
+        <div className="overflow-hidden rounded-2xl border border-[#2E7FFF]/28 bg-[linear-gradient(135deg,rgba(17,32,64,0.96),rgba(7,17,31,0.98))] shadow-[0_18px_50px_rgba(0,0,0,0.22)]" data-demo-anchor="vendor-performance-scorecard">
           <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[rgba(46,127,255,0.16)] bg-[linear-gradient(90deg,rgba(46,127,255,0.18),rgba(237,29,46,0.10),rgba(7,17,31,0))] px-5 py-4">
-            <div>
+            <div data-demo-anchor="vendor-comparison-context">
               <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[#2E7FFF]/30 bg-[#2E7FFF]/12 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-[#8DBDFF]">
                 <Sparkles size={12} />
                 Procurement Copilot
@@ -6361,20 +6361,21 @@ export function VendorIntelligence({ onToast }: Props) {
               <h3 className="text-lg font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
                 Source, compare, check, and negotiate vendors from this page
               </h3>
-              <p className="mt-1 max-w-3xl text-[12px] leading-5 text-[#9CB1CC]">
+              <p className="mt-1 max-w-3xl text-[12px] leading-5 text-[#9CB1CC]" data-demo-anchor="vendor-project-impact-link">
                 Current action pack target is <span className="font-bold text-[#EEF3FA]">{pageCopilotVendor.name}</span> for operational recovery. You can switch vendor and targets inside the wizard before generating.
               </p>
             </div>
             <button
               type="button"
               onClick={openPageCopilotModal}
+              data-demo-anchor="vendor-risk-repeat-issues"
               className="inline-flex items-center gap-2 rounded-xl border border-[#2E7FFF]/30 bg-[#2E7FFF]/14 px-4 py-2 text-[11px] font-black text-[#8DBDFF] transition-all hover:bg-[#2E7FFF]/22 hover:text-white"
             >
               <MessageSquare size={13} />
-              How can I help?
+              <span data-demo-anchor="vendor-corrective-action-pack">How can I help?</span>
             </button>
           </div>
-          <div className="p-4">
+          <div className="p-4" data-demo-anchor="vendor-sla-quality-evidence">
             <VendorCopilotWorkbench
               result={pageCopilotResult}
               log={pageCopilotLog}
@@ -6389,7 +6390,7 @@ export function VendorIntelligence({ onToast }: Props) {
         )}
 
         {filterTab !== 'copilot' && (
-        <div className="bg-[rgba(17,32,64,0.85)] border border-[rgba(46,127,255,0.2)] rounded-xl overflow-hidden">
+        <div className="bg-[rgba(17,32,64,0.85)] border border-[rgba(46,127,255,0.2)] rounded-xl overflow-hidden" data-demo-anchor="vendor-comparison-context">
           <div className="grid grid-cols-[2fr_70px_100px_80px_90px_90px_80px_36px] px-4 py-2 text-[9px] text-[#7A94B4] uppercase tracking-wide border-b border-[rgba(46,127,255,0.1)]">
             {['Vendor', 'Score', 'Risk Level', 'Trend', 'SLA %', 'Avg Cost', 'Contracts', ''].map(h => (
               <div key={h}>{h}</div>
@@ -6410,6 +6411,7 @@ export function VendorIntelligence({ onToast }: Props) {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.04 }}
                   onClick={() => setSelectedVendor(vendor)}
+                  data-demo-anchor={i === 0 ? 'vendor-project-impact-link' : undefined}
                   className="w-full text-left grid grid-cols-[2fr_70px_100px_80px_90px_90px_80px_36px] px-4 py-3 border-b border-[rgba(46,127,255,0.07)] hover:bg-white/[0.025] transition-all items-center group"
                 >
                   <div className="min-w-0">
@@ -6419,7 +6421,7 @@ export function VendorIntelligence({ onToast }: Props) {
                   <div className="flex items-center gap-1.5">
                     <span className="text-[13px] font-bold" style={{ color: scoreColor(vs), fontFamily: 'Space Grotesk, sans-serif' }}>{vs}</span>
                   </div>
-                  <div>
+                  <div data-demo-anchor={i === 0 ? 'vendor-risk-repeat-issues' : undefined}>
                     <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${riskBg(vr)}`}>{vr}</span>
                   </div>
                   <div className="flex items-center gap-1">

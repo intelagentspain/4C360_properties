@@ -6,6 +6,7 @@ import {
   generateRefreshToken,
   getConfiguredAdminIdentity,
   getPermissionsForRole,
+  isDemoAuthEnabled,
   publicUserResponse,
   verifyRefreshToken,
   type AuthUser,
@@ -13,6 +14,7 @@ import {
 import { logger } from "../lib/logger";
 
 const router = Router();
+const DEMO_ADMIN_PASSWORD = process.env.DEMO_ADMIN_PASSWORD?.trim() || "password";
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -59,7 +61,23 @@ router.post("/auth/login", loginLimiter, async (req: Request, res: Response) => 
   const admin = configuredAdminOrNull();
   const passwordHash = process.env.ADMIN_PASSWORD_HASH?.trim();
 
-  if (!admin || !passwordHash) {
+  if (!admin) {
+    res.status(503).json({ ok: false, error: "Authentication is not configured." });
+    return;
+  }
+
+  if (!passwordHash && isDemoAuthEnabled()) {
+    if (normalizedEmail !== admin.email || password !== DEMO_ADMIN_PASSWORD) {
+      res.status(401).json({ ok: false, error: "Invalid credentials." });
+      return;
+    }
+
+    logger.warn({ email: admin.email }, "Using demo authentication fallback");
+    res.json(issueSession(admin));
+    return;
+  }
+
+  if (!passwordHash) {
     res.status(503).json({ ok: false, error: "Authentication is not configured." });
     return;
   }

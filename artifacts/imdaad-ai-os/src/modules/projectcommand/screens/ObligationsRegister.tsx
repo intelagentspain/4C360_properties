@@ -214,7 +214,7 @@ export function ObligationsRegister({ onToast }: { onToast?: (message: string, t
           </div>
         </div>
 
-        <div className="mt-4 overflow-x-auto rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)]">
+        <div className="mt-4 overflow-x-auto rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)]" data-demo-anchor="obligation-due-overdue-upcoming">
           <table className="w-full min-w-[1080px] text-left">
             <thead>
               <tr className="border-b border-[rgba(46,127,255,0.14)] bg-[#0A1628]/85 text-[11px] font-black uppercase tracking-wide text-[#5A6E88]">
@@ -229,18 +229,19 @@ export function ObligationsRegister({ onToast }: { onToast?: (message: string, t
               </tr>
             </thead>
             <tbody>
-              {filtered.map(item => {
+              {filtered.map((item, index) => {
                 const active = item.code === selected?.code;
                 return (
                   <tr
                     key={item.code}
                     onClick={() => setSelectedCode(item.code)}
+                    data-demo-anchor={index === 0 ? 'obligation-consequence-priority' : undefined}
                     className={`cursor-pointer border-b border-[rgba(46,127,255,0.08)] transition-colors ${active ? 'bg-cyan-400/10' : 'bg-[#0A1628]/55 hover:bg-white/[0.035]'}`}
                   >
                     <td className="px-6 py-5 align-top font-mono text-[13px] font-black text-cyan-300">{item.code}</td>
                     <td className="px-4 py-5 align-top">
-                      <p className="max-w-[260px] text-[14px] font-black leading-5 text-[#DDE6F8]">{item.obligation}</p>
-                      <p className="mt-1 text-[11px] text-[#5A6E88]">{item.category}</p>
+                      <p className="max-w-[260px] text-[14px] font-black leading-5 text-[#DDE6F8]" data-demo-anchor={index === 0 ? 'obligations-linked-to-delivery' : undefined}>{item.obligation}</p>
+                      <p className="mt-1 text-[11px] text-[#5A6E88]" data-demo-anchor={index === 0 ? 'obligation-evidence-requirements' : undefined}>{item.category}</p>
                     </td>
                     <td className="px-4 py-5 align-top">
                       <p className="max-w-[190px] text-[14px] text-[#BCC8DC]">{item.authority}</p>
@@ -250,7 +251,7 @@ export function ObligationsRegister({ onToast }: { onToast?: (message: string, t
                     <td className="px-4 py-5 align-top text-[12px] leading-5 text-[#A8B3C7]">{item.stage}</td>
                     <td className="px-4 py-5 align-top text-[14px] text-[#DDE6F8]">{item.dueDate}</td>
                     <td className="px-4 py-5 align-top"><StatusBadge status={item.status} /></td>
-                    <td className="px-4 py-5 align-top text-[14px] text-[#DDE6F8]">{item.owner}</td>
+                    <td className="px-4 py-5 align-top text-[14px] text-[#DDE6F8]" data-demo-anchor={index === 0 ? 'obligation-owner-accountability' : undefined}>{item.owner}</td>
                   </tr>
                 );
               })}
