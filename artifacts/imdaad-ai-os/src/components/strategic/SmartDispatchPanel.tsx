@@ -116,7 +116,7 @@ export function SmartDispatchPanel({ onToast, filters, demoScrollActive = false,
       const maxTop = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
       const endTop = Math.max(0, Math.min(maxTop, targetTop));
       const distance = endTop - startTop;
-      const duration = 28000;
+      const duration = 10000;
       const startedAt = performance.now();
 
       const step = (now: number) => {

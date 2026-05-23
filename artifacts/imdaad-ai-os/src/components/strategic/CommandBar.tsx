@@ -360,6 +360,7 @@ interface AddClientModalProps {
   onClose: () => void;
   onSave: (data: ClientData, teamMembers: TeamMember[], inviteOk: boolean, failedCount: number, options?: { keepOpen?: boolean }) => void;
   demoSection?: 'wizard' | 'ai' | 'upload';
+  demoActionRequest?: { actionId: string; nonce: number } | null;
 }
 
 const SECTION_ICONS = {
@@ -619,6 +620,13 @@ function mapDemoSectionToIntakeMode(demoSection?: 'wizard' | 'ai' | 'upload'): P
   return null;
 }
 
+function propertyIntakeDemoAnchor(mode: PropertyIntakeMode) {
+  if (mode === 'wizard') return 'property-onboarding-choice-wizard';
+  if (mode === 'ai-brief') return 'property-onboarding-choice-ai';
+  if (mode === 'file-upload') return 'property-onboarding-choice-upload';
+  return 'property-onboarding-choice-api';
+}
+
 function ConfidenceBadge({ confidence, needsConfirmation }: { confidence: number; needsConfirmation?: boolean }) {
   return (
     <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-bold ${
@@ -631,7 +639,7 @@ function ConfidenceBadge({ confidence, needsConfirmation }: { confidence: number
   );
 }
 
-export function AddClientModal({ onClose, onSave, demoSection }: AddClientModalProps) {
+export function AddClientModal({ onClose, onSave, demoSection, demoActionRequest }: AddClientModalProps) {
   const [activeTab, setActiveTab]             = useState<Tab>('business');
   const [name, setName]                       = useState('');
   const [sector, setSector]                   = useState('');
@@ -687,12 +695,15 @@ export function AddClientModal({ onClose, onSave, demoSection }: AddClientModalP
     const demoMode = mapDemoSectionToIntakeMode(demoSection);
     if (demoMode) setIntakeMode(demoMode);
 
-    if (!name) setName('Sobha Pilot Tower');
-    if (!sector) setSector('Real Estate');
-    if (!industrySubtype) setIndustrySubtype('High-Rise Residential');
-    if (siteNames.length === 1 && !siteNames[0]) setSiteNames(['Sobha Pilot Tower']);
-    if (!contractType) setContractType('Integrated FM');
-    if (!slaTier) setSlaTier('Platinum');
+    const shouldSeedImmediately = demoSection !== 'wizard';
+    if (shouldSeedImmediately) {
+      if (!name) setName('Sobha Pilot Tower');
+      if (!sector) setSector('Real Estate');
+      if (!industrySubtype) setIndustrySubtype('High-Rise Residential');
+      if (siteNames.length === 1 && !siteNames[0]) setSiteNames(['Sobha Pilot Tower']);
+      if (!contractType) setContractType('Integrated FM');
+      if (!slaTier) setSlaTier('Platinum');
+    }
 
     if (demoSection === 'wizard') setActiveTab('business');
     if (demoSection === 'ai') setActiveTab('sites');
@@ -702,7 +713,210 @@ export function AddClientModal({ onClose, onSave, demoSection }: AddClientModalP
       setKbDocs([{ id: 'demo-handover-pack', title: 'Handover pack / asset register', url: 'sobha-pilot-tower-handover.xlsx' }]);
       setKbNotes('Upload property packs, asset registers, contracts, SOPs, warranties, and authority documents so 4C360 can build the operating context from day one.');
     }
-  }, [contractType, demoSection, industrySubtype, kbDocs.length, name, sector, siteNames, slaTier]);
+  }, [demoSection]);
+
+  useEffect(() => {
+    const actionId = demoActionRequest?.actionId;
+    if (!actionId) return;
+
+    if (actionId === 'open-add-property-wizard') {
+      setIntakeMode('wizard');
+      setActiveTab('business');
+      return;
+    }
+
+    if (!actionId.startsWith('property-wizard-')) return;
+
+    setIntakeMode('wizard');
+
+    if (actionId === 'property-wizard-fill-name') {
+      setActiveTab('business');
+      setName('Sobha Pilot Tower');
+      setErrors(prev => {
+        const next = { ...prev };
+        delete next.name;
+        return next;
+      });
+      return;
+    }
+
+    if (actionId === 'property-wizard-fill-sector') {
+      setActiveTab('business');
+      setSector('Real Estate');
+      setIndustrySubtype('');
+      setErrors(prev => {
+        const next = { ...prev };
+        delete next.sector;
+        return next;
+      });
+      return;
+    }
+
+    if (actionId === 'property-wizard-fill-subtype') {
+      setActiveTab('business');
+      setIndustrySubtype('High-Rise Residential');
+      return;
+    }
+
+    if (actionId === 'property-wizard-fill-contact') {
+      setActiveTab('business');
+      setContactName('Layla Al Farsi');
+      setContactEmail('layla.alfarsi@sobhapilot.ae');
+      setContactPhone('+971 50 555 0188');
+      setAccountManager('Karim R.');
+      setContractType('Integrated FM');
+      setSlaTier('Platinum');
+      setContractStart('2026-06-01');
+      setContractEnd('2027-05-31');
+      setContractValue('1200000');
+      setErrors(prev => {
+        const next = { ...prev };
+        delete next.contactName;
+        return next;
+      });
+      return;
+    }
+
+    if (actionId === 'property-wizard-tab-sites') {
+      setActiveTab('sites');
+      return;
+    }
+
+    if (actionId === 'property-wizard-fill-site') {
+      setActiveTab('sites');
+      setSiteNames(['Sobha Pilot Tower']);
+      setSiteAssets(prev => ({ ...prev, 0: prev[0] ?? [] }));
+      setErrors(prev => {
+        const next = { ...prev };
+        delete next.sites;
+        return next;
+      });
+      return;
+    }
+
+    if (actionId === 'property-wizard-ai-assets') {
+      setActiveTab('sites');
+      setSiteAssets({
+        0: [
+          {
+            ...EMPTY_ASSET(),
+            assetName: 'Tower lift bank',
+            category: 'Elevators',
+            type: 'Passenger Elevator',
+            assignedSite: 'Sobha Pilot Tower',
+            quantity: '6',
+            installYear: '2024',
+            condition: 'Good',
+            notes: 'Resident lift availability and handover readiness watch item',
+          },
+          {
+            ...EMPTY_ASSET(),
+            assetName: 'Emergency power supply',
+            category: 'Electrical',
+            type: 'Generator',
+            assignedSite: 'Sobha Pilot Tower',
+            quantity: '1',
+            installYear: '2024',
+            condition: 'Good',
+            notes: 'Backup supply evidence and commissioning record required',
+          },
+          {
+            ...EMPTY_ASSET(),
+            assetName: 'Tower HVAC backbone',
+            category: 'HVAC',
+            type: 'AHU',
+            assignedSite: 'Sobha Pilot Tower',
+            quantity: '12',
+            installYear: '2024',
+            condition: 'Commissioning',
+            notes: 'Connects operating signals into the portfolio command view',
+          },
+        ],
+      });
+      return;
+    }
+
+    if (actionId === 'property-wizard-tab-team') {
+      setActiveTab('team');
+      return;
+    }
+
+    if (actionId === 'property-wizard-fill-team') {
+      setActiveTab('team');
+      setTeamMembers([{
+        ...EMPTY_MEMBER(),
+        name: 'Karim R.',
+        email: 'karim.r@developmentx.ae',
+        role: 'Site Supervisor',
+        perspective: 'Operational',
+        assignedClients: ['Sobha Pilot Tower'],
+        zones: ['Dubai Marina'],
+        skills: ['Lift response', 'Evidence capture', 'Resident SLA'],
+        responsibilities: ['Dispatch site team', 'Close field evidence', 'Escalate readiness blockers'],
+        privileges: ['fieldops.dispatch', 'evidence.upload'],
+        mobile: '+971 50 555 0142',
+        whatsapp: '+971 50 555 0142',
+        location: 'Dubai Marina',
+        availability: 'Available',
+        shift: 'Day',
+        commChannels: ['WhatsApp', 'Email'],
+      }]);
+      setErrors(prev => {
+        const next = { ...prev };
+        delete next.team_required;
+        return next;
+      });
+      return;
+    }
+
+    if (actionId === 'property-wizard-tab-knowledge') {
+      setActiveTab('knowledge');
+      return;
+    }
+
+    if (actionId === 'property-wizard-fill-knowledge') {
+      setActiveTab('knowledge');
+      setKbNotes('Handover pack, authority approvals, warranty register, lift SLA escalation matrix, resident service rules, and commissioning evidence linked to Sobha Pilot Tower.');
+      setKbDocs([
+        { id: 'demo-handover-pack', title: 'Handover readiness pack', url: 'sobha-pilot-handover-pack.pdf' },
+        { id: 'demo-asset-register', title: 'Asset register and PPM basis', url: 'sobha-pilot-asset-register.xlsx' },
+      ]);
+      return;
+    }
+
+    if (actionId === 'property-wizard-tab-budget') {
+      setActiveTab('budget');
+      return;
+    }
+
+    if (actionId === 'property-wizard-fill-budget') {
+      setActiveTab('budget');
+      setBudgetAnnual('4200000');
+      setBudgetCurrency('AED');
+      setBudgetCostCentre('DX-SOBHA-PILOT-01');
+      setBudgetApprovalThreshold('25000');
+      setBudgetServiceLines([
+        { id: 'demo-budget-mep', service: 'MEP', allocated: '1800000', actual: '1240000' },
+        { id: 'demo-budget-soft', service: 'Cleaning', allocated: '620000', actual: '410000' },
+        { id: 'demo-budget-security', service: 'Security', allocated: '780000', actual: '515000' },
+      ]);
+      return;
+    }
+
+    if (actionId === 'property-wizard-tab-inventory') {
+      setActiveTab('inventory');
+      return;
+    }
+
+    if (actionId === 'property-wizard-fill-inventory') {
+      setActiveTab('inventory');
+      setInventoryItems([
+        { id: 'demo-inventory-1', itemName: 'Lift rescue kit', category: 'Safety', quantity: '4', unit: 'Sets', site: 'Sobha Pilot Tower' },
+        { id: 'demo-inventory-2', itemName: 'HVAC filters', category: 'Spare Parts', quantity: '36', unit: 'Pcs', site: 'Sobha Pilot Tower' },
+        { id: 'demo-inventory-3', itemName: 'Fire extinguisher spare stock', category: 'Safety', quantity: '24', unit: 'Pcs', site: 'Sobha Pilot Tower' },
+      ]);
+    }
+  }, [demoActionRequest?.actionId, demoActionRequest?.nonce]);
 
   const detectSiteLocation = async (siteIdx: number) => {
     setGeoErrors(prev => { const next = { ...prev }; delete next[siteIdx]; return next; });
@@ -1149,7 +1363,7 @@ export function AddClientModal({ onClose, onSave, demoSection }: AddClientModalP
       const assetErrKeys = Object.keys(errs).filter(k => k.startsWith('asset_'));
       if (teamErrKeys.length > 0 || errs.team_required) setActiveTab('team');
       else if (assetErrKeys.length > 0 || errs.sites) setActiveTab('sites');
-      else if (errs.name || errs.sector || errs.contactName || errs.contractType || errs.contractStart || errs.slaTier) setActiveTab('business');
+      else if (errs.name || errs.sector || errs.contactName) setActiveTab('business');
       return;
     }
 
@@ -1238,7 +1452,7 @@ export function AddClientModal({ onClose, onSave, demoSection }: AddClientModalP
   };
 
   const tabHasError = (tab: Tab): boolean => {
-    if (tab === 'business') return !!(errors.name || errors.sector || errors.contactName || errors.contractType || errors.contractStart || errors.slaTier);
+    if (tab === 'business') return !!(errors.name || errors.sector || errors.contactName);
     if (tab === 'sites') return !!(errors.sites) || Object.keys(errors).some(k => k.startsWith('asset_'));
     if (tab === 'team') return !!(errors.team_required) || Object.keys(errors).some(k => k.startsWith('team_') && k !== 'team_required');
     return false;
@@ -1302,6 +1516,8 @@ export function AddClientModal({ onClose, onSave, demoSection }: AddClientModalP
             return (
               <button
                 key={tab.key}
+                data-demo-anchor={`property-wizard-tab-${tab.key}`}
+                data-demo-action={`property-wizard-tab-${tab.key}`}
                 onClick={() => setActiveTab(tab.key)}
                 className={`flex items-center gap-1.5 px-3 py-2 text-[11px] font-semibold rounded-t-lg transition-all border-b-2 -mb-px relative ${
                   isActive
@@ -1345,6 +1561,8 @@ export function AddClientModal({ onClose, onSave, demoSection }: AddClientModalP
                   <button
                     key={option.mode}
                     type="button"
+                    data-demo-anchor={propertyIntakeDemoAnchor(option.mode)}
+                    data-demo-action={option.mode === 'wizard' ? 'open-add-property-wizard' : undefined}
                     onClick={() => {
                       setIntakeMode(option.mode);
                       setIntakeStep('import');
@@ -1705,10 +1923,10 @@ export function AddClientModal({ onClose, onSave, demoSection }: AddClientModalP
           <>
 
           {activeTab === 'business' && (
-            <div className="space-y-4">
+            <div className="space-y-4" data-demo-anchor="property-wizard-business">
               <SectionHeader icon={SECTION_ICONS.business} title="Business Information" />
               <div className="grid grid-cols-2 gap-3">
-                <div className="col-span-2">
+                <div className="col-span-2" data-demo-anchor="property-wizard-name-field" data-demo-action="property-wizard-fill-name">
                   <FieldLabel label="Property Name" required />
                   <input
                     autoFocus
@@ -1720,7 +1938,7 @@ export function AddClientModal({ onClose, onSave, demoSection }: AddClientModalP
                   {errors.name && <p className="mt-0.5 text-[10px] text-red-400">{errors.name}</p>}
                 </div>
 
-                <div>
+                <div data-demo-anchor="property-wizard-sector-field" data-demo-action="property-wizard-fill-sector">
                   <FieldLabel label="Sector" required />
                   <div className="relative">
                     <select
@@ -1737,7 +1955,7 @@ export function AddClientModal({ onClose, onSave, demoSection }: AddClientModalP
                   {errors.sector && <p className="mt-0.5 text-[10px] text-red-400">{errors.sector}</p>}
                 </div>
 
-                <div>
+                <div data-demo-anchor="property-wizard-subtype-field" data-demo-action="property-wizard-fill-subtype">
                   <FieldLabel label="Industry Sub-type" />
                   <div className="relative">
                     <select
@@ -1786,7 +2004,7 @@ export function AddClientModal({ onClose, onSave, demoSection }: AddClientModalP
                 </div>
               </div>
 
-              <SectionHeader icon={SECTION_ICONS.contract} title="Contract Details" />
+              <div className="hidden" aria-hidden="true">
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <FieldLabel label="Contract Type" required />
@@ -1854,6 +2072,9 @@ export function AddClientModal({ onClose, onSave, demoSection }: AddClientModalP
                 </div>
               </div>
 
+              </div>
+
+              <div data-demo-anchor="property-wizard-contact-fields" data-demo-action="property-wizard-fill-contact">
               <SectionHeader icon={SECTION_ICONS.contact} title="Primary Contact" />
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -1899,11 +2120,12 @@ export function AddClientModal({ onClose, onSave, demoSection }: AddClientModalP
                   />
                 </div>
               </div>
+              </div>
             </div>
           )}
 
           {activeTab === 'sites' && (
-            <div className="space-y-3">
+            <div className="space-y-3" data-demo-anchor="property-wizard-sites">
               <SectionHeader icon={SECTION_ICONS.sites} title="Sites / Zones & Assets" />
 
               <div className="flex items-center gap-3 text-[11px] text-[#7A94B4]">
@@ -1922,7 +2144,7 @@ export function AddClientModal({ onClose, onSave, demoSection }: AddClientModalP
                   const siteCategories = sectorDefs.map(d => d.category);
 
                   return (
-                    <div key={siteIdx} className="bg-[#0A1628] border border-[rgba(46,127,255,0.22)] rounded-xl overflow-hidden">
+                    <div key={siteIdx} className="bg-[#0A1628] border border-[rgba(46,127,255,0.22)] rounded-xl overflow-hidden" data-demo-anchor={siteIdx === 0 ? 'property-wizard-site-field' : undefined} data-demo-action={siteIdx === 0 ? 'property-wizard-fill-site' : undefined}>
                       {/* Site header */}
                       <div className="flex items-center gap-2 px-3 pt-3 pb-2">
                         <MapPin size={11} className="text-[#2E7FFF] flex-shrink-0" />
@@ -1960,7 +2182,7 @@ export function AddClientModal({ onClose, onSave, demoSection }: AddClientModalP
                       {/* Assets area */}
                       <div className="px-3 pb-3 space-y-2.5">
                         {/* AI Suggest strip */}
-                        <div className="flex items-center justify-between bg-[rgba(46,127,255,0.05)] border border-[rgba(46,127,255,0.14)] rounded-lg px-2.5 py-2" data-demo-anchor="property-onboarding-ai">
+                        <div className="flex items-center justify-between bg-[rgba(46,127,255,0.05)] border border-[rgba(46,127,255,0.14)] rounded-lg px-2.5 py-2" data-demo-anchor="property-onboarding-ai" data-demo-action="property-wizard-ai-assets">
                           <p className="text-[10px] text-[#7A94B4]">
                             {siteRows.length > 0
                               ? <span><span className="text-[#EEF3FA] font-semibold">{siteRows.length}</span> asset{siteRows.length !== 1 ? 's' : ''} registered</span>
@@ -2143,7 +2365,7 @@ export function AddClientModal({ onClose, onSave, demoSection }: AddClientModalP
           )}
 
           {activeTab === 'team' && (
-            <div className="space-y-4">
+            <div className="space-y-4" data-demo-anchor="property-wizard-team" data-demo-action="property-wizard-fill-team">
               <SectionHeader icon={SECTION_ICONS.team} title="Team Members" />
               <p className="text-[11px] text-[#7A94B4] -mt-2 mb-2 leading-relaxed">
                 Invite team members to this property workspace. Each person will receive a welcome email with login credentials.
@@ -2537,7 +2759,7 @@ export function AddClientModal({ onClose, onSave, demoSection }: AddClientModalP
 
           {/* ── Knowledge Base Tab ── */}
           {activeTab === 'knowledge' && (
-            <div className="space-y-4">
+            <div className="space-y-4" data-demo-anchor="property-wizard-knowledge" data-demo-action="property-wizard-fill-knowledge">
               <SectionHeader icon={<BookOpen size={13} className="text-[#2E7FFF]" />} title="Knowledge Base" />
 
               <div>
@@ -2618,7 +2840,7 @@ export function AddClientModal({ onClose, onSave, demoSection }: AddClientModalP
 
           {/* ── Budget Tab ── */}
           {activeTab === 'budget' && (
-            <div className="space-y-4">
+            <div className="space-y-4" data-demo-anchor="property-wizard-budget" data-demo-action="property-wizard-fill-budget">
               <SectionHeader icon={<DollarSign size={13} className="text-[#2E7FFF]" />} title="Budget" />
 
               <div className="grid grid-cols-2 gap-3">
@@ -2762,7 +2984,7 @@ export function AddClientModal({ onClose, onSave, demoSection }: AddClientModalP
 
           {/* ── Inventory Tab ── */}
           {activeTab === 'inventory' && (
-            <div className="space-y-4">
+            <div className="space-y-4" data-demo-anchor="property-wizard-inventory" data-demo-action="property-wizard-fill-inventory">
               <SectionHeader icon={<Package size={13} className="text-[#2E7FFF]" />} title="Inventory" />
 
               <div className="flex items-center justify-between">

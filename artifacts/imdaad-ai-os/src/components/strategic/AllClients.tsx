@@ -2260,6 +2260,7 @@ function PortfolioSummaryStrip({ clients, onToast }: { clients: PortfolioClient[
         {kpis.map(k => (
           <div
             key={k.key}
+            data-demo-anchor={`portfolio-kpi-${k.key.toLowerCase()}`}
             className={`group relative rounded-xl border transition-all hover:-translate-y-0.5 hover:border-[#2E7FFF]/45 hover:shadow-[0_0_18px_rgba(46,127,255,0.16)] ${k.bg} ${
               k.key === 'sites' ? 'ring-1 ring-cyan-300/25 shadow-[0_0_22px_rgba(34,211,238,0.10)]' : ''
             }`}
@@ -2896,6 +2897,7 @@ function ExecutiveImpactStrip({ clients, onToast }: { clients: PortfolioClient[]
         {items.map(item => (
           <div
             key={item.key}
+            data-demo-anchor={`portfolio-impact-${item.key.replace(/[A-Z]/g, match => `-${match.toLowerCase()}`)}`}
             className={`group relative rounded-lg border text-left transition-all hover:-translate-y-0.5 hover:border-[#2E7FFF]/45 hover:shadow-[0_0_18px_rgba(46,127,255,0.16)] ${item.tone}`}
           >
             <button
@@ -3381,15 +3383,22 @@ function CardActions({
   onNavigateToIncidents,
   onNavigateToCommand,
   onReport,
+  demoFocus = false,
 }: {
   client: PortfolioClient;
   onToast: ToastFn;
   onNavigateToIncidents: (clientId: string) => void;
   onNavigateToCommand: (clientId: string, clientName?: string) => void;
   onReport: (c: PortfolioClient) => void;
+  demoFocus?: boolean;
 }) {
   return (
-    <div className="grid grid-cols-3 gap-1 pt-2 border-t border-[rgba(46,127,255,0.1)]" data-demo-anchor="priority-property-actions">
+    <div
+      className={`grid grid-cols-3 gap-1 border-t border-[rgba(46,127,255,0.1)] pt-2 transition-all duration-500 ${
+        demoFocus ? 'rounded-xl bg-cyan-300/[0.035] p-1 ring-1 ring-cyan-200/20 shadow-[0_0_28px_rgba(34,211,238,0.10)]' : ''
+      }`}
+      data-demo-anchor="priority-property-actions"
+    >
       <button
         onClick={e => {
           e.stopPropagation();
@@ -3415,6 +3424,7 @@ function CardActions({
       <button
         onClick={e => { e.stopPropagation(); onReport(client); }}
         data-demo-anchor="portfolio-report-action"
+        data-demo-action="open-property-report"
         className="flex flex-col items-center gap-0.5 py-1.5 rounded-lg bg-[rgba(46,127,255,0.1)] hover:bg-[rgba(46,127,255,0.2)] text-emerald-400 transition-colors"
         title="Generate Report"
       >
@@ -3428,6 +3438,7 @@ function CardActions({
 function ClientPortfolioCard({
   client,
   demoAnchor,
+  demoFocus = false,
   onSelect,
   onDismiss,
   onToast,
@@ -3438,6 +3449,7 @@ function ClientPortfolioCard({
 }: {
   client: PortfolioClient;
   demoAnchor?: string;
+  demoFocus?: boolean;
   onSelect: (c: PortfolioClient) => void;
   onDismiss: (clientId: string) => void;
   onToast: ToastFn;
@@ -3457,7 +3469,9 @@ function ClientPortfolioCard({
         whileTap={{ scale: 0.995 }}
         exit={{ opacity: 0, scale: 0.98 }}
         data-demo-anchor={demoAnchor}
-        className={`relative w-full flex flex-col rounded-xl border bg-[rgba(17,32,64,0.7)] overflow-hidden ${STATUS_BORDER[client.status]} ${STATUS_GLOW[client.status]}`}
+        className={`relative w-full flex flex-col rounded-xl border bg-[rgba(17,32,64,0.7)] overflow-hidden transition-all duration-500 ${STATUS_BORDER[client.status]} ${STATUS_GLOW[client.status]} ${
+          demoFocus ? 'ring-1 ring-cyan-200/35 shadow-[0_0_42px_rgba(34,211,238,0.13),0_18px_70px_rgba(0,0,0,0.28)]' : ''
+        }`}
       >
         <button
           onClick={e => { e.stopPropagation(); onDismiss(client.id); }}
@@ -3498,7 +3512,7 @@ function ClientPortfolioCard({
           <ChevronRight size={14} className="text-[#7A94B4] flex-shrink-0" />
         </button>
         <div className="px-4 pb-2.5">
-          <CardActions client={client} onToast={onToast} onNavigateToIncidents={onNavigateToIncidents} onNavigateToCommand={onNavigateToCommand} onReport={onReport} />
+          <CardActions client={client} onToast={onToast} onNavigateToIncidents={onNavigateToIncidents} onNavigateToCommand={onNavigateToCommand} onReport={onReport} demoFocus={demoFocus} />
         </div>
       </motion.div>
     );
@@ -3510,7 +3524,9 @@ function ClientPortfolioCard({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.96 }}
       data-demo-anchor={demoAnchor}
-      className={`relative flex min-w-0 flex-col rounded-xl border bg-[rgba(17,32,64,0.7)] overflow-hidden ${STATUS_BORDER[client.status]} ${STATUS_GLOW[client.status]}`}
+      className={`relative flex min-w-0 flex-col rounded-xl border bg-[rgba(17,32,64,0.7)] overflow-hidden transition-all duration-500 ${STATUS_BORDER[client.status]} ${STATUS_GLOW[client.status]} ${
+        demoFocus ? 'ring-1 ring-cyan-200/35 shadow-[0_0_42px_rgba(34,211,238,0.13),0_18px_70px_rgba(0,0,0,0.28)]' : ''
+      }`}
     >
       <div className={`h-1 w-full ${RISK_STRIP[client.riskLevel]}`} />
       <button
@@ -3570,7 +3586,7 @@ function ClientPortfolioCard({
       </button>
 
       <div className="px-3 pb-3">
-        <CardActions client={client} onToast={onToast} onNavigateToIncidents={onNavigateToIncidents} onNavigateToCommand={onNavigateToCommand} onReport={onReport} />
+        <CardActions client={client} onToast={onToast} onNavigateToIncidents={onNavigateToIncidents} onNavigateToCommand={onNavigateToCommand} onReport={onReport} demoFocus={demoFocus} />
       </div>
     </motion.div>
   );
@@ -3773,7 +3789,8 @@ function ClientReportPanel({
       animate={{ x: 0, opacity: 1 }}
       exit={{ x: '100%', opacity: 0 }}
       transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-      className="absolute right-0 top-0 bottom-0 w-[520px] z-[300] bg-[#0A1628] border-l border-[rgba(46,127,255,0.3)] shadow-2xl flex flex-col"
+      data-demo-anchor="portfolio-report-panel"
+      className="absolute bottom-2 right-2 top-2 z-[300] flex w-[540px] max-w-[calc(100%-16px)] flex-col overflow-hidden rounded-2xl border border-[rgba(46,127,255,0.34)] bg-[#0A1628] shadow-[0_26px_90px_rgba(0,0,0,0.48),0_0_54px_rgba(46,127,255,0.16)]"
     >
       <div className={`h-1 w-full ${RISK_STRIP[client.riskLevel]}`} />
 
@@ -4152,6 +4169,7 @@ function ClientReportPanel({
           </div>
         </ReportSection>
 
+        <span data-demo-anchor="portfolio-report-bottom" className="block h-1" />
       </div>
 
       <div className="px-5 py-3 border-t border-[rgba(46,127,255,0.15)] flex-shrink-0 flex items-center gap-2">
@@ -4399,9 +4417,10 @@ interface Props {
   demoPortfolioSection?: 'health-actions' | 'portfolio-map' | 'command-path';
   demoActionRequest?: { actionId: string; nonce: number } | null;
   demoPlaying?: boolean;
+  demoOverlayReset?: boolean;
 }
 
-export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onNavigateToCommand, demoAddPropertySection, demoPortfolioSection, demoActionRequest, demoPlaying = false }: Props) {
+export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onNavigateToCommand, demoAddPropertySection, demoPortfolioSection, demoActionRequest, demoPlaying = false, demoOverlayReset = false }: Props) {
   const memberFilter  = useMemberFilter();
   const { addProfiles } = useMemberProfiles();
   const { clients: allClients, addClient } = useClients();
@@ -4516,6 +4535,28 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
       return;
     }
 
+    if (demoActionRequest.actionId === 'open-add-property-chooser') {
+      setSelected(null);
+      setReportClient(null);
+      setDemoModalSection(undefined);
+      setShowAddModal(true);
+      return;
+    }
+
+    if (demoActionRequest.actionId === 'close-add-property-modal') {
+      setShowAddModal(false);
+      setDemoModalSection(undefined);
+      return;
+    }
+
+    if (demoActionRequest.actionId === 'open-property-report') {
+      if (demoPortfolioSection !== 'command-path') return;
+      if (!demoCommandPathClient) return;
+      setSelected(null);
+      setReportClient(demoCommandPathClient);
+      return;
+    }
+
     if (
       demoActionRequest.actionId === 'open-add-property-wizard'
       || demoActionRequest.actionId === 'open-ai-onboarding'
@@ -4532,6 +4573,14 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
       onToast('Property onboarding workspace opened', 'info');
     }
   }, [demoActionRequest, demoCommandPathClient, onToast]);
+
+  useEffect(() => {
+    if (!demoOverlayReset) return;
+    setSelected(null);
+    setReportClient(null);
+    setShowAddModal(false);
+    setDemoModalSection(undefined);
+  }, [demoOverlayReset]);
 
   return (
     <div className="h-full flex flex-col overflow-hidden relative" data-demo-anchor="portfolio-command">
@@ -4614,11 +4663,17 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
         </div>
       </div>
 
-      <div data-demo-anchor="portfolio-health-actions">
+      <div
+        data-demo-anchor="portfolio-health-actions"
+        className={`transition-all duration-500 ${
+          demoPlaying && demoPortfolioSection === 'health-actions'
+            ? 'ring-1 ring-cyan-200/25 shadow-[0_0_34px_rgba(34,211,238,0.10)]'
+            : ''
+        }`}
+      >
         <PortfolioSummaryStrip clients={allClients} onToast={onToast} />
+        <ExecutiveImpactStrip clients={allClients} onToast={onToast} />
       </div>
-
-      <ExecutiveImpactStrip clients={allClients} onToast={onToast} />
 
       <div className="hidden">
         <select
@@ -4698,7 +4753,7 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
           <div className="grid grid-cols-1 gap-3 xl:grid-cols-2 2xl:grid-cols-3" data-demo-anchor="portfolio-property-grid">
             <AnimatePresence initial={false}>
               {filtered.map((c, index) => (
-                <ClientPortfolioCard key={c.id} client={c} demoAnchor={index === 0 ? 'portfolio-primary-card' : undefined} onSelect={setSelected} onDismiss={handleDismissClient} onToast={onToast} onReport={setReportClient} view="grid" onNavigateToIncidents={onNavigateToIncidents} onNavigateToCommand={onNavigateToCommand} />
+                <ClientPortfolioCard key={c.id} client={c} demoAnchor={index === 0 ? 'portfolio-primary-card' : undefined} demoFocus={demoPlaying && demoPortfolioSection === 'command-path' && index === 0} onSelect={setSelected} onDismiss={handleDismissClient} onToast={onToast} onReport={setReportClient} view="grid" onNavigateToIncidents={onNavigateToIncidents} onNavigateToCommand={onNavigateToCommand} />
               ))}
             </AnimatePresence>
           </div>
@@ -4706,7 +4761,7 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
           <div className="flex flex-col gap-2" data-demo-anchor="portfolio-property-grid">
             <AnimatePresence initial={false}>
               {filtered.map((c, index) => (
-                <ClientPortfolioCard key={c.id} client={c} demoAnchor={index === 0 ? 'portfolio-primary-card' : undefined} onSelect={setSelected} onDismiss={handleDismissClient} onToast={onToast} onReport={setReportClient} view="list" onNavigateToIncidents={onNavigateToIncidents} onNavigateToCommand={onNavigateToCommand} />
+                <ClientPortfolioCard key={c.id} client={c} demoAnchor={index === 0 ? 'portfolio-primary-card' : undefined} demoFocus={demoPlaying && demoPortfolioSection === 'command-path' && index === 0} onSelect={setSelected} onDismiss={handleDismissClient} onToast={onToast} onReport={setReportClient} view="list" onNavigateToIncidents={onNavigateToIncidents} onNavigateToCommand={onNavigateToCommand} />
               ))}
             </AnimatePresence>
           </div>
@@ -4735,7 +4790,7 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
             <ClientReportPanel
               client={reportClient}
               onClose={() => setReportClient(null)}
-              demoAutoScroll={demoPortfolioSection === 'command-path'}
+              demoAutoScroll={false}
             />
           </>
         )}
@@ -4747,6 +4802,7 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
             onClose={() => setShowAddModal(false)}
             onSave={handleAddClient}
             demoSection={demoModalSection ?? demoAddPropertySection}
+            demoActionRequest={demoActionRequest}
           />
         )}
       </AnimatePresence>
