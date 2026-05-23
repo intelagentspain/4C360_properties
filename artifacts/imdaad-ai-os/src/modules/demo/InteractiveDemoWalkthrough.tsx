@@ -104,6 +104,12 @@ const DEMO_SPOTLIGHTS_ENABLED = false;
 const PORTFOLIO_CLARITY_REVEAL_MS = 13_300;
 const PORTFOLIO_GIS_HANDOFF_MS = 25_200;
 const PORTFOLIO_GIS_ZOOM_OUT_MS = 35_700;
+const PORTFOLIO_DISPATCH_SITE_TEAM_MS = 69_000;
+const PORTFOLIO_ASSIGN_TECHNICIAN_MS = 83_500;
+const PORTFOLIO_PROPERTIES_RECAP_MS = 84_000;
+const PORTFOLIO_PROPERTIES_RECAP_FADE_MS = 1_650;
+const PORTFOLIO_REPORT_SEQUENCE_MS = 98_800;
+const PORTFOLIO_REPORT_OPEN_MS = 102_000;
 
 type DemoMission = {
   id: string;
@@ -882,6 +888,26 @@ function getSyncedIntroSectionId(
     Math.floor((Math.max(0, elapsedMs) / Math.max(1, estimatedDurationMs)) * frames.length),
   );
   return frames[sectionIndex]?.id ?? fallbackFrameId;
+}
+
+function getIntroSectionStartMs(
+  chapterId: string,
+  frameId: string,
+  frames: DemoSection[],
+  estimatedDurationMs: number,
+) {
+  const explicitSync = INTRO_SECTION_SYNC_MS[chapterId];
+  const explicitMatch = explicitSync?.find(item => item.sectionId === frameId);
+  if (explicitMatch) return explicitMatch.atMs;
+
+  const frameIndex = Math.max(0, frames.findIndex(frame => frame.id === frameId));
+  if (frameIndex <= 0) return 0;
+
+  const safeDuration = Math.max(1, estimatedDurationMs);
+  return Math.min(
+    safeDuration - 1000,
+    Math.round((safeDuration * frameIndex) / Math.max(1, frames.length)),
+  );
 }
 
 const CHAPTER_FEATURES: Record<string, string[]> = {
@@ -2019,30 +2045,54 @@ function getTimelineCues(chapterId: string, segmentId: string, estimatedDuration
       flashCue(32900, 'gis-active-engineers-card', { left: 82, top: 36, width: 16, height: 14 }, 1800),
       pinPulseCue(41000, 'gis-jlt-map-pin', { left: 8, top: 49, width: 8, height: 8 }, 2000),
       flashCue(48000, 'gis-jlt-map-pin', { left: 8, top: 49, width: 8, height: 8 }, 1500),
+      pulseCue(PORTFOLIO_DISPATCH_SITE_TEAM_MS, 'gis-dispatch-site-team', { left: 61, top: 67, width: 27, height: 8 }, 1900),
       pulseCue(82400, 'ai-smart-dispatch-assign', { left: 75, top: 50, width: 16, height: 8 }, 1500),
-      flashCue(84800, 'ai-smart-dispatch-assigned', { left: 64, top: 36, width: 28, height: 12 }, 1900),
+      scrollCue(PORTFOLIO_PROPERTIES_RECAP_MS, 'portfolio-health-actions'),
+      flashCue(84600, 'portfolio-kpi-workorders', { left: 34, top: 12, width: 16, height: 10 }, 1450),
+      flashCue(86500, 'portfolio-impact-aed-risk', { left: 3, top: 28, width: 18, height: 10 }, 1450),
+      flashCue(88400, 'portfolio-impact-admin-load-reducer', { left: 60, top: 28, width: 18, height: 10 }, 1450),
+      flashCue(90300, 'portfolio-kpi-incidents', { left: 50, top: 12, width: 16, height: 10 }, 1450),
+      flashCue(92200, 'portfolio-impact-technician-utilization', { left: 79, top: 28, width: 18, height: 10 }, 1450),
+      flashCue(94100, 'portfolio-impact-workload-optimizer', { left: 22, top: 28, width: 18, height: 10 }, 1450),
+      flashCue(96000, 'portfolio-kpi-sla', { left: 66, top: 12, width: 16, height: 10 }, 1700),
+      slowScrollCue(PORTFOLIO_REPORT_SEQUENCE_MS, 'portfolio-report-action', 3000),
+      { atMs: PORTFOLIO_REPORT_OPEN_MS, type: 'demoAction', actionId: 'open-property-report' },
+      slowScrollCue(PORTFOLIO_REPORT_OPEN_MS + 1900, 'portfolio-report-bottom', 10500),
       scrollCue(116800, 'property-onboarding-entry'),
       { atMs: 123071, type: 'chapterPause' },
     ],
     'propertysetup:intro': [
       scrollCue(0, 'property-onboarding-entry'),
       spotlightCue(3000, 'property-onboarding-entry', { left: 10, top: 14, width: 80, height: 70 }, 9000),
-      scrollCue(11800, 'property-onboarding-wizard'),
-      spotlightCue(12000, 'property-onboarding-wizard', { left: 14, top: 18, width: 72, height: 62 }, 10000),
-      { atMs: 12400, type: 'demoAction', actionId: 'open-add-property-wizard' },
-      spotlightCue(22000, 'property-onboarding-tabs', { left: 18, top: 28, width: 64, height: 38 }, 8000),
-      spotlightCue(30000, 'property-onboarding-wizard', { left: 12, top: 18, width: 76, height: 58 }, 8000),
-      scrollCue(37800, 'property-onboarding-ai'),
-      spotlightCue(38000, 'property-onboarding-ai', { left: 60, top: 18, width: 24, height: 12 }, 10000),
-      { atMs: 38400, type: 'demoAction', actionId: 'open-ai-onboarding' },
-      spotlightCue(48000, 'property-onboarding-ai', { left: 12, top: 34, width: 76, height: 36 }, 10000),
-      spotlightCue(58000, 'property-onboarding-ai', { left: 16, top: 28, width: 68, height: 44 }, 8000),
-      scrollCue(65800, 'property-onboarding-upload'),
-      spotlightCue(66000, 'property-onboarding-upload', { left: 12, top: 20, width: 76, height: 24 }, 10000),
-      { atMs: 66400, type: 'demoAction', actionId: 'open-upload-panel' },
-      spotlightCue(76000, 'property-onboarding-upload', { left: 10, top: 38, width: 80, height: 34 }, 8000),
-      scrollCue(83800, 'portfolio-command'),
-      spotlightCue(84000, 'portfolio-command', { left: 8, top: 14, width: 84, height: 68 }, 6000),
+      scrollCue(11800, 'property-onboarding-entry'),
+      { atMs: 12400, type: 'demoAction', actionId: 'open-add-property-chooser' },
+      flashCue(14500, 'property-onboarding-choice-wizard', { left: 10, top: 38, width: 38, height: 22 }, 1300),
+      flashCue(16400, 'property-onboarding-choice-ai', { left: 52, top: 38, width: 38, height: 22 }, 1300),
+      flashCue(18300, 'property-onboarding-choice-upload', { left: 10, top: 62, width: 38, height: 22 }, 1300),
+      flashCue(20200, 'property-onboarding-choice-api', { left: 52, top: 62, width: 38, height: 22 }, 1500),
+      { atMs: 22200, type: 'demoAction', actionId: 'open-add-property-wizard' },
+      scrollCue(23600, 'property-wizard-business'),
+      { atMs: 24500, type: 'demoAction', actionId: 'property-wizard-fill-name' },
+      { atMs: 27000, type: 'demoAction', actionId: 'property-wizard-fill-sector' },
+      { atMs: 29200, type: 'demoAction', actionId: 'property-wizard-fill-subtype' },
+      scrollCue(31400, 'property-wizard-contact-fields'),
+      { atMs: 32600, type: 'demoAction', actionId: 'property-wizard-fill-contact' },
+      { atMs: 37200, type: 'demoAction', actionId: 'property-wizard-tab-sites' },
+      scrollCue(37900, 'property-wizard-site-field'),
+      { atMs: 39400, type: 'demoAction', actionId: 'property-wizard-fill-site' },
+      { atMs: 42800, type: 'demoAction', actionId: 'property-wizard-ai-assets' },
+      { atMs: 50000, type: 'demoAction', actionId: 'property-wizard-tab-team' },
+      scrollCue(50800, 'property-wizard-team'),
+      { atMs: 53200, type: 'demoAction', actionId: 'property-wizard-fill-team' },
+      { atMs: 60200, type: 'demoAction', actionId: 'property-wizard-tab-knowledge' },
+      scrollCue(61000, 'property-wizard-knowledge'),
+      { atMs: 63500, type: 'demoAction', actionId: 'property-wizard-fill-knowledge' },
+      { atMs: 70600, type: 'demoAction', actionId: 'property-wizard-tab-budget' },
+      scrollCue(71400, 'property-wizard-budget'),
+      { atMs: 74000, type: 'demoAction', actionId: 'property-wizard-fill-budget' },
+      { atMs: 81200, type: 'demoAction', actionId: 'property-wizard-tab-inventory' },
+      scrollCue(82000, 'property-wizard-inventory'),
+      { atMs: 84600, type: 'demoAction', actionId: 'property-wizard-fill-inventory' },
       scrollCue(89800, 'projectcommand-context'),
       spotlightCue(90000, 'projectcommand-context', { left: 58, top: 68, width: 28, height: 12 }, 5000),
       { atMs: 95000, type: 'chapterPause' },
@@ -2579,13 +2629,21 @@ function getDemoActionAnchor(actionId: string): HotspotTarget | null {
       anchor: 'portfolio-command-path',
       fallback: { left: 6, top: 74, width: 38, height: 12 },
     },
+    'open-property-report': {
+      anchor: 'portfolio-report-action',
+      fallback: { left: 30, top: 76, width: 12, height: 8 },
+    },
+    'open-add-property-chooser': {
+      anchor: 'property-onboarding-entry',
+      fallback: { left: 82, top: 16, width: 14, height: 8 },
+    },
     'show-portfolio-pulse': {
       anchor: 'portfolio-pulse-feed',
       fallback: { left: 72, top: 5, width: 10, height: 8 },
     },
     'open-add-property-wizard': {
-      anchor: 'property-onboarding-entry',
-      fallback: { left: 76, top: 5, width: 18, height: 8 },
+      anchor: 'property-onboarding-choice-wizard',
+      fallback: { left: 10, top: 38, width: 38, height: 22 },
     },
     'open-ai-onboarding': {
       anchor: 'property-onboarding-entry',
@@ -2594,6 +2652,66 @@ function getDemoActionAnchor(actionId: string): HotspotTarget | null {
     'open-upload-panel': {
       anchor: 'property-onboarding-entry',
       fallback: { left: 76, top: 5, width: 18, height: 8 },
+    },
+    'property-wizard-fill-name': {
+      anchor: 'property-wizard-name-field',
+      fallback: { left: 25, top: 30, width: 50, height: 10 },
+    },
+    'property-wizard-fill-sector': {
+      anchor: 'property-wizard-sector-field',
+      fallback: { left: 25, top: 40, width: 24, height: 10 },
+    },
+    'property-wizard-fill-subtype': {
+      anchor: 'property-wizard-subtype-field',
+      fallback: { left: 51, top: 40, width: 24, height: 10 },
+    },
+    'property-wizard-fill-contact': {
+      anchor: 'property-wizard-contact-fields',
+      fallback: { left: 24, top: 58, width: 52, height: 24 },
+    },
+    'property-wizard-tab-sites': {
+      anchor: 'property-wizard-tab-sites',
+      fallback: { left: 34, top: 15, width: 12, height: 8 },
+    },
+    'property-wizard-fill-site': {
+      anchor: 'property-wizard-site-field',
+      fallback: { left: 20, top: 30, width: 60, height: 18 },
+    },
+    'property-wizard-ai-assets': {
+      anchor: 'property-onboarding-ai',
+      fallback: { left: 18, top: 42, width: 64, height: 14 },
+    },
+    'property-wizard-tab-team': {
+      anchor: 'property-wizard-tab-team',
+      fallback: { left: 45, top: 15, width: 12, height: 8 },
+    },
+    'property-wizard-fill-team': {
+      anchor: 'property-wizard-team',
+      fallback: { left: 16, top: 25, width: 68, height: 44 },
+    },
+    'property-wizard-tab-knowledge': {
+      anchor: 'property-wizard-tab-knowledge',
+      fallback: { left: 56, top: 15, width: 12, height: 8 },
+    },
+    'property-wizard-fill-knowledge': {
+      anchor: 'property-wizard-knowledge',
+      fallback: { left: 16, top: 25, width: 68, height: 44 },
+    },
+    'property-wizard-tab-budget': {
+      anchor: 'property-wizard-tab-budget',
+      fallback: { left: 68, top: 15, width: 12, height: 8 },
+    },
+    'property-wizard-fill-budget': {
+      anchor: 'property-wizard-budget',
+      fallback: { left: 16, top: 25, width: 68, height: 44 },
+    },
+    'property-wizard-tab-inventory': {
+      anchor: 'property-wizard-tab-inventory',
+      fallback: { left: 78, top: 15, width: 12, height: 8 },
+    },
+    'property-wizard-fill-inventory': {
+      anchor: 'property-wizard-inventory',
+      fallback: { left: 16, top: 25, width: 68, height: 44 },
     },
   };
 
@@ -2982,7 +3100,7 @@ function useAnchorBox(stageRef: RefObject<HTMLDivElement | null>, target: Hotspo
 
 function StageSpotlight({ box, fallback, variant = 'standard' }: { box: AnchorBox | null; fallback: FallbackHotspot; variant?: 'standard' | 'frame' }) {
   const fallbackStyle: CSSProperties = { left: `${fallback.left}%`, top: `${fallback.top}%`, width: `${fallback.width}%`, height: `${fallback.height}%` };
-  const inset = variant === 'frame' ? 34 : 14;
+  const inset = variant === 'frame' ? 58 : 14;
   const target = box
     ? {
         left: Math.max(14, box.left - inset),
@@ -3047,23 +3165,25 @@ function StageSpotlight({ box, fallback, variant = 'standard' }: { box: AnchorBo
 
 function DemoActionPulse({ box }: { box: AnchorBox | null }) {
   if (!box) return null;
-  const size = 54;
+  const clickX = Math.max(12, Math.min(box.stageWidth - 12, box.left + box.width / 2));
+  const clickY = Math.max(12, Math.min(box.stageHeight - 12, box.top + box.height / 2));
   const style: CSSProperties = {
-    left: Math.max(12, box.left + box.width / 2 - 47),
-    top: Math.max(12, box.top + box.height / 2 - 25),
-    width: size,
-    height: size,
+    left: clickX,
+    top: clickY,
+    width: 0,
+    height: 0,
   };
 
   return (
     <div
       aria-hidden="true"
       data-demo-action-pulse="true"
-      className="pointer-events-none absolute z-[950] text-white drop-shadow-[0_10px_24px_rgba(0,0,0,0.7)]"
+      className="pointer-events-none absolute z-[2600] text-white drop-shadow-[0_10px_24px_rgba(0,0,0,0.7)]"
       style={style}
     >
-      <div className="absolute left-5 top-4 h-9 w-9 animate-ping rounded-full border border-cyan-200/80 bg-cyan-300/20" />
-      <MousePointer2 size={30} className="relative z-10 -rotate-12 fill-[#EAF6FF] text-[#06101F]" />
+      <div className="absolute -left-5 -top-5 h-10 w-10 animate-ping rounded-full border border-cyan-200/85 bg-cyan-300/20" />
+      <div className="absolute -left-1.5 -top-1.5 h-3 w-3 rounded-full bg-cyan-100 shadow-[0_0_18px_rgba(103,232,249,0.85)]" />
+      <MousePointer2 size={32} className="absolute -left-1 -top-1 fill-[#EAF6FF] text-[#06101F]" />
     </div>
   );
 }
@@ -3081,10 +3201,10 @@ function DemoCardFlash({ box }: { box: AnchorBox | null }) {
     <div
       aria-hidden="true"
       data-demo-card-flash="true"
-      className="pointer-events-none absolute z-50 rounded-xl border border-cyan-100/90 bg-cyan-200/10 shadow-[0_0_32px_rgba(34,211,238,0.70),0_0_74px_rgba(46,127,255,0.35),inset_0_0_28px_rgba(34,211,238,0.18)]"
+      className="pointer-events-none absolute z-[2550] rounded-2xl border border-cyan-100/85 bg-cyan-200/[0.065] shadow-[0_0_26px_rgba(34,211,238,0.56),0_0_68px_rgba(46,127,255,0.30),inset_0_0_24px_rgba(34,211,238,0.16)] backdrop-blur-[0.5px]"
       style={style}
     >
-      <div className="absolute inset-0 animate-ping rounded-xl border border-cyan-200/70 bg-cyan-300/10" />
+      <div className="absolute inset-0 animate-pulse rounded-2xl border border-white/18 bg-white/[0.035]" />
     </div>
   );
 }
@@ -4205,7 +4325,6 @@ function ChapterEndPanel({
   onClose,
   onNextChapter,
   onReplayChapter,
-  onReplaySection,
   onToast,
 }: {
   chapter: DemoChapter;
@@ -4214,7 +4333,6 @@ function ChapterEndPanel({
   onClose: () => void;
   onNextChapter: () => void;
   onReplayChapter: () => void;
-  onReplaySection: () => void;
   onToast: ToastFn;
 }) {
   const isFinalChapter = chapter.id === 'value';
@@ -4259,24 +4377,14 @@ function ChapterEndPanel({
           {isFinalChapter ? 'Replay walkthrough' : `Next chapter: ${nextChapter.shortLabel}`}
           <ChevronRight size={15} />
         </button>
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={onReplayChapter}
-            className="flex min-h-10 items-center justify-center gap-2 rounded-xl border border-[#2E7FFF]/22 bg-[#0A1628] px-3 py-2 text-[12px] font-black text-[#DCEBFF] hover:bg-[#112040]"
-          >
-            <RotateCcw size={14} />
-            Replay
-          </button>
-          <button
-            type="button"
-            onClick={onReplaySection}
-            className="flex min-h-10 items-center justify-center gap-2 rounded-xl border border-[#2E7FFF]/22 bg-[#0A1628] px-3 py-2 text-[12px] font-black text-[#DCEBFF] hover:bg-[#112040]"
-          >
-            <TimerReset size={14} />
-            Section
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={onReplayChapter}
+          className="flex min-h-10 items-center justify-center gap-2 rounded-xl border border-[#2E7FFF]/22 bg-[#0A1628] px-3 py-2 text-[12px] font-black text-[#DCEBFF] hover:bg-[#112040]"
+        >
+          <RotateCcw size={14} />
+          Replay
+        </button>
       </div>
       <div className="mt-2 flex items-center justify-between gap-2 rounded-xl border border-[#2E7FFF]/16 bg-[#06101F] px-3 py-2">
         <div className="min-w-0">
@@ -4315,6 +4423,9 @@ function DemoStage({
   portfolioSmartDispatchScrollActive,
   portfolioSmartDispatchActive,
   portfolioSmartDispatchAssigned,
+  portfolioPropertiesRecapActive,
+  portfolioRecapFadeProgress,
+  portfolioReportSequenceActive,
 }: {
   chapter: DemoChapter;
   section: DemoSection;
@@ -4333,10 +4444,40 @@ function DemoStage({
   portfolioSmartDispatchScrollActive: boolean;
   portfolioSmartDispatchActive: boolean;
   portfolioSmartDispatchAssigned: boolean;
+  portfolioPropertiesRecapActive: boolean;
+  portfolioRecapFadeProgress: number;
+  portfolioReportSequenceActive: boolean;
 }) {
+  if (chapter.id === 'portfolio' && portfolioPropertiesRecapActive) {
+    return (
+      <div
+        className="h-full min-h-0 bg-[#030A15] transition-opacity duration-700"
+        data-demo-anchor="portfolio-properties-recap"
+        style={{ opacity: 0.12 + portfolioRecapFadeProgress * 0.88 }}
+      >
+        <AllClients
+          onToast={onToast}
+          onClientSelect={clientId => onToast(`Portfolio focus set to ${clientId}`, 'info')}
+          onNavigateToIncidents={clientId => onToast(`Incident view ready for ${clientId}`, 'info')}
+          onNavigateToCommand={() => onOpenChapter('projectcommand')}
+          demoPortfolioSection={portfolioReportSequenceActive ? 'command-path' : 'health-actions'}
+          demoActionRequest={demoActionRequest}
+          demoPlaying={demoPlaying}
+        />
+      </div>
+    );
+  }
+
   if (chapter.id === 'portfolio' && portfolioGisActive) {
     return (
-      <div className="h-full min-h-0" data-demo-anchor="portfolio-gis-page">
+      <div
+        className="h-full min-h-0 transition-opacity duration-700"
+        data-demo-anchor="portfolio-gis-page"
+        style={{
+          opacity: portfolioPropertiesRecapActive ? Math.max(0, 1 - portfolioRecapFadeProgress) : 1,
+          filter: portfolioPropertiesRecapActive ? `blur(${portfolioRecapFadeProgress * 8}px)` : undefined,
+        }}
+      >
           <StrategicDashboard
             key={portfolioGisZoomedOut ? 'portfolio-gis-all' : 'portfolio-gis-jlt'}
             onToast={onToast}
@@ -4367,7 +4508,7 @@ function DemoStage({
         onClientSelect={clientId => onToast(`Portfolio focus set to ${clientId}`, 'info')}
         onNavigateToIncidents={clientId => onToast(`Incident view ready for ${clientId}`, 'info')}
         onNavigateToCommand={() => onOpenChapter('projectcommand')}
-        demoAddPropertySection={chapter.id === 'propertysetup' ? section.id as 'wizard' | 'ai' | 'upload' : undefined}
+        demoAddPropertySection={undefined}
         demoPortfolioSection={chapter.id === 'portfolio' ? section.id as 'health-actions' | 'portfolio-map' | 'command-path' : undefined}
         demoActionRequest={demoActionRequest}
         demoPlaying={demoPlaying}
@@ -4477,7 +4618,7 @@ export function InteractiveDemoWalkthrough() {
   const hotspotTarget = activeSpotlightTarget ?? baseHotspotTarget;
   const smartDispatchSpotlightTarget = useMemo<HotspotTarget>(() => ({
     anchor: 'ai-smart-dispatch-panel',
-    fallback: { left: 61, top: 8, width: 36, height: 64 },
+    fallback: { left: 49, top: 2, width: 49, height: 88 },
   }), []);
   const jltPinClickTarget = useMemo<HotspotTarget>(() => ({
     anchor: 'gis-jlt-map-pin',
@@ -4514,14 +4655,28 @@ export function InteractiveDemoWalkthrough() {
     && narrationPhase === 'intro'
     && timelineElapsedMs >= PORTFOLIO_GIS_HANDOFF_MS;
   const portfolioGisZoomedOut = portfolioGisActive && timelineElapsedMs >= PORTFOLIO_GIS_ZOOM_OUT_MS;
+  const portfolioPropertiesRecapActive = portfolioGisActive && timelineElapsedMs >= PORTFOLIO_PROPERTIES_RECAP_MS;
+  const portfolioReportSequenceActive = portfolioPropertiesRecapActive
+    && timelineElapsedMs >= PORTFOLIO_REPORT_SEQUENCE_MS
+    && !chapterEndOpen;
+  const portfolioRecapFadeProgress = portfolioPropertiesRecapActive
+    ? Math.max(0, Math.min(1, (timelineElapsedMs - PORTFOLIO_PROPERTIES_RECAP_MS) / PORTFOLIO_PROPERTIES_RECAP_FADE_MS))
+    : 0;
   const portfolioJltPinPulsing = portfolioGisZoomedOut && timelineElapsedMs >= 41000;
   const portfolioJltPinClickActive = portfolioGisZoomedOut && timelineElapsedMs >= 48000 && timelineElapsedMs < 50100;
   const portfolioJltDrawerOpen = portfolioGisZoomedOut && timelineElapsedMs >= 48600;
   const portfolioPropertyCommandScrollActive = portfolioGisZoomedOut && timelineElapsedMs >= 52000 && timelineElapsedMs < 66000;
   const portfolioManagerActionActive = portfolioGisZoomedOut && timelineElapsedMs >= 66000;
-  const portfolioSmartDispatchScrollActive = false;
-  const portfolioSmartDispatchActive = portfolioGisZoomedOut && timelineElapsedMs >= 80000 && timelineElapsedMs < 118000;
-  const portfolioSmartDispatchAssigned = portfolioGisZoomedOut && timelineElapsedMs >= 83500;
+  const portfolioSmartDispatchScrollActive = portfolioGisZoomedOut
+    && timelineElapsedMs >= PORTFOLIO_DISPATCH_SITE_TEAM_MS
+    && timelineElapsedMs < PORTFOLIO_ASSIGN_TECHNICIAN_MS
+    && !portfolioPropertiesRecapActive;
+  const portfolioSmartDispatchActive = portfolioGisZoomedOut
+    && timelineElapsedMs >= PORTFOLIO_DISPATCH_SITE_TEAM_MS
+    && timelineElapsedMs < PORTFOLIO_PROPERTIES_RECAP_MS;
+  const portfolioSmartDispatchAssigned = portfolioGisZoomedOut
+    && timelineElapsedMs >= PORTFOLIO_ASSIGN_TECHNICIAN_MS
+    && !portfolioPropertiesRecapActive;
   const activeMissionComplete = activeSectionComplete;
   const primaryActionLabel = nextSectionLabel;
   const demoInteractionLocked = autopilot.status === 'playing' && !chapterEndOpen;
@@ -4539,38 +4694,54 @@ export function InteractiveDemoWalkthrough() {
   const selectChapter = useCallback((chapterId: string, frameId?: string) => {
     const nextChapter = getChapterById(chapterId);
     const nextFrameId = resolveFrameId(nextChapter, frameId);
+    const nextFrames = getDemoSections(nextChapter);
+    const shouldSeekIntoChapter = Boolean(frameId) && hasFullChapterNarration(chapterId);
+    const nextIntroDurationMs = nextFrames[0]?.chapterIntroScript.estimatedDurationMs ?? 60_000;
+    const nextStartMs = shouldSeekIntoChapter
+      ? getIntroSectionStartMs(chapterId, nextFrameId, nextFrames, nextIntroDurationMs)
+      : 0;
+    const nextProgress = Math.min(100, (nextStartMs / Math.max(1, nextIntroDurationMs)) * 100);
+
     setShowIntro(false);
     setChapterEndOpen(false);
-    setNarrationPhase(frameId ? 'section' : 'intro');
+    setNarrationPhase(shouldSeekIntoChapter || !frameId ? 'intro' : 'section');
     setActiveId(chapterId);
     setActiveFrameId(nextFrameId);
     setAutopilot({ status: 'playing', started: true });
-    setSectionProgress(0);
-    setTimelineElapsedMs(0);
+    setSectionProgress(nextProgress);
+    setTimelineElapsedMs(nextStartMs);
     setPlaybackRunId(current => current + 1);
+    setSeekRequest(current => ({ id: (current?.id ?? 0) + 1, elapsedMs: nextStartMs }));
     setDemoActionRequest(null);
     setActionPulseTarget(null);
     setCardFlashTarget(null);
-    sectionElapsedRef.current = 0;
-    updateChapterUrl(chapterId, nextFrameId, { showMode, autoplay: true, phase: frameId ? 'section' : 'intro' });
+    sectionElapsedRef.current = nextStartMs;
+    updateChapterUrl(chapterId, nextFrameId, { showMode, autoplay: true, phase: shouldSeekIntoChapter || !frameId ? 'intro' : 'section' });
   }, [showMode]);
 
   const selectFrame = useCallback((frameId: string) => {
     const nextFrameId = resolveFrameId(chapter, frameId);
+    const shouldSeekIntoChapter = hasFullChapterNarration(chapter.id);
+    const nextStartMs = shouldSeekIntoChapter
+      ? getIntroSectionStartMs(chapter.id, nextFrameId, frames, activeNarrationScript.estimatedDurationMs)
+      : 0;
+    const nextProgress = Math.min(100, (nextStartMs / Math.max(1, activeNarrationScript.estimatedDurationMs)) * 100);
+
     setShowIntro(false);
     setChapterEndOpen(false);
-    setNarrationPhase('section');
+    setNarrationPhase(shouldSeekIntoChapter ? 'intro' : 'section');
     setActiveFrameId(nextFrameId);
     setAutopilot({ status: 'playing', started: true });
-    setSectionProgress(0);
-    setTimelineElapsedMs(0);
+    setSectionProgress(nextProgress);
+    setTimelineElapsedMs(nextStartMs);
     setPlaybackRunId(current => current + 1);
+    setSeekRequest(current => ({ id: (current?.id ?? 0) + 1, elapsedMs: nextStartMs }));
     setDemoActionRequest(null);
     setActionPulseTarget(null);
     setCardFlashTarget(null);
-    sectionElapsedRef.current = 0;
-    updateChapterUrl(chapter.id, nextFrameId, { showMode, autoplay: true, phase: 'section' });
-  }, [chapter, showMode]);
+    sectionElapsedRef.current = nextStartMs;
+    updateChapterUrl(chapter.id, nextFrameId, { showMode, autoplay: true, phase: shouldSeekIntoChapter ? 'intro' : 'section' });
+  }, [activeNarrationScript.estimatedDurationMs, chapter, frames, showMode]);
 
   const advanceFrame = useCallback(() => {
     if (nextFrame) {
@@ -4810,12 +4981,16 @@ export function InteractiveDemoWalkthrough() {
       getDemoSections(chapter).forEach(section => {
         if (!isMissionComplete(section.mission.id)) completeMission(section.mission.id);
       });
+      cancelSlowScroll();
+      setDemoActionRequest(null);
+      setActionPulseTarget(null);
+      setCardFlashTarget(null);
       setNarrationPhase('chapterEnd');
       setChapterEndOpen(true);
       setAutopilot(current => ({ status: 'paused', started: current.started }));
       updateChapterUrl(chapter.id, activeFrame.id, { showMode, autoplay: false });
     }
-  }, [activeFrame.id, activeNarrationScript.requiresChapterConfirmation, chapter, completeMission, flashDemoAnchor, isMissionComplete, narrationPhase, pulseDemoAnchor, runDemoAction, scrollToDemoAnchor, showMode, slowScrollToDemoAnchor]);
+  }, [activeFrame.id, activeNarrationScript.requiresChapterConfirmation, cancelSlowScroll, chapter, completeMission, flashDemoAnchor, isMissionComplete, narrationPhase, pulseDemoAnchor, runDemoAction, scrollToDemoAnchor, showMode, slowScrollToDemoAnchor]);
 
   const handleTimelineProgress = useCallback((progress: number, elapsedMs: number) => {
     setSectionProgress(progress);
@@ -5101,6 +5276,11 @@ export function InteractiveDemoWalkthrough() {
       return;
     }
 
+    if (timelineElapsedMs >= PORTFOLIO_PROPERTIES_RECAP_MS) {
+      if (demoActionRequest?.actionId === 'open-property-command') setDemoActionRequest(null);
+      return;
+    }
+
     if (timelineElapsedMs >= PORTFOLIO_GIS_HANDOFF_MS && demoActionRequest?.actionId !== 'open-property-command') {
       setDemoActionRequest({ actionId: 'open-property-command', nonce: Date.now() });
     }
@@ -5144,6 +5324,10 @@ export function InteractiveDemoWalkthrough() {
         getDemoSections(chapter).forEach(section => {
           if (!isMissionComplete(section.mission.id)) completeMission(section.mission.id);
         });
+        cancelSlowScroll();
+        setDemoActionRequest(null);
+        setActionPulseTarget(null);
+        setCardFlashTarget(null);
         setNarrationPhase('chapterEnd');
         setChapterEndOpen(true);
         setAutopilot(current => ({ status: 'paused', started: current.started }));
@@ -5166,12 +5350,16 @@ export function InteractiveDemoWalkthrough() {
     }
 
     if (narrationPhase === 'closing') {
+      cancelSlowScroll();
+      setDemoActionRequest(null);
+      setActionPulseTarget(null);
+      setCardFlashTarget(null);
       setNarrationPhase('chapterEnd');
       setChapterEndOpen(true);
       setAutopilot(current => ({ status: 'paused', started: current.started }));
       updateChapterUrl(chapter.id, activeFrame.id, { showMode, autoplay: false });
     }
-  }, [activeFrame.id, activeFrame.mission.id, activeNarrationScript.requiresChapterConfirmation, autopilot.status, chapter, completeMission, isMissionComplete, narrationPhase, nextFrame, selectFrame, showMode]);
+  }, [activeFrame.id, activeFrame.mission.id, activeNarrationScript.requiresChapterConfirmation, autopilot.status, cancelSlowScroll, chapter, completeMission, isMissionComplete, narrationPhase, nextFrame, selectFrame, showMode]);
 
   const continueToNextChapter = useCallback(() => {
     const nextIndex = (activeIndex + 1) % DEMO_CHAPTERS.length;
@@ -5515,7 +5703,17 @@ export function InteractiveDemoWalkthrough() {
                 portfolioSmartDispatchScrollActive={portfolioSmartDispatchScrollActive}
                 portfolioSmartDispatchActive={portfolioSmartDispatchActive}
                 portfolioSmartDispatchAssigned={portfolioSmartDispatchAssigned}
+                portfolioPropertiesRecapActive={portfolioPropertiesRecapActive}
+                portfolioRecapFadeProgress={portfolioRecapFadeProgress}
+                portfolioReportSequenceActive={portfolioReportSequenceActive}
               />
+              {!chapterEndOpen && portfolioPropertiesRecapActive && portfolioRecapFadeProgress < 1 && (
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-0 z-20 bg-[#030A15] transition-opacity duration-700"
+                  style={{ opacity: Math.max(0, 0.52 - portfolioRecapFadeProgress * 0.52) }}
+                />
+              )}
               {portfolioClarityRevealVisible && <PortfolioClarityReveal elapsedMs={timelineElapsedMs} />}
               {!chapterEndOpen && autopilot.started && narrationPhase === 'intro' && !hasFullChapterNarration(chapter.id) && <IntroDashboardReveal progress={sectionProgress} />}
               {spotlightVisible && <StageSpotlight box={anchorBox} fallback={hotspotTarget.fallback} />}
@@ -5524,8 +5722,8 @@ export function InteractiveDemoWalkthrough() {
               )}
               {!chapterEndOpen && chapterTitleVisible && <ChapterTitleOverlay chapter={chapter} progress={sectionProgress} />}
               {!chapterEndOpen && cardFlashTarget && <DemoCardFlash box={cardFlashBox} />}
-              {!chapterEndOpen && portfolioJltPinClickActive && <DemoActionPulse box={jltPinClickBox} />}
-              {!chapterEndOpen && actionPulseTarget && <DemoActionPulse box={actionPulseBox} />}
+              {!chapterEndOpen && !portfolioPropertiesRecapActive && portfolioJltPinClickActive && <DemoActionPulse box={jltPinClickBox} />}
+              {!chapterEndOpen && !portfolioPropertiesRecapActive && actionPulseTarget && <DemoActionPulse box={actionPulseBox} />}
               {chapterEndOpen && (
                 <ChapterEndPanel
                   chapter={chapter}
@@ -5534,7 +5732,6 @@ export function InteractiveDemoWalkthrough() {
                   onClose={closeChapterEndPanel}
                   onNextChapter={continueToNextChapter}
                   onReplayChapter={replayChapter}
-                  onReplaySection={replaySection}
                   onToast={onToast}
                 />
               )}
