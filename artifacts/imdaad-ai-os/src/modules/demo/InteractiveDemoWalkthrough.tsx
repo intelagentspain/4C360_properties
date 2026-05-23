@@ -2093,6 +2093,7 @@ function getTimelineCues(chapterId: string, segmentId: string, estimatedDuration
       { atMs: 81200, type: 'demoAction', actionId: 'property-wizard-tab-inventory' },
       scrollCue(82000, 'property-wizard-inventory'),
       { atMs: 84600, type: 'demoAction', actionId: 'property-wizard-fill-inventory' },
+      { atMs: 88400, type: 'demoAction', actionId: 'close-add-property-modal' },
       scrollCue(89800, 'projectcommand-context'),
       spotlightCue(90000, 'projectcommand-context', { left: 58, top: 68, width: 28, height: 12 }, 5000),
       { atMs: 95000, type: 'chapterPause' },
@@ -4414,6 +4415,7 @@ function DemoStage({
   onCopySummary,
   demoActionRequest,
   demoPlaying,
+  demoOverlayReset,
   portfolioGisActive,
   portfolioGisZoomedOut,
   portfolioJltPinPulsing,
@@ -4435,6 +4437,7 @@ function DemoStage({
   onCopySummary: () => void;
   demoActionRequest: DemoActionRequest | null;
   demoPlaying: boolean;
+  demoOverlayReset: boolean;
   portfolioGisActive: boolean;
   portfolioGisZoomedOut: boolean;
   portfolioJltPinPulsing: boolean;
@@ -4463,6 +4466,7 @@ function DemoStage({
           demoPortfolioSection={portfolioReportSequenceActive ? 'command-path' : 'health-actions'}
           demoActionRequest={demoActionRequest}
           demoPlaying={demoPlaying}
+          demoOverlayReset={demoOverlayReset}
         />
       </div>
     );
@@ -4512,6 +4516,7 @@ function DemoStage({
         demoPortfolioSection={chapter.id === 'portfolio' ? section.id as 'health-actions' | 'portfolio-map' | 'command-path' : undefined}
         demoActionRequest={demoActionRequest}
         demoPlaying={demoPlaying}
+        demoOverlayReset={demoOverlayReset}
       />
     );
   }
@@ -5573,9 +5578,6 @@ export function InteractiveDemoWalkthrough() {
               >
                 {autopilot.status === 'playing' ? <Pause size={15} /> : <Play size={15} />}
               </button>
-              <div className="hidden rounded-lg border border-[#2E7FFF]/16 bg-[#0A1628] px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#8EA7C7] 2xl:block">
-                {narrationPhase === 'intro' ? 'Chapter intro' : narrationPhase === 'closing' || narrationPhase === 'chapterEnd' ? 'Chapter pause' : 'Scripted audio'}
-              </div>
             </div>
           </div>
 
@@ -5694,6 +5696,7 @@ export function InteractiveDemoWalkthrough() {
                 onCopySummary={copyOutcomeSummary}
                 demoActionRequest={demoActionRequest}
                 demoPlaying={autopilot.status === 'playing'}
+                demoOverlayReset={chapterEndOpen}
                 portfolioGisActive={portfolioGisActive}
                 portfolioGisZoomedOut={portfolioGisZoomedOut}
                 portfolioJltPinPulsing={portfolioJltPinPulsing}

@@ -4417,9 +4417,10 @@ interface Props {
   demoPortfolioSection?: 'health-actions' | 'portfolio-map' | 'command-path';
   demoActionRequest?: { actionId: string; nonce: number } | null;
   demoPlaying?: boolean;
+  demoOverlayReset?: boolean;
 }
 
-export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onNavigateToCommand, demoAddPropertySection, demoPortfolioSection, demoActionRequest, demoPlaying = false }: Props) {
+export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onNavigateToCommand, demoAddPropertySection, demoPortfolioSection, demoActionRequest, demoPlaying = false, demoOverlayReset = false }: Props) {
   const memberFilter  = useMemberFilter();
   const { addProfiles } = useMemberProfiles();
   const { clients: allClients, addClient } = useClients();
@@ -4542,6 +4543,12 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
       return;
     }
 
+    if (demoActionRequest.actionId === 'close-add-property-modal') {
+      setShowAddModal(false);
+      setDemoModalSection(undefined);
+      return;
+    }
+
     if (demoActionRequest.actionId === 'open-property-report') {
       if (demoPortfolioSection !== 'command-path') return;
       if (!demoCommandPathClient) return;
@@ -4566,6 +4573,14 @@ export function AllClients({ onToast, onClientSelect, onNavigateToIncidents, onN
       onToast('Property onboarding workspace opened', 'info');
     }
   }, [demoActionRequest, demoCommandPathClient, onToast]);
+
+  useEffect(() => {
+    if (!demoOverlayReset) return;
+    setSelected(null);
+    setReportClient(null);
+    setShowAddModal(false);
+    setDemoModalSection(undefined);
+  }, [demoOverlayReset]);
 
   return (
     <div className="h-full flex flex-col overflow-hidden relative" data-demo-anchor="portfolio-command">
