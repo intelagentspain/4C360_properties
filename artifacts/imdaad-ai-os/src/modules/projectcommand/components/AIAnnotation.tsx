@@ -14,12 +14,14 @@ export function AIAnnotation({
   y,
   variant = 'info',
   onClick,
+  attention = false,
 }: {
   text: string;
   x: number;
   y: number;
   variant?: Variant;
   onClick?: () => void;
+  attention?: boolean;
 }) {
   const Element = onClick ? motion.button : motion.div;
 
@@ -28,8 +30,15 @@ export function AIAnnotation({
       type={onClick ? 'button' : undefined}
       onClick={onClick}
       initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
+      animate={attention
+        ? {
+            opacity: 1,
+            y: 0,
+            scale: [1, 1.08, 1],
+            boxShadow: ['0 0 0 rgba(34,211,238,0)', '0 0 28px rgba(34,211,238,0.65)', '0 0 0 rgba(34,211,238,0)'],
+          }
+        : { opacity: 1, y: 0, scale: 1, boxShadow: '0 0 0 rgba(34,211,238,0)' }}
+      transition={{ duration: attention ? 0.75 : 0.3, ease: 'easeOut' }}
       className={`absolute z-20 rounded-full border px-2 py-1 text-[10px] font-bold shadow-lg backdrop-blur ${
         onClick ? 'pointer-events-auto cursor-pointer hover:brightness-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40' : ''
       } ${variantClass[variant]}`}

@@ -19,6 +19,7 @@ const DEMO_PHASE_EXPAND_START_MS = 21_000;
 const DEMO_PHASE_EXPAND_INTERVAL_MS = 1_450;
 const DEMO_PHASE_EXPAND_CLICK_DELAY_MS = 420;
 const DEMO_PHASE_EXPAND_PULSE_MS = 820;
+const DEMO_AUTHORITY_PATH_CLICK_MS = 42_000;
 
 function parseDate(value: string) {
   const parsed = new Date(value);
@@ -152,6 +153,9 @@ export function GanttChart({
     ? new Set(expandablePhaseIds.slice(0, demoExpandedCount))
     : null;
   const demoPulsePhaseId = demoPulseActive ? expandablePhaseIds[demoPulseIndex] : null;
+  const demoAuthorityPathPulse = typeof demoTimelineMs === 'number'
+    && demoTimelineMs >= DEMO_AUTHORITY_PATH_CLICK_MS - 450
+    && demoTimelineMs <= DEMO_AUTHORITY_PATH_CLICK_MS + 450;
 
   return (
     <div className="relative rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#0A1628]/80 p-3">
@@ -188,6 +192,7 @@ export function GanttChart({
                     y={index * (mode === 'full' ? 36 : 33) - 6}
                     variant={phase.isCritical ? 'warning' : 'success'}
                     onClick={() => onSelectItem?.({ kind: 'annotation', phase, item: phase, label: phase.aiAnnotation })}
+                    attention={phase.aiAnnotation === 'Authority path' && demoAuthorityPathPulse}
                   />
                 </div>
               )}
