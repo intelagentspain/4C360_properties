@@ -775,6 +775,75 @@ const TIMELINE_DESIGN_DURATIONS_MS: Record<string, number> = {
   'value:intro': 85_000,
 };
 
+function vendorIqIntroDesignMs(actualMs: number) {
+  return Math.round(
+    (actualMs * TIMELINE_DESIGN_DURATIONS_MS['vendoriq:intro'])
+    / NARRATION_DURATION_OVERRIDES_MS['vendoriq:intro'],
+  );
+}
+
+const VENDORIQ_ALL_VENDORS_SWITCH_DESIGN_MS = vendorIqIntroDesignMs(40_000);
+const VENDORIQ_COMPARE_QUOTES_HIGHLIGHT_DESIGN_MS = vendorIqIntroDesignMs(17_000);
+const VENDORIQ_BACKGROUND_CHECKS_HIGHLIGHT_DESIGN_MS = vendorIqIntroDesignMs(26_000);
+const VENDORIQ_FIRST_VENDOR_HIGHLIGHT_DESIGN_MS = vendorIqIntroDesignMs(42_000);
+const VENDORIQ_OPEN_FIRST_VENDOR_DESIGN_MS = vendorIqIntroDesignMs(45_500);
+const VENDORIQ_DETAIL_TAB_DESIGN_TIMES_MS = {
+  aiInsights: vendorIqIntroDesignMs(49_000),
+  contractCompliance: vendorIqIntroDesignMs(56_000),
+  costVsPerformance: vendorIqIntroDesignMs(63_000),
+  benchmarking: vendorIqIntroDesignMs(70_000),
+  predictiveRisk: vendorIqIntroDesignMs(77_000),
+  recommendations: vendorIqIntroDesignMs(84_000),
+  dependencyRisk: vendorIqIntroDesignMs(92_000),
+};
+
+function fieldOpsIntroDesignMs(actualMs: number) {
+  return Math.round(
+    (actualMs * TIMELINE_DESIGN_DURATIONS_MS['fieldops:intro'])
+    / NARRATION_DURATION_OVERRIDES_MS['fieldops:intro'],
+  );
+}
+
+const FIELDOPS_CREATE_SURVEY_SEQUENCE_DESIGN_MS = {
+  openWizard: fieldOpsIntroDesignMs(15_000),
+  wizardFocus: fieldOpsIntroDesignMs(15_600),
+  aiCard: fieldOpsIntroDesignMs(17_000),
+  templateCard: fieldOpsIntroDesignMs(18_500),
+  manualCard: fieldOpsIntroDesignMs(20_000),
+  selectAi: fieldOpsIntroDesignMs(21_500),
+  aiBrief: fieldOpsIntroDesignMs(22_300),
+  promptFocus: fieldOpsIntroDesignMs(22_900),
+  chipHvac: fieldOpsIntroDesignMs(30_800),
+  chipLift: fieldOpsIntroDesignMs(32_200),
+  chipHandover: fieldOpsIntroDesignMs(33_600),
+  chipAuthority: fieldOpsIntroDesignMs(35_000),
+  generateSurvey: fieldOpsIntroDesignMs(37_000),
+  continueDesign: fieldOpsIntroDesignMs(39_200),
+  designModal: fieldOpsIntroDesignMs(40_300),
+  designBottom: fieldOpsIntroDesignMs(41_500),
+  returnSurveys: fieldOpsIntroDesignMs(50_000),
+  surveyQueue: fieldOpsIntroDesignMs(51_500),
+  assignmentsTab: fieldOpsIntroDesignMs(57_000),
+  trackingTab: fieldOpsIntroDesignMs(64_000),
+  templatesTab: fieldOpsIntroDesignMs(71_000),
+  aiTab: fieldOpsIntroDesignMs(78_000),
+  residentEntry: fieldOpsIntroDesignMs(87_000),
+};
+
+function residentIntroDesignMs(actualMs: number) {
+  return Math.round(
+    (actualMs * TIMELINE_DESIGN_DURATIONS_MS['resident:intro'])
+    / NARRATION_DURATION_OVERRIDES_MS['resident:intro'],
+  );
+}
+
+const RESIDENT_TAKE_PHOTO_CLICK_DESIGN_MS = residentIntroDesignMs(10_500);
+const RESIDENT_UPLOAD_PHOTO_DESIGN_MS = residentIntroDesignMs(13_000);
+const RESIDENT_INCIDENT_ANALYSIS_DESIGN_MS = residentIntroDesignMs(13_500);
+const RESIDENT_PHOTO_PREVIEW_DESIGN_MS = residentIntroDesignMs(15_000);
+const RESIDENT_ANALYSIS_RESULT_DESIGN_MS = residentIntroDesignMs(17_000);
+const RESIDENT_SUBMIT_REPORT_DESIGN_MS = residentIntroDesignMs(30_000);
+
 const FULL_CHAPTER_NARRATION_IDS = [
   'portfolio',
   'propertysetup',
@@ -2181,40 +2250,63 @@ function getTimelineCues(chapterId: string, segmentId: string, estimatedDuration
     'vendoriq:intro': [
       scrollCue(0, 'vendoriq-command'),
       spotlightCue(3000, 'vendoriq-command', { left: 8, top: 12, width: 84, height: 74 }, 9000),
-      spotlightCue(12000, 'vendor-performance-scorecard', { left: 10, top: 18, width: 80, height: 22 }, 10000),
-      spotlightCue(22000, 'vendor-sla-quality-evidence', { left: 12, top: 30, width: 76, height: 24 }, 10000),
+      flashCue(VENDORIQ_COMPARE_QUOTES_HIGHLIGHT_DESIGN_MS, 'vendoriq-compare-quotes-button', { left: 9, top: 40, width: 20, height: 10 }, 2300),
+      flashCue(VENDORIQ_BACKGROUND_CHECKS_HIGHLIGHT_DESIGN_MS, 'vendoriq-background-checks-button', { left: 9, top: 51, width: 20, height: 10 }, 2300),
       spotlightCue(32000, 'vendor-risk-repeat-issues', { left: 14, top: 44, width: 72, height: 22 }, 10000),
-      spotlightCue(42000, 'vendor-comparison-context', { left: 10, top: 24, width: 80, height: 38 }, 10000),
-      spotlightCue(52000, 'vendor-project-impact-link', { left: 12, top: 40, width: 76, height: 24 }, 10000),
-      spotlightCue(62000, 'vendor-corrective-action-pack', { left: 14, top: 54, width: 72, height: 18 }, 10000),
-      spotlightCue(72000, 'fieldops-module-entry', { left: 58, top: 68, width: 28, height: 12 }, 8000),
+      { atMs: VENDORIQ_ALL_VENDORS_SWITCH_DESIGN_MS, type: 'demoAction', actionId: 'vendoriq-tab-all-vendors' },
+      flashCue(VENDORIQ_FIRST_VENDOR_HIGHLIGHT_DESIGN_MS, 'vendoriq-first-vendor-row', { left: 2, top: 32, width: 96, height: 14 }, 2600),
+      { atMs: VENDORIQ_OPEN_FIRST_VENDOR_DESIGN_MS, type: 'demoAction', actionId: 'vendoriq-open-first-vendor' },
+      { atMs: VENDORIQ_DETAIL_TAB_DESIGN_TIMES_MS.aiInsights, type: 'demoAction', actionId: 'vendoriq-detail-tab-ai-insights' },
+      { atMs: VENDORIQ_DETAIL_TAB_DESIGN_TIMES_MS.contractCompliance, type: 'demoAction', actionId: 'vendoriq-detail-tab-contract-compliance' },
+      { atMs: VENDORIQ_DETAIL_TAB_DESIGN_TIMES_MS.costVsPerformance, type: 'demoAction', actionId: 'vendoriq-detail-tab-cost-vs-performance' },
+      { atMs: VENDORIQ_DETAIL_TAB_DESIGN_TIMES_MS.benchmarking, type: 'demoAction', actionId: 'vendoriq-detail-tab-benchmarking' },
+      { atMs: VENDORIQ_DETAIL_TAB_DESIGN_TIMES_MS.predictiveRisk, type: 'demoAction', actionId: 'vendoriq-detail-tab-predictive-risk' },
+      { atMs: VENDORIQ_DETAIL_TAB_DESIGN_TIMES_MS.recommendations, type: 'demoAction', actionId: 'vendoriq-detail-tab-recommendations' },
+      { atMs: VENDORIQ_DETAIL_TAB_DESIGN_TIMES_MS.dependencyRisk, type: 'demoAction', actionId: 'vendoriq-detail-tab-dependency-risk' },
       { atMs: 85000, type: 'chapterPause' },
     ],
     'fieldops:intro': [
       scrollCue(0, 'fieldops-command'),
-      spotlightCue(3000, 'fieldops-command', { left: 8, top: 12, width: 84, height: 74 }, 9000),
-      scrollCue(11800, 'fieldops-kpis'),
-      spotlightCue(12000, 'fieldops-kpis', { left: 10, top: 20, width: 80, height: 24 }, 10000),
-      spotlightCue(22000, 'fieldops-surveys-inspections', { left: 12, top: 32, width: 76, height: 22 }, 10000),
-      spotlightCue(32000, 'fieldops-issue-capture', { left: 14, top: 44, width: 72, height: 22 }, 10000),
-      spotlightCue(42000, 'fieldops-evidence-capture', { left: 12, top: 52, width: 76, height: 18 }, 10000),
-      spotlightCue(52000, 'fieldops-command-link', { left: 10, top: 26, width: 80, height: 38 }, 10000),
-      spotlightCue(62000, 'fieldops-progress-status-update', { left: 14, top: 54, width: 72, height: 18 }, 10000),
-      spotlightCue(72000, 'resident-module-entry', { left: 58, top: 68, width: 28, height: 12 }, 8000),
+      { atMs: FIELDOPS_CREATE_SURVEY_SEQUENCE_DESIGN_MS.openWizard, type: 'demoAction', actionId: 'fieldops-open-survey-wizard' },
+      spotlightCue(FIELDOPS_CREATE_SURVEY_SEQUENCE_DESIGN_MS.wizardFocus, 'fieldops-create-survey-wizard', { left: 24, top: 9, width: 52, height: 82 }, 6200),
+      flashCue(FIELDOPS_CREATE_SURVEY_SEQUENCE_DESIGN_MS.aiCard, 'fieldops-survey-option-ai', { left: 25, top: 28, width: 16, height: 24 }, 900),
+      flashCue(FIELDOPS_CREATE_SURVEY_SEQUENCE_DESIGN_MS.templateCard, 'fieldops-survey-option-template', { left: 42, top: 28, width: 16, height: 24 }, 900),
+      flashCue(FIELDOPS_CREATE_SURVEY_SEQUENCE_DESIGN_MS.manualCard, 'fieldops-survey-option-manual', { left: 59, top: 28, width: 16, height: 24 }, 900),
+      { atMs: FIELDOPS_CREATE_SURVEY_SEQUENCE_DESIGN_MS.selectAi, type: 'demoAction', actionId: 'fieldops-select-ai-survey-option' },
+      spotlightCue(FIELDOPS_CREATE_SURVEY_SEQUENCE_DESIGN_MS.aiBrief, 'fieldops-ai-survey-brief', { left: 24, top: 20, width: 52, height: 58 }, 1200),
+      spotlightCue(FIELDOPS_CREATE_SURVEY_SEQUENCE_DESIGN_MS.promptFocus, 'fieldops-ai-prompt-zone', { left: 25, top: 26, width: 34, height: 18 }, 7200),
+      flashCue(FIELDOPS_CREATE_SURVEY_SEQUENCE_DESIGN_MS.chipHvac, 'fieldops-ai-chip-hvac', { left: 25, top: 50, width: 10, height: 5 }, 1000),
+      flashCue(FIELDOPS_CREATE_SURVEY_SEQUENCE_DESIGN_MS.chipLift, 'fieldops-ai-chip-lift-safety', { left: 36, top: 50, width: 14, height: 5 }, 1000),
+      flashCue(FIELDOPS_CREATE_SURVEY_SEQUENCE_DESIGN_MS.chipHandover, 'fieldops-ai-chip-handover', { left: 25, top: 62, width: 14, height: 5 }, 1000),
+      flashCue(FIELDOPS_CREATE_SURVEY_SEQUENCE_DESIGN_MS.chipAuthority, 'fieldops-ai-chip-authority', { left: 44, top: 70, width: 18, height: 5 }, 1000),
+      { atMs: FIELDOPS_CREATE_SURVEY_SEQUENCE_DESIGN_MS.generateSurvey, type: 'demoAction', actionId: 'fieldops-generate-ai-survey' },
+      { atMs: FIELDOPS_CREATE_SURVEY_SEQUENCE_DESIGN_MS.continueDesign, type: 'demoAction', actionId: 'fieldops-continue-survey-design' },
+      spotlightCue(FIELDOPS_CREATE_SURVEY_SEQUENCE_DESIGN_MS.designModal, 'fieldops-survey-design-modal', { left: 20, top: 8, width: 60, height: 84 }, 3000),
+      slowScrollCue(FIELDOPS_CREATE_SURVEY_SEQUENCE_DESIGN_MS.designBottom, 'fieldops-survey-design-bottom', fieldOpsIntroDesignMs(6500)),
+      { atMs: FIELDOPS_CREATE_SURVEY_SEQUENCE_DESIGN_MS.returnSurveys, type: 'demoAction', actionId: 'fieldops-return-to-surveys' },
+      spotlightCue(FIELDOPS_CREATE_SURVEY_SEQUENCE_DESIGN_MS.surveyQueue, 'fieldops-work-queue', { left: 7, top: 36, width: 86, height: 46 }, 4400),
+      { atMs: FIELDOPS_CREATE_SURVEY_SEQUENCE_DESIGN_MS.assignmentsTab, type: 'demoAction', actionId: 'fieldops-tab-assignments' },
+      spotlightCue(FIELDOPS_CREATE_SURVEY_SEQUENCE_DESIGN_MS.assignmentsTab + 600, 'fieldops-assignments-tab-content', { left: 7, top: 36, width: 86, height: 46 }, 5200),
+      { atMs: FIELDOPS_CREATE_SURVEY_SEQUENCE_DESIGN_MS.trackingTab, type: 'demoAction', actionId: 'fieldops-tab-tracking' },
+      spotlightCue(FIELDOPS_CREATE_SURVEY_SEQUENCE_DESIGN_MS.trackingTab + 600, 'fieldops-tracking-tab-content', { left: 7, top: 36, width: 86, height: 46 }, 5200),
+      { atMs: FIELDOPS_CREATE_SURVEY_SEQUENCE_DESIGN_MS.templatesTab, type: 'demoAction', actionId: 'fieldops-tab-templates' },
+      spotlightCue(FIELDOPS_CREATE_SURVEY_SEQUENCE_DESIGN_MS.templatesTab + 600, 'fieldops-templates-tab-content', { left: 7, top: 36, width: 86, height: 46 }, 5200),
+      { atMs: FIELDOPS_CREATE_SURVEY_SEQUENCE_DESIGN_MS.aiTab, type: 'demoAction', actionId: 'fieldops-tab-ai' },
+      spotlightCue(FIELDOPS_CREATE_SURVEY_SEQUENCE_DESIGN_MS.aiTab + 600, 'fieldops-ai-tab-content', { left: 7, top: 36, width: 86, height: 46 }, 5200),
+      spotlightCue(FIELDOPS_CREATE_SURVEY_SEQUENCE_DESIGN_MS.residentEntry, 'resident-module-entry', { left: 58, top: 68, width: 28, height: 12 }, 6000),
       { atMs: 85000, type: 'chapterPause' },
     ],
     'resident:intro': [
       scrollCue(0, 'resident-experience'),
-      spotlightCue(3000, 'resident-experience', { left: 8, top: 12, width: 84, height: 74 }, 9000),
-      scrollCue(11800, 'resident-report-options'),
-      spotlightCue(12000, 'resident-report-options', { left: 10, top: 20, width: 80, height: 22 }, 10000),
-      spotlightCue(22000, 'resident-report-options', { left: 12, top: 32, width: 76, height: 22 }, 10000),
-      scrollCue(31800, 'resident-service-sla'),
-      spotlightCue(32000, 'resident-service-sla', { left: 14, top: 44, width: 72, height: 20 }, 10000),
-      scrollCue(41800, 'resident-action-links'),
-      spotlightCue(42000, 'resident-action-links', { left: 12, top: 52, width: 76, height: 18 }, 10000),
-      spotlightCue(52000, 'resident-service-sla', { left: 10, top: 24, width: 80, height: 40 }, 10000),
-      spotlightCue(62000, 'resident-action-links', { left: 14, top: 54, width: 72, height: 18 }, 10000),
+      spotlightCue(1200, 'resident-report-options', { left: 10, top: 34, width: 80, height: 30 }, 7800),
+      pulseCue(RESIDENT_TAKE_PHOTO_CLICK_DESIGN_MS, 'resident-mode-camera', { left: 10, top: 36, width: 38, height: 22 }, 1500),
+      { atMs: RESIDENT_UPLOAD_PHOTO_DESIGN_MS, type: 'demoAction', actionId: 'resident-mode-upload' },
+      spotlightCue(RESIDENT_INCIDENT_ANALYSIS_DESIGN_MS, 'resident-ai-photo-analysis', { left: 10, top: 42, width: 80, height: 16 }, 2200),
+      spotlightCue(RESIDENT_PHOTO_PREVIEW_DESIGN_MS, 'resident-upload-preview', { left: 10, top: 18, width: 80, height: 26 }, 2000),
+      spotlightCue(RESIDENT_ANALYSIS_RESULT_DESIGN_MS, 'resident-ai-analysis-result', { left: 8, top: 35, width: 84, height: 46 }, 12000),
+      { atMs: RESIDENT_SUBMIT_REPORT_DESIGN_MS, type: 'demoAction', actionId: 'resident-submit-report' },
+      spotlightCue(42000, 'resident-submit-success', { left: 8, top: 18, width: 84, height: 34 }, 12000),
+      spotlightCue(62000, 'resident-response-sla', { left: 12, top: 46, width: 76, height: 20 }, 9000),
       spotlightCue(72000, 'value-module-entry', { left: 58, top: 68, width: 28, height: 12 }, 6000),
       { atMs: 80000, type: 'chapterPause' },
     ],
@@ -2606,6 +2698,98 @@ function getDemoActionAnchor(actionId: string): HotspotTarget | null {
       anchor: 'project-cost-variance-card',
       fallback: { left: 50, top: 33, width: 23, height: 14 },
     },
+    'vendoriq-tab-all-vendors': {
+      anchor: 'vendoriq-all-vendors-tab',
+      fallback: { left: 16, top: 19, width: 17, height: 7 },
+    },
+    'vendoriq-open-first-vendor': {
+      anchor: 'vendoriq-first-vendor-row',
+      fallback: { left: 2, top: 32, width: 96, height: 14 },
+    },
+    'vendoriq-detail-tab-overview': {
+      anchor: 'vendoriq-detail-tab-overview',
+      fallback: { left: 2, top: 20, width: 9, height: 6 },
+    },
+    'vendoriq-detail-tab-procurement-copilot': {
+      anchor: 'vendoriq-detail-tab-procurement-copilot',
+      fallback: { left: 12, top: 20, width: 13, height: 6 },
+    },
+    'vendoriq-detail-tab-ai-insights': {
+      anchor: 'vendoriq-detail-tab-ai-insights',
+      fallback: { left: 26, top: 20, width: 9, height: 6 },
+    },
+    'vendoriq-detail-tab-contract-compliance': {
+      anchor: 'vendoriq-detail-tab-contract-compliance',
+      fallback: { left: 36, top: 20, width: 15, height: 6 },
+    },
+    'vendoriq-detail-tab-cost-vs-performance': {
+      anchor: 'vendoriq-detail-tab-cost-vs-performance',
+      fallback: { left: 52, top: 20, width: 15, height: 6 },
+    },
+    'vendoriq-detail-tab-benchmarking': {
+      anchor: 'vendoriq-detail-tab-benchmarking',
+      fallback: { left: 68, top: 20, width: 11, height: 6 },
+    },
+    'vendoriq-detail-tab-predictive-risk': {
+      anchor: 'vendoriq-detail-tab-predictive-risk',
+      fallback: { left: 80, top: 20, width: 10, height: 6 },
+    },
+    'vendoriq-detail-tab-recommendations': {
+      anchor: 'vendoriq-detail-tab-recommendations',
+      fallback: { left: 2, top: 20, width: 13, height: 6 },
+    },
+    'vendoriq-detail-tab-dependency-risk': {
+      anchor: 'vendoriq-detail-tab-dependency-risk',
+      fallback: { left: 16, top: 20, width: 12, height: 6 },
+    },
+    'fieldops-open-survey-wizard': {
+      anchor: 'fieldops-create-survey-button',
+      fallback: { left: 82, top: 11, width: 12, height: 7 },
+    },
+    'fieldops-select-ai-survey-option': {
+      anchor: 'fieldops-survey-option-ai',
+      fallback: { left: 25, top: 28, width: 16, height: 24 },
+    },
+    'fieldops-generate-ai-survey': {
+      anchor: 'fieldops-generate-survey-button',
+      fallback: { left: 72, top: 82, width: 14, height: 6 },
+    },
+    'fieldops-continue-survey-design': {
+      anchor: 'fieldops-continue-design-button',
+      fallback: { left: 72, top: 82, width: 14, height: 6 },
+    },
+    'fieldops-return-to-surveys': {
+      anchor: 'fieldops-tab-surveys',
+      fallback: { left: 3, top: 32, width: 8, height: 6 },
+    },
+    'fieldops-tab-surveys': {
+      anchor: 'fieldops-tab-surveys',
+      fallback: { left: 3, top: 32, width: 8, height: 6 },
+    },
+    'fieldops-tab-assignments': {
+      anchor: 'fieldops-tab-assignments',
+      fallback: { left: 10, top: 32, width: 10, height: 6 },
+    },
+    'fieldops-tab-tracking': {
+      anchor: 'fieldops-tab-tracking',
+      fallback: { left: 20, top: 32, width: 9, height: 6 },
+    },
+    'fieldops-tab-templates': {
+      anchor: 'fieldops-tab-templates',
+      fallback: { left: 29, top: 32, width: 10, height: 6 },
+    },
+    'fieldops-tab-ai': {
+      anchor: 'fieldops-tab-ai',
+      fallback: { left: 39, top: 32, width: 9, height: 6 },
+    },
+    'resident-mode-upload': {
+      anchor: 'resident-mode-upload',
+      fallback: { left: 52, top: 36, width: 38, height: 22 },
+    },
+    'resident-submit-report': {
+      anchor: 'resident-service-submit-report',
+      fallback: { left: 12, top: 76, width: 76, height: 10 },
+    },
     'open-ai-onboarding': {
       anchor: 'property-onboarding-entry',
       fallback: { left: 76, top: 5, width: 18, height: 8 },
@@ -2731,7 +2915,7 @@ function missionTriggerForFrame(chapterId: string, frameId: string): DemoMission
   if (chapterId === 'portfolio' && frameId === 'command-path') return { type: 'demoAction', action: 'open-property-command' };
   if (chapterId === 'projectcommand' && frameId === 'control-tabs') return { type: 'demoAction', action: 'projectcommand-tab-cost' };
   if (chapterId === 'fieldops' && frameId === 'capture-methods') return { type: 'demoAction', action: 'fieldops-apply-survey' };
-  if (chapterId === 'resident' && frameId === 'intake') return { type: 'demoAction', action: 'resident-mode-camera' };
+  if (chapterId === 'resident' && frameId === 'intake') return { type: 'demoAction', action: 'resident-mode-upload' };
   if (chapterId === 'resident' && frameId === 'handoff') return { type: 'demoAction', action: 'resident-copy-link' };
   if (chapterId === 'value') return { type: 'frameVisit' };
   return { type: 'cta' };
@@ -4499,11 +4683,11 @@ function DemoStage({
   }
 
   if (chapter.screen === 'vendoriq') {
-    return <VendorIntelligence onToast={onToast} />;
+    return <VendorIntelligence onToast={onToast} demoActionRequest={demoActionRequest} demoTimelineMs={demoTimelineMs} />;
   }
 
   if (chapter.screen === 'fieldops') {
-    return <FieldOpsDashboard onToast={onToast} />;
+    return <FieldOpsDashboard onToast={onToast} demoActionRequest={demoActionRequest} demoTimelineMs={demoTimelineMs} />;
   }
 
   if (chapter.screen === 'resident') {
@@ -4515,6 +4699,8 @@ function DemoStage({
         memberToken="demo-client"
         clientId="CLT-004"
         siteId="business-bay"
+        demoActionRequest={demoActionRequest}
+        demoTimelineMs={demoTimelineMs}
       />
     );
   }
@@ -5172,7 +5358,7 @@ export function InteractiveDemoWalkthrough() {
   }, [allMissionFrames, completeMission]);
 
   useEffect(() => {
-    if (!['projectcommand', 'stagegates', 'cost'].includes(chapter.id) || narrationPhase !== 'intro') return;
+    if (!['projectcommand', 'stagegates', 'cost', 'vendoriq', 'resident'].includes(chapter.id) || narrationPhase !== 'intro') return;
     if (timelineElapsedMs > 500) return;
     const root = stageRef.current;
     if (!root) return;

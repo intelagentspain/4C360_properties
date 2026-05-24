@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   TrendingUp, TrendingDown, Minus, ArrowLeft, ShieldCheck,
@@ -2251,6 +2251,7 @@ function VendorCopilotWorkbench({
                 onRun(action.id);
                 if (action.id === 'compare') onOpenQuoteIntake?.();
               }}
+              data-demo-anchor={action.id === 'compare' ? 'vendoriq-compare-quotes-button' : action.id === 'background' ? 'vendoriq-background-checks-button' : undefined}
               className={`group rounded-xl border p-3 text-left transition-all hover:-translate-y-0.5 hover:border-white/30 ${action.tone}`}
             >
               <div className="flex items-center gap-2">
@@ -4781,6 +4782,30 @@ function MiniChart({ data, field, color }: { data: { month: string; [key: string
   );
 }
 
+const VENDOR_DETAIL_SECTIONS = [
+  'Overview',
+  'Procurement Copilot',
+  'AI Insights',
+  'Contract Compliance',
+  'Cost vs Performance',
+  'Benchmarking',
+  'Predictive Risk',
+  'Recommendations',
+  'Dependency Risk',
+];
+
+function vendorDetailSectionDomId(section: string) {
+  return `vendor-section-${section.replace(/\s/g, '-')}`;
+}
+
+function vendorDetailSectionActionId(section: string) {
+  return `vendoriq-detail-tab-${section
+    .toLowerCase()
+    .replace(/&/g, 'and')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')}`;
+}
+
 function computePeerAvgs(vendors: VendorIntelData[]) {
   if (vendors.length === 0) return { sla: 85, ftf: 80, evc: 85 };
   return {
@@ -4790,8 +4815,18 @@ function computePeerAvgs(vendors: VendorIntelData[]) {
   };
 }
 
-function VendorDetailPage({ vendor, onBack, onToast }: { vendor: VendorIntelData; onBack: () => void; onToast: ToastFn }) {
-  const [activeSection, setActiveSection] = useState<string | null>(null);
+function VendorDetailPage({
+  vendor,
+  onBack,
+  onToast,
+  demoActionRequest,
+}: {
+  vendor: VendorIntelData;
+  onBack: () => void;
+  onToast: ToastFn;
+  demoActionRequest?: { actionId: string; nonce: number } | null;
+}) {
+  const [activeSection, setActiveSection] = useState<string | null>(VENDOR_DETAIL_SECTIONS[0]);
   const [showReassignModal, setShowReassignModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [selectedMetricInsight, setSelectedMetricInsight] = useState<VendorMetricInsight | null>(null);
@@ -4813,7 +4848,7 @@ function VendorDetailPage({ vendor, onBack, onToast }: { vendor: VendorIntelData
   const benchmarkRank = rankedVendors.findIndex(v => v.id === vendor.id) + 1;
 
   const copilotResult = copilotOverride ?? buildVendorCopilotResult(vendor, allVendors, copilotAction);
-  const sections = ['Overview', 'Procurement Copilot', 'AI Insights', 'Contract Compliance', 'Cost vs Performance', 'Benchmarking', 'Predictive Risk', 'Recommendations', 'Dependency Risk'];
+  const sections = VENDOR_DETAIL_SECTIONS;
   const openMetricInsight = (metricName: VendorMetricName) => setSelectedMetricInsight(buildVendorMetricInsight(vendor, metricName));
   const runCopilotAction = (action: VendorCopilotAction) => {
     setCopilotAction(action);
@@ -4878,6 +4913,20 @@ function VendorDetailPage({ vendor, onBack, onToast }: { vendor: VendorIntelData
     onToast('Action pack saved to VendorIQ workbench', 'success');
   };
 
+  useEffect(() => {
+    const actionId = demoActionRequest?.actionId;
+    if (!actionId?.startsWith('vendoriq-detail-tab-')) return;
+    if (actionId === 'vendoriq-detail-tab-overview') return;
+    if (actionId === 'vendoriq-detail-tab-procurement-copilot') return;
+    const nextSection = sections.find(section => vendorDetailSectionActionId(section) === actionId);
+    if (!nextSection) return;
+
+    setActiveSection(nextSection);
+    window.setTimeout(() => {
+      document.getElementById(vendorDetailSectionDomId(nextSection))?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 0);
+  }, [demoActionRequest?.actionId, demoActionRequest?.nonce, sections]);
+
   return (
     <div className="relative h-full flex flex-col overflow-hidden">
       <div className="flex items-center gap-3 px-5 py-3 border-b border-[rgba(46,127,255,0.15)] flex-shrink-0">
@@ -4911,25 +4960,30 @@ function VendorDetailPage({ vendor, onBack, onToast }: { vendor: VendorIntelData
       </div>
 
       <div className="flex gap-1 px-5 py-2 border-b border-[rgba(46,127,255,0.08)] overflow-x-auto no-scrollbar flex-shrink-0">
-        {sections.map(s => (
-          <button
-            key={s}
-            onClick={() => {
-              const el = document.getElementById(`vendor-section-${s.replace(/\s/g, '-')}`);
-              el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              setActiveSection(s);
-            }}
-            className={`text-[10px] px-3 py-1.5 rounded-lg whitespace-nowrap font-semibold transition-all flex-shrink-0 ${
-              activeSection === s ? 'bg-[#2E7FFF]/20 text-[#2E7FFF]' : 'text-[#7A94B4] hover:text-[#EEF3FA] hover:bg-white/5'
-            }`}
-          >
-            {s}
-          </button>
-        ))}
+        {sections.map(s => {
+          const actionId = vendorDetailSectionActionId(s);
+          return (
+            <button
+              key={s}
+              onClick={() => {
+                const el = document.getElementById(vendorDetailSectionDomId(s));
+                el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                setActiveSection(s);
+              }}
+              data-demo-action={actionId}
+              data-demo-anchor={actionId}
+              className={`text-[10px] px-3 py-1.5 rounded-lg whitespace-nowrap font-semibold transition-all flex-shrink-0 ${
+                activeSection === s ? 'bg-[#2E7FFF]/20 text-[#2E7FFF]' : 'text-[#7A94B4] hover:text-[#EEF3FA] hover:bg-white/5'
+              }`}
+            >
+              {s}
+            </button>
+          );
+        })}
       </div>
 
       <div className="flex-1 overflow-y-auto custom-scrollbar px-5 py-4 space-y-4">
-        <div id="vendor-section-Overview">
+        <div id={vendorDetailSectionDomId('Overview')}>
           <DetailSection icon={<Star size={12} className="text-[#2E7FFF]" />} title="Overview">
             <div className="grid grid-cols-2 gap-3 mb-3">
               <div className="relative col-span-2 sm:col-span-1 flex items-center gap-4 bg-[#0D1E3A] rounded-xl p-3 pr-10">
@@ -4981,7 +5035,7 @@ function VendorDetailPage({ vendor, onBack, onToast }: { vendor: VendorIntelData
           </DetailSection>
         </div>
 
-        <div id="vendor-section-Procurement-Copilot">
+        <div id={vendorDetailSectionDomId('Procurement Copilot')}>
           <DetailSection icon={<Sparkles size={12} className="text-[#2E7FFF]" />} title="Procurement Copilot">
             <VendorCopilotWorkbench
               result={copilotResult}
@@ -4995,7 +5049,7 @@ function VendorDetailPage({ vendor, onBack, onToast }: { vendor: VendorIntelData
           </DetailSection>
         </div>
 
-        <div id="vendor-section-AI-Insights">
+        <div id={vendorDetailSectionDomId('AI Insights')}>
           <DetailSection icon={<Brain size={12} className="text-[#2E7FFF]" />} title="AI Insights">
             <div className="space-y-2">
               {vendor.insights.map((insight, i) => (
@@ -5022,7 +5076,7 @@ function VendorDetailPage({ vendor, onBack, onToast }: { vendor: VendorIntelData
           </DetailSection>
         </div>
 
-        <div id="vendor-section-Contract-Compliance">
+        <div id={vendorDetailSectionDomId('Contract Compliance')}>
           <DetailSection icon={<CheckCircle size={12} className="text-[#2E7FFF]" />} title="Contract Compliance">
             {vendor.contractFlags.length === 0 ? (
               <div className="flex items-center gap-2 bg-emerald-500/8 border border-emerald-500/20 rounded-lg p-3">
@@ -5061,7 +5115,7 @@ function VendorDetailPage({ vendor, onBack, onToast }: { vendor: VendorIntelData
           </DetailSection>
         </div>
 
-        <div id="vendor-section-Cost-vs-Performance">
+        <div id={vendorDetailSectionDomId('Cost vs Performance')}>
           <DetailSection icon={<DollarSign size={12} className="text-[#2E7FFF]" />} title="Cost vs Performance">
             <div className="grid grid-cols-2 gap-3 mb-3">
               <div className="bg-[#0D1E3A] rounded-xl p-3">
@@ -5118,7 +5172,7 @@ function VendorDetailPage({ vendor, onBack, onToast }: { vendor: VendorIntelData
           </DetailSection>
         </div>
 
-        <div id="vendor-section-Benchmarking">
+        <div id={vendorDetailSectionDomId('Benchmarking')}>
           <DetailSection icon={<BarChart3 size={12} className="text-[#2E7FFF]" />} title="Benchmarking">
             <div className="mb-3 flex items-center gap-3 bg-[#0D1E3A] rounded-xl p-3">
               <div className="text-center">
@@ -5157,7 +5211,7 @@ function VendorDetailPage({ vendor, onBack, onToast }: { vendor: VendorIntelData
           </DetailSection>
         </div>
 
-        <div id="vendor-section-Predictive-Risk">
+        <div id={vendorDetailSectionDomId('Predictive Risk')}>
           <DetailSection icon={<AlertTriangle size={12} className="text-[#2E7FFF]" />} title="Predictive Risk">
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-[#0D1E3A] rounded-xl p-3">
@@ -5194,7 +5248,7 @@ function VendorDetailPage({ vendor, onBack, onToast }: { vendor: VendorIntelData
           </DetailSection>
         </div>
 
-        <div id="vendor-section-Recommendations">
+        <div id={vendorDetailSectionDomId('Recommendations')}>
           <DetailSection icon={<Sparkles size={12} className="text-[#A78BFA]" />} title="Recommendations">
             <div className="space-y-2.5">
               {vendor.recommendations.map((rec, i) => (
@@ -5221,7 +5275,7 @@ function VendorDetailPage({ vendor, onBack, onToast }: { vendor: VendorIntelData
           </DetailSection>
         </div>
 
-        <div id="vendor-section-Dependency-Risk">
+        <div id={vendorDetailSectionDomId('Dependency Risk')}>
           <DetailSection icon={<Users size={12} className="text-[#2E7FFF]" />} title="Dependency Risk">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: `${dependencyColor(vendor.dependencyRisk)}18`, border: `1px solid ${dependencyColor(vendor.dependencyRisk)}30` }}>
@@ -6150,9 +6204,13 @@ function AddVendorWizard({
   );
 }
 
-interface Props { onToast: ToastFn }
+interface Props {
+  onToast: ToastFn;
+  demoActionRequest?: { actionId: string; nonce: number } | null;
+  demoTimelineMs?: number;
+}
 
-export function VendorIntelligence({ onToast }: Props) {
+export function VendorIntelligence({ onToast, demoActionRequest, demoTimelineMs }: Props) {
   const [filterTab, setFilterTab] = useState<FilterTab>('copilot');
   const [selectedVendor, setSelectedVendor] = useState<VendorIntelData | null>(null);
   const [showAddVendorWizard, setShowAddVendorWizard] = useState(false);
@@ -6164,6 +6222,8 @@ export function VendorIntelligence({ onToast }: Props) {
   const [pageCopilotLog, setPageCopilotLog] = useState<string[]>([
     'Portfolio procurement copilot ready on the Vendor Intelligence page.',
   ]);
+  const pageScrollRef = useRef<HTMLDivElement | null>(null);
+  const demoStartResetDoneRef = useRef(false);
   const { vendors: allVendors, addVendor } = useVendors();
 
   const vendorsWithScores = allVendors.map(v => ({
@@ -6290,10 +6350,51 @@ export function VendorIntelligence({ onToast }: Props) {
     onToast(source === 'ai' ? 'Vendor profile created from document intake' : `${vendor.name} added to Vendor Intelligence`, 'success');
   }
 
+  useEffect(() => {
+    if (!demoActionRequest?.actionId) return;
+
+    if (demoActionRequest.actionId === 'vendoriq-tab-all-vendors') {
+      setSelectedVendor(null);
+      setShowPageCopilotModal(false);
+      setFilterTab('all');
+      return;
+    }
+
+    if (demoActionRequest.actionId === 'vendoriq-open-first-vendor') {
+      const firstVendor = [...allVendors].sort((a, b) => computeVendorScore(b) - computeVendorScore(a))[0];
+      if (!firstVendor) return;
+      setFilterTab('all');
+      setShowPageCopilotModal(false);
+      setSelectedVendor(firstVendor);
+    }
+  }, [allVendors, demoActionRequest?.actionId, demoActionRequest?.nonce]);
+
+  useEffect(() => {
+    if (typeof demoTimelineMs !== 'number') return;
+    if (demoTimelineMs > 700) {
+      demoStartResetDoneRef.current = false;
+      return;
+    }
+    if (demoStartResetDoneRef.current) return;
+
+    demoStartResetDoneRef.current = true;
+    setSelectedVendor(null);
+    setShowPageCopilotModal(false);
+    setFilterTab('copilot');
+    window.setTimeout(() => {
+      pageScrollRef.current?.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    }, 0);
+  }, [demoTimelineMs]);
+
   if (selectedVendor) {
     return (
       <div className="absolute inset-0 flex flex-col">
-        <VendorDetailPage vendor={selectedVendor} onBack={() => setSelectedVendor(null)} onToast={onToast} />
+        <VendorDetailPage
+          vendor={selectedVendor}
+          onBack={() => setSelectedVendor(null)}
+          onToast={onToast}
+          demoActionRequest={demoActionRequest}
+        />
       </div>
     );
   }
@@ -6341,6 +6442,8 @@ export function VendorIntelligence({ onToast }: Props) {
           <button
             key={t.id}
             onClick={() => setFilterTab(t.id)}
+            data-demo-action={t.id === 'all' ? 'vendoriq-tab-all-vendors' : undefined}
+            data-demo-anchor={t.id === 'copilot' ? 'vendoriq-procurement-copilot-tab' : t.id === 'all' ? 'vendoriq-all-vendors-tab' : undefined}
             className={`text-[11px] px-3 py-1.5 rounded-lg whitespace-nowrap font-semibold transition-all flex-shrink-0 ${
               filterTab === t.id
                 ? 'bg-[#2E7FFF]/20 text-[#2E7FFF] border border-[#2E7FFF]/30'
@@ -6352,7 +6455,7 @@ export function VendorIntelligence({ onToast }: Props) {
         ))}
       </div>
 
-      <div className="flex-1 overflow-y-auto custom-scrollbar px-5 py-4">
+      <div ref={pageScrollRef} className="flex-1 overflow-y-auto custom-scrollbar px-5 py-4">
         {filterTab === 'copilot' && (
         <div className="overflow-hidden rounded-2xl border border-[#2E7FFF]/28 bg-[linear-gradient(135deg,rgba(17,32,64,0.96),rgba(7,17,31,0.98))] shadow-[0_18px_50px_rgba(0,0,0,0.22)]" data-demo-anchor="vendor-performance-scorecard">
           <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[rgba(46,127,255,0.16)] bg-[linear-gradient(90deg,rgba(46,127,255,0.18),rgba(237,29,46,0.10),rgba(7,17,31,0))] px-5 py-4">
@@ -6414,7 +6517,8 @@ export function VendorIntelligence({ onToast }: Props) {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.04 }}
                   onClick={() => setSelectedVendor(vendor)}
-                  data-demo-anchor={i === 0 ? 'vendor-project-impact-link' : undefined}
+                  data-demo-action={i === 0 ? 'vendoriq-open-first-vendor' : undefined}
+                  data-demo-anchor={i === 0 ? 'vendoriq-first-vendor-row' : undefined}
                   className="w-full text-left grid grid-cols-[2fr_70px_100px_80px_90px_90px_80px_36px] px-4 py-3 border-b border-[rgba(46,127,255,0.07)] hover:bg-white/[0.025] transition-all items-center group"
                 >
                   <div className="min-w-0">

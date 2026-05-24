@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, CheckCircle, Loader2, Brain, X, ImageIcon } from 'lucide-react';
 import type { ToastFn } from '@/lib/ui';
@@ -10,7 +10,27 @@ interface Props {
   onToast: ToastFn;
   clientId?: string;
   siteId?: string;
+  demoActionRequest?: { actionId: string; nonce: number } | null;
 }
+
+const BASE_URL = import.meta.env.BASE_URL?.replace(/\/$/, '') ?? '';
+const DEMO_WATER_LEAK_IMAGE_URL = `${BASE_URL}/demo/resident-water-leak-wall.webp`;
+
+const DEMO_WATER_LEAK_ANALYSIS: AiAnalysis = {
+  title: 'Water Leak Behind Wall',
+  description: 'Uploaded photo shows blistering paint, raised plaster, and localised surface breakdown consistent with moisture trapped behind the wall finish. The pattern suggests a concealed pipe or waterproofing leak rather than a simple surface stain.',
+  category: 'Plumbing',
+  subCategory: 'Water Leak / Damp Wall',
+  identifiedAsset: 'Interior Wall / Concealed Pipework',
+  observations: [
+    'Paint blistering and raised plaster are visible across the lower wall.',
+    'Exposed plaster patches indicate prolonged moisture contact.',
+    'Damage sits close to skirting level, so hidden pipework or waterproofing should be checked before repainting.',
+  ],
+  recommendedAction: 'Dispatch a plumbing technician to isolate the source, check concealed pipework with a moisture meter or thermal scan, protect adjacent finishes, and repair the wall only after the leak is fixed and dried.',
+  priority: 'high',
+  confidence: 92,
+};
 
 function compressThumbnail(dataUrl: string, maxWidth = 320, quality = 0.6): Promise<string> {
   return new Promise((resolve) => {
@@ -30,8 +50,10 @@ function compressThumbnail(dataUrl: string, maxWidth = 320, quality = 0.6): Prom
   });
 }
 
-export function UploadMode({ onSuccess, onToast, clientId, siteId }: Props) {
+export function UploadMode({ onSuccess, onToast, clientId, siteId, demoActionRequest }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const demoPreviewTimerRef = useRef<number | null>(null);
+  const demoAnalysisTimerRef = useRef<number | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [analysing, setAnalysing] = useState(false);
@@ -67,7 +89,52 @@ export function UploadMode({ onSuccess, onToast, clientId, siteId }: Props) {
     if (file) processFile(file);
   }, []);
 
+  const runDemoWaterLeakUpload = useCallback(() => {
+    if (demoPreviewTimerRef.current) window.clearTimeout(demoPreviewTimerRef.current);
+    if (demoAnalysisTimerRef.current) window.clearTimeout(demoAnalysisTimerRef.current);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    setDragging(false);
+    setPreview(null);
+    setAnalysis(null);
+    setAnalysing(true);
+    setSubmitting(false);
+    demoPreviewTimerRef.current = window.setTimeout(() => {
+      setPreview(DEMO_WATER_LEAK_IMAGE_URL);
+    }, 1400);
+    demoAnalysisTimerRef.current = window.setTimeout(() => {
+      setAnalysis(DEMO_WATER_LEAK_ANALYSIS);
+      setAnalysing(false);
+      onToast('AI analysed uploaded water leak photo', 'info');
+    }, 3600);
+  }, [onToast]);
+
+  const runDemoSubmitReport = useCallback(() => {
+    if (!preview || !analysis || submitting) return;
+    setSubmitting(true);
+    window.setTimeout(() => {
+      onToast('Incident INC-H-DEMO submitted - our team is on it', 'success');
+      onSuccess('INC-H-DEMO');
+    }, 650);
+  }, [analysis, onSuccess, onToast, preview, submitting]);
+
+  useEffect(() => {
+    if (demoActionRequest?.actionId !== 'resident-mode-upload') return;
+    runDemoWaterLeakUpload();
+  }, [demoActionRequest?.actionId, demoActionRequest?.nonce, runDemoWaterLeakUpload]);
+
+  useEffect(() => {
+    if (demoActionRequest?.actionId !== 'resident-submit-report') return;
+    runDemoSubmitReport();
+  }, [demoActionRequest?.actionId, demoActionRequest?.nonce, runDemoSubmitReport]);
+
+  useEffect(() => () => {
+    if (demoPreviewTimerRef.current) window.clearTimeout(demoPreviewTimerRef.current);
+    if (demoAnalysisTimerRef.current) window.clearTimeout(demoAnalysisTimerRef.current);
+  }, []);
+
   const clearPhoto = () => {
+    if (demoPreviewTimerRef.current) window.clearTimeout(demoPreviewTimerRef.current);
+    if (demoAnalysisTimerRef.current) window.clearTimeout(demoAnalysisTimerRef.current);
     setPreview(null);
     setAnalysis(null);
     setAnalysing(false);
@@ -106,6 +173,7 @@ export function UploadMode({ onSuccess, onToast, clientId, siteId }: Props) {
           onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
           onDragLeave={() => setDragging(false)}
           onDrop={handleDrop}
+          data-demo-anchor="resident-upload-dropzone"
           className={`w-full border-2 border-dashed rounded-2xl p-10 flex flex-col items-center gap-3 transition-all duration-200 ${
             dragging
               ? 'border-[#7C3AED] bg-[rgba(124,58,237,0.05)]'
@@ -127,6 +195,7 @@ export function UploadMode({ onSuccess, onToast, clientId, siteId }: Props) {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
+          data-demo-anchor="resident-upload-preview"
           className="relative rounded-2xl overflow-hidden border border-[#E8DEC8]"
         >
           <img src={preview} alt="upload preview" className="w-full object-cover max-h-56" />
@@ -151,12 +220,17 @@ export function UploadMode({ onSuccess, onToast, clientId, siteId }: Props) {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
+            data-demo-anchor="resident-ai-photo-analysis"
             className="flex items-center gap-3 p-3 rounded-xl bg-[#F0FDF4] border border-emerald-200"
           >
             <Brain size={16} className="text-emerald-600 animate-pulse flex-shrink-0" />
             <div>
-              <div className="text-[12px] font-semibold text-emerald-800">AI is analysing your photo…</div>
-              <div className="text-[10px] text-emerald-600">Identifying the issue, observations and priority</div>
+              <div className="text-[12px] font-semibold text-emerald-800">
+                {preview ? 'AI is analysing your photo...' : 'AI is analysing the incident...'}
+              </div>
+              <div className="text-[10px] text-emerald-600">
+                {preview ? 'Identifying the issue, observations and priority' : 'Preparing the evidence upload and checking urgency'}
+              </div>
             </div>
           </motion.div>
         )}
@@ -164,7 +238,9 @@ export function UploadMode({ onSuccess, onToast, clientId, siteId }: Props) {
 
       <AnimatePresence>
         {analysis && !analysing && (
-          <AnalysisResultCard analysis={analysis} />
+          <div data-demo-anchor="resident-ai-analysis-result">
+            <AnalysisResultCard analysis={analysis} />
+          </div>
         )}
       </AnimatePresence>
 
@@ -172,6 +248,8 @@ export function UploadMode({ onSuccess, onToast, clientId, siteId }: Props) {
         <button
           onClick={handleSubmit}
           disabled={submitting || analysing}
+          data-demo-action="resident-submit-report"
+          data-demo-anchor="resident-service-submit-report"
           className="w-full py-3.5 rounded-2xl font-semibold text-white text-sm flex items-center justify-center gap-2 disabled:opacity-60"
           style={{ background: 'linear-gradient(135deg, #1C3A35 0%, #2D5A50 100%)' }}
         >
