@@ -33,7 +33,7 @@ export function SuccessScreen({ incidentRef, incidentSla = 30, onDone }: Props) 
   }
 
   return (
-    <div className="flex flex-col h-full bg-[#FDFAF5] overflow-y-auto">
+    <div className="flex flex-col h-full bg-[#FDFAF5] overflow-y-auto" data-demo-anchor="resident-submit-success">
       <div
         className="flex-shrink-0 px-6 pt-10 pb-8 flex flex-col items-center text-center"
         style={{ background: 'linear-gradient(135deg, #1C3A35 0%, #2D5A50 100%)' }}
@@ -87,6 +87,7 @@ export function SuccessScreen({ incidentRef, incidentSla = 30, onDone }: Props) 
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
+          data-demo-anchor="resident-response-sla"
           className="p-4 rounded-2xl bg-white border border-[#E8DEC8] shadow-sm space-y-3"
         >
           <div className="flex items-center gap-2">

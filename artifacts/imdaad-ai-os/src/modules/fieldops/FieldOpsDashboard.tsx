@@ -58,9 +58,32 @@ type FieldOpsTemplate = {
 };
 type CreateWizardStep = 'start' | 'ai' | 'template' | 'basics';
 type CreateStartMode = 'ai' | 'template' | 'manual';
+type DemoActionRequest = { actionId: string; nonce: number };
 
 interface Props {
   onToast: (msg: string, type?: 'success' | 'warning' | 'error' | 'info') => void;
+  demoActionRequest?: DemoActionRequest | null;
+  demoTimelineMs?: number;
+}
+
+const FIELDOPS_DEMO_AI_PROMPT = 'Create a mobile field survey for Sobha Pilot Tower handover readiness covering lift safety, snagging, evidence capture, authority closeout, GPS proof, and escalation rules.';
+const FIELDOPS_DEMO_AI_SEQUENCE_MS = {
+  promptStart: 22_400,
+  promptEnd: 30_000,
+  chipHvac: 30_800,
+  chipLift: 32_200,
+  chipHandover: 33_600,
+  chipAuthority: 35_000,
+  generateSurvey: 37_000,
+  continueDesign: 39_200,
+};
+
+function getFieldOpsAiChipDemoAnchor(chip: string) {
+  if (chip === 'HVAC PPM') return 'fieldops-ai-chip-hvac';
+  if (chip === 'Lift Safety Inspection') return 'fieldops-ai-chip-lift-safety';
+  if (chip === 'Handover Inspection') return 'fieldops-ai-chip-handover';
+  if (chip === 'Authority Readiness Check') return 'fieldops-ai-chip-authority';
+  return undefined;
 }
 
 const tabs: Array<{ id: Tab; label: string }> = [
@@ -1308,11 +1331,15 @@ function CreateSurveyModal({
   onDesign,
   properties,
   initialTemplate,
+  demoActionRequest,
+  demoTimelineMs,
 }: {
   onClose: () => void;
   onDesign: (type: SurveyType) => void;
   properties: PortfolioClient[];
   initialTemplate?: FieldOpsTemplate | null;
+  demoActionRequest?: DemoActionRequest | null;
+  demoTimelineMs?: number;
 }) {
   const [wizardStep, setWizardStep] = useState<CreateWizardStep>(initialTemplate ? 'basics' : 'start');
   const [startMode, setStartMode] = useState<CreateStartMode>(initialTemplate ? 'template' : 'ai');
@@ -1353,6 +1380,45 @@ function CreateSurveyModal({
     if (!descriptionEdited) setDescription(aiDescription);
   }, [aiDescription, descriptionEdited]);
 
+  useEffect(() => {
+    if (demoActionRequest?.actionId !== 'fieldops-select-ai-survey-option') return;
+    setStartMode('ai');
+    setWizardStep('ai');
+    setAiPrompt('');
+    setSelectedAiChip(null);
+    setAiGeneratedPreview(false);
+  }, [demoActionRequest?.actionId, demoActionRequest?.nonce]);
+
+  useEffect(() => {
+    if (wizardStep !== 'ai' || demoTimelineMs === undefined) return;
+    if (demoTimelineMs < FIELDOPS_DEMO_AI_SEQUENCE_MS.promptStart) {
+      setAiPrompt(current => current === '' ? current : '');
+      setSelectedAiChip(null);
+      setAiGeneratedPreview(false);
+      return;
+    }
+
+    const promptProgress = Math.max(0, Math.min(
+      1,
+      (demoTimelineMs - FIELDOPS_DEMO_AI_SEQUENCE_MS.promptStart)
+      / (FIELDOPS_DEMO_AI_SEQUENCE_MS.promptEnd - FIELDOPS_DEMO_AI_SEQUENCE_MS.promptStart),
+    ));
+    const visibleCharacters = Math.ceil(FIELDOPS_DEMO_AI_PROMPT.length * promptProgress);
+    setAiPrompt(FIELDOPS_DEMO_AI_PROMPT.slice(0, visibleCharacters));
+    setAiGeneratedPreview(promptProgress >= 1);
+
+    const activeChip = demoTimelineMs >= FIELDOPS_DEMO_AI_SEQUENCE_MS.chipAuthority
+      ? 'Authority Readiness Check'
+      : demoTimelineMs >= FIELDOPS_DEMO_AI_SEQUENCE_MS.chipHandover
+      ? 'Handover Inspection'
+      : demoTimelineMs >= FIELDOPS_DEMO_AI_SEQUENCE_MS.chipLift
+      ? 'Lift Safety Inspection'
+      : demoTimelineMs >= FIELDOPS_DEMO_AI_SEQUENCE_MS.chipHvac
+      ? 'HVAC PPM'
+      : null;
+    setSelectedAiChip(activeChip);
+  }, [demoTimelineMs, wizardStep]);
+
   const applyTemplate = (template: FieldOpsTemplate) => {
     setSelectedTemplate(template);
     setStartMode('template');
@@ -1382,6 +1448,16 @@ function CreateSurveyModal({
     setWizardStep('basics');
   };
 
+  useEffect(() => {
+    if (demoActionRequest?.actionId !== 'fieldops-generate-ai-survey') return;
+    applyAiDraft();
+  }, [demoActionRequest?.actionId, demoActionRequest?.nonce]);
+
+  useEffect(() => {
+    if (demoActionRequest?.actionId !== 'fieldops-continue-survey-design' || wizardStep !== 'basics') return;
+    onDesign(type);
+  }, [demoActionRequest?.actionId, demoActionRequest?.nonce, onDesign, type, wizardStep]);
+
   const goBackFromBasics = () => {
     if (startMode === 'template') {
       setWizardStep('template');
@@ -1410,7 +1486,7 @@ function CreateSurveyModal({
   return (
     <div className="fixed inset-0 z-[2500] flex items-start justify-center overflow-hidden p-3 sm:p-4">
       <button className="absolute inset-0 bg-black/65 backdrop-blur-sm" onClick={onClose} aria-label="Close create survey" />
-      <motion.div initial={{ opacity: 0, y: 12, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 12, scale: 0.97 }} className="relative flex max-h-[calc(100dvh-1.5rem)] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-[rgba(46,127,255,0.25)] bg-[#0A1628] shadow-2xl sm:max-h-[calc(100dvh-2rem)]">
+      <motion.div data-demo-anchor="fieldops-create-survey-wizard" initial={{ opacity: 0, y: 12, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 12, scale: 0.97 }} className="relative flex max-h-[calc(100dvh-1.5rem)] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-[rgba(46,127,255,0.25)] bg-[#0A1628] shadow-2xl sm:max-h-[calc(100dvh-2rem)]">
         <div className="shrink-0 flex items-start justify-between border-b border-[rgba(46,127,255,0.14)] bg-[linear-gradient(135deg,rgba(225,29,46,0.14),rgba(46,127,255,0.06))] px-5 py-3.5">
           <div>
             <div className="text-[10px] font-bold uppercase tracking-widest text-[#E11D2E]">{stepLabel}</div>
@@ -1426,6 +1502,8 @@ function CreateSurveyModal({
             <div className="grid gap-3 lg:grid-cols-3">
               <button
                 type="button"
+                data-demo-anchor="fieldops-survey-option-ai"
+                data-demo-action="fieldops-select-ai-survey-option"
                 onClick={() => { setStartMode('ai'); setWizardStep('ai'); }}
                 className="group rounded-2xl border border-[#E11D2E]/35 bg-[linear-gradient(135deg,rgba(225,29,46,0.18),rgba(46,127,255,0.08))] p-5 text-left shadow-xl shadow-red-950/10 transition hover:-translate-y-0.5 hover:border-[#E11D2E]/70"
               >
@@ -1437,6 +1515,7 @@ function CreateSurveyModal({
               </button>
               <button
                 type="button"
+                data-demo-anchor="fieldops-survey-option-template"
                 onClick={() => { setStartMode('template'); setWizardStep('template'); }}
                 className="group rounded-2xl border border-[rgba(46,127,255,0.2)] bg-[#07111F] p-5 text-left transition hover:-translate-y-0.5 hover:border-[#7EB8F7]/55 hover:bg-[#102040]"
               >
@@ -1447,6 +1526,7 @@ function CreateSurveyModal({
               </button>
               <button
                 type="button"
+                data-demo-anchor="fieldops-survey-option-manual"
                 onClick={startManual}
                 className="group rounded-2xl border border-[rgba(46,127,255,0.2)] bg-[#07111F] p-5 text-left transition hover:-translate-y-0.5 hover:border-white/25 hover:bg-[#102040]"
               >
@@ -1459,10 +1539,11 @@ function CreateSurveyModal({
           )}
 
           {wizardStep === 'ai' && (
-            <div className="grid gap-4 lg:grid-cols-[1fr_0.85fr]">
+            <div className="grid gap-4 lg:grid-cols-[1fr_0.85fr]" data-demo-anchor="fieldops-ai-survey-brief">
               <div className="rounded-2xl border border-[#E11D2E]/30 bg-[linear-gradient(135deg,rgba(225,29,46,0.12),rgba(17,32,64,0.78))] p-5">
                 <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-red-200"><Bot size={14} /> AI survey brief</div>
                 <textarea
+                  data-demo-anchor="fieldops-ai-prompt-zone"
                   value={aiPrompt}
                   onChange={event => { setAiPrompt(event.target.value); setSelectedAiChip(null); setAiGeneratedPreview(false); }}
                   placeholder="Example: Create a preventive maintenance checklist for a water-cooled chiller in a residential tower."
@@ -1477,6 +1558,7 @@ function CreateSurveyModal({
                           <button
                             key={chip}
                             type="button"
+                            data-demo-anchor={getFieldOpsAiChipDemoAnchor(chip)}
                             onClick={() => {
                               setSelectedAiChip(chip);
                               setAiPrompt(`Create a ${chip.toLowerCase()} checklist for a property development and management portfolio.`);
@@ -1661,7 +1743,14 @@ function CreateSurveyModal({
               <>
                 <button onClick={() => setWizardStep('start')} className="rounded-lg border border-[rgba(46,127,255,0.22)] px-4 py-2 text-[12px] font-bold text-[#B8C7DB] hover:bg-white/5">Back</button>
                 <button onClick={() => { setAiGeneratedPreview(true); setAiDraftPreviewOpen(true); }} className="rounded-lg border border-[#E11D2E]/35 bg-[#E11D2E]/10 px-4 py-2 text-[12px] font-bold text-red-100 hover:bg-[#E11D2E]/16">Preview AI Draft</button>
-                <button onClick={applyAiDraft} className="rounded-lg bg-[#E11D2E] px-4 py-2 text-[12px] font-bold text-white shadow-lg shadow-red-950/25">Generate Survey</button>
+                <button
+                  data-demo-anchor="fieldops-generate-survey-button"
+                  data-demo-action="fieldops-generate-ai-survey"
+                  onClick={applyAiDraft}
+                  className="rounded-lg bg-[#E11D2E] px-4 py-2 text-[12px] font-bold text-white shadow-lg shadow-red-950/25"
+                >
+                  Generate Survey
+                </button>
               </>
             )}
             {wizardStep === 'template' && (
@@ -1673,7 +1762,14 @@ function CreateSurveyModal({
             {wizardStep === 'basics' && (
               <>
                 <button onClick={onClose} className="rounded-lg border border-[rgba(46,127,255,0.22)] px-4 py-2 text-[12px] font-bold text-[#B8C7DB] hover:bg-white/5">Save Draft</button>
-                <button onClick={() => onDesign(type)} className="rounded-lg bg-[#E11D2E] px-4 py-2 text-[12px] font-bold text-white shadow-lg shadow-red-950/25">Continue to Design</button>
+                <button
+                  data-demo-anchor="fieldops-continue-design-button"
+                  data-demo-action="fieldops-continue-survey-design"
+                  onClick={() => onDesign(type)}
+                  className="rounded-lg bg-[#E11D2E] px-4 py-2 text-[12px] font-bold text-white shadow-lg shadow-red-950/25"
+                >
+                  Continue to Design
+                </button>
               </>
             )}
           </div>
@@ -2145,7 +2241,7 @@ function ShareSurveyPanel({ survey, onToast }: { survey: Survey; onToast: Props[
   );
 }
 
-export function FieldOpsDashboard({ onToast }: Props) {
+export function FieldOpsDashboard({ onToast, demoActionRequest, demoTimelineMs }: Props) {
   const { clients: properties } = useClients();
   const [tab, setTab] = useState<Tab>('surveys');
   const [query, setQuery] = useState('');
@@ -2254,16 +2350,44 @@ export function FieldOpsDashboard({ onToast }: Props) {
     setDrawer(next);
   };
 
-  const openCreateSurvey = (template?: FieldOpsTemplate) => {
+  const openCreateSurvey = useCallback((template?: FieldOpsTemplate) => {
     setCreateTemplate(template ?? null);
     setTemplatePreview(null);
     setCreateOpen(true);
-  };
+  }, []);
 
   const closeCreateSurvey = () => {
     setCreateOpen(false);
     setCreateTemplate(null);
   };
+
+  useEffect(() => {
+    if (demoActionRequest?.actionId !== 'fieldops-open-survey-wizard') return;
+    setTab('surveys');
+    openCreateSurvey();
+  }, [demoActionRequest?.actionId, demoActionRequest?.nonce, openCreateSurvey]);
+
+  useEffect(() => {
+    const actionId = demoActionRequest?.actionId;
+    if (!actionId) return;
+
+    const tabActionMap: Record<string, Tab> = {
+      'fieldops-return-to-surveys': 'surveys',
+      'fieldops-tab-surveys': 'surveys',
+      'fieldops-tab-assignments': 'assignments',
+      'fieldops-tab-tracking': 'tracking',
+      'fieldops-tab-templates': 'templates',
+      'fieldops-tab-ai': 'ai',
+    };
+    const nextTab = tabActionMap[actionId];
+    if (!nextTab) return;
+
+    setCreateOpen(false);
+    setCreateTemplate(null);
+    setTemplatePreview(null);
+    setDrawer(null);
+    setTab(nextTab);
+  }, [demoActionRequest?.actionId, demoActionRequest?.nonce]);
 
   const actionButton = (label: string, next: Drawer, survey: Survey, icon: ComponentType<{ size?: number; className?: string }>, disabled = false) => (
     <ActionIconButton label={label} icon={icon} disabled={disabled} onClick={() => openDrawer(next, survey)} />
@@ -2282,7 +2406,12 @@ export function FieldOpsDashboard({ onToast }: Props) {
             <p className="mt-1 text-[12px] text-[#7A94B4]">Create, assign, and track mobile field surveys and inspections.</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button onClick={() => openCreateSurvey()} className="flex h-9 items-center gap-2 rounded-lg bg-[#E11D2E] px-4 text-[12px] font-bold text-white shadow-lg shadow-red-950/25">
+            <button
+              data-demo-anchor="fieldops-create-survey-button"
+              data-demo-action="fieldops-open-survey-wizard"
+              onClick={() => openCreateSurvey()}
+              className="flex h-9 items-center gap-2 rounded-lg bg-[#E11D2E] px-4 text-[12px] font-bold text-white shadow-lg shadow-red-950/25"
+            >
               <Plus size={15} /> Create Survey
             </button>
           </div>
@@ -2307,7 +2436,13 @@ export function FieldOpsDashboard({ onToast }: Props) {
 
         <div className="mt-5 flex gap-1 overflow-x-auto border-b border-[rgba(46,127,255,0.12)] pb-0">
           {tabs.map(item => (
-            <button key={item.id} onClick={() => setTab(item.id)} className={`rounded-t-lg border-b-2 px-4 py-2 text-[12px] font-bold transition-colors ${tab === item.id ? 'border-[#E11D2E] bg-[#E11D2E]/8 text-red-200' : 'border-transparent text-[#7A94B4] hover:text-[#EEF3FA]'}`}>
+            <button
+              key={item.id}
+              data-demo-anchor={`fieldops-tab-${item.id}`}
+              data-demo-action={`fieldops-tab-${item.id}`}
+              onClick={() => setTab(item.id)}
+              className={`rounded-t-lg border-b-2 px-4 py-2 text-[12px] font-bold transition-colors ${tab === item.id ? 'border-[#E11D2E] bg-[#E11D2E]/8 text-red-200' : 'border-transparent text-[#7A94B4] hover:text-[#EEF3FA]'}`}
+            >
               {item.label}
             </button>
           ))}
@@ -2369,7 +2504,7 @@ export function FieldOpsDashboard({ onToast }: Props) {
         )}
 
         {tab === 'assignments' && (
-          <div className="mt-4 grid gap-4 xl:grid-cols-[1fr_360px]">
+          <div className="mt-4 grid gap-4 xl:grid-cols-[1fr_360px]" data-demo-anchor="fieldops-assignments-tab-content">
             <div className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
               <h2 className="text-sm font-black" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Assignment control</h2>
               <div className="mt-4 grid gap-3">
@@ -2397,7 +2532,7 @@ export function FieldOpsDashboard({ onToast }: Props) {
         )}
 
         {tab === 'tracking' && (
-          <div className="mt-4 rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
+          <div className="mt-4 rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4" data-demo-anchor="fieldops-tracking-tab-content">
             <div className="flex items-center justify-between gap-3">
               <h2 className="text-sm font-black" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Live submissions</h2>
               <span className="rounded-full border border-emerald-400/25 bg-emerald-400/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-200">{liveSubmissions.length} live</span>
@@ -2458,7 +2593,7 @@ export function FieldOpsDashboard({ onToast }: Props) {
         )}
 
         {tab === 'templates' && (
-          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4" data-demo-anchor="fieldops-templates-tab-content">
             {templates.map(template => {
               const normalized = normalizeTemplate(template);
               return (
@@ -2485,7 +2620,7 @@ export function FieldOpsDashboard({ onToast }: Props) {
         )}
 
         {tab === 'ai' && (
-          <div className="mt-4 grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
+          <div className="mt-4 grid gap-4 xl:grid-cols-[0.9fr_1.1fr]" data-demo-anchor="fieldops-ai-tab-content">
             <div className="rounded-xl border border-[#E11D2E]/30 bg-[linear-gradient(135deg,rgba(225,29,46,0.10),rgba(17,32,64,0.86))] p-4">
               <div className="mb-3 flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-red-200"><Bot size={15} /> AI Assist Survey Design</div>
               <textarea value={aiPrompt} onChange={event => { setAiPrompt(event.target.value); setAiGenerated(false); }} className="min-h-28 w-full rounded-xl border border-[rgba(46,127,255,0.22)] bg-[#0A1628] p-3 text-[12px] leading-5 text-[#EEF3FA] outline-none focus:border-[#E11D2E]" />
@@ -2534,7 +2669,7 @@ export function FieldOpsDashboard({ onToast }: Props) {
           </SideDrawer>
         )}
 
-        {createOpen && <CreateSurveyModal properties={properties} initialTemplate={createTemplate} onClose={closeCreateSurvey} onDesign={type => { closeCreateSurvey(); setSelectedSurvey({ ...selectedSurvey, type }); setDrawer('design'); }} />}
+        {createOpen && <CreateSurveyModal properties={properties} initialTemplate={createTemplate} demoActionRequest={demoActionRequest} demoTimelineMs={demoTimelineMs} onClose={closeCreateSurvey} onDesign={type => { closeCreateSurvey(); setSelectedSurvey({ ...selectedSurvey, type }); setDrawer('design'); }} />}
 
         {drawer === 'detail' && (
           <SideDrawer title={selectedSurvey.name} onClose={() => setDrawer(null)}>
@@ -2554,7 +2689,7 @@ export function FieldOpsDashboard({ onToast }: Props) {
         {drawer === 'design' && (
           <div className="fixed inset-0 z-[2400] flex items-center justify-center p-3">
             <button className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setDrawer(null)} aria-label="Close survey draft" />
-            <motion.div initial={{ opacity: 0, y: 12, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 12, scale: 0.97 }} className="relative flex max-h-[calc(100vh-1.5rem)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-[rgba(46,127,255,0.25)] bg-[#0A1628] shadow-2xl">
+            <motion.div data-demo-anchor="fieldops-survey-design-modal" initial={{ opacity: 0, y: 12, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 12, scale: 0.97 }} className="relative flex max-h-[calc(100vh-1.5rem)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-[rgba(46,127,255,0.25)] bg-[#0A1628] shadow-2xl">
               <div className="flex shrink-0 items-center justify-between border-b border-[rgba(46,127,255,0.14)] bg-[linear-gradient(135deg,rgba(225,29,46,0.14),rgba(46,127,255,0.06))] px-5 py-4">
                 <div>
                   <div className="text-[10px] font-black uppercase tracking-widest text-[#E11D2E]">Survey draft</div>
@@ -2573,6 +2708,7 @@ export function FieldOpsDashboard({ onToast }: Props) {
                     setDrawer(null);
                   }}
                 />
+                <div data-demo-anchor="fieldops-survey-design-bottom" className="h-2" />
               </div>
             </motion.div>
           </div>

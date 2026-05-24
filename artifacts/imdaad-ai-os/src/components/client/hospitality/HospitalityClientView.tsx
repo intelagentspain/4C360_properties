@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Camera, Upload, Mic, MessageCircle, ArrowLeft, Home, ExternalLink, Link2, Check } from 'lucide-react';
 import type { ToastFn } from '@/lib/ui';
@@ -30,6 +30,8 @@ interface Props {
   memberToken?: string;
   clientId?: string;
   siteId?: string;
+  demoActionRequest?: { actionId: string; nonce: number } | null;
+  demoTimelineMs?: number;
 }
 
 const MODES = [
@@ -71,11 +73,21 @@ const MODES = [
   },
 ];
 
-export function HospitalityClientView({ onToast, guestName = 'Resident', propertyName = 'Dubai Silicon Oasis', memberToken, clientId, siteId }: Props) {
+export function HospitalityClientView({
+  onToast,
+  guestName = 'Resident',
+  propertyName = 'Dubai Silicon Oasis',
+  memberToken,
+  clientId,
+  siteId,
+  demoActionRequest,
+  demoTimelineMs,
+}: Props) {
   const [activeMode, setActiveMode] = useState<ReportingMode | null>(null);
   const [incidentRef, setIncidentRef] = useState<string | null>(null);
   const [incidentSla, setIncidentSla] = useState<number>(30);
   const [linkCopied, setLinkCopied] = useState(false);
+  const demoStartResetDoneRef = useRef(false);
 
   const reportUrl = `${window.location.origin}${BASE}/report${memberToken ? `?member=${encodeURIComponent(memberToken)}` : ''}`;
 
@@ -97,6 +109,29 @@ export function HospitalityClientView({ onToast, guestName = 'Resident', propert
   const handleBack = () => {
     setActiveMode(null);
   };
+
+  useEffect(() => {
+    const actionId = demoActionRequest?.actionId;
+    if (!actionId?.startsWith('resident-mode-')) return;
+    const mode = actionId.replace('resident-mode-', '') as ReportingMode;
+    if (!MODES.some(item => item.id === mode)) return;
+    setIncidentRef(null);
+    setIncidentSla(30);
+    setActiveMode(mode);
+  }, [demoActionRequest?.actionId, demoActionRequest?.nonce]);
+
+  useEffect(() => {
+    if (typeof demoTimelineMs !== 'number') return;
+    if (demoTimelineMs > 700) {
+      demoStartResetDoneRef.current = false;
+      return;
+    }
+    if (demoStartResetDoneRef.current) return;
+    demoStartResetDoneRef.current = true;
+    setActiveMode(null);
+    setIncidentRef(null);
+    setIncidentSla(30);
+  }, [demoTimelineMs]);
 
   if (incidentRef) {
     return (
@@ -136,7 +171,7 @@ export function HospitalityClientView({ onToast, guestName = 'Resident', propert
             )}
             {activeMode === 'upload' && (
               <motion.div key="upload" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="h-full">
-                <UploadMode onSuccess={handleSuccess} onToast={onToast} clientId={clientId} siteId={siteId} />
+                <UploadMode onSuccess={handleSuccess} onToast={onToast} clientId={clientId} siteId={siteId} demoActionRequest={demoActionRequest} />
               </motion.div>
             )}
             {activeMode === 'voice' && (
@@ -211,6 +246,7 @@ export function HospitalityClientView({ onToast, guestName = 'Resident', propert
                 transition={{ delay: i * 0.07, duration: 0.28, ease: 'easeOut' }}
                 onClick={() => setActiveMode(mode.id)}
                 data-demo-action={`resident-mode-${mode.id}`}
+                data-demo-anchor={`resident-mode-${mode.id}`}
                 className="flex flex-col items-start p-4 rounded-2xl text-left transition-all duration-200 active:scale-95"
                 style={{
                   background: '#FFFFFF',
