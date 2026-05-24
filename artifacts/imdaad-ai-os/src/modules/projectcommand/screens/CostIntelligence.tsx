@@ -707,9 +707,10 @@ export function CostIntelligence({ demoTimelineMs }: { demoTimelineMs?: number }
   const committedPct = percent(totals.committed, totals.revisedBudget);
   const actualPct = percent(totals.actual, totals.revisedBudget);
   const forecastDelta = data.evm.eac - data.budget.approvedBudget;
-  const demoKpiCountProgress = typeof demoTimelineMs === 'number'
-    ? Math.max(0, Math.min(1, demoTimelineMs / 5_200))
+  const demoKpiCountRawProgress = typeof demoTimelineMs === 'number'
+    ? Math.max(0, Math.min(1, demoTimelineMs / 9_000))
     : 1;
+  const demoKpiCountProgress = demoKpiCountRawProgress * demoKpiCountRawProgress * (3 - 2 * demoKpiCountRawProgress);
   const formatDemoSummaryMoney = (value: number) => demoCountUpValue(value, demoKpiCountProgress);
 
   const summaryCards = [
