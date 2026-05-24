@@ -42,16 +42,18 @@ const tabDemoAnchors: Partial<Record<ProjectCommandScreen, string>> = {
   evidence: 'evidence-control-tab',
 };
 
+const PROJECTCOMMAND_HANDOVER_SELECTION_MS = 8_800;
+const PROJECTCOMMAND_HEARTLAND_SELECTION_MS = 6_600;
+
 function demoScreenFromTimeline(elapsedMs?: number): ProjectCommandScreen | null {
   if (elapsedMs === undefined) return null;
-  if (elapsedMs >= 86_000) return 'programme';
-  if (elapsedMs >= 81_000) return 'evidence';
-  if (elapsedMs >= 75_000) return 'obligations';
-  if (elapsedMs >= 68_000) return 'forecast';
-  if (elapsedMs >= 61_000) return 'risk';
-  if (elapsedMs >= 54_000) return 'cost';
-  if (elapsedMs >= 47_000) return 'stagegates';
-  if (elapsedMs >= 40_000) return 'programme';
+  if (elapsedMs >= 96_000) return 'forecast';
+  if (elapsedMs >= 80_000) return 'evidence';
+  if (elapsedMs >= 74_000) return 'obligations';
+  if (elapsedMs >= 68_000) return 'risk';
+  if (elapsedMs >= 65_000) return 'cost';
+  if (elapsedMs >= 59_000) return 'stagegates';
+  if (elapsedMs >= 53_000) return 'programme';
   return 'overview';
 }
 
@@ -87,6 +89,20 @@ export function ProjectCommand({
   const propertyOptions = useProjectCommandPropertyOptions();
   const projectOptions = useProjectCommandProjectOptions(property.id);
   const allProjectOptions = useProjectCommandProjectOptions();
+  const demoSobhaMainProject = allProjectOptions.find(option => (
+    option.propertyName === 'Sobha Pilot Tower' && option.label === 'Main Construction'
+  ));
+  const demoSobhaHartlandProject = allProjectOptions.find(option => (
+    option.propertyName === 'Sobha Hartland Community' && option.label === 'Main Construction'
+  ));
+  const demoSobhaHandoverProject = allProjectOptions.find(option => (
+    option.propertyName === 'Sobha Pilot Tower' && option.label === 'Handover & Snagging Programme'
+  ));
+  const resetProjectDetailState = useMemo(() => ({
+    activeScenario: 'base' as const,
+    selectedRisk: null,
+    selectedPhaseId: null,
+  }), []);
 
   const goTo = (next: ProjectCommandScreen) => {
     setScreen(next);
@@ -107,20 +123,41 @@ export function ProjectCommand({
     if (nextScreen) setScreen(current => (current === nextScreen ? current : nextScreen));
   }, [demoChapterId, demoMode, demoTimelineMs]);
 
+  useEffect(() => {
+    if (!demoMode || demoChapterId !== 'projectcommand' || demoTimelineMs === undefined) return;
+    const targetProject = demoTimelineMs >= PROJECTCOMMAND_HANDOVER_SELECTION_MS
+      ? demoSobhaHandoverProject
+      : demoTimelineMs >= PROJECTCOMMAND_HEARTLAND_SELECTION_MS
+      ? demoSobhaHartlandProject
+      : demoSobhaMainProject;
+    if (!targetProject || project.id === targetProject.id) return;
+
+    setProjectCommandState({
+      selectedPropertyId: targetProject.propertyId,
+      selectedProjectId: targetProject.id,
+      ...resetProjectDetailState,
+    });
+  }, [demoChapterId, demoMode, demoSobhaHandoverProject, demoSobhaHartlandProject, demoSobhaMainProject, demoTimelineMs, project.id, resetProjectDetailState]);
+
+  useEffect(() => {
+    if (!demoMode || demoChapterId !== 'programme' || !demoSobhaMainProject) return;
+    if (project.id === demoSobhaMainProject.id) return;
+
+    setProjectCommandState({
+      selectedPropertyId: demoSobhaMainProject.propertyId,
+      selectedProjectId: demoSobhaMainProject.id,
+      ...resetProjectDetailState,
+    });
+  }, [demoChapterId, demoMode, demoSobhaMainProject, project.id, resetProjectDetailState]);
+
   const activeTitle = useMemo(() => tabs.find(tab => tab.id === screen)?.label ?? 'Overview', [screen]);
-  const programmeSelectionStep = demoMode && demoChapterId === 'programme' && typeof demoTimelineMs === 'number'
-    ? demoTimelineMs >= 3_000 && demoTimelineMs < 5_200
+  const projectCommandSelectionStep = demoMode && demoChapterId === 'projectcommand' && typeof demoTimelineMs === 'number'
+    ? demoTimelineMs >= 2_800 && demoTimelineMs < 5_400
       ? 'property'
-      : demoTimelineMs >= 5_200 && demoTimelineMs < 7_800
+      : demoTimelineMs >= 5_400 && demoTimelineMs < PROJECTCOMMAND_HANDOVER_SELECTION_MS
       ? 'project'
       : null
     : null;
-
-  const resetProjectDetailState = {
-    activeScenario: 'base' as const,
-    selectedRisk: null,
-    selectedPhaseId: null,
-  };
 
   const handlePropertyChange = (propertyId: string) => {
     const nextProject = allProjectOptions.find(option => option.propertyId === propertyId);
@@ -180,7 +217,7 @@ export function ProjectCommand({
                     value={property.id}
                     onChange={event => handlePropertyChange(event.target.value)}
                     className={`h-9 min-w-[220px] rounded-lg border bg-[#07111F] px-3 text-[12px] font-bold text-[#DDE6F8] outline-none transition-all hover:border-[#2E7FFF]/55 focus:border-[#7C3AED]/70 ${
-                      programmeSelectionStep === 'property'
+                      projectCommandSelectionStep === 'property'
                         ? 'border-cyan-300/75 shadow-[0_0_24px_rgba(34,211,238,0.25)]'
                         : 'border-[rgba(46,127,255,0.28)]'
                     }`}
@@ -189,13 +226,13 @@ export function ProjectCommand({
                       <option key={option.id} value={option.id}>{option.label}</option>
                     ))}
                   </select>
-                  {programmeSelectionStep === 'property' && (
+                  {projectCommandSelectionStep === 'property' && (
                     <div className="pointer-events-none absolute left-0 top-[calc(100%+4px)] z-50 w-full overflow-hidden rounded-lg border border-[#2E7FFF]/45 bg-[#07111F] py-1 shadow-2xl shadow-black/40">
-                      {propertyOptions.slice(0, 3).map((option, index) => (
+                      {propertyOptions.slice(0, 3).map((option) => (
                         <div
                           key={option.id}
                           className={`px-3 py-2 text-[12px] font-bold ${
-                            index === 0 ? 'bg-[#2E7FFF] text-white' : 'text-[#DDE6F8]'
+                            option.label === 'Sobha Hartland Community' ? 'bg-[#2E7FFF] text-white' : 'text-[#DDE6F8]'
                           }`}
                         >
                           {option.label}
@@ -211,7 +248,7 @@ export function ProjectCommand({
                     value={project.id}
                     onChange={event => handleProjectChange(event.target.value)}
                     className={`h-9 min-w-[240px] rounded-lg border bg-[#07111F] px-3 text-[12px] font-bold text-[#DDE6F8] outline-none transition-all hover:border-[#2E7FFF]/55 focus:border-[#7C3AED]/70 ${
-                      programmeSelectionStep === 'project'
+                      projectCommandSelectionStep === 'project'
                         ? 'border-cyan-300/75 shadow-[0_0_24px_rgba(34,211,238,0.25)]'
                         : 'border-[rgba(46,127,255,0.28)]'
                     }`}
@@ -220,13 +257,19 @@ export function ProjectCommand({
                       <option key={option.id} value={option.id}>{option.label}</option>
                     ))}
                   </select>
-                  {programmeSelectionStep === 'project' && (
+                  {projectCommandSelectionStep === 'project' && (
                     <div className="pointer-events-none absolute left-0 top-[calc(100%+4px)] z-50 w-full overflow-hidden rounded-lg border border-[#2E7FFF]/45 bg-[#07111F] py-1 shadow-2xl shadow-black/40">
-                      {projectOptions.slice(0, 3).map((option, index) => (
+                      {(projectCommandSelectionStep === 'project' && demoSobhaHandoverProject
+                        ? [
+                            { id: project.id, label: project.name },
+                            { id: demoSobhaHandoverProject.id, label: demoSobhaHandoverProject.label },
+                          ]
+                        : projectOptions.slice(0, 3)
+                      ).map((option) => (
                         <div
                           key={option.id}
                           className={`px-3 py-2 text-[12px] font-bold ${
-                            option.id === project.id || index === 0 ? 'bg-[#2E7FFF] text-white' : 'text-[#DDE6F8]'
+                            option.label === 'Handover & Snagging Programme' ? 'bg-[#2E7FFF] text-white' : 'text-[#DDE6F8]'
                           }`}
                         >
                           {option.label}
@@ -277,7 +320,9 @@ export function ProjectCommand({
             demoTimelineMs={demoMode && demoChapterId === 'projectcommand' ? demoTimelineMs : undefined}
           />
         )}
-        {screen === 'programme' && <Programme />}
+        {screen === 'programme' && (
+          <Programme demoTimelineMs={demoMode && demoChapterId === 'programme' ? demoTimelineMs : undefined} />
+        )}
         {screen === 'stagegates' && <StageGates onToast={onToast} />}
         {screen === 'cost' && <CostIntelligence />}
         {screen === 'risk' && <RiskCommand />}

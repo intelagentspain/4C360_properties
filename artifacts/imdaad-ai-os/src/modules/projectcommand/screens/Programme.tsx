@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Check, CheckCircle2, ChevronDown, ClipboardList, FileText, GitBranch, Send, Target, X } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { AlertTriangle, Check, CheckCircle2, ChevronDown, ClipboardList, FileText, GitBranch, Mail, Send, Sparkles, Target, X } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, Cell, LabelList, ReferenceArea, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GanttChart, type ProgrammeChartSelection, type ProgrammeZoom } from '../components/GanttChart';
@@ -39,6 +39,19 @@ function filterPhasesByContractor(phases: Phase[], activeContractors: string[]) 
     return [];
   });
 }
+
+const PROGRAMME_DEMO_CONTRACTOR_DROPDOWN_OPEN_MS = 7_000;
+const PROGRAMME_DEMO_CONTRACTOR_REVEAL_START_MS = 7_300;
+const PROGRAMME_DEMO_CONTRACTOR_REVEAL_INTERVAL_MS = 1400;
+const PROGRAMME_DEMO_CONTRACTOR_DROPDOWN_HOLD_MS = 1800;
+const PROGRAMME_DEMO_AUTHORITY_PATH_OPEN_MS = 42_000;
+const PROGRAMME_DEMO_AUTHORITY_PATH_SCROLL_START_MS = 43_000;
+const PROGRAMME_DEMO_AUTHORITY_PATH_SCROLL_END_MS = 58_000;
+const PROGRAMME_DEMO_ESCALATE_HIGHLIGHT_MS = 58_300;
+const PROGRAMME_DEMO_ESCALATE_CLICK_MS = 59_500;
+const PROGRAMME_DEMO_ESCALATION_SUGGESTION_HIGHLIGHT_MS = 60_000;
+const PROGRAMME_DEMO_ESCALATION_LOG_HIGHLIGHT_MS = 62_000;
+const PROGRAMME_DEMO_ESCALATION_LOG_CLICK_MS = 62_700;
 
 function buildNarrative(projectName: string, phases: Phase[], fallback: string) {
   const criticalNames = phases.filter(phase => phase.isCritical).map(phase => phase.name).slice(0, 4);
@@ -252,15 +265,120 @@ function ProgrammeInsightSheet({
   actionStatuses,
   onRunAction,
   onClose,
+  demoTimelineMs,
+  demoAutoScroll = false,
 }: {
   model: ProgrammeDeepDiveModel;
   receipts: ProgrammeActionReceipt[];
   actionStatuses: Record<string, ProgrammeActionStatus>;
   onRunAction: (action: ProgrammeInsightAction) => void;
   onClose: () => void;
+  demoTimelineMs?: number;
+  demoAutoScroll?: boolean;
 }) {
   const item = model.target.item;
   const band = delayRiskBand(item.riskProbability);
+  const scrollerRef = useRef<HTMLElement | null>(null);
+  const demoEscalateClickedRef = useRef(false);
+  const demoLogEscalationClickedRef = useRef(false);
+  const emailAnimationTimerRef = useRef<number | null>(null);
+  const [escalationAction, setEscalationAction] = useState<ProgrammeInsightAction | null>(null);
+  const [escalationRegenerated, setEscalationRegenerated] = useState(false);
+  const [emailAnimationActive, setEmailAnimationActive] = useState(false);
+
+  const actionKeyFor = (action: ProgrammeInsightAction) => `${model.key}:${action.id}`;
+  const demoEscalateAction = model.actions.find(action => action.id === 'escalate-blocker');
+  const escalationStatus = escalationAction ? actionStatuses[actionKeyFor(escalationAction)] : undefined;
+  const demoHighlightSuggestedAction = demoAutoScroll
+    && typeof demoTimelineMs === 'number'
+    && Boolean(escalationAction)
+    && demoTimelineMs >= PROGRAMME_DEMO_ESCALATION_SUGGESTION_HIGHLIGHT_MS
+    && demoTimelineMs < PROGRAMME_DEMO_ESCALATION_LOG_CLICK_MS;
+  const demoHighlightLogEscalation = demoAutoScroll
+    && typeof demoTimelineMs === 'number'
+    && Boolean(escalationAction)
+    && demoTimelineMs >= PROGRAMME_DEMO_ESCALATION_LOG_HIGHLIGHT_MS
+    && demoTimelineMs < PROGRAMME_DEMO_ESCALATION_LOG_CLICK_MS;
+  const escalationBrief = escalationAction ? (
+    escalationRegenerated
+      ? [
+          `AI suggested action: Escalate ${item.name} to ${escalationAction.owner} now.`,
+          `Manager move: confirm blocker owner, missing proof, and recovery date before the next programme update.`,
+          `Due: ${escalationAction.due}. Status: ${escalationStatus ?? 'Ready to log'}.`,
+          `Impact if ignored: ${model.unresolved.map(entry => `${entry.label} ${entry.value}`).join(' / ')}.`,
+          `Target: ProjectCommand / ${model.subtitle}`,
+        ]
+      : [
+          `Escalate programme blocker: ${item.name}`,
+          `Owner: ${escalationAction.owner}`,
+          `Due: ${escalationAction.due}`,
+          `Status: ${escalationStatus ?? 'Ready to log'}`,
+          `Why: ${model.why}`,
+          `If unresolved: ${model.unresolved.map(entry => `${entry.label} ${entry.value}`).join(' / ')}`,
+          `Target: ProjectCommand / ${model.subtitle}`,
+        ]
+  ).join('\n') : '';
+
+  const handleActionClick = (action: ProgrammeInsightAction) => {
+    if (action.id === 'escalate-blocker') {
+      setEscalationAction(action);
+      setEscalationRegenerated(false);
+      return;
+    }
+    onRunAction(action);
+  };
+
+  const regenerateEscalationBrief = () => {
+    setEscalationRegenerated(true);
+  };
+
+  const logEscalation = () => {
+    if (!escalationAction) return;
+    onRunAction(escalationAction);
+    setEscalationAction(null);
+    setEmailAnimationActive(true);
+    if (emailAnimationTimerRef.current) window.clearTimeout(emailAnimationTimerRef.current);
+    emailAnimationTimerRef.current = window.setTimeout(() => setEmailAnimationActive(false), 2400);
+  };
+
+  useEffect(() => () => {
+    if (emailAnimationTimerRef.current) window.clearTimeout(emailAnimationTimerRef.current);
+  }, []);
+
+  useEffect(() => {
+    const scroller = scrollerRef.current;
+    if (!scroller || !demoAutoScroll || typeof demoTimelineMs !== 'number') return;
+
+    const duration = Math.max(1, PROGRAMME_DEMO_AUTHORITY_PATH_SCROLL_END_MS - PROGRAMME_DEMO_AUTHORITY_PATH_SCROLL_START_MS);
+    const rawProgress = (demoTimelineMs - PROGRAMME_DEMO_AUTHORITY_PATH_SCROLL_START_MS) / duration;
+    const progress = Math.max(0, Math.min(1, rawProgress));
+    const eased = progress < 0.5
+      ? 4 * progress * progress * progress
+      : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+    scroller.scrollTop = Math.max(0, scroller.scrollHeight - scroller.clientHeight) * eased;
+  }, [demoAutoScroll, demoTimelineMs]);
+
+  useEffect(() => {
+    if (!demoAutoScroll || typeof demoTimelineMs !== 'number' || !demoEscalateAction) return;
+    if (demoTimelineMs < PROGRAMME_DEMO_ESCALATE_CLICK_MS) {
+      demoEscalateClickedRef.current = false;
+      return;
+    }
+    if (demoEscalateClickedRef.current) return;
+    demoEscalateClickedRef.current = true;
+    handleActionClick(demoEscalateAction);
+  }, [demoAutoScroll, demoEscalateAction, demoTimelineMs]);
+
+  useEffect(() => {
+    if (!demoAutoScroll || typeof demoTimelineMs !== 'number') return;
+    if (demoTimelineMs < PROGRAMME_DEMO_ESCALATION_LOG_CLICK_MS) {
+      demoLogEscalationClickedRef.current = false;
+      return;
+    }
+    if (!escalationAction || demoLogEscalationClickedRef.current) return;
+    demoLogEscalationClickedRef.current = true;
+    logEscalation();
+  }, [demoAutoScroll, demoTimelineMs, escalationAction]);
 
   return (
     <motion.div
@@ -275,6 +393,7 @@ function ProgrammeInsightSheet({
         animate={{ x: 0 }}
         exit={{ x: 540 }}
         transition={{ type: 'spring', stiffness: 260, damping: 28 }}
+        ref={scrollerRef}
         className="custom-scrollbar absolute bottom-0 right-0 top-[52px] w-[min(540px,calc(100vw-18px))] overflow-y-auto border-l border-[#2E7FFF]/24 bg-[#07111F] shadow-2xl shadow-black/45"
         onClick={event => event.stopPropagation()}
         aria-label="Programme insight detail"
@@ -407,14 +526,23 @@ function ProgrammeInsightSheet({
             </div>
             <div className="grid gap-2">
               {model.actions.map(action => {
-                const status = actionStatuses[`${model.key}:${action.id}`];
+                const status = actionStatuses[actionKeyFor(action)];
                 const label = status ?? action.label;
+                const demoHighlightEscalate = demoAutoScroll
+                  && typeof demoTimelineMs === 'number'
+                  && action.id === 'escalate-blocker'
+                  && demoTimelineMs >= PROGRAMME_DEMO_ESCALATE_HIGHLIGHT_MS
+                  && demoTimelineMs < PROGRAMME_DEMO_ESCALATE_CLICK_MS + 1_500;
                 return (
                   <button
                     key={action.id}
                     type="button"
-                    onClick={() => onRunAction(action)}
-                    className={`flex items-center justify-between gap-3 rounded-xl border px-3 py-3 text-left transition ${actionButtonClass(status)}`}
+                    onClick={() => handleActionClick(action)}
+                    className={`flex items-center justify-between gap-3 rounded-xl border px-3 py-3 text-left transition ${
+                      demoHighlightEscalate
+                        ? 'border-cyan-200/75 bg-cyan-300/18 text-cyan-50 shadow-[0_0_28px_rgba(34,211,238,0.38)]'
+                        : actionButtonClass(status)
+                    }`}
                   >
                     <span>
                       <span className="block text-[13px] font-black">{label}</span>
@@ -431,6 +559,161 @@ function ProgrammeInsightSheet({
               Demo-safe: these controls prepare or log ProjectCommand actions only. They do not email, approve spend, or dispatch externally.
             </p>
           </section>
+
+          <AnimatePresence>
+            {escalationAction && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-[1500] flex items-center justify-center bg-black/55 px-4 backdrop-blur-sm"
+                onClick={() => setEscalationAction(null)}
+              >
+                <motion.div
+                  initial={{ y: 20, scale: 0.98 }}
+                  animate={{ y: 0, scale: 1 }}
+                  exit={{ y: 20, scale: 0.98 }}
+                  transition={{ type: 'spring', stiffness: 280, damping: 26 }}
+                  className="flex max-h-[calc(100vh-72px)] w-[min(560px,calc(100vw-28px))] flex-col overflow-hidden rounded-2xl border border-red-300/24 bg-[#07111F] shadow-2xl shadow-black/50"
+                  onClick={event => event.stopPropagation()}
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label={`Escalate blocker for ${item.name}`}
+                >
+                  <div className="border-b border-red-300/16 bg-red-400/10 px-5 py-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-red-100">Escalation action</p>
+                        <h4 className="mt-1 text-lg font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+                          Escalate blocker: {item.name}
+                        </h4>
+                        <p className="mt-1 text-[12px] leading-5 text-[#B8C7DB]">
+                          Log this as a ProjectCommand blocker with a named owner and immediate due time.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setEscalationAction(null)}
+                        className="rounded-xl border border-red-200/18 bg-[#0A1628] p-2 text-[#B8C7DB] hover:bg-white/5 hover:text-white"
+                        aria-label="Close escalation action"
+                      >
+                        <X size={17} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="custom-scrollbar min-h-0 flex-1 space-y-3 overflow-y-auto p-5">
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      {[
+                        ['Owner', escalationAction.owner],
+                        ['Due', escalationAction.due],
+                        ['Status', escalationStatus ?? 'Ready to log'],
+                      ].map(([label, value]) => (
+                        <div key={label} className="rounded-xl border border-[#2E7FFF]/16 bg-[#0A1628] p-3">
+                          <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">{label}</p>
+                          <p className="mt-1 text-[13px] font-black text-[#EAF2FF]">{value}</p>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div
+                      className={`rounded-2xl border p-4 transition-all duration-300 ${
+                        demoHighlightSuggestedAction
+                          ? 'border-cyan-200/80 bg-cyan-300/14 shadow-[0_0_34px_rgba(34,211,238,0.34)] ring-1 ring-cyan-100/35'
+                          : 'border-cyan-300/18 bg-cyan-300/8'
+                      }`}
+                    >
+                      <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.14em] text-cyan-100">
+                        <Sparkles size={13} />
+                        Suggested Action
+                      </p>
+                      <p className="mt-2 whitespace-pre-line text-[12px] leading-5 text-[#DCE8F8]">{escalationBrief}</p>
+                    </div>
+
+                    <div className="rounded-2xl border border-red-200/18 bg-red-300/8 p-4">
+                      <div className="mb-2 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.14em] text-red-100">
+                        <AlertTriangle size={15} />
+                        Why escalate
+                      </div>
+                      <p className="text-[13px] leading-6 text-[#DCE8F8]">{model.why}</p>
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="rounded-2xl border border-red-200/16 bg-[#0A1628] p-4">
+                        <p className="text-[10px] font-black uppercase tracking-[0.14em] text-red-100">If ignored</p>
+                        <p className="mt-2 text-[13px] font-black text-[#EEF3FA]">{model.unresolved[0]?.value ?? 'Delay exposure'}</p>
+                        <p className="mt-1 text-[11px] leading-4 text-[#9EB2CE]">{model.unresolved[0]?.detail ?? 'Downstream activities inherit the blocker.'}</p>
+                      </div>
+                      <div className="rounded-2xl border border-emerald-200/16 bg-[#0A1628] p-4">
+                        <p className="text-[10px] font-black uppercase tracking-[0.14em] text-emerald-100">If logged now</p>
+                        <p className="mt-2 text-[13px] font-black text-[#EEF3FA]">{model.resolved[0]?.value ?? 'Owner assigned'}</p>
+                        <p className="mt-1 text-[11px] leading-4 text-[#9EB2CE]">{model.resolved[0]?.detail ?? 'ProjectCommand can track the recovery path.'}</p>
+                      </div>
+                    </div>
+
+                    <div className="sticky bottom-0 z-10 -mx-5 -mb-5 flex flex-wrap justify-end gap-2 border-t border-[#2E7FFF]/16 bg-[#07111F]/95 px-5 py-4 backdrop-blur">
+                      <button
+                        type="button"
+                        onClick={regenerateEscalationBrief}
+                        className="inline-flex items-center gap-2 rounded-xl border border-[#2E7FFF]/24 bg-[#0A1628] px-4 py-2.5 text-[12px] font-black text-[#DCE8F8] hover:bg-white/5"
+                      >
+                        <Sparkles size={14} />
+                        {escalationRegenerated ? 'Regenerated' : 'Regenerate'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={logEscalation}
+                        className={`rounded-xl px-4 py-2.5 text-[12px] font-black text-white shadow-lg ${
+                          escalationStatus === 'Escalated'
+                            ? 'bg-emerald-500 shadow-emerald-950/25'
+                            : demoHighlightLogEscalation
+                            ? 'bg-cyan-400 shadow-[0_0_28px_rgba(34,211,238,0.45)] ring-1 ring-cyan-100/60'
+                            : 'bg-red-500 shadow-red-950/25 hover:bg-red-400'
+                        }`}
+                      >
+                        {escalationStatus === 'Escalated' ? 'Escalation logged' : 'Log escalation'}
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <AnimatePresence>
+            {emailAnimationActive && (
+              <motion.div
+                className="pointer-events-none fixed inset-0 z-[1510] flex items-center justify-center"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+              >
+                <motion.div
+                  initial={{ x: -80, y: 34, scale: 0.72, opacity: 0 }}
+                  animate={{
+                    x: [0, 90, 190],
+                    y: [20, -36, -92],
+                    scale: [0.82, 1, 0.72],
+                    opacity: [0, 1, 1, 0],
+                  }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 1.7, ease: 'easeInOut' }}
+                  className="grid h-16 w-16 place-items-center rounded-2xl border border-cyan-200/50 bg-cyan-300/18 text-cyan-50 shadow-[0_0_38px_rgba(34,211,238,0.48)] backdrop-blur"
+                >
+                  <Mail size={30} />
+                </motion.div>
+                <motion.div
+                  initial={{ y: 34, opacity: 0 }}
+                  animate={{ y: [34, 0, 0, -12], opacity: [0, 1, 1, 0] }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 2.2, ease: 'easeOut' }}
+                  className="absolute mt-28 rounded-full border border-emerald-200/35 bg-emerald-300/14 px-4 py-2 text-[12px] font-black uppercase tracking-[0.14em] text-emerald-100 shadow-2xl shadow-emerald-950/30"
+                >
+                  Escalation sent
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {receipts.length > 0 && (
             <section className="rounded-2xl border border-emerald-300/20 bg-emerald-300/8 p-4">
@@ -462,7 +745,7 @@ function ProgrammeInsightSheet({
   );
 }
 
-export function Programme() {
+export function Programme({ demoTimelineMs }: { demoTimelineMs?: number }) {
   const dataset = useSelectedProjectCommandData();
   const { aiContent, phases, project, property } = dataset;
   const [zoom, setZoom] = useState<ProgrammeZoom>('Month');
@@ -475,10 +758,36 @@ export function Programme() {
   const [selectedInsight, setSelectedInsight] = useState<ProgrammeInsightTarget | null>(null);
   const [programmeActionStatuses, setProgrammeActionStatuses] = useState<Record<string, ProgrammeActionStatus>>({});
   const [programmeActionReceipts, setProgrammeActionReceipts] = useState<Record<string, ProgrammeActionReceipt[]>>({});
+  const demoAuthorityPathOpenedRef = useRef(false);
   const contractorOptions = useMemo(() => ['All contractors', ...uniqueContractors(phases, project.mainContractor)], [phases, project.mainContractor]);
-  const allContractorsSelected = selectedContractors.includes('All contractors') || selectedContractors.length === 0;
-  const activeContractors = allContractorsSelected ? [] : selectedContractors.filter(contractor => contractor !== 'All contractors');
+  const demoContractorSequence = useMemo(() => {
+    const contractors = contractorOptions.filter(contractor => contractor !== 'All contractors');
+    const primary = contractors.find(contractor => contractor === 'Sobha Construction') ?? project.mainContractor ?? contractors[0];
+    return [primary, ...contractors.filter(contractor => contractor !== primary)].filter(Boolean);
+  }, [contractorOptions, project.mainContractor]);
+  const demoContractorRevealCount = typeof demoTimelineMs === 'number'
+    ? Math.max(
+        1,
+        Math.min(
+          demoContractorSequence.length,
+          1 + Math.floor(Math.max(0, demoTimelineMs - PROGRAMME_DEMO_CONTRACTOR_REVEAL_START_MS) / PROGRAMME_DEMO_CONTRACTOR_REVEAL_INTERVAL_MS),
+        ),
+      )
+    : 0;
+  const demoSelectedContractors = typeof demoTimelineMs === 'number' && demoContractorSequence.length > 0
+    ? demoContractorSequence.slice(0, demoContractorRevealCount)
+    : null;
+  const effectiveSelectedContractors = demoSelectedContractors ?? selectedContractors;
+  const allContractorsSelected = effectiveSelectedContractors.includes('All contractors') || effectiveSelectedContractors.length === 0;
+  const activeContractors = allContractorsSelected ? [] : effectiveSelectedContractors.filter(contractor => contractor !== 'All contractors');
   const contractorLabel = allContractorsSelected ? 'All contractors' : activeContractors.length === 1 ? activeContractors[0] : `${activeContractors.length} contractors selected`;
+  const demoContractorDropdownOpen = typeof demoTimelineMs === 'number'
+    && demoTimelineMs >= PROGRAMME_DEMO_CONTRACTOR_DROPDOWN_OPEN_MS
+    && demoTimelineMs < PROGRAMME_DEMO_CONTRACTOR_REVEAL_START_MS
+      + (Math.max(1, demoContractorSequence.length) * PROGRAMME_DEMO_CONTRACTOR_REVEAL_INTERVAL_MS)
+      + PROGRAMME_DEMO_CONTRACTOR_DROPDOWN_HOLD_MS;
+  const effectiveContractorOpen = demoContractorDropdownOpen || contractorOpen;
+  const demoCurrentContractor = demoSelectedContractors?.[demoSelectedContractors.length - 1] ?? null;
   const filteredPhases = useMemo(() => filterPhasesByContractor(phases, activeContractors), [activeContractors, phases]);
   const delayData: DelayRiskDatum[] = [...filteredPhases]
     .sort((a, b) => b.riskProbability - a.riskProbability)
@@ -505,11 +814,35 @@ export function Programme() {
     () => selectedInsight ? buildProgrammeDeepDive(selectedInsight, project.name) : null,
     [selectedInsight, project.name],
   );
+  const authorityPathTarget = useMemo(() => {
+    const phase = phases.find(item => item.aiAnnotation === 'Authority path') ?? phases.find(item => item.id === 'design');
+    if (!phase || phase.aiAnnotation !== 'Authority path') return null;
+    return {
+      kind: 'annotation' as const,
+      phase,
+      item: phase,
+      label: phase.aiAnnotation,
+    };
+  }, [phases]);
 
   useEffect(() => {
     setSelectedContractors(['All contractors']);
     setContractorOpen(false);
   }, [project.id]);
+
+  useEffect(() => {
+    if (typeof demoTimelineMs !== 'number' || !authorityPathTarget) return;
+
+    if (demoTimelineMs < PROGRAMME_DEMO_AUTHORITY_PATH_OPEN_MS) {
+      demoAuthorityPathOpenedRef.current = false;
+      if (selectedInsight?.label === 'Authority path') setSelectedInsight(null);
+      return;
+    }
+
+    if (demoAuthorityPathOpenedRef.current) return;
+    demoAuthorityPathOpenedRef.current = true;
+    setSelectedInsight(authorityPathTarget);
+  }, [authorityPathTarget, demoTimelineMs, selectedInsight?.label]);
 
   const toggleContractor = (contractor: string) => {
     if (contractor === 'All contractors') {
@@ -600,19 +933,22 @@ export function Programme() {
         </div>
         <button onClick={() => setBaseline(current => !current)} className={`rounded-lg border px-3 py-2 text-[11px] font-bold ${baseline ? 'border-[#7C3AED]/40 bg-[#7C3AED]/15 text-[#C4B5FD]' : 'border-[rgba(46,127,255,0.18)] text-[#7A94B4]'}`}>Baseline {baseline ? 'ON' : 'OFF'}</button>
         <button onClick={() => setCritical(current => !current)} className={`rounded-lg border px-3 py-2 text-[11px] font-bold ${critical ? 'border-[#D92B1C]/40 bg-[#D92B1C]/15 text-red-200' : 'border-[rgba(46,127,255,0.18)] text-[#7A94B4]'}`}>Critical Path {critical ? 'ON' : 'OFF'}</button>
-        <div className="relative">
+        <div className="relative" data-demo-anchor="programme-contractor-filter">
           <button
             type="button"
-            onClick={() => setContractorOpen(current => !current)}
+            onClick={() => {
+              if (demoContractorDropdownOpen) return;
+              setContractorOpen(current => !current);
+            }}
             className="flex h-10 min-w-[240px] items-center justify-between gap-3 rounded-lg border border-[rgba(46,127,255,0.18)] bg-[#0A1628] px-3 text-left text-[12px] font-bold text-[#B8C7DB] outline-none transition-colors hover:border-[rgba(46,127,255,0.32)]"
             aria-haspopup="listbox"
-            aria-expanded={contractorOpen}
+            aria-expanded={effectiveContractorOpen}
           >
             <span className="truncate">{contractorLabel}</span>
-            <ChevronDown size={15} className={`shrink-0 transition-transform ${contractorOpen ? 'rotate-180' : ''}`} />
+            <ChevronDown size={15} className={`shrink-0 transition-transform ${effectiveContractorOpen ? 'rotate-180' : ''}`} />
           </button>
           <AnimatePresence>
-            {contractorOpen && (
+            {effectiveContractorOpen && (
               <motion.div
                 initial={{ opacity: 0, y: -6 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -626,6 +962,7 @@ export function Programme() {
                   const checked = contractor === 'All contractors'
                     ? allContractorsSelected
                     : activeContractors.includes(contractor);
+                  const demoActiveItem = demoCurrentContractor === contractor;
 
                   return (
                     <button
@@ -633,7 +970,11 @@ export function Programme() {
                       type="button"
                       onClick={() => toggleContractor(contractor)}
                       className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-[12px] font-bold transition-colors ${
-                        checked ? 'bg-[#1D7CFF]/18 text-[#DDE6F8]' : 'text-[#9EB2CE] hover:bg-white/5 hover:text-[#EEF3FA]'
+                        demoActiveItem
+                          ? 'bg-cyan-300/18 text-cyan-50 ring-1 ring-cyan-200/60'
+                          : checked
+                          ? 'bg-[#1D7CFF]/18 text-[#DDE6F8]'
+                          : 'text-[#9EB2CE] hover:bg-white/5 hover:text-[#EEF3FA]'
                       }`}
                       role="option"
                       aria-selected={checked}
@@ -668,6 +1009,7 @@ export function Programme() {
               projectEnd={project.targetHandover}
               emptyMessage="No programme activities match the selected contractor filter."
               onSelectItem={(selection: ProgrammeChartSelection) => openProgrammeInsight(selection.kind, selection.phase, selection.item, selection.label)}
+              demoTimelineMs={demoTimelineMs}
             />
           </section>
           <div className="grid gap-4 2xl:grid-cols-2">
@@ -817,6 +1159,8 @@ export function Programme() {
             actionStatuses={programmeActionStatuses}
             onRunAction={runProgrammeAction}
             onClose={() => setSelectedInsight(null)}
+            demoTimelineMs={demoTimelineMs}
+            demoAutoScroll={selectedInsight?.label === 'Authority path'}
           />
         )}
       </AnimatePresence>

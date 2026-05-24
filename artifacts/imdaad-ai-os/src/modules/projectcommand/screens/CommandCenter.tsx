@@ -742,20 +742,17 @@ function OwnerCommandSurface({
     : `The owner sees ${context.metrics.completion}% progress, ${context.metrics.floatRemaining} days of float, ${formatProjectCurrency(context.metrics.eac)} forecast cost, and ${context.metrics.handoverConfidence}% handover confidence before opening detailed reports.`;
   const headlineText = latest ? 'One project signal has become an owner decision.' : 'One surface tells the owner where the project needs attention.';
   const demoRevealMs = typeof demoTimelineMs === 'number' ? demoTimelineMs : null;
-  const typeStartMs = 3_000;
-  const typeEndMs = 13_500;
-  const typingProgress = demoRevealMs === null
-    ? 1
-    : Math.min(1, Math.max(0, (demoRevealMs - typeStartMs) / (typeEndMs - typeStartMs)));
-  const typedHeadline = typingProgress >= 1
-    ? headlineText
-    : headlineText.slice(0, Math.ceil(headlineText.length * typingProgress));
-  const isTypingHeadline = demoRevealMs !== null && typingProgress > 0 && typingProgress < 1;
   const revealClass = (startMs: number) => (
     demoRevealMs === null || demoRevealMs >= startMs
       ? 'opacity-100 translate-y-0 scale-100'
       : 'pointer-events-none opacity-0 translate-y-4 scale-[0.98]'
   );
+  const kpiItems = [
+    ['Health', `${context.metrics.healthScore}/100`, 'text-emerald-100'],
+    ['Float', `${context.metrics.floatRemaining}d`, context.metrics.floatRemaining <= 14 ? 'text-red-100' : 'text-cyan-100'],
+    ['EAC', formatProjectCurrency(context.metrics.eac), 'text-[#FFCD57]'],
+    ['Confidence', `${context.metrics.handoverConfidence}%`, 'text-[#DDD6FE]'],
+  ];
   const ownerQuestion = topException
     ? `Do we accept, recover, or escalate ${topException.linkedObject}?`
     : 'What should leadership review before the next project meeting?';
@@ -776,7 +773,7 @@ function OwnerCommandSurface({
       data-demo-anchor="project-overview-command-strip"
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="overflow-hidden rounded-2xl border border-cyan-300/22 bg-[linear-gradient(135deg,rgba(7,17,31,0.98),rgba(17,32,64,0.92)_54%,rgba(38,16,80,0.74))] shadow-[0_24px_70px_rgba(0,0,0,0.28)]"
+      className={`overflow-hidden rounded-2xl border border-cyan-300/22 bg-[linear-gradient(135deg,rgba(7,17,31,0.98),rgba(17,32,64,0.92)_54%,rgba(38,16,80,0.74))] shadow-[0_24px_70px_rgba(0,0,0,0.28)] transition-all duration-700 ease-out ${revealClass(9_100)}`}
     >
       <div className="grid gap-0 xl:grid-cols-[minmax(0,1.25fr)_minmax(360px,0.75fr)]">
         <div className="p-4 md:p-5">
@@ -790,31 +787,25 @@ function OwnerCommandSurface({
                 </span>
               </div>
               <h3 className="mt-2 max-w-4xl text-[24px] font-black leading-[1.08] text-white md:text-[30px]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-                {typedHeadline}
-                {isTypingHeadline && <span className="ml-1 inline-block animate-pulse text-cyan-200">|</span>}
+                {headlineText}
               </h3>
-              <p className={`mt-2 max-w-5xl text-[13px] leading-6 text-[#B8C7DB] transition-all duration-700 ease-out ${revealClass(14_500)}`}>{signalDetail}</p>
+              <p className="mt-2 max-w-5xl text-[13px] leading-6 text-[#B8C7DB]">{signalDetail}</p>
             </div>
             <div className="grid shrink-0 grid-cols-2 gap-2 sm:grid-cols-4 lg:w-[520px]">
-              {[
-                ['Health', `${context.metrics.healthScore}/100`, 'text-emerald-100'],
-                ['Float', `${context.metrics.floatRemaining}d`, context.metrics.floatRemaining <= 14 ? 'text-red-100' : 'text-cyan-100'],
-                ['EAC', formatProjectCurrency(context.metrics.eac), 'text-[#FFCD57]'],
-                ['Confidence', `${context.metrics.handoverConfidence}%`, 'text-[#DDD6FE]'],
-              ].map(([label, value, tone], index) => (
+              {kpiItems.map(([label, value, tone], index) => (
                 <div
                   key={label}
-                  className={`rounded-xl border border-white/10 bg-[#07111F]/76 px-3 py-2.5 transition-all duration-700 ease-out ${revealClass(18_500 + index * 1_250)}`}
+                  className={`rounded-xl border border-white/10 bg-[#07111F]/76 px-3 py-2.5 transition-all duration-700 ease-out ${revealClass(9_200 + index * 320)}`}
                 >
                   <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">{label}</p>
-                  <p className={`mt-1 text-[16px] font-black ${tone}`} style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{value}</p>
+                  <p key={`${label}-${value}`} className={`mt-1 text-[16px] font-black transition-all duration-500 ${tone}`} style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{value}</p>
                 </div>
               ))}
             </div>
           </div>
 
           <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(300px,0.7fr)]">
-            <div data-demo-anchor="project-overview-what-changed" className={`rounded-xl border border-[#2E7FFF]/18 bg-[#07111F]/72 p-3 transition-all duration-700 ease-out ${revealClass(22_000)}`}>
+            <div data-demo-anchor="project-overview-what-changed" className={`rounded-xl border border-[#2E7FFF]/18 bg-[#07111F]/72 p-3 transition-all duration-700 ease-out ${revealClass(10_800)}`}>
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#7A94B4]">What changed</p>
@@ -832,7 +823,7 @@ function OwnerCommandSurface({
               {latest && <div className="mt-3"><EventImpactChips event={latest} compact /></div>}
             </div>
 
-            <div data-demo-anchor="project-overview-next-decision" className={`rounded-xl border border-[#7C3AED]/24 bg-[#7C3AED]/10 p-3 transition-all duration-700 ease-out ${revealClass(27_000)}`}>
+            <div data-demo-anchor="project-overview-next-decision" className={`rounded-xl border border-[#7C3AED]/24 bg-[#7C3AED]/10 p-3 transition-all duration-700 ease-out ${revealClass(11_200)}`}>
               <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#DDD6FE]">Next owner decision</p>
               <h4 className="mt-1 text-[16px] font-black leading-5 text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
                 {topAction?.title ?? ownerQuestion}
@@ -866,7 +857,7 @@ function OwnerCommandSurface({
           </div>
         </div>
 
-        <aside data-demo-anchor="project-overview-impact-chain" className={`border-t border-cyan-300/16 bg-[#07111F]/68 p-4 transition-all duration-700 ease-out xl:border-l xl:border-t-0 md:p-5 ${revealClass(32_000)}`}>
+        <aside data-demo-anchor="project-overview-impact-chain" className={`border-t border-cyan-300/16 bg-[#07111F]/68 p-4 transition-all duration-700 ease-out xl:border-l xl:border-t-0 md:p-5 ${revealClass(11_600)}`}>
           <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-[#FFB4BC]">
             <ShieldAlert size={14} />
             If leadership waits
@@ -896,7 +887,7 @@ function OwnerCommandSurface({
         </aside>
       </div>
 
-      <div className={`border-t border-[#2E7FFF]/18 bg-[#07111F]/76 px-4 py-3 transition-all duration-700 ease-out md:px-5 ${revealClass(36_000)}`}>
+      <div data-demo-anchor="project-overview-command-path" className={`border-t border-[#2E7FFF]/18 bg-[#07111F]/76 px-4 py-3 transition-all duration-700 ease-out md:px-5 ${revealClass(12_000)}`}>
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
           <div>
             <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#7A94B4]">Command path</p>
@@ -2897,6 +2888,7 @@ export function CommandCenter({
             <ManagementSummaryCard context={context} onOpenVendorIQ={onOpenVendorIQ} onToast={onToast} />
           </div>
         </div>
+        <div aria-hidden="true" className="h-2" data-demo-anchor="project-overview-bottom" />
       </div>
 
       <AnimatePresence>

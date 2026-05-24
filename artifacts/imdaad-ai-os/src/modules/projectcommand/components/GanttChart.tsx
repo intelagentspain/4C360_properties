@@ -15,6 +15,12 @@ export type ProgrammeChartSelection = {
   label?: string;
 };
 
+const DEMO_PHASE_EXPAND_START_MS = 21_000;
+const DEMO_PHASE_EXPAND_INTERVAL_MS = 1_450;
+const DEMO_PHASE_EXPAND_CLICK_DELAY_MS = 420;
+const DEMO_PHASE_EXPAND_PULSE_MS = 820;
+const DEMO_AUTHORITY_PATH_CLICK_MS = 42_000;
+
 function parseDate(value: string) {
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? new Date('2026-01-01T00:00:00Z') : parsed;
@@ -82,6 +88,7 @@ export function GanttChart({
   projectEnd,
   emptyMessage = 'No programme activities match this filter.',
   onSelectItem,
+  demoTimelineMs,
 }: {
   phases: Phase[];
   mode?: 'compact' | 'full';
@@ -93,6 +100,7 @@ export function GanttChart({
   projectEnd?: string;
   emptyMessage?: string;
   onSelectItem?: (selection: ProgrammeChartSelection) => void;
+  demoTimelineMs?: number;
 }) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const nameWidth = mode === 'full' ? 176 : 140;
@@ -125,6 +133,29 @@ export function GanttChart({
     ...normalizeItem(phase),
     subTasks: phase.subTasks?.map(task => normalizeItem(task)),
   }));
+  const expandablePhaseIds = renderPhases
+    .filter(phase => mode === 'full' && Boolean(phase.subTasks?.length))
+    .map(phase => phase.id);
+  const demoExpandElapsedMs = typeof demoTimelineMs === 'number' ? demoTimelineMs - DEMO_PHASE_EXPAND_START_MS : -1;
+  const demoExpandedCount = demoExpandElapsedMs >= DEMO_PHASE_EXPAND_CLICK_DELAY_MS
+    ? Math.min(
+        expandablePhaseIds.length,
+        Math.floor((demoExpandElapsedMs - DEMO_PHASE_EXPAND_CLICK_DELAY_MS) / DEMO_PHASE_EXPAND_INTERVAL_MS) + 1,
+      )
+    : 0;
+  const demoPulseIndex = demoExpandElapsedMs >= 0
+    ? Math.floor(demoExpandElapsedMs / DEMO_PHASE_EXPAND_INTERVAL_MS)
+    : -1;
+  const demoPulseActive = demoExpandElapsedMs >= 0
+    && demoPulseIndex < expandablePhaseIds.length
+    && (demoExpandElapsedMs % DEMO_PHASE_EXPAND_INTERVAL_MS) <= DEMO_PHASE_EXPAND_PULSE_MS;
+  const demoExpandedPhaseIds = typeof demoTimelineMs === 'number'
+    ? new Set(expandablePhaseIds.slice(0, demoExpandedCount))
+    : null;
+  const demoPulsePhaseId = demoPulseActive ? expandablePhaseIds[demoPulseIndex] : null;
+  const demoAuthorityPathPulse = typeof demoTimelineMs === 'number'
+    && demoTimelineMs >= DEMO_AUTHORITY_PATH_CLICK_MS - 450
+    && demoTimelineMs <= DEMO_AUTHORITY_PATH_CLICK_MS + 450;
 
   return (
     <div className="relative rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#0A1628]/80 p-3">
@@ -148,54 +179,63 @@ export function GanttChart({
             {emptyMessage}
           </div>
         )}
-        {renderPhases.map((phase, index) => (
-          <div key={phase.id} className="relative">
-            {phase.aiAnnotation && (
-              <AIAnnotation
-                text={phase.aiAnnotation}
-                x={phase.startPct + phase.widthPct * 0.45}
-                y={index * (mode === 'full' ? 36 : 33) - 6}
-                variant={phase.isCritical ? 'warning' : 'success'}
-                onClick={() => onSelectItem?.({ kind: 'annotation', phase, item: phase, label: phase.aiAnnotation })}
-              />
-            )}
-            <GanttRow
-              item={phase}
-              nameWidth={nameWidth}
-              showBaseline={showBaseline}
-              showCriticalPath={showCriticalPath}
-              dense={mode === 'compact'}
-              onClick={() => {
-                onSelectItem?.({ kind: 'phase', phase, item: phase });
-                setExpanded(current => ({ ...current, [phase.id]: !current[phase.id] }));
-              }}
-              actionLabel={`Open programme insight for ${phase.name}`}
-            />
-            <AnimatePresence initial={false}>
-              {mode === 'full' && expanded[phase.id] && phase.subTasks && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  className="overflow-hidden"
-                >
-                  {phase.subTasks.map(task => (
-                    <GanttRow
-                      key={task.id}
-                      item={task}
-                      nameWidth={nameWidth}
-                      showBaseline={showBaseline}
-                      showCriticalPath={showCriticalPath}
-                      dense
-                      onClick={() => onSelectItem?.({ kind: 'subtask', phase, item: task })}
-                      actionLabel={`Open programme insight for ${task.name}`}
-                    />
-                  ))}
-                </motion.div>
+        {renderPhases.map((phase, index) => {
+          const canExpandPhase = mode === 'full' && Boolean(phase.subTasks?.length);
+          const isPhaseExpanded = demoExpandedPhaseIds ? demoExpandedPhaseIds.has(phase.id) : Boolean(expanded[phase.id]);
+          return (
+            <div key={phase.id} className="relative">
+              {phase.aiAnnotation && (
+                <div className="pointer-events-none absolute bottom-0 right-0 top-0 z-20" style={{ left: nameWidth + 12 }}>
+                  <AIAnnotation
+                    text={phase.aiAnnotation}
+                    x={phase.startPct + phase.widthPct * 0.45}
+                    y={index * (mode === 'full' ? 36 : 33) - 6}
+                    variant={phase.isCritical ? 'warning' : 'success'}
+                    onClick={() => onSelectItem?.({ kind: 'annotation', phase, item: phase, label: phase.aiAnnotation })}
+                    attention={phase.aiAnnotation === 'Authority path' && demoAuthorityPathPulse}
+                  />
+                </div>
               )}
-            </AnimatePresence>
-          </div>
-        ))}
+              <GanttRow
+                item={phase}
+                nameWidth={nameWidth}
+                showBaseline={showBaseline}
+                showCriticalPath={showCriticalPath}
+                dense={mode === 'compact'}
+                onNameClick={canExpandPhase ? () => setExpanded(current => ({ ...current, [phase.id]: !current[phase.id] })) : undefined}
+                onBarClick={() => onSelectItem?.({ kind: 'phase', phase, item: phase })}
+                nameActionLabel={`${isPhaseExpanded ? 'Collapse' : 'Expand'} phase details for ${phase.name}`}
+                barActionLabel={`Open programme insight for ${phase.name}`}
+                isExpanded={isPhaseExpanded}
+                canExpand={canExpandPhase}
+                expandPulse={demoPulsePhaseId === phase.id}
+              />
+              <AnimatePresence initial={false}>
+                {mode === 'full' && isPhaseExpanded && phase.subTasks && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="overflow-hidden"
+                  >
+                    {phase.subTasks.map(task => (
+                      <GanttRow
+                        key={task.id}
+                        item={task}
+                        nameWidth={nameWidth}
+                        showBaseline={showBaseline}
+                        showCriticalPath={showCriticalPath}
+                        dense
+                        onBarClick={() => onSelectItem?.({ kind: 'subtask', phase, item: task })}
+                        barActionLabel={`Open programme insight for ${task.name}`}
+                      />
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          );
+        })}
       </div>
       {showWeather && <WeatherOverlay />}
     </div>
