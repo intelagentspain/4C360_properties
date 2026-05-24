@@ -4883,6 +4883,7 @@ export function InteractiveDemoWalkthrough() {
   const activeMissionComplete = activeSectionComplete;
   const primaryActionLabel = nextSectionLabel;
   const demoInteractionLocked = autopilot.status === 'playing' && !chapterEndOpen;
+  const showTimecodeControls = false;
   const [presenterNotesOpen, setPresenterNotesOpen] = useState(false);
 
   const seekToTimecodePercent = useCallback((percent: number) => {
@@ -5674,6 +5675,7 @@ export function InteractiveDemoWalkthrough() {
             <div className="truncate text-[11px] font-semibold text-[#7A94B4]">Powered by 4C360</div>
           </div>
         </div>
+        {showTimecodeControls && (
         <div
           data-demo-timecode="true"
           data-demo-timecode-control="true"
@@ -5723,6 +5725,7 @@ export function InteractiveDemoWalkthrough() {
             </button>
           </div>
         </div>
+        )}
         <div className="relative flex shrink-0 items-center gap-2">
           <button
             type="button"
