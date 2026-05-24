@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Bot, Star, CheckCircle, Briefcase, MapPin, Layers, Tag } from 'lucide-react';
 import { mockTechnicians } from '@/data/mockData';
@@ -36,6 +36,7 @@ interface Props {
   workOrder: WorkOrderContext | null;
   onConfirm: (techName: string) => void;
   onCancel: () => void;
+  demoActionRequest?: { actionId: string; nonce: number } | null;
 }
 
 const SKILL_KEYWORDS: Record<string, string[]> = {
@@ -125,7 +126,7 @@ const AVAIL_LABEL: Record<string, string> = {
   overdue:   'Overdue',
 };
 
-export function AssignTechModal({ open, workOrder, onConfirm, onCancel }: Props) {
+export function AssignTechModal({ open, workOrder, onConfirm, onCancel, demoActionRequest }: Props) {
   const { profiles } = useMemberProfiles();
 
   const candidates = useMemo<ScoredTech[]>(() => {
@@ -166,6 +167,12 @@ export function AssignTechModal({ open, workOrder, onConfirm, onCancel }: Props)
   const topPick = candidates[0] ?? null;
   const alternatives = candidates.slice(1);
 
+  useEffect(() => {
+    if (!open || !topPick) return;
+    if (demoActionRequest?.actionId !== 'resident-confirm-ai-pick') return;
+    onConfirm(topPick.name);
+  }, [demoActionRequest?.actionId, demoActionRequest?.nonce, onConfirm, open, topPick]);
+
   return (
     <AnimatePresence>
       {open && workOrder && (
@@ -184,6 +191,7 @@ export function AssignTechModal({ open, workOrder, onConfirm, onCancel }: Props)
             className="bg-[#0D1E38] border border-[rgba(46,127,255,0.3)] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col"
             style={{ maxHeight: '90vh' }}
             onClick={e => e.stopPropagation()}
+            data-demo-anchor="resident-assign-tech-modal"
           >
             <div className="flex items-center justify-between px-5 py-4 border-b border-[rgba(46,127,255,0.15)] flex-shrink-0">
               <div className="flex items-center gap-2.5">
@@ -265,6 +273,8 @@ export function AssignTechModal({ open, workOrder, onConfirm, onCancel }: Props)
 
                     <button
                       onClick={() => onConfirm(topPick.name)}
+                      data-demo-action="resident-confirm-ai-pick"
+                      data-demo-anchor="resident-confirm-ai-pick-button"
                       className="w-full flex items-center justify-center gap-1.5 py-2 bg-[#2E7FFF] text-white text-[11px] font-semibold rounded-lg hover:bg-blue-500 transition-colors"
                     >
                       <CheckCircle size={12} /> Confirm AI Pick — {topPick.name}

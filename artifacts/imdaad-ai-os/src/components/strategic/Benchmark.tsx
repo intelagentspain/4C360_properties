@@ -79,7 +79,7 @@ export function Benchmark({ onToast }: Props) {
   const riskColor = (v: number) => v >= 70 ? '#FF4B4B' : v >= 50 ? '#FF9B38' : '#38D98A';
 
   return (
-    <div className="h-full flex flex-col overflow-hidden">
+    <div className="h-full flex flex-col overflow-hidden" data-demo-anchor="benchmark-page">
       <div className="flex items-center justify-between px-5 py-3 border-b border-[rgba(46,127,255,0.15)] flex-shrink-0">
         <div>
           <h2 className="text-[#EEF3FA] font-bold text-base" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Benchmarking</h2>
@@ -110,8 +110,8 @@ export function Benchmark({ onToast }: Props) {
         ))}
       </div>
 
-      <div className="flex-1 overflow-y-auto custom-scrollbar px-5 py-4 space-y-6">
-        <section>
+      <div className="flex-1 overflow-y-auto custom-scrollbar px-5 py-4 space-y-6" data-demo-anchor="benchmark-scroll-container">
+        <section data-demo-anchor="benchmark-site-section">
           <SectionHeader title="A · Site Comparison" subtitle="SLA performance, incident volume, and compliance across all managed sites" />
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <div className="bg-[rgba(17,32,64,0.85)] border border-[rgba(46,127,255,0.2)] rounded-xl p-4">
@@ -173,7 +173,7 @@ export function Benchmark({ onToast }: Props) {
           </AnimatePresence>
         </section>
 
-        <section>
+        <section data-demo-anchor="benchmark-vendor-section">
           <SectionHeader title="B · Vendor Comparison" subtitle="SLA breaches, average resolution time, and repeat failure rates by vendor" />
           <div className="bg-[rgba(17,32,64,0.85)] border border-[rgba(46,127,255,0.2)] rounded-xl overflow-hidden">
             <div className="grid grid-cols-[2fr_1fr_1.2fr_1fr_1fr] px-4 py-2 text-[9px] text-[#7A94B4] uppercase tracking-wide border-b border-[rgba(46,127,255,0.1)]">
@@ -233,7 +233,7 @@ export function Benchmark({ onToast }: Props) {
           </div>
         </section>
 
-        <section>
+        <section data-demo-anchor="benchmark-region-section">
           <SectionHeader title="C · Region Comparison" subtitle="Incident density, risk concentration, and performance trends by geographic area" />
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className="bg-[rgba(17,32,64,0.85)] border border-[rgba(46,127,255,0.2)] rounded-xl p-4">
@@ -298,6 +298,7 @@ export function Benchmark({ onToast }: Props) {
             })()}
           </AnimatePresence>
         </section>
+        <div data-demo-anchor="benchmark-bottom" className="h-1" />
       </div>
     </div>
   );

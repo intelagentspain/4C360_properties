@@ -31,7 +31,9 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { AllClients } from '@/components/strategic/AllClients';
+import { Benchmark } from '@/components/strategic/Benchmark';
 import { Dashboard as StrategicDashboard } from '@/components/strategic/StrategicView';
+import { Tasks } from '@/components/strategic/Tasks';
 import { VendorIntelligence } from '@/components/strategic/VendorIntelligence';
 import { HospitalityClientView } from '@/components/client/hospitality/HospitalityClientView';
 import { FieldOpsDashboard } from '@/modules/fieldops/FieldOpsDashboard';
@@ -843,6 +845,17 @@ const RESIDENT_INCIDENT_ANALYSIS_DESIGN_MS = residentIntroDesignMs(13_500);
 const RESIDENT_PHOTO_PREVIEW_DESIGN_MS = residentIntroDesignMs(15_000);
 const RESIDENT_ANALYSIS_RESULT_DESIGN_MS = residentIntroDesignMs(17_000);
 const RESIDENT_SUBMIT_REPORT_DESIGN_MS = residentIntroDesignMs(30_000);
+const RESIDENT_WORK_ORDER_PAGE_ACTUAL_MS = 36_000;
+const RESIDENT_WORK_ORDER_PAGE_DESIGN_MS = residentIntroDesignMs(36_000);
+const RESIDENT_WORK_ORDER_ROW_HIGHLIGHT_DESIGN_MS = residentIntroDesignMs(37_000);
+const RESIDENT_WORK_ORDER_ROW_HIGHLIGHT_DURATION_MS = residentIntroDesignMs(8_900);
+const RESIDENT_WORK_ORDER_ROW_CLICK_DESIGN_MS = residentIntroDesignMs(46_000);
+const RESIDENT_ASSIGN_TECH_CLICK_DESIGN_MS = residentIntroDesignMs(56_000);
+const RESIDENT_CONFIRM_AI_PICK_DESIGN_MS = residentIntroDesignMs(59_000);
+const RESIDENT_BENCHMARK_PAGE_ACTUAL_MS = 70_000;
+const RESIDENT_BENCHMARK_PAGE_DESIGN_MS = residentIntroDesignMs(70_000);
+const RESIDENT_BENCHMARK_SCROLL_DESIGN_MS = residentIntroDesignMs(71_500);
+const RESIDENT_BENCHMARK_SCROLL_DURATION_DESIGN_MS = residentIntroDesignMs(10_500);
 
 const FULL_CHAPTER_NARRATION_IDS = [
   'portfolio',
@@ -2305,9 +2318,19 @@ function getTimelineCues(chapterId: string, segmentId: string, estimatedDuration
       spotlightCue(RESIDENT_PHOTO_PREVIEW_DESIGN_MS, 'resident-upload-preview', { left: 10, top: 18, width: 80, height: 26 }, 2000),
       spotlightCue(RESIDENT_ANALYSIS_RESULT_DESIGN_MS, 'resident-ai-analysis-result', { left: 8, top: 35, width: 84, height: 46 }, 12000),
       { atMs: RESIDENT_SUBMIT_REPORT_DESIGN_MS, type: 'demoAction', actionId: 'resident-submit-report' },
-      spotlightCue(42000, 'resident-submit-success', { left: 8, top: 18, width: 84, height: 34 }, 12000),
-      spotlightCue(62000, 'resident-response-sla', { left: 12, top: 46, width: 76, height: 20 }, 9000),
-      spotlightCue(72000, 'value-module-entry', { left: 58, top: 68, width: 28, height: 12 }, 6000),
+      spotlightCue(residentIntroDesignMs(31_000), 'resident-submit-success', { left: 8, top: 18, width: 84, height: 34 }, residentIntroDesignMs(4200)),
+      { atMs: RESIDENT_WORK_ORDER_PAGE_DESIGN_MS, type: 'demoAction', actionId: 'resident-open-work-orders' },
+      flashCue(RESIDENT_WORK_ORDER_ROW_HIGHLIGHT_DESIGN_MS, 'resident-work-order-second-row', { left: 2, top: 38, width: 96, height: 10 }, RESIDENT_WORK_ORDER_ROW_HIGHLIGHT_DURATION_MS),
+      { atMs: RESIDENT_WORK_ORDER_ROW_CLICK_DESIGN_MS, type: 'demoAction', actionId: 'resident-open-second-work-order' },
+      spotlightCue(residentIntroDesignMs(46_500), 'resident-work-order-detail', { left: 55, top: 18, width: 43, height: 60 }, residentIntroDesignMs(7000)),
+      spotlightCue(residentIntroDesignMs(54_000), 'resident-work-order-sla', { left: 58, top: 42, width: 36, height: 16 }, residentIntroDesignMs(1800)),
+      { atMs: RESIDENT_ASSIGN_TECH_CLICK_DESIGN_MS, type: 'demoAction', actionId: 'resident-click-assign-tech' },
+      spotlightCue(residentIntroDesignMs(57_000), 'resident-assign-tech-modal', { left: 34, top: 14, width: 32, height: 72 }, residentIntroDesignMs(1700)),
+      { atMs: RESIDENT_CONFIRM_AI_PICK_DESIGN_MS, type: 'demoAction', actionId: 'resident-confirm-ai-pick' },
+      spotlightCue(residentIntroDesignMs(60_500), 'resident-assigned-tech-card', { left: 58, top: 52, width: 36, height: 14 }, residentIntroDesignMs(6000)),
+      spotlightCue(RESIDENT_BENCHMARK_PAGE_DESIGN_MS, 'benchmark-page', { left: 8, top: 12, width: 84, height: 74 }, residentIntroDesignMs(1800)),
+      slowScrollCue(RESIDENT_BENCHMARK_SCROLL_DESIGN_MS, 'benchmark-bottom', RESIDENT_BENCHMARK_SCROLL_DURATION_DESIGN_MS),
+      spotlightCue(residentIntroDesignMs(82_000), 'benchmark-region-section', { left: 8, top: 42, width: 84, height: 42 }, residentIntroDesignMs(7000)),
       { atMs: 80000, type: 'chapterPause' },
     ],
     'value:intro': [
@@ -2789,6 +2812,22 @@ function getDemoActionAnchor(actionId: string): HotspotTarget | null {
     'resident-submit-report': {
       anchor: 'resident-service-submit-report',
       fallback: { left: 12, top: 76, width: 76, height: 10 },
+    },
+    'resident-open-work-orders': {
+      anchor: 'resident-work-orders-page',
+      fallback: { left: 8, top: 12, width: 84, height: 74 },
+    },
+    'resident-open-second-work-order': {
+      anchor: 'resident-work-order-second-row',
+      fallback: { left: 2, top: 38, width: 96, height: 10 },
+    },
+    'resident-click-assign-tech': {
+      anchor: 'resident-assign-tech-button',
+      fallback: { left: 58, top: 70, width: 36, height: 8 },
+    },
+    'resident-confirm-ai-pick': {
+      anchor: 'resident-confirm-ai-pick-button',
+      fallback: { left: 36, top: 67, width: 28, height: 8 },
     },
     'open-ai-onboarding': {
       anchor: 'property-onboarding-entry',
@@ -4691,6 +4730,14 @@ function DemoStage({
   }
 
   if (chapter.screen === 'resident') {
+    if (demoTimelineMs >= RESIDENT_BENCHMARK_PAGE_ACTUAL_MS) {
+      return <Benchmark onToast={onToast} />;
+    }
+
+    if (demoTimelineMs >= RESIDENT_WORK_ORDER_PAGE_ACTUAL_MS) {
+      return <Tasks onToast={onToast} demoActionRequest={demoActionRequest} />;
+    }
+
     return (
       <HospitalityClientView
         onToast={onToast}
