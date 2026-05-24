@@ -280,12 +280,25 @@ function ProgrammeInsightSheet({
   const band = delayRiskBand(item.riskProbability);
   const scrollerRef = useRef<HTMLElement | null>(null);
   const demoEscalateClickedRef = useRef(false);
+  const demoLogEscalationClickedRef = useRef(false);
+  const emailAnimationTimerRef = useRef<number | null>(null);
   const [escalationAction, setEscalationAction] = useState<ProgrammeInsightAction | null>(null);
   const [escalationRegenerated, setEscalationRegenerated] = useState(false);
+  const [emailAnimationActive, setEmailAnimationActive] = useState(false);
 
   const actionKeyFor = (action: ProgrammeInsightAction) => `${model.key}:${action.id}`;
   const demoEscalateAction = model.actions.find(action => action.id === 'escalate-blocker');
   const escalationStatus = escalationAction ? actionStatuses[actionKeyFor(escalationAction)] : undefined;
+  const demoHighlightSuggestedAction = demoAutoScroll
+    && typeof demoTimelineMs === 'number'
+    && Boolean(escalationAction)
+    && demoTimelineMs >= PROGRAMME_DEMO_ESCALATION_SUGGESTION_HIGHLIGHT_MS
+    && demoTimelineMs < PROGRAMME_DEMO_ESCALATION_LOG_CLICK_MS;
+  const demoHighlightLogEscalation = demoAutoScroll
+    && typeof demoTimelineMs === 'number'
+    && Boolean(escalationAction)
+    && demoTimelineMs >= PROGRAMME_DEMO_ESCALATION_LOG_HIGHLIGHT_MS
+    && demoTimelineMs < PROGRAMME_DEMO_ESCALATION_LOG_CLICK_MS;
   const escalationBrief = escalationAction ? (
     escalationRegenerated
       ? [
@@ -322,7 +335,15 @@ function ProgrammeInsightSheet({
   const logEscalation = () => {
     if (!escalationAction) return;
     onRunAction(escalationAction);
+    setEscalationAction(null);
+    setEmailAnimationActive(true);
+    if (emailAnimationTimerRef.current) window.clearTimeout(emailAnimationTimerRef.current);
+    emailAnimationTimerRef.current = window.setTimeout(() => setEmailAnimationActive(false), 2400);
   };
+
+  useEffect(() => () => {
+    if (emailAnimationTimerRef.current) window.clearTimeout(emailAnimationTimerRef.current);
+  }, []);
 
   useEffect(() => {
     const scroller = scrollerRef.current;
@@ -347,6 +368,17 @@ function ProgrammeInsightSheet({
     demoEscalateClickedRef.current = true;
     handleActionClick(demoEscalateAction);
   }, [demoAutoScroll, demoEscalateAction, demoTimelineMs]);
+
+  useEffect(() => {
+    if (!demoAutoScroll || typeof demoTimelineMs !== 'number') return;
+    if (demoTimelineMs < PROGRAMME_DEMO_ESCALATION_LOG_CLICK_MS) {
+      demoLogEscalationClickedRef.current = false;
+      return;
+    }
+    if (!escalationAction || demoLogEscalationClickedRef.current) return;
+    demoLogEscalationClickedRef.current = true;
+    logEscalation();
+  }, [demoAutoScroll, demoTimelineMs, escalationAction]);
 
   return (
     <motion.div
@@ -584,7 +616,13 @@ function ProgrammeInsightSheet({
                       ))}
                     </div>
 
-                    <div className="rounded-2xl border border-cyan-300/18 bg-cyan-300/8 p-4">
+                    <div
+                      className={`rounded-2xl border p-4 transition-all duration-300 ${
+                        demoHighlightSuggestedAction
+                          ? 'border-cyan-200/80 bg-cyan-300/14 shadow-[0_0_34px_rgba(34,211,238,0.34)] ring-1 ring-cyan-100/35'
+                          : 'border-cyan-300/18 bg-cyan-300/8'
+                      }`}
+                    >
                       <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.14em] text-cyan-100">
                         <Sparkles size={13} />
                         Suggested Action
@@ -628,6 +666,8 @@ function ProgrammeInsightSheet({
                         className={`rounded-xl px-4 py-2.5 text-[12px] font-black text-white shadow-lg ${
                           escalationStatus === 'Escalated'
                             ? 'bg-emerald-500 shadow-emerald-950/25'
+                            : demoHighlightLogEscalation
+                            ? 'bg-cyan-400 shadow-[0_0_28px_rgba(34,211,238,0.45)] ring-1 ring-cyan-100/60'
                             : 'bg-red-500 shadow-red-950/25 hover:bg-red-400'
                         }`}
                       >
@@ -635,6 +675,41 @@ function ProgrammeInsightSheet({
                       </button>
                     </div>
                   </div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <AnimatePresence>
+            {emailAnimationActive && (
+              <motion.div
+                className="pointer-events-none fixed inset-0 z-[1510] flex items-center justify-center"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+              >
+                <motion.div
+                  initial={{ x: -80, y: 34, scale: 0.72, opacity: 0 }}
+                  animate={{
+                    x: [0, 90, 190],
+                    y: [20, -36, -92],
+                    scale: [0.82, 1, 0.72],
+                    opacity: [0, 1, 1, 0],
+                  }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 1.7, ease: 'easeInOut' }}
+                  className="grid h-16 w-16 place-items-center rounded-2xl border border-cyan-200/50 bg-cyan-300/18 text-cyan-50 shadow-[0_0_38px_rgba(34,211,238,0.48)] backdrop-blur"
+                >
+                  <Mail size={30} />
+                </motion.div>
+                <motion.div
+                  initial={{ y: 34, opacity: 0 }}
+                  animate={{ y: [34, 0, 0, -12], opacity: [0, 1, 1, 0] }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 2.2, ease: 'easeOut' }}
+                  className="absolute mt-28 rounded-full border border-emerald-200/35 bg-emerald-300/14 px-4 py-2 text-[12px] font-black uppercase tracking-[0.14em] text-emerald-100 shadow-2xl shadow-emerald-950/30"
+                >
+                  Escalation sent
                 </motion.div>
               </motion.div>
             )}
