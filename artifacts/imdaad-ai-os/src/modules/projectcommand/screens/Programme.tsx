@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Check, ChevronDown } from 'lucide-react';
+import { AlertTriangle, Check, CheckCircle2, ChevronDown, ClipboardList, FileText, GitBranch, Send, Target, X } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, Cell, LabelList, ReferenceArea, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
-import { GanttChart, type ProgrammeZoom } from '../components/GanttChart';
+import { GanttChart, type ProgrammeChartSelection, type ProgrammeZoom } from '../components/GanttChart';
 import { AIPanel } from '../components/AIPanel';
 import { useSelectedProjectCommandData } from '../useProjectCommandData';
-import type { Phase } from '../data/phases';
+import { addProjectCommandEvent } from '../state/projectCommandStore';
+import { createProjectControlEvent, formatProjectCurrency, type ProjectEventType } from '@/core/control-twin/projectControlTwin';
+import type { Phase, SubTask } from '../data/phases';
 
 function formatMonthRange(startDate: string, endDate: string) {
   const formatter = new Intl.DateTimeFormat('en-GB', { month: 'short', year: 'numeric' });
@@ -58,6 +60,45 @@ type DelayRiskDatum = {
   isCritical: boolean;
 };
 
+type ProgrammeInsightKind = 'phase' | 'subtask' | 'annotation' | 'risk-bar' | 'variance-card';
+type ProgrammeInsightTarget = {
+  kind: ProgrammeInsightKind;
+  phase: Phase;
+  item: Phase | SubTask;
+  label?: string;
+};
+type ProgrammeActionStatus = 'Ready' | 'Prepared' | 'Assigned' | 'Escalated' | 'Approved';
+type ProgrammeInsightAction = {
+  id: 'request-update' | 'assign-owner' | 'create-recovery-task' | 'escalate-blocker' | 'approve-recovery';
+  title: string;
+  label: string;
+  owner: string;
+  due: string;
+  nextStatus: ProgrammeActionStatus;
+  linkedEventType?: ProjectEventType;
+};
+type ProgrammeActionReceipt = {
+  id: string;
+  title: string;
+  owner: string;
+  due: string;
+  status: ProgrammeActionStatus;
+  target: string;
+};
+type ProgrammeDeepDiveModel = {
+  key: string;
+  target: ProgrammeInsightTarget;
+  title: string;
+  subtitle: string;
+  statusLabel: string;
+  why: string;
+  sourceTrail: string[];
+  dependencyChain: string[];
+  unresolved: { label: string; value: string; detail: string }[];
+  resolved: { label: string; value: string; detail: string }[];
+  actions: ProgrammeInsightAction[];
+};
+
 function delayRiskBand(value: number) {
   if (value >= 60) return { label: 'Critical', color: '#EF4444', bg: 'bg-red-400/10', text: 'text-red-100', border: 'border-red-300/24' };
   if (value >= 40) return { label: 'High', color: '#F97316', bg: 'bg-orange-400/10', text: 'text-orange-100', border: 'border-orange-300/24' };
@@ -69,6 +110,109 @@ function formatVarianceLabel(days: number) {
   if (days < 0) return `${Math.abs(days)}d slip risk`;
   if (days > 0) return `${days}d float`;
   return 'On baseline';
+}
+
+function programmeItemKey(target: ProgrammeInsightTarget) {
+  return `${target.kind}:${target.phase.id}:${target.item.id}:${target.label ?? 'row'}`;
+}
+
+function programmeItemContext(item: Phase | SubTask) {
+  return `${item.name} ${item.contractor} ${item.discipline} ${'aiAnnotation' in item ? item.aiAnnotation ?? '' : ''}`.toLowerCase();
+}
+
+function eventTypeForProgrammeItem(target: ProgrammeInsightTarget): ProjectEventType {
+  const value = programmeItemContext(target.item);
+  if (value.includes('facade') || value.includes('long-lead') || value.includes('envelope')) return 'facade-delay';
+  if (value.includes('crane') || value.includes('superstructure') || value.includes('concrete') || value.includes('weather')) return 'crane-loss';
+  if (value.includes('authority') || value.includes('approval') || value.includes('design')) return 'missing-approval';
+  if (value.includes('mep') || value.includes('inspection') || value.includes('quality') || value.includes('riser')) return 'inspection-failure';
+  if (value.includes('contractor') || value.includes('fit-out') || value.includes('substructure')) return 'contractor-underperformance';
+  return target.item.riskProbability >= 45 ? 'contractor-underperformance' : 'weather-disruption';
+}
+
+function ownerForProgrammeItem(target: ProgrammeInsightTarget) {
+  const eventType = eventTypeForProgrammeItem(target);
+  if (eventType === 'facade-delay') return 'Procurement Lead';
+  if (eventType === 'crane-loss') return 'Planning Manager';
+  if (eventType === 'missing-approval') return 'Authority Coordinator';
+  if (eventType === 'inspection-failure') return 'QA / MEP Lead';
+  if (eventType === 'contractor-underperformance') return 'Project Controls Lead';
+  return 'Field Operations Lead';
+}
+
+function dependencyChainForProgrammeItem(target: ProgrammeInsightTarget) {
+  const value = programmeItemContext(target.item);
+  if (value.includes('facade')) return ['Facade release', 'Envelope closure', 'Fit-out start', 'MEP congestion', 'Handover confidence'];
+  if (value.includes('crane') || value.includes('superstructure')) return ['Tower crane capacity', 'Superstructure cycle', 'Facade and MEP hoists', 'SPI and float', 'Handover confidence'];
+  if (value.includes('authority') || value.includes('approval') || value.includes('design')) return ['Approval path', 'Stage gate readiness', 'Commissioning clearance', 'Occupancy window', 'Handover confidence'];
+  if (value.includes('mep') || value.includes('riser')) return ['MEP rough-in', 'Clash clearance', 'Inspection pass', 'Commissioning gate', 'Handover readiness'];
+  if (value.includes('substructure') || value.includes('piling')) return ['Substructure recovery', 'Superstructure start', 'Crane logistics', 'Facade window', 'Critical path float'];
+  if (value.includes('fit-out')) return ['Fit-out start', 'MEP congestion', 'Snagging load', 'Handover pack', 'Resident readiness'];
+  if (value.includes('handover') || value.includes('snag')) return ['Snagging closure', 'Evidence pack', 'Go/No-Go gate', 'Resident move-in readiness'];
+  return ['Programme update', 'Owner confirmation', 'Linked evidence', 'Forecast refresh', 'Manager decision'];
+}
+
+function insightTitlePrefix(kind: ProgrammeInsightKind) {
+  if (kind === 'annotation') return 'AI programme insight';
+  if (kind === 'risk-bar') return 'Delay risk insight';
+  if (kind === 'variance-card') return 'Critical path variance';
+  if (kind === 'subtask') return 'Activity insight';
+  return 'Phase insight';
+}
+
+function buildProgrammeDeepDive(target: ProgrammeInsightTarget, projectName: string): ProgrammeDeepDiveModel {
+  const item = target.item;
+  const band = delayRiskBand(item.riskProbability);
+  const owner = ownerForProgrammeItem(target);
+  const slipDays = Math.max(2, Math.abs(item.varianceDays) + Math.ceil(item.riskProbability / 12));
+  const costExposure = Math.max(600_000, Math.round((item.riskProbability * 95_000) + (Math.abs(item.varianceDays) * 180_000)));
+  const recoveredFloat = Math.max(2, Math.round(slipDays * 0.55));
+  const reducedExposure = Math.max(350_000, Math.round(costExposure * 0.45));
+  const isSlip = item.varianceDays < 0;
+  const dependencyChain = dependencyChainForProgrammeItem(target);
+  const statusLabel = `${band.label} - ${item.isCritical ? 'Critical path' : 'Supporting path'}`;
+  const why = `${item.name} is ${item.isCritical ? 'on' : 'near'} the control path with ${item.riskProbability}% delay risk and ${formatVarianceLabel(item.varianceDays)}. The useful move is to confirm owner, proof, and recovery action before this rolls into forecast and handover confidence.`;
+
+  return {
+    key: programmeItemKey(target),
+    target,
+    title: `${insightTitlePrefix(target.kind)}: ${item.name}`,
+    subtitle: `${projectName} / ${item.contractor} / ${item.discipline}`,
+    statusLabel,
+    why,
+    sourceTrail: [
+      `Programme baseline: ${formatShortDate(item.baselineStart)} to ${formatShortDate(item.baselineEnd)}`,
+      `Current plan: ${formatShortDate(item.plannedStart)} to ${formatShortDate(item.plannedEnd)}`,
+      `Progress: ${item.completePct}% complete`,
+      `Variance: ${isSlip ? `${Math.abs(item.varianceDays)} days behind baseline` : item.varianceDays > 0 ? `${item.varianceDays} days float` : 'on baseline'}`,
+      `Source: ${target.label ?? target.kind} / ${item.contractor}`,
+    ],
+    dependencyChain,
+    unresolved: [
+      { label: 'Delay impact', value: `${slipDays}d slip`, detail: `${dependencyChain[1] ?? 'Next activity'} inherits the open blocker.` },
+      { label: 'Cost exposure', value: formatProjectCurrency(costExposure), detail: 'Exposure can land through acceleration, claim pressure, or rework.' },
+      { label: 'Gate / evidence', value: item.isCritical ? 'Gate at risk' : 'Watch item', detail: 'Manager review should link evidence, date, and owner before the next update.' },
+    ],
+    resolved: [
+      { label: 'Float recovered', value: `${recoveredFloat}d`, detail: 'Recovery task protects the next downstream activity.' },
+      { label: 'Exposure reduced', value: formatProjectCurrency(reducedExposure), detail: 'Earlier owner action limits acceleration and rework pressure.' },
+      { label: 'Confidence', value: `+${Math.max(4, recoveredFloat)} pts`, detail: 'Handover confidence improves when the blocker has a named owner and due date.' },
+    ],
+    actions: [
+      { id: 'request-update', title: 'Request update', label: 'Request update', owner, due: 'Today', nextStatus: 'Prepared' },
+      { id: 'assign-owner', title: 'Assign owner', label: 'Assign owner', owner, due: 'Today', nextStatus: 'Assigned' },
+      { id: 'create-recovery-task', title: 'Create recovery task', label: 'Create recovery task', owner, due: 'Next 24h', nextStatus: 'Prepared' },
+      { id: 'escalate-blocker', title: 'Escalate blocker', label: 'Escalate blocker', owner, due: 'Now', nextStatus: 'Escalated', linkedEventType: eventTypeForProgrammeItem(target) },
+      { id: 'approve-recovery', title: 'Mark recovery approved', label: 'Mark recovery approved', owner: 'Project Director', due: 'Now', nextStatus: 'Approved', linkedEventType: 'recovery-approved' },
+    ],
+  };
+}
+
+function actionButtonClass(status?: ProgrammeActionStatus) {
+  if (status === 'Approved') return 'border-emerald-300/35 bg-emerald-300/16 text-emerald-100';
+  if (status === 'Escalated') return 'border-red-300/35 bg-red-300/14 text-red-100';
+  if (status === 'Assigned' || status === 'Prepared') return 'border-cyan-300/30 bg-cyan-300/12 text-cyan-100';
+  return 'border-[#2E7FFF]/22 bg-[#112040] text-[#DCE8F8] hover:border-[#2E7FFF]/45 hover:bg-[#16305A]';
 }
 
 function DelayRiskTooltip({
@@ -102,8 +246,225 @@ function DelayRiskTooltip({
   );
 }
 
+function ProgrammeInsightSheet({
+  model,
+  receipts,
+  actionStatuses,
+  onRunAction,
+  onClose,
+}: {
+  model: ProgrammeDeepDiveModel;
+  receipts: ProgrammeActionReceipt[];
+  actionStatuses: Record<string, ProgrammeActionStatus>;
+  onRunAction: (action: ProgrammeInsightAction) => void;
+  onClose: () => void;
+}) {
+  const item = model.target.item;
+  const band = delayRiskBand(item.riskProbability);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[1400] bg-black/45 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <motion.aside
+        initial={{ x: 540 }}
+        animate={{ x: 0 }}
+        exit={{ x: 540 }}
+        transition={{ type: 'spring', stiffness: 260, damping: 28 }}
+        className="custom-scrollbar absolute bottom-0 right-0 top-[52px] w-[min(540px,calc(100vw-18px))] overflow-y-auto border-l border-[#2E7FFF]/24 bg-[#07111F] shadow-2xl shadow-black/45"
+        onClick={event => event.stopPropagation()}
+        aria-label="Programme insight detail"
+      >
+        <div className="sticky top-0 z-10 border-b border-[#2E7FFF]/18 bg-[#102347]/96 px-5 py-4 backdrop-blur">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#8FC7FF]">Programme Insight</p>
+              <h3 className="mt-1 text-xl font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{model.title}</h3>
+              <p className="mt-1 text-[12px] leading-5 text-[#9EB2CE]">{model.subtitle}</p>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-xl border border-[#2E7FFF]/24 bg-[#0A1628] p-2 text-[#9EB2CE] transition hover:border-[#2E7FFF]/45 hover:text-white"
+              aria-label="Close programme insight"
+            >
+              <X size={18} />
+            </button>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase ${band.bg} ${band.text} ${band.border}`}>
+              {model.statusLabel}
+            </span>
+            <span className="rounded-full border border-[#2E7FFF]/24 bg-[#0A1628] px-2.5 py-1 text-[10px] font-black uppercase text-[#B8C7DB]">
+              {item.completePct}% complete
+            </span>
+            <span className="rounded-full border border-[#2E7FFF]/24 bg-[#0A1628] px-2.5 py-1 text-[10px] font-black uppercase text-[#B8C7DB]">
+              {formatVarianceLabel(item.varianceDays)}
+            </span>
+          </div>
+        </div>
+
+        <div className="space-y-4 p-5">
+          <section className="rounded-2xl border border-[#2E7FFF]/20 bg-[#0A1628] p-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              {[
+                ['Contractor', item.contractor],
+                ['Discipline', item.discipline],
+                ['Planned dates', `${formatShortDate(item.plannedStart)} - ${formatShortDate(item.plannedEnd)}`],
+                ['Baseline dates', `${formatShortDate(item.baselineStart)} - ${formatShortDate(item.baselineEnd)}`],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-xl border border-[#2E7FFF]/14 bg-[#07111F] p-3">
+                  <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">{label}</p>
+                  <p className="mt-1 text-[13px] font-black text-[#EAF2FF]">{value}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-cyan-300/18 bg-cyan-300/8 p-4">
+            <div className="mb-2 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.14em] text-cyan-100">
+              <Target size={15} />
+              Why this matters
+            </div>
+            <p className="text-[13px] leading-6 text-[#DCE8F8]">{model.why}</p>
+          </section>
+
+          <section className="rounded-2xl border border-[#2E7FFF]/18 bg-[#0A1628] p-4">
+            <div className="mb-3 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.14em] text-[#8FC7FF]">
+              <GitBranch size={15} />
+              Dependency chain
+            </div>
+            <div className="grid gap-2">
+              {model.dependencyChain.map((step, index) => (
+                <div key={`${step}-${index}`} className="flex items-center gap-2">
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[#2E7FFF]/24 bg-[#112040] text-[10px] font-black text-[#8FC7FF]">
+                    {index + 1}
+                  </span>
+                  <span className="min-w-0 flex-1 rounded-xl border border-[#2E7FFF]/12 bg-[#07111F] px-3 py-2 text-[12px] font-bold text-[#DCE8F8]">
+                    {step}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <section className="rounded-2xl border border-red-300/20 bg-red-300/8 p-4">
+              <div className="mb-3 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.14em] text-red-100">
+                <AlertTriangle size={15} />
+                If unresolved
+              </div>
+              <div className="space-y-2">
+                {model.unresolved.map(item => (
+                  <div key={item.label} className="rounded-xl border border-red-200/12 bg-[#07111F]/80 p-3">
+                    <p className="text-[9px] font-black uppercase tracking-[0.12em] text-red-100/80">{item.label}</p>
+                    <p className="mt-1 text-[15px] font-black text-red-100">{item.value}</p>
+                    <p className="mt-1 text-[11px] leading-4 text-[#B8C7DB]">{item.detail}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-emerald-300/20 bg-emerald-300/8 p-4">
+              <div className="mb-3 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.14em] text-emerald-100">
+                <CheckCircle2 size={15} />
+                If resolved today
+              </div>
+              <div className="space-y-2">
+                {model.resolved.map(item => (
+                  <div key={item.label} className="rounded-xl border border-emerald-200/12 bg-[#07111F]/80 p-3">
+                    <p className="text-[9px] font-black uppercase tracking-[0.12em] text-emerald-100/80">{item.label}</p>
+                    <p className="mt-1 text-[15px] font-black text-emerald-100">{item.value}</p>
+                    <p className="mt-1 text-[11px] leading-4 text-[#B8C7DB]">{item.detail}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </div>
+
+          <section className="rounded-2xl border border-[#2E7FFF]/18 bg-[#0A1628] p-4">
+            <div className="mb-3 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.14em] text-[#8FC7FF]">
+              <FileText size={15} />
+              Source trail
+            </div>
+            <div className="space-y-2">
+              {model.sourceTrail.map(source => (
+                <div key={source} className="rounded-xl border border-[#2E7FFF]/12 bg-[#07111F] px-3 py-2 text-[12px] font-bold text-[#B8C7DB]">
+                  {source}
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-[#7C3AED]/22 bg-[#7C3AED]/9 p-4">
+            <div className="mb-3 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.14em] text-[#C4B5FD]">
+              <ClipboardList size={15} />
+              Progress or resolve
+            </div>
+            <div className="grid gap-2">
+              {model.actions.map(action => {
+                const status = actionStatuses[`${model.key}:${action.id}`];
+                const label = status ?? action.label;
+                return (
+                  <button
+                    key={action.id}
+                    type="button"
+                    onClick={() => onRunAction(action)}
+                    className={`flex items-center justify-between gap-3 rounded-xl border px-3 py-3 text-left transition ${actionButtonClass(status)}`}
+                  >
+                    <span>
+                      <span className="block text-[13px] font-black">{label}</span>
+                      <span className="mt-1 block text-[10px] font-bold uppercase tracking-[0.12em] opacity-75">
+                        {action.owner} / {action.due}
+                      </span>
+                    </span>
+                    {status ? <CheckCircle2 size={16} /> : <Send size={16} />}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="mt-3 text-[10px] leading-4 text-[#8EA7C7]">
+              Demo-safe: these controls prepare or log ProjectCommand actions only. They do not email, approve spend, or dispatch externally.
+            </p>
+          </section>
+
+          {receipts.length > 0 && (
+            <section className="rounded-2xl border border-emerald-300/20 bg-emerald-300/8 p-4">
+              <div className="mb-3 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.14em] text-emerald-100">
+                <CheckCircle2 size={15} />
+                Action receipt
+              </div>
+              <div className="space-y-2">
+                {receipts.map(receipt => (
+                  <div key={receipt.id} className="rounded-xl border border-emerald-200/12 bg-[#07111F] p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-[13px] font-black text-[#EAF2FF]">{receipt.title}</p>
+                        <p className="mt-1 text-[11px] text-[#9EB2CE]">{receipt.owner} / due {receipt.due}</p>
+                        <p className="mt-1 text-[11px] text-[#8FC7FF]">Target: {receipt.target}</p>
+                      </div>
+                      <span className="rounded-full border border-emerald-300/22 bg-emerald-300/12 px-2 py-1 text-[9px] font-black uppercase text-emerald-100">
+                        {receipt.status}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
+      </motion.aside>
+    </motion.div>
+  );
+}
+
 export function Programme() {
-  const { aiContent, phases, project } = useSelectedProjectCommandData();
+  const dataset = useSelectedProjectCommandData();
+  const { aiContent, phases, project, property } = dataset;
   const [zoom, setZoom] = useState<ProgrammeZoom>('Month');
   const [baseline, setBaseline] = useState(true);
   const [critical, setCritical] = useState(true);
@@ -111,6 +472,9 @@ export function Programme() {
   const [selectedContractors, setSelectedContractors] = useState<string[]>(['All contractors']);
   const [whatIfOpen, setWhatIfOpen] = useState(false);
   const [delayDays, setDelayDays] = useState(14);
+  const [selectedInsight, setSelectedInsight] = useState<ProgrammeInsightTarget | null>(null);
+  const [programmeActionStatuses, setProgrammeActionStatuses] = useState<Record<string, ProgrammeActionStatus>>({});
+  const [programmeActionReceipts, setProgrammeActionReceipts] = useState<Record<string, ProgrammeActionReceipt[]>>({});
   const contractorOptions = useMemo(() => ['All contractors', ...uniqueContractors(phases, project.mainContractor)], [phases, project.mainContractor]);
   const allContractorsSelected = selectedContractors.includes('All contractors') || selectedContractors.length === 0;
   const activeContractors = allContractorsSelected ? [] : selectedContractors.filter(contractor => contractor !== 'All contractors');
@@ -136,6 +500,11 @@ export function Programme() {
   const criticalPathNarrative = buildNarrative(project.name, filteredPhases, aiContent.programmeInsights.criticalPathNarrative);
   const recoverySuggestion = buildRecoverySuggestion(filteredPhases, aiContent.programmeInsights.rescheduleSuggestion);
   const resourceData = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug'].map((month, index) => ({ month, workers: Math.round((project.floors * 2.2) + [72, 96, 128, 164, 210, 246, 292, 318][index] * (project.completion / 62)) }));
+  const selectedInsightKey = selectedInsight ? programmeItemKey(selectedInsight) : '';
+  const selectedInsightModel = useMemo(
+    () => selectedInsight ? buildProgrammeDeepDive(selectedInsight, project.name) : null,
+    [selectedInsight, project.name],
+  );
 
   useEffect(() => {
     setSelectedContractors(['All contractors']);
@@ -156,6 +525,70 @@ export function Programme() {
 
       return next.length ? next : ['All contractors'];
     });
+  };
+
+  const openProgrammeInsight = (kind: ProgrammeInsightKind, phase: Phase, item: Phase | SubTask, label?: string) => {
+    setSelectedInsight({ kind, phase, item, label });
+  };
+
+  const openDelayRisk = (datum?: DelayRiskDatum) => {
+    if (!datum) return;
+    const phase = filteredPhases.find(item => item.name === datum.phase) ?? phases.find(item => item.name === datum.phase);
+    if (!phase) return;
+    openProgrammeInsight('risk-bar', phase, phase, 'AI Delay Risk by Phase');
+  };
+
+  const handleDelayRiskBarClick = (entry: unknown) => {
+    const datum = (entry as { payload?: DelayRiskDatum } | undefined)?.payload;
+    openDelayRisk(datum);
+  };
+
+  const runProgrammeAction = (action: ProgrammeInsightAction) => {
+    if (!selectedInsightModel) return;
+    const actionKey = `${selectedInsightModel.key}:${action.id}`;
+    const targetLabel = `${property.name} / ${project.name}`;
+    const receipt: ProgrammeActionReceipt = {
+      id: `${actionKey}:${Date.now().toString(36)}`,
+      title: action.title,
+      owner: action.owner,
+      due: action.due,
+      status: action.nextStatus,
+      target: targetLabel,
+    };
+
+    setProgrammeActionStatuses(current => ({
+      ...current,
+      [actionKey]: action.nextStatus,
+    }));
+    setProgrammeActionReceipts(current => ({
+      ...current,
+      [selectedInsightModel.key]: [
+        receipt,
+        ...(current[selectedInsightModel.key] ?? []).filter(item => item.title !== receipt.title),
+      ].slice(0, 4),
+    }));
+
+    if (action.linkedEventType) {
+      const event = createProjectControlEvent(dataset.id, action.linkedEventType);
+      const isRecovery = action.linkedEventType === 'recovery-approved';
+      addProjectCommandEvent(dataset.id, {
+        ...event,
+        id: `${dataset.id}-programme-${selectedInsightModel.target.item.id}-${action.id}-${Date.now().toString(36)}`,
+        title: isRecovery
+          ? `Programme recovery approved: ${selectedInsightModel.target.item.name}`
+          : `Programme blocker escalated: ${selectedInsightModel.target.item.name}`,
+        description: `${action.title} from the programme chart. ${selectedInsightModel.why}`,
+        affectedAreas: ['Programme', 'Cost', 'Risk', 'Stage Gates', 'Manager decisions'],
+        affectedModule: 'ProjectCommand Programme',
+        impactLabel: isRecovery
+          ? `Recovery action approved for ${selectedInsightModel.target.item.name}; ProjectCommand recalculated float, risk, and forecast.`
+          : `Programme action logged for ${selectedInsightModel.target.item.name}; ProjectCommand recalculated delay, cost, and risk exposure.`,
+        cta: action.title,
+        sourceModule: 'ProjectCommand',
+        sourceObjectId: `programme-${selectedInsightModel.target.item.id}`,
+        timestamp: new Date().toISOString(),
+      });
+    }
   };
 
   return (
@@ -234,6 +667,7 @@ export function Programme() {
               projectStart={project.startDate}
               projectEnd={project.targetHandover}
               emptyMessage="No programme activities match the selected contractor filter."
+              onSelectItem={(selection: ProgrammeChartSelection) => openProgrammeInsight(selection.kind, selection.phase, selection.item, selection.label)}
             />
           </section>
           <div className="grid gap-4 2xl:grid-cols-2">
@@ -245,12 +679,20 @@ export function Programme() {
             <section className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4" data-demo-anchor="programme-delayed-activities">
               <h3 className="mb-3 text-sm font-black" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Critical Path Focus</h3>
               <div className="grid gap-2 sm:grid-cols-2">
-                {varianceEntries.map(([phase, days]) => (
-                  <div key={phase} className="rounded-lg border border-[rgba(46,127,255,0.12)] bg-[#0A1628] px-3 py-2">
+                {varianceEntries.map(([phase, days]) => {
+                  const phaseItem = filteredPhases.find(item => item.name === phase) ?? phases.find(item => item.name === phase);
+                  return (
+                  <button
+                    key={phase}
+                    type="button"
+                    onClick={() => phaseItem && openProgrammeInsight('variance-card', phaseItem, phaseItem, 'Critical Path Focus')}
+                    className="rounded-lg border border-[rgba(46,127,255,0.12)] bg-[#0A1628] px-3 py-2 text-left transition hover:border-[rgba(46,127,255,0.36)] hover:bg-[#112040] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2E7FFF]/55"
+                  >
                     <div className="text-[10px] font-bold uppercase tracking-wide text-[#7A94B4]">{phase}</div>
                     <div className={`mt-1 font-mono text-[15px] font-black ${days < 0 ? 'text-red-300' : 'text-emerald-300'}`}>{days}d</div>
-                  </div>
-                ))}
+                  </button>
+                  );
+                })}
                 {varianceEntries.length === 0 && (
                   <div className="rounded-lg border border-dashed border-[rgba(46,127,255,0.18)] bg-[#0A1628] px-3 py-4 text-[11px] font-bold text-[#7A94B4]">
                     No variance items match the selected filter.
@@ -319,7 +761,7 @@ export function Programme() {
                     />
                     <YAxis type="category" dataKey="phase" tick={{ fill: '#B8C7DB', fontSize: 10 }} width={112} />
                     <Tooltip cursor={{ fill: 'rgba(124,58,237,0.10)' }} content={<DelayRiskTooltip />} />
-                    <Bar dataKey="delayRiskPct" radius={[0, 8, 8, 0]}>
+                    <Bar dataKey="delayRiskPct" radius={[0, 8, 8, 0]} onClick={handleDelayRiskBarClick}>
                       {delayData.map(item => (
                         <Cell key={item.phase} fill={delayRiskBand(item.delayRiskPct).color} />
                       ))}
@@ -365,6 +807,17 @@ export function Programme() {
             </div>
             <AIPanel title="AI Recovery Suggestion"><p className="text-[12px] leading-5 text-[#DDE6F8]">{recoverySuggestion}</p></AIPanel>
           </motion.div>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {selectedInsightModel && (
+          <ProgrammeInsightSheet
+            model={selectedInsightModel}
+            receipts={programmeActionReceipts[selectedInsightKey] ?? []}
+            actionStatuses={programmeActionStatuses}
+            onRunAction={runProgrammeAction}
+            onClose={() => setSelectedInsight(null)}
+          />
         )}
       </AnimatePresence>
     </div>

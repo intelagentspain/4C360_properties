@@ -2100,31 +2100,27 @@ function getTimelineCues(chapterId: string, segmentId: string, estimatedDuration
     ],
     'projectcommand:intro': [
       scrollCue(0, 'projectcommand-shell'),
-      spotlightCue(4000, 'projectcommand-shell', { left: 8, top: 12, width: 84, height: 74 }, 10000),
-      scrollCue(13800, 'projectcommand-context'),
-      spotlightCue(14000, 'projectcommand-context', { left: 12, top: 16, width: 76, height: 24 }, 12000),
-      scrollCue(25800, 'project-overview-command-strip'),
-      spotlightCue(26000, 'project-overview-command-strip', { left: 10, top: 24, width: 80, height: 20 }, 12000),
-      scrollCue(39800, 'projectcommand-tabs'),
-      spotlightCue(40000, 'projectcommand-tabs', { left: 10, top: 10, width: 82, height: 12 }, 16000),
-      scrollCue(57800, 'project-overview-impact-chain'),
-      spotlightCue(58000, 'project-overview-impact-chain', { left: 8, top: 18, width: 84, height: 60 }, 12000),
-      scrollCue(71800, 'project-overview-next-decision'),
-      spotlightCue(72000, 'project-overview-next-decision', { left: 16, top: 50, width: 68, height: 22 }, 10000),
-      scrollCue(83800, 'projectcommand-tabs'),
-      spotlightCue(84000, 'programme-control-tab', { left: 58, top: 68, width: 28, height: 12 }, 6000),
+      scrollCue(14_800, 'project-overview-command-strip'),
+      scrollCue(22_000, 'project-overview-what-changed'),
+      scrollCue(27_000, 'project-overview-next-decision'),
+      scrollCue(32_000, 'project-overview-impact-chain'),
+      scrollCue(38_500, 'projectcommand-tabs'),
+      scrollCue(40_000, 'programme-control-tab'),
+      scrollCue(47_000, 'stage-gates-control-tab'),
+      scrollCue(54_000, 'cost-control-tab'),
+      scrollCue(61_000, 'risk-control-tab'),
+      scrollCue(68_000, 'forecast-control-tab'),
+      scrollCue(75_000, 'obligations-control-tab'),
+      scrollCue(81_000, 'evidence-control-tab'),
+      scrollCue(86_000, 'programme-control-tab'),
       { atMs: 90000, type: 'chapterPause' },
     ],
     'programme:intro': [
-      scrollCue(0, 'project-programme'),
-      spotlightCue(3000, 'project-programme', { left: 8, top: 12, width: 84, height: 74 }, 9000),
-      spotlightCue(12000, 'programme-critical-path', { left: 10, top: 20, width: 80, height: 22 }, 12000),
-      spotlightCue(24000, 'programme-delayed-activities', { left: 12, top: 38, width: 76, height: 22 }, 10000),
-      spotlightCue(34000, 'programme-contractor-accountability', { left: 14, top: 46, width: 72, height: 20 }, 10000),
-      spotlightCue(44000, 'programme-recovery-window', { left: 16, top: 28, width: 68, height: 24 }, 10000),
-      spotlightCue(54000, 'programme-handover-risk', { left: 12, top: 56, width: 76, height: 18 }, 10000),
-      spotlightCue(64000, 'programme-recovery-action', { left: 58, top: 66, width: 28, height: 12 }, 10000),
-      spotlightCue(74000, 'stage-gates-control-tab', { left: 58, top: 68, width: 28, height: 12 }, 6000),
+      scrollCue(0, 'projectcommand-context'),
+      scrollCue(3_000, 'projectcommand-property-dropdown'),
+      scrollCue(5_200, 'projectcommand-project-dropdown'),
+      slowScrollCue(8_500, 'programme-recovery-action', 31_500),
+      scrollCue(74_000, 'stage-gates-control-tab'),
       { atMs: 80000, type: 'chapterPause' },
     ],
     'stagegates:intro': [
@@ -4415,6 +4411,7 @@ function DemoStage({
   onCopySummary,
   demoActionRequest,
   demoPlaying,
+  demoTimelineMs,
   demoOverlayReset,
   portfolioGisActive,
   portfolioGisZoomedOut,
@@ -4437,6 +4434,7 @@ function DemoStage({
   onCopySummary: () => void;
   demoActionRequest: DemoActionRequest | null;
   demoPlaying: boolean;
+  demoTimelineMs: number;
   demoOverlayReset: boolean;
   portfolioGisActive: boolean;
   portfolioGisZoomedOut: boolean;
@@ -4527,6 +4525,8 @@ function DemoStage({
         key={chapter.id}
         initialScreen={chapter.projectScreen}
         demoMode
+        demoTimelineMs={demoTimelineMs}
+        demoChapterId={chapter.id}
         onToast={onToast}
         onOpenVendorIQ={() => onOpenChapter('vendoriq')}
       />
@@ -5696,6 +5696,7 @@ export function InteractiveDemoWalkthrough() {
                 onCopySummary={copyOutcomeSummary}
                 demoActionRequest={demoActionRequest}
                 demoPlaying={autopilot.status === 'playing'}
+                demoTimelineMs={timelineElapsedMs}
                 demoOverlayReset={chapterEndOpen}
                 portfolioGisActive={portfolioGisActive}
                 portfolioGisZoomedOut={portfolioGisZoomedOut}
