@@ -323,8 +323,15 @@ export function ProjectCommand({
         {screen === 'programme' && (
           <Programme demoTimelineMs={demoMode && demoChapterId === 'programme' ? demoTimelineMs : undefined} />
         )}
-        {screen === 'stagegates' && <StageGates onToast={onToast} />}
-        {screen === 'cost' && <CostIntelligence />}
+        {screen === 'stagegates' && (
+          <StageGates
+            onToast={onToast}
+            demoTimelineMs={demoMode && demoChapterId === 'stagegates' ? demoTimelineMs : undefined}
+          />
+        )}
+        {screen === 'cost' && (
+          <CostIntelligence demoTimelineMs={demoMode && demoChapterId === 'cost' ? demoTimelineMs : undefined} />
+        )}
         {screen === 'risk' && <RiskCommand />}
         {screen === 'obligations' && <ObligationsRegister onToast={onToast} />}
         {screen === 'evidence' && <EvidenceRepository onToast={onToast} />}

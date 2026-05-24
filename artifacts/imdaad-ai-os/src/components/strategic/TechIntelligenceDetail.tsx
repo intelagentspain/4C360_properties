@@ -4,7 +4,7 @@ import {
   ArrowLeft, TrendingUp, TrendingDown, Minus,
   Brain, AlertTriangle, Target, Zap, Star,
   Activity, Users, CheckCircle, Clock, BarChart3,
-  Shuffle, RefreshCw, ChevronRight,
+  Shuffle, ChevronRight, Sparkles,
 } from 'lucide-react';
 import type { MockMemberProfile } from '@/data/mockData';
 
@@ -856,7 +856,7 @@ export function TechIntelligenceDetail({ member, intel, onBack, onEditProfile, o
           )}
         </DetailSection>
 
-        <DetailSection icon={<RefreshCw size={13} className="text-[#2E7FFF]" />} title="Recommendations">
+        <DetailSection icon={<Sparkles size={13} className="text-[#A78BFA]" />} title="Recommendations">
           <div className="space-y-3">
             {intel.recommendations.map((rec, i) => (
               <div key={i} className="flex items-start gap-3 p-3 rounded-lg bg-[rgba(46,127,255,0.05)] border border-[rgba(46,127,255,0.12)]">

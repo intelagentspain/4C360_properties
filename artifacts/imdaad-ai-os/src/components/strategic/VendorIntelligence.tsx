@@ -4,7 +4,7 @@ import {
   TrendingUp, TrendingDown, Minus, ArrowLeft, ShieldCheck,
   AlertTriangle, Brain, Target, DollarSign, BarChart3,
   CheckCircle, XCircle, FileWarning, Zap, ChevronRight,
-  Users, Building2, Star, Sparkles, Lightbulb, ListChecks, Activity, X,
+  Users, Building2, Star, Sparkles, ListChecks, Activity, X,
   Plus, Mic, Send, MessageSquare, UploadCloud, FileText, Wand2, Trash2, Download,
 } from 'lucide-react';
 import {
@@ -2195,7 +2195,7 @@ function VendorMetricInsightPanel({ insight, onClose }: { insight: VendorMetricI
         <VendorInsightBlock icon={Activity} title="Interpretation">
           <p className="text-[13px] leading-6 text-[#DDE6F8]">{insight.interpretation}</p>
         </VendorInsightBlock>
-        <VendorInsightBlock icon={Lightbulb} title="Recommendation">
+        <VendorInsightBlock icon={Sparkles} title="Recommendation">
           <p className="text-[13px] leading-6 text-[#DDE6F8]">{insight.recommendation}</p>
         </VendorInsightBlock>
       </div>
@@ -3298,7 +3298,10 @@ function PageProcurementCopilotModal({
                         <div className="flex flex-wrap items-start justify-between gap-3">
                           <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
-                              <div className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-200">Award recommendation</div>
+                              <div className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-emerald-200">
+                                <Sparkles size={12} />
+                                Award recommendation
+                              </div>
                               <span className={`rounded-full border px-2 py-1 text-[9px] font-black ${quoteRiskTone(quoteAnalysis.winner.risk)}`}>
                                 {quoteAnalysis.winner.risk} risk
                               </span>
@@ -5192,7 +5195,7 @@ function VendorDetailPage({ vendor, onBack, onToast }: { vendor: VendorIntelData
         </div>
 
         <div id="vendor-section-Recommendations">
-          <DetailSection icon={<Target size={12} className="text-[#2E7FFF]" />} title="Recommendations">
+          <DetailSection icon={<Sparkles size={12} className="text-[#A78BFA]" />} title="Recommendations">
             <div className="space-y-2.5">
               {vendor.recommendations.map((rec, i) => (
                 <div key={i} className="bg-[#0D1E3A] rounded-xl p-3 border border-[rgba(46,127,255,0.1)]">
@@ -5875,7 +5878,7 @@ function AddVendorWizard({
                   </div>
                   <div className="rounded-2xl border border-[rgba(46,127,255,0.16)] bg-[#07111F] p-5">
                     <div className="mb-3 flex items-center gap-2">
-                      <Target size={15} className="text-[#2E7FFF]" />
+                      <Sparkles size={15} className="text-[#A78BFA]" />
                       <h4 className="text-sm font-bold text-[#EEF3FA]">Recommendations generated</h4>
                     </div>
                     <div className="space-y-3">
@@ -6066,7 +6069,7 @@ function AddVendorWizard({
                 </div>
                 <div className="rounded-2xl border border-[rgba(46,127,255,0.16)] bg-[#07111F] p-5">
                   <div className="mb-4 flex items-center gap-2">
-                    <Target size={15} className="text-[#2E7FFF]" />
+                    <Sparkles size={15} className="text-[#A78BFA]" />
                     <h4 className="text-sm font-bold text-[#EEF3FA]">Recommendations generated</h4>
                   </div>
                   <div className="space-y-3">

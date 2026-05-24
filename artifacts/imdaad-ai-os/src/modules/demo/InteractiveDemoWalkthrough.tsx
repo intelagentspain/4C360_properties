@@ -1577,8 +1577,8 @@ const DEMO_FRAMES: Record<string, DemoFrame[]> = {
     {
       id: 'forecast',
       label: 'Forecast',
-      anchor: 'project-cost-bridge',
-      fallback: { left: 6, top: 13, width: 60, height: 28 },
+      anchor: 'project-cost-summary',
+      fallback: { left: 6, top: 13, width: 86, height: 34 },
       headline: 'Convert cost exposure into a board choice',
       story: 'Show the commercial decision bridge: approve recovery, hold cash until proof arrives, or accept the cost and programme consequence.',
       clientValue: 'Owners see the decision that changes final cost, not just the number that moved.',
@@ -2130,24 +2130,11 @@ function getTimelineCues(chapterId: string, segmentId: string, estimatedDuration
     'stagegates:intro': [
       scrollCue(0, 'project-stage-gates'),
       spotlightCue(3000, 'project-stage-gates', { left: 8, top: 12, width: 84, height: 74 }, 9000),
-      scrollCue(11800, 'project-stage-gate-loop'),
-      spotlightCue(12000, 'project-stage-gate-loop', { left: 10, top: 18, width: 80, height: 16 }, 10000),
-      scrollCue(21800, 'project-stage-blocked-gate'),
-      spotlightCue(22000, 'project-stage-blocked-gate', { left: 18, top: 34, width: 64, height: 24 }, 12000),
-      spotlightCue(34000, 'project-stage-blocked-gate', { left: 16, top: 42, width: 68, height: 24 }, 10000),
-      scrollCue(43800, 'project-stage-recovery-actions'),
-      spotlightCue(44000, 'project-stage-recovery-actions', { left: 14, top: 56, width: 72, height: 18 }, 10000),
-      scrollCue(53800, 'project-stage-evidence-gaps'),
-      spotlightCue(54000, 'project-stage-evidence-gaps', { left: 12, top: 24, width: 76, height: 22 }, 10000),
-      scrollCue(63800, 'project-stage-gate-loop'),
-      spotlightCue(64000, 'project-stage-gate-loop', { left: 10, top: 18, width: 80, height: 56 }, 10000),
-      scrollCue(73800, 'projectcommand-tabs'),
-      spotlightCue(74000, 'cost-control-tab', { left: 58, top: 68, width: 28, height: 12 }, 6000),
       { atMs: 80000, type: 'chapterPause' },
     ],
     'cost:intro': [
-      scrollCue(0, 'project-cost'),
-      spotlightCue(3000, 'project-cost', { left: 8, top: 12, width: 84, height: 74 }, 9000),
+      scrollCue(0, 'project-cost-summary'),
+      spotlightCue(3000, 'project-cost-summary', { left: 8, top: 12, width: 84, height: 34 }, 9000),
       scrollCue(11800, 'project-cost-bridge'),
       spotlightCue(12000, 'project-cost-bridge', { left: 10, top: 18, width: 80, height: 18 }, 10000),
       scrollCue(21800, 'project-cost-variations'),
@@ -4834,7 +4821,30 @@ export function InteractiveDemoWalkthrough() {
     const root = stageRef.current;
     if (!root) return;
     const target = root.querySelector(`[data-demo-anchor="${anchor}"]`) as HTMLElement | null;
-    target?.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' });
+    if (!target) return;
+
+    if (anchor === 'project-cost-summary') {
+      let scroller: HTMLElement | null = target.parentElement;
+      while (scroller && scroller !== root) {
+        const styles = window.getComputedStyle(scroller);
+        const canScroll = /(auto|scroll)/.test(styles.overflowY) && scroller.scrollHeight > scroller.clientHeight;
+        if (canScroll) break;
+        scroller = scroller.parentElement;
+      }
+
+      if (scroller && scroller !== root) {
+        const targetRect = target.getBoundingClientRect();
+        const scrollerRect = scroller.getBoundingClientRect();
+        const targetTop = targetRect.top - scrollerRect.top + scroller.scrollTop - 8;
+        scroller.scrollTo({ top: Math.max(0, targetTop), behavior: 'smooth' });
+        return;
+      }
+
+      target.scrollIntoView({ block: 'start', inline: 'nearest', behavior: 'smooth' });
+      return;
+    }
+
+    target.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' });
   }, []);
 
   const cancelSlowScroll = useCallback(() => {
@@ -5152,11 +5162,10 @@ export function InteractiveDemoWalkthrough() {
   }, [activeFrame.id, narrationPhase, showMode]);
 
   useEffect(() => {
-    const root = stageRef.current;
-    if (!root || !hotspotTarget.anchor) return;
-    const target = root.querySelector(`[data-demo-anchor="${hotspotTarget.anchor}"]`) as HTMLElement | null;
-    target?.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' });
-  }, [activeFrame.id, hotspotTarget.anchor]);
+    if (!hotspotTarget.anchor) return;
+    if (chapter.id === 'stagegates' && narrationPhase === 'intro') return;
+    scrollToDemoAnchor(hotspotTarget.anchor);
+  }, [activeFrame.id, chapter.id, hotspotTarget.anchor, narrationPhase, scrollToDemoAnchor]);
 
   useEffect(() => {
     if (activeFrame.mission.trigger.type !== 'frameVisit') return;
@@ -5189,7 +5198,7 @@ export function InteractiveDemoWalkthrough() {
   }, [allMissionFrames, completeMission]);
 
   useEffect(() => {
-    if (chapter.id !== 'projectcommand' || narrationPhase !== 'intro') return;
+    if (!['projectcommand', 'stagegates', 'cost'].includes(chapter.id) || narrationPhase !== 'intro') return;
     if (timelineElapsedMs > 500) return;
     const root = stageRef.current;
     if (!root) return;
