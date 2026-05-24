@@ -61,14 +61,18 @@ type StageGateDemoMetricName = 'Active Blockers' | 'Pending Review' | 'Evidence 
 const STAGE_GATE_CARD_FLASH_START_MS = 10_000;
 const STAGE_GATE_CARD_FLASH_INTERVAL_MS = 2_400;
 const STAGE_GATE_CARD_FLASH_END_MS = 19_600;
-const STAGE_GATE_CHAPTER_END_MS = 80_000;
-const STAGE_GATE_REVIEW_BLOCKERS_FLASH_START_MS = STAGE_GATE_CARD_FLASH_END_MS + 2_000;
-const STAGE_GATE_REVIEW_BLOCKERS_FLASH_DURATION_MS = 2_700;
-const STAGE_GATE_REVIEW_BLOCKERS_CLICK_START_MS = STAGE_GATE_REVIEW_BLOCKERS_FLASH_START_MS + STAGE_GATE_REVIEW_BLOCKERS_FLASH_DURATION_MS + 300;
-const STAGE_GATE_REVIEW_BLOCKERS_CLICK_DURATION_MS = 900;
+const STAGE_GATE_CHAPTER_END_MS = 87_780;
+const STAGE_GATE_BLOCKED_NARRATION_END_MS = 18_600;
+const STAGE_GATE_REVIEW_BLOCKERS_FLASH_START_MS = STAGE_GATE_BLOCKED_NARRATION_END_MS;
+const STAGE_GATE_REVIEW_BLOCKERS_FLASH_DURATION_MS = 3_000;
+const STAGE_GATE_REVIEW_BLOCKERS_CLICK_START_MS = STAGE_GATE_REVIEW_BLOCKERS_FLASH_START_MS + STAGE_GATE_REVIEW_BLOCKERS_FLASH_DURATION_MS;
+const STAGE_GATE_REVIEW_BLOCKERS_CLICK_DURATION_MS = 650;
 const STAGE_GATE_AI_INSIGHT_OPEN_MS = STAGE_GATE_REVIEW_BLOCKERS_CLICK_START_MS + STAGE_GATE_REVIEW_BLOCKERS_CLICK_DURATION_MS;
-const STAGE_GATE_AI_INSIGHT_SCROLL_START_MS = STAGE_GATE_AI_INSIGHT_OPEN_MS + 900;
-const STAGE_GATE_AI_INSIGHT_SCROLL_DURATION_MS = STAGE_GATE_CHAPTER_END_MS - STAGE_GATE_AI_INSIGHT_SCROLL_START_MS;
+const STAGE_GATE_AI_INSIGHT_SCROLL_START_MS = STAGE_GATE_AI_INSIGHT_OPEN_MS;
+const STAGE_GATE_AI_INSIGHT_SCROLL_DURATION_MS = Math.max(1, (STAGE_GATE_CHAPTER_END_MS - STAGE_GATE_AI_INSIGHT_SCROLL_START_MS) / 2.8);
+const STAGE_GATE_AI_INSIGHT_ACTION_MS = 51_800;
+const STAGE_GATE_AI_INSIGHT_CLOSE_MS = 56_800;
+const STAGE_GATE_PROOF_PACK_PREPARE_MS = 62_800;
 const STAGE_GATE_DEMO_METRICS: StageGateDemoMetricName[] = ['Active Blockers', 'Pending Review', 'Evidence Gaps', 'Avg Completion'];
 type StageGateDemoFlashState = 'active' | 'settled';
 
@@ -169,7 +173,7 @@ function buildStageGateMetricInsight(metricName: StageGateMetricName, stats: Sta
           'The larger the blocker count, the more likely the governance meeting becomes a recovery meeting.',
         ],
         interpretation: 'Active blockers are the operational work queue behind the gate status. Reducing them is the fastest way to improve approval flow.',
-        recommendation: 'Assign each blocker to a named owner, separate authority blockers from internal evidence blockers, and review the list daily until it is cleared.',
+        recommendation: 'Start with the Design Approval Gate. Create one blocker-clearance pack for the three active blockers: Authority Submission Pack, MEP Coordination Sign-off, and Design Risk Review. Give each item an owner and a same-day decision path.',
       };
     case 'Avg Completion':
       return {
@@ -199,7 +203,7 @@ function recommendationActionLabel(metricName: StageGateMetricName) {
     case 'Pending Review':
       return 'Send approver decision pack';
     case 'Active Blockers':
-      return 'Assign blocker owner plan';
+      return 'Create blocker clearance pack';
     case 'Avg Completion':
       return 'Target lowest-completion gate';
   }
@@ -279,7 +283,7 @@ function StageGateMetricInsightPanel({
           <p className="mt-2 text-4xl font-black text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{insight.value}</p>
         </div>
 
-        <section className="mt-4 rounded-2xl border border-[rgba(46,127,255,0.18)] bg-[#0A1628] p-4">
+        <section className="mt-4 rounded-2xl border border-[rgba(46,127,255,0.18)] bg-[#0A1628] p-4" data-demo-anchor="project-stage-ai-blocker-summary">
           <div className="flex items-center gap-2 text-[13px] font-black text-[#EEF3FA]">
             <Brain size={16} className="text-violet-300" />
             Summary
@@ -287,7 +291,7 @@ function StageGateMetricInsightPanel({
           <p className="mt-3 text-[14px] leading-6 text-[#BCC8DC]">{insight.summary}</p>
         </section>
 
-        <section className="mt-4 rounded-2xl border border-[rgba(46,127,255,0.18)] bg-[#0A1628] p-4">
+        <section className="mt-4 rounded-2xl border border-[rgba(46,127,255,0.18)] bg-[#0A1628] p-4" data-demo-anchor="project-stage-ai-blocker-rationale">
           <div className="flex items-center gap-2 text-[13px] font-black text-[#EEF3FA]">
             <ListChecks size={16} className="text-cyan-300" />
             Rationale
@@ -302,7 +306,7 @@ function StageGateMetricInsightPanel({
           </ul>
         </section>
 
-        <section className="mt-4 rounded-2xl border border-[rgba(46,127,255,0.18)] bg-[#0A1628] p-4">
+        <section className="mt-4 rounded-2xl border border-[rgba(46,127,255,0.18)] bg-[#0A1628] p-4" data-demo-anchor="project-stage-ai-blocker-interpretation">
           <div className="flex items-center gap-2 text-[13px] font-black text-[#EEF3FA]">
             <BarChart3 size={16} className="text-blue-300" />
             Interpretation
@@ -310,19 +314,19 @@ function StageGateMetricInsightPanel({
           <p className="mt-3 text-[14px] leading-6 text-[#BCC8DC]">{insight.interpretation}</p>
         </section>
 
-        <section className="mt-4 rounded-2xl border border-violet-300/20 bg-violet-300/10 p-4">
+        <section className="mt-4 rounded-2xl border border-violet-300/20 bg-violet-300/10 p-4" data-demo-anchor="project-stage-ai-blocker-recommendation">
           <div className="flex items-center gap-2 text-[13px] font-black text-violet-100">
             <Sparkles size={16} />
             Recommendation
           </div>
           <p className="mt-3 text-[14px] leading-6 text-[#E5D9FF]">{insight.recommendation}</p>
-          <div className="mt-4 rounded-xl border border-violet-200/14 bg-[#07111F]/62 p-3">
+          <div className="mt-4 rounded-xl border border-violet-200/14 bg-[#07111F]/62 p-3" data-demo-anchor="project-stage-ai-blocker-action">
             <div className="flex items-start gap-2 text-[11px] font-black uppercase tracking-[0.14em] text-violet-200">
               <Send size={14} />
-              Action from here
+              Prepared action
             </div>
             <p className="mt-2 text-[12px] leading-5 text-[#B8C7DB]">
-              Queue the matching local action and focus the relevant gate queue without leaving this workflow.
+              Prepare the owner brief, due time, and evidence checklist for the gate that is blocking progress.
             </p>
             <button
               type="button"
@@ -331,10 +335,10 @@ function StageGateMetricInsightPanel({
               className={`mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border px-4 text-[12px] font-black transition-colors ${!actionAvailable ? 'cursor-not-allowed border-slate-400/16 bg-slate-400/8 text-slate-400' : actioned ? 'border-emerald-300/28 bg-emerald-300/12 text-emerald-100' : 'border-violet-200/24 bg-violet-300/12 text-violet-100 hover:bg-violet-300/18'}`}
             >
               {actioned ? <CheckCircle2 size={15} /> : <Send size={15} />}
-              {!actionAvailable ? 'No matching gate in current filters' : actioned ? 'Recommendation action queued' : actionLabel}
+              {!actionAvailable ? 'No matching gate in current filters' : actioned ? 'Blocker pack ready' : actionLabel}
             </button>
             <p className="mt-2 text-[10px] leading-4 text-[#7A94B4]">
-              {actionAvailable ? 'Demo-safe: no approval, email, or backend workflow is sent.' : 'Clear or change the Gate Filters to action this recommendation.'}
+              {actionAvailable ? 'Creates a demo-safe manager action inside Stage Gates. No email, approval, or backend workflow is sent.' : 'Clear or change the Gate Filters to action this recommendation.'}
             </p>
           </div>
         </section>
@@ -362,6 +366,8 @@ function KpiCard({
   metricName,
   onExplain,
   demoFlashState,
+  demoAnchor,
+  aiAnchor,
 }: {
   icon: typeof Target;
   label: string;
@@ -371,6 +377,8 @@ function KpiCard({
   metricName?: StageGateMetricName;
   onExplain?: (metricName: StageGateMetricName) => void;
   demoFlashState?: StageGateDemoFlashState;
+  demoAnchor?: string;
+  aiAnchor?: string;
 }) {
   return (
     <div
@@ -381,10 +389,11 @@ function KpiCard({
             ? 'border-cyan-300/36 shadow-[0_0_18px_rgba(34,211,238,0.16)] ring-1 ring-cyan-300/18'
             : 'border-[rgba(46,127,255,0.18)]'
       }`}
+      data-demo-anchor={demoAnchor}
       data-demo-stage-flash-state={demoFlashState ?? 'idle'}
       data-demo-stage-metric={label}
     >
-      {metricName && onExplain && <AIInsightBadge onClick={() => onExplain(metricName)} />}
+      {metricName && onExplain && <AIInsightBadge onClick={() => onExplain(metricName)} demoAnchor={aiAnchor} />}
       <div className={`flex items-start justify-between gap-3 ${metricName ? 'pr-10' : ''}`}>
         <span className="grid h-8 w-8 place-items-center rounded-lg border" style={{ borderColor: `${accent}55`, background: `${accent}18`, color: accent }}>
           <Icon size={17} />
@@ -1089,6 +1098,10 @@ export function StageGates({
   });
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const demoAiInsightOpenedRef = useRef(false);
+  const demoAiInsightActionedRef = useRef(false);
+  const demoAiInsightClosedRef = useRef(false);
+  const demoProofPackPreparedRef = useRef(false);
+  const previousDemoTimelineMsRef = useRef<number | null>(null);
 
   const projects = useMemo(() => ['All Projects', ...Array.from(new Set(stageGates.map(item => item.project)))], []);
   const baseFilteredGates = useMemo(() => {
@@ -1153,7 +1166,7 @@ export function StageGates({
       return;
     }
 
-    let toastMessage = 'Recommendation action queued locally';
+    let toastMessage = 'Stage gate action prepared';
 
     setActionedRecommendations(previous => ({ ...previous, [metricName]: true }));
     setQuery('');
@@ -1162,7 +1175,7 @@ export function StageGates({
       case 'Active Blockers':
       case 'Blocked':
         setBlockedOnly(true);
-        toastMessage = `Owner recovery plan queued for ${gateToQueue.code}`;
+        toastMessage = `Blocker clearance pack ready for ${gateToQueue.code}`;
         break;
       case 'Pending Review':
         setBlockedOnly(false);
@@ -1238,19 +1251,45 @@ export function StageGates({
   useEffect(() => {
     const scroller = scrollContainerRef.current;
     if (!scroller || typeof demoTimelineMs !== 'number') return;
-    scroller.scrollTop = 0;
+    const previous = previousDemoTimelineMsRef.current;
+    previousDemoTimelineMsRef.current = demoTimelineMs;
+    if (previous === null || demoTimelineMs < previous || demoTimelineMs < 500) {
+      scroller.scrollTop = 0;
+    }
   }, [demoTimelineMs]);
 
   useEffect(() => {
     if (typeof demoTimelineMs !== 'number' || demoTimelineMs < STAGE_GATE_AI_INSIGHT_OPEN_MS) {
       demoAiInsightOpenedRef.current = false;
+      demoAiInsightActionedRef.current = false;
+      demoAiInsightClosedRef.current = false;
+      demoProofPackPreparedRef.current = false;
       return;
     }
 
-    if (demoAiInsightOpenedRef.current) return;
-    demoAiInsightOpenedRef.current = true;
-    openMetricInsight('Active Blockers');
-  }, [demoTimelineMs]);
+    if (!demoAiInsightOpenedRef.current) {
+      demoAiInsightOpenedRef.current = true;
+      openMetricInsight('Active Blockers');
+    }
+
+    if (demoTimelineMs >= STAGE_GATE_AI_INSIGHT_ACTION_MS && !demoAiInsightActionedRef.current) {
+      demoAiInsightActionedRef.current = true;
+      actionRecommendation('Active Blockers');
+    }
+
+    if (demoTimelineMs >= STAGE_GATE_AI_INSIGHT_CLOSE_MS && !demoAiInsightClosedRef.current) {
+      demoAiInsightClosedRef.current = true;
+      setSelectedMetricInsight(null);
+    }
+
+    if (demoTimelineMs >= STAGE_GATE_PROOF_PACK_PREPARE_MS && !demoProofPackPreparedRef.current && recoveryGate) {
+      const action = getGateActionPlan(recoveryGate);
+      demoProofPackPreparedRef.current = true;
+      setPreparedGatePacks(previous => ({ ...previous, [recoveryGate.code]: true }));
+      setQueuedActions(previous => ({ ...previous, [recoveryGate.code]: action.cta }));
+      onToast?.(`Gate proof pack prepared for ${recoveryGate.code}`, recoveryGate.status === 'Blocked' ? 'warning' : 'success');
+    }
+  }, [demoTimelineMs, onToast, recoveryGate]);
 
   const prepareGateProofPack = () => {
     if (!recoveryGate) return;
@@ -1290,7 +1329,7 @@ export function StageGates({
               }}
               className={`relative inline-flex h-10 items-center justify-center gap-2 overflow-visible rounded-lg border px-4 text-[12px] font-black text-red-100 transition-colors hover:bg-red-400/15 ${
                 demoReviewBlockersFlash
-                  ? 'animate-pulse border-red-200/90 bg-red-500/30 shadow-[0_0_34px_rgba(239,68,68,0.42)] ring-1 ring-red-100/45 [animation-duration:900ms] [animation-iteration-count:3]'
+                  ? 'animate-pulse border-red-200/90 bg-red-500/30 shadow-[0_0_34px_rgba(239,68,68,0.42)] ring-1 ring-red-100/45 [animation-duration:1000ms] [animation-iteration-count:3]'
                   : 'border-red-300/24 bg-red-400/10'
               }`}
               data-demo-anchor="project-stage-review-blockers"
@@ -1383,10 +1422,10 @@ export function StageGates({
       </section>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard icon={AlertTriangle} label="Active Blockers" value={activeBlockers} accent="#EF4444" metricName="Active Blockers" onExplain={openMetricInsight} demoFlashState={getDemoMetricFlashState('Active Blockers')} />
-        <KpiCard icon={Clock3} label="Pending Review" value={pending} accent="#F59E0B" metricName="Pending Review" onExplain={openMetricInsight} demoFlashState={getDemoMetricFlashState('Pending Review')} />
-        <KpiCard icon={FileCheck2} label="Evidence Gaps" value={evidenceGaps} accent="#06B6D4" demoFlashState={getDemoMetricFlashState('Evidence Gaps')} />
-        <KpiCard icon={BarChart3} label="Avg Completion" value={`${avgCompletion}%`} accent="#60A5FA" delta="+5%" metricName="Avg Completion" onExplain={openMetricInsight} demoFlashState={getDemoMetricFlashState('Avg Completion')} />
+        <KpiCard icon={AlertTriangle} label="Active Blockers" value={activeBlockers} accent="#EF4444" metricName="Active Blockers" onExplain={openMetricInsight} demoFlashState={getDemoMetricFlashState('Active Blockers')} demoAnchor="project-stage-active-blockers" aiAnchor="project-stage-active-blockers-ai-button" />
+        <KpiCard icon={Clock3} label="Pending Review" value={pending} accent="#F59E0B" metricName="Pending Review" onExplain={openMetricInsight} demoFlashState={getDemoMetricFlashState('Pending Review')} demoAnchor="project-stage-pending-review" />
+        <KpiCard icon={FileCheck2} label="Evidence Gaps" value={evidenceGaps} accent="#06B6D4" demoFlashState={getDemoMetricFlashState('Evidence Gaps')} demoAnchor="project-stage-evidence-gaps-metric" />
+        <KpiCard icon={BarChart3} label="Avg Completion" value={`${avgCompletion}%`} accent="#60A5FA" delta="+5%" metricName="Avg Completion" onExplain={openMetricInsight} demoFlashState={getDemoMetricFlashState('Avg Completion')} demoAnchor="project-stage-avg-completion" />
       </div>
 
       {recoveryGate && (
@@ -1476,6 +1515,7 @@ export function StageGates({
               <button
                 type="button"
                 onClick={prepareGateProofPack}
+                data-demo-anchor="project-stage-proof-pack-button"
                 className={`mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl px-4 text-[12px] font-black transition-colors ${recoveryPackReady ? 'border border-emerald-300/25 bg-emerald-300/12 text-emerald-100' : 'bg-[#2E7FFF] text-white shadow-lg shadow-blue-950/30 hover:bg-[#256BE0]'}`}
               >
                 {recoveryPackReady ? <CheckCircle2 size={16} /> : <Send size={16} />}

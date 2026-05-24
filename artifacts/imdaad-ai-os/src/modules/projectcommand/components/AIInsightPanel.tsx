@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { Activity, ArrowRight, BrainCircuit, ListChecks, Sparkles, X } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { useMetricInsight, type MetricName } from '../useMetricInsight';
 
 const severityClass: Record<string, string> = {
@@ -33,12 +33,15 @@ export function AIInsightPanel({
   metricName,
   value,
   onClose,
+  demoScrollProgress,
 }: {
   metricName: MetricName;
   value: string | number;
   onClose: () => void;
+  demoScrollProgress?: number;
 }) {
   const insight = useMetricInsight(metricName, value);
+  const bodyRef = useRef<HTMLDivElement | null>(null);
   const severityLabel = insight.severity === 'positive'
     ? 'Healthy signal'
     : insight.severity === 'monitor'
@@ -46,12 +49,29 @@ export function AIInsightPanel({
     : 'Needs attention';
   const shouldPulseAttention = insight.severity === 'critical';
 
+  useEffect(() => {
+    if (typeof demoScrollProgress !== 'number') return undefined;
+
+    const frame = window.requestAnimationFrame(() => {
+      const body = bodyRef.current;
+      if (!body) return;
+      const progress = Math.max(0, Math.min(1, demoScrollProgress));
+      const eased = progress < 0.5
+        ? 4 * progress * progress * progress
+        : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+      body.scrollTop = Math.max(0, body.scrollHeight - body.clientHeight) * eased;
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [demoScrollProgress]);
+
   return (
     <motion.aside
       initial={{ x: 460, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       exit={{ x: 460, opacity: 0 }}
       transition={{ type: 'spring', stiffness: 280, damping: 32 }}
+      data-demo-anchor="ai-insight-panel"
       className="fixed bottom-0 right-0 top-[52px] z-[2400] flex w-full max-w-[430px] flex-col border-l border-violet-400/25 bg-[linear-gradient(180deg,rgba(10,22,40,0.96),rgba(7,17,31,0.98))] shadow-2xl shadow-black/40 backdrop-blur-xl"
     >
       <div className="border-b border-[rgba(46,127,255,0.16)] p-5">
@@ -88,7 +108,7 @@ export function AIInsightPanel({
         </motion.div>
       </div>
 
-      <div className="custom-scrollbar flex-1 space-y-3 overflow-y-auto p-5">
+      <div ref={bodyRef} className="custom-scrollbar flex-1 space-y-3 overflow-y-auto p-5">
         <Section icon={BrainCircuit} title="Summary">
           <p className="text-[13px] leading-6 text-[#DDE6F8]">{insight.summary}</p>
         </Section>

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import {
   AlertTriangle,
@@ -213,6 +213,8 @@ function KpiCard({
   updated,
   tone = '#EEF3FA',
   onAi,
+  cardAnchor,
+  aiAnchor,
 }: {
   label: string;
   value: string;
@@ -220,10 +222,15 @@ function KpiCard({
   updated: string;
   tone?: string;
   onAi: () => void;
+  cardAnchor?: string;
+  aiAnchor?: string;
 }) {
   return (
-    <div className="group relative rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-3 text-left transition-colors hover:border-[rgba(46,127,255,0.35)]">
-      <AIInsightBadge onClick={onAi} />
+    <div
+      data-demo-anchor={cardAnchor}
+      className="group relative rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-3 text-left transition-colors hover:border-[rgba(46,127,255,0.35)]"
+    >
+      <AIInsightBadge onClick={onAi} demoAnchor={aiAnchor} />
       <div className="pr-14 text-[10px] font-black uppercase tracking-[0.16em] text-[#7A94B4]">{label}</div>
       <div className="mt-2 font-mono text-[19px] font-black" style={{ color: tone }}>{value}</div>
       <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -658,13 +665,20 @@ function PackageDrawer({
   );
 }
 
-export function CostIntelligence({ demoTimelineMs }: { demoTimelineMs?: number }) {
+export function CostIntelligence({
+  demoTimelineMs,
+  demoActionRequest,
+}: {
+  demoTimelineMs?: number;
+  demoActionRequest?: { actionId: string; nonce: number } | null;
+}) {
   const { organization, portfolio, property, project, evmSummary } = useSelectedProjectCommandData();
   const data = useMemo(() => getBudgetControlData(project), [project]);
   const [activeSection, setActiveSection] = useState<SectionId>('summary');
   const [selectedPackage, setSelectedPackage] = useState<BudgetPackage | null>(null);
   const [aiMetric, setAiMetric] = useState<{ name: MetricName; value: string | number } | null>(null);
   const [selectedCommercialChoice, setSelectedCommercialChoice] = useState<CommercialChoiceId>('approve-recovery');
+  const demoVarianceAiOpenedRef = useRef(false);
 
   const totals = useMemo(() => {
     const revisedBudget = data.packages.reduce((sum, item) => sum + item.revisedBudget, 0);
@@ -713,6 +727,24 @@ export function CostIntelligence({ demoTimelineMs }: { demoTimelineMs?: number }
     : 1;
   const demoKpiCountProgress = Math.pow(demoKpiCountRawProgress, 1.45);
   const formatDemoSummaryMoney = (value: number) => demoCountUpValue(value, demoKpiCountProgress);
+
+  useEffect(() => {
+    if (typeof demoTimelineMs === 'number' && demoTimelineMs < 16_000) {
+      demoVarianceAiOpenedRef.current = false;
+      setAiMetric(null);
+      return;
+    }
+    const shouldOpenByTimeline = typeof demoTimelineMs === 'number' && demoTimelineMs >= 22_400;
+    const shouldOpenByManualAction = typeof demoTimelineMs !== 'number' && demoActionRequest?.actionId === 'open-cost-variance-ai';
+    if (!shouldOpenByTimeline && !shouldOpenByManualAction) return;
+    if (demoVarianceAiOpenedRef.current) return;
+    demoVarianceAiOpenedRef.current = true;
+    setAiMetric({ name: 'Cost Variance', value: demoCountUpValue(data.evm.costVariance, 1) });
+  }, [data.evm.costVariance, demoActionRequest?.actionId, demoActionRequest?.nonce, demoTimelineMs]);
+
+  const demoAiInsightScrollProgress = typeof demoTimelineMs === 'number' && demoTimelineMs >= 23_400
+    ? Math.max(0, Math.min(1, (demoTimelineMs - 23_400) / 11_500))
+    : undefined;
 
   const summaryCards = [
     { label: 'Approved Project Budget', value: formatDemoSummaryMoney(data.budget.approvedBudget), source: 'Project baseline', updated: data.lastSync, tone: '#EEF3FA' },
@@ -781,6 +813,8 @@ export function CostIntelligence({ demoTimelineMs }: { demoTimelineMs?: number }
             <KpiCard
               key={card.label}
               {...card}
+              cardAnchor={card.label === 'Cost Variance' ? 'project-cost-variance-card' : undefined}
+              aiAnchor={card.label === 'Cost Variance' ? 'project-cost-variance-ai-button' : undefined}
               onAi={() => setAiMetric({ name: metricMap[card.label] ?? 'Cost Variance', value: card.value })}
             />
           ))}
@@ -1080,7 +1114,14 @@ export function CostIntelligence({ demoTimelineMs }: { demoTimelineMs?: number }
             onClose={() => setSelectedPackage(null)}
           />
         )}
-        {aiMetric && <AIInsightPanel metricName={aiMetric.name} value={aiMetric.value} onClose={() => setAiMetric(null)} />}
+        {aiMetric && (
+          <AIInsightPanel
+            metricName={aiMetric.name}
+            value={aiMetric.value}
+            demoScrollProgress={demoAiInsightScrollProgress}
+            onClose={() => setAiMetric(null)}
+          />
+        )}
       </AnimatePresence>
     </div>
   );
