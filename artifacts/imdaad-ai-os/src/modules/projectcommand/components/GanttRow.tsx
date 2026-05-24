@@ -14,6 +14,7 @@ export function GanttRow({
   showCriticalPath = true,
   dense = false,
   onClick,
+  actionLabel,
 }: {
   item: RenderRowItem;
   nameWidth?: number;
@@ -21,6 +22,7 @@ export function GanttRow({
   showCriticalPath?: boolean;
   dense?: boolean;
   onClick?: () => void;
+  actionLabel?: string;
 }) {
   const rowHeight = dense ? 26 : 32;
   const isPhase = 'color' in item;
@@ -30,8 +32,9 @@ export function GanttRow({
     <button
       type="button"
       onClick={onClick}
-      className="grid w-full items-center gap-3 text-left transition-colors hover:bg-white/[0.025]"
+      className="grid w-full items-center gap-3 rounded-lg text-left transition-colors hover:bg-white/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2E7FFF]/55"
       style={{ gridTemplateColumns: `${nameWidth}px 1fr`, height: rowHeight }}
+      aria-label={actionLabel ?? `Open programme insight for ${item.name}`}
     >
       <div className={`truncate pl-2 text-[11px] font-semibold ${isPhase ? 'text-[#EEF3FA]' : 'text-[#B8C7DB]'}`}>
         {item.isCritical && showCriticalPath && <span className="mr-1 inline-block h-3 w-0.5 rounded bg-[#D92B1C] align-middle" />}

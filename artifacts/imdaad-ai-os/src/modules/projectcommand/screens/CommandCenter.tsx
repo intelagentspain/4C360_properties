@@ -719,11 +719,13 @@ function OwnerCommandSurface({
   onPrepare,
   onAddUpdate,
   goTo,
+  demoTimelineMs,
 }: {
   context: ProjectControlContext;
   onPrepare: (action: ManagerAction) => void;
   onAddUpdate: () => void;
   goTo: (screen: ProjectCommandScreen) => void;
+  demoTimelineMs?: number;
 }) {
   const latest = latestLiveEvent(context);
   const topAction = context.managerActions[0];
@@ -738,6 +740,22 @@ function OwnerCommandSurface({
   const signalDetail = latest
     ? `${latest.impactLabel} ProjectCommand has recalculated programme, cost, risk, evidence, forecast, and manager actions from the same event.`
     : `The owner sees ${context.metrics.completion}% progress, ${context.metrics.floatRemaining} days of float, ${formatProjectCurrency(context.metrics.eac)} forecast cost, and ${context.metrics.handoverConfidence}% handover confidence before opening detailed reports.`;
+  const headlineText = latest ? 'One project signal has become an owner decision.' : 'One surface tells the owner where the project needs attention.';
+  const demoRevealMs = typeof demoTimelineMs === 'number' ? demoTimelineMs : null;
+  const typeStartMs = 3_000;
+  const typeEndMs = 13_500;
+  const typingProgress = demoRevealMs === null
+    ? 1
+    : Math.min(1, Math.max(0, (demoRevealMs - typeStartMs) / (typeEndMs - typeStartMs)));
+  const typedHeadline = typingProgress >= 1
+    ? headlineText
+    : headlineText.slice(0, Math.ceil(headlineText.length * typingProgress));
+  const isTypingHeadline = demoRevealMs !== null && typingProgress > 0 && typingProgress < 1;
+  const revealClass = (startMs: number) => (
+    demoRevealMs === null || demoRevealMs >= startMs
+      ? 'opacity-100 translate-y-0 scale-100'
+      : 'pointer-events-none opacity-0 translate-y-4 scale-[0.98]'
+  );
   const ownerQuestion = topException
     ? `Do we accept, recover, or escalate ${topException.linkedObject}?`
     : 'What should leadership review before the next project meeting?';
@@ -772,9 +790,10 @@ function OwnerCommandSurface({
                 </span>
               </div>
               <h3 className="mt-2 max-w-4xl text-[24px] font-black leading-[1.08] text-white md:text-[30px]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-                {latest ? 'One project signal has become an owner decision.' : 'One surface tells the owner where the project needs attention.'}
+                {typedHeadline}
+                {isTypingHeadline && <span className="ml-1 inline-block animate-pulse text-cyan-200">|</span>}
               </h3>
-              <p className="mt-2 max-w-5xl text-[13px] leading-6 text-[#B8C7DB]">{signalDetail}</p>
+              <p className={`mt-2 max-w-5xl text-[13px] leading-6 text-[#B8C7DB] transition-all duration-700 ease-out ${revealClass(14_500)}`}>{signalDetail}</p>
             </div>
             <div className="grid shrink-0 grid-cols-2 gap-2 sm:grid-cols-4 lg:w-[520px]">
               {[
@@ -782,8 +801,11 @@ function OwnerCommandSurface({
                 ['Float', `${context.metrics.floatRemaining}d`, context.metrics.floatRemaining <= 14 ? 'text-red-100' : 'text-cyan-100'],
                 ['EAC', formatProjectCurrency(context.metrics.eac), 'text-[#FFCD57]'],
                 ['Confidence', `${context.metrics.handoverConfidence}%`, 'text-[#DDD6FE]'],
-              ].map(([label, value, tone]) => (
-                <div key={label} className="rounded-xl border border-white/10 bg-[#07111F]/76 px-3 py-2.5">
+              ].map(([label, value, tone], index) => (
+                <div
+                  key={label}
+                  className={`rounded-xl border border-white/10 bg-[#07111F]/76 px-3 py-2.5 transition-all duration-700 ease-out ${revealClass(18_500 + index * 1_250)}`}
+                >
                   <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">{label}</p>
                   <p className={`mt-1 text-[16px] font-black ${tone}`} style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{value}</p>
                 </div>
@@ -792,7 +814,7 @@ function OwnerCommandSurface({
           </div>
 
           <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(300px,0.7fr)]">
-            <div data-demo-anchor="project-overview-what-changed" className="rounded-xl border border-[#2E7FFF]/18 bg-[#07111F]/72 p-3">
+            <div data-demo-anchor="project-overview-what-changed" className={`rounded-xl border border-[#2E7FFF]/18 bg-[#07111F]/72 p-3 transition-all duration-700 ease-out ${revealClass(22_000)}`}>
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#7A94B4]">What changed</p>
@@ -810,7 +832,7 @@ function OwnerCommandSurface({
               {latest && <div className="mt-3"><EventImpactChips event={latest} compact /></div>}
             </div>
 
-            <div data-demo-anchor="project-overview-next-decision" className="rounded-xl border border-[#7C3AED]/24 bg-[#7C3AED]/10 p-3">
+            <div data-demo-anchor="project-overview-next-decision" className={`rounded-xl border border-[#7C3AED]/24 bg-[#7C3AED]/10 p-3 transition-all duration-700 ease-out ${revealClass(27_000)}`}>
               <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#DDD6FE]">Next owner decision</p>
               <h4 className="mt-1 text-[16px] font-black leading-5 text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
                 {topAction?.title ?? ownerQuestion}
@@ -844,7 +866,7 @@ function OwnerCommandSurface({
           </div>
         </div>
 
-        <aside data-demo-anchor="project-overview-impact-chain" className="border-t border-cyan-300/16 bg-[#07111F]/68 p-4 xl:border-l xl:border-t-0 md:p-5">
+        <aside data-demo-anchor="project-overview-impact-chain" className={`border-t border-cyan-300/16 bg-[#07111F]/68 p-4 transition-all duration-700 ease-out xl:border-l xl:border-t-0 md:p-5 ${revealClass(32_000)}`}>
           <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-[#FFB4BC]">
             <ShieldAlert size={14} />
             If leadership waits
@@ -874,7 +896,7 @@ function OwnerCommandSurface({
         </aside>
       </div>
 
-      <div className="border-t border-[#2E7FFF]/18 bg-[#07111F]/76 px-4 py-3 md:px-5">
+      <div className={`border-t border-[#2E7FFF]/18 bg-[#07111F]/76 px-4 py-3 transition-all duration-700 ease-out md:px-5 ${revealClass(36_000)}`}>
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
           <div>
             <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#7A94B4]">Command path</p>
@@ -2752,10 +2774,12 @@ export function CommandCenter({
   goTo,
   onToast,
   onOpenVendorIQ,
+  demoTimelineMs,
 }: {
   goTo: (screen: ProjectCommandScreen) => void;
   onToast?: ToastFn;
   onOpenVendorIQ?: () => void;
+  demoTimelineMs?: number;
 }) {
   const dataset = useSelectedProjectCommandData();
   const { projectEventsByProjectId, eventLedgerSourceByProjectId, eventLedgerStatusByProjectId } = useProjectCommandStore();
@@ -2823,28 +2847,10 @@ export function CommandCenter({
   return (
     <div className="custom-scrollbar h-full overflow-x-hidden overflow-y-auto px-5 py-4 text-[#EEF3FA]">
       <div className="space-y-4">
-        <OwnerCommandSurface
-          context={context}
-          onPrepare={handleQueueAction}
-          onAddUpdate={() => setIsUpdateDrawerOpen(true)}
-          goTo={goTo}
-        />
-
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-start">
-          <LiveUpdatePanel
-            context={context}
-            ledgerSource={ledgerSource}
-            ledgerStatus={ledgerStatus}
-            onSimulate={handleLiveUpdate}
-            onReset={handleResetBaseline}
-            isUpdateDrawerOpen={isUpdateDrawerOpen}
-            onOpenUpdateDrawer={() => setIsUpdateDrawerOpen(true)}
-            onCloseUpdateDrawer={() => setIsUpdateDrawerOpen(false)}
-          />
-          <ActionableBlockerWorklist context={context} goTo={goTo} onPrepareAction={handleQueueAction} />
-        </div>
-
-        <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <section
+          className="grid gap-3 md:grid-cols-2 xl:grid-cols-4"
+          data-demo-anchor="project-overview-control-metrics"
+        >
           {visibleControlMetrics.map(metric => (
             <MetricCard
               key={`${dataset.id}-${metric.label}`}
@@ -2854,8 +2860,26 @@ export function CommandCenter({
           ))}
         </section>
 
+        <OwnerCommandSurface
+          context={context}
+          onPrepare={handleQueueAction}
+          onAddUpdate={() => setIsUpdateDrawerOpen(true)}
+          goTo={goTo}
+          demoTimelineMs={demoTimelineMs}
+        />
+
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_430px] xl:items-start">
           <div className="space-y-4">
+            <LiveUpdatePanel
+              context={context}
+              ledgerSource={ledgerSource}
+              ledgerStatus={ledgerStatus}
+              onSimulate={handleLiveUpdate}
+              onReset={handleResetBaseline}
+              isUpdateDrawerOpen={isUpdateDrawerOpen}
+              onOpenUpdateDrawer={() => setIsUpdateDrawerOpen(true)}
+              onCloseUpdateDrawer={() => setIsUpdateDrawerOpen(false)}
+            />
             <WhatChangedToday
               context={context}
               goTo={goTo}
@@ -2868,6 +2892,7 @@ export function CommandCenter({
             <ImpactAnalysisPanel context={context} />
           </div>
           <div className="space-y-4 xl:sticky xl:top-4">
+            <ActionableBlockerWorklist context={context} goTo={goTo} onPrepareAction={handleQueueAction} />
             <DecisionQueue context={context} onPrepare={handleQueueAction} />
             <ManagementSummaryCard context={context} onOpenVendorIQ={onOpenVendorIQ} onToast={onToast} />
           </div>

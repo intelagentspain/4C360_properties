@@ -8,6 +8,12 @@ import { WeatherOverlay } from './WeatherOverlay';
 export type ProgrammeZoom = 'Week' | 'Month' | 'Quarter';
 type ScheduleItem = Phase | SubTask;
 type RenderItem<T extends ScheduleItem> = T & { baselineStartPct: number; baselineWidthPct: number };
+export type ProgrammeChartSelection = {
+  kind: 'phase' | 'subtask' | 'annotation';
+  phase: Phase;
+  item: Phase | SubTask;
+  label?: string;
+};
 
 function parseDate(value: string) {
   const parsed = new Date(value);
@@ -75,6 +81,7 @@ export function GanttChart({
   projectStart,
   projectEnd,
   emptyMessage = 'No programme activities match this filter.',
+  onSelectItem,
 }: {
   phases: Phase[];
   mode?: 'compact' | 'full';
@@ -85,6 +92,7 @@ export function GanttChart({
   projectStart?: string;
   projectEnd?: string;
   emptyMessage?: string;
+  onSelectItem?: (selection: ProgrammeChartSelection) => void;
 }) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const nameWidth = mode === 'full' ? 176 : 140;
@@ -143,7 +151,13 @@ export function GanttChart({
         {renderPhases.map((phase, index) => (
           <div key={phase.id} className="relative">
             {phase.aiAnnotation && (
-              <AIAnnotation text={phase.aiAnnotation} x={phase.startPct + phase.widthPct * 0.45} y={index * (mode === 'full' ? 36 : 33) - 6} variant={phase.isCritical ? 'warning' : 'success'} />
+              <AIAnnotation
+                text={phase.aiAnnotation}
+                x={phase.startPct + phase.widthPct * 0.45}
+                y={index * (mode === 'full' ? 36 : 33) - 6}
+                variant={phase.isCritical ? 'warning' : 'success'}
+                onClick={() => onSelectItem?.({ kind: 'annotation', phase, item: phase, label: phase.aiAnnotation })}
+              />
             )}
             <GanttRow
               item={phase}
@@ -151,7 +165,11 @@ export function GanttChart({
               showBaseline={showBaseline}
               showCriticalPath={showCriticalPath}
               dense={mode === 'compact'}
-              onClick={() => setExpanded(current => ({ ...current, [phase.id]: !current[phase.id] }))}
+              onClick={() => {
+                onSelectItem?.({ kind: 'phase', phase, item: phase });
+                setExpanded(current => ({ ...current, [phase.id]: !current[phase.id] }));
+              }}
+              actionLabel={`Open programme insight for ${phase.name}`}
             />
             <AnimatePresence initial={false}>
               {mode === 'full' && expanded[phase.id] && phase.subTasks && (
@@ -162,7 +180,16 @@ export function GanttChart({
                   className="overflow-hidden"
                 >
                   {phase.subTasks.map(task => (
-                    <GanttRow key={task.id} item={task} nameWidth={nameWidth} showBaseline={showBaseline} showCriticalPath={showCriticalPath} dense />
+                    <GanttRow
+                      key={task.id}
+                      item={task}
+                      nameWidth={nameWidth}
+                      showBaseline={showBaseline}
+                      showCriticalPath={showCriticalPath}
+                      dense
+                      onClick={() => onSelectItem?.({ kind: 'subtask', phase, item: task })}
+                      actionLabel={`Open programme insight for ${task.name}`}
+                    />
                   ))}
                 </motion.div>
               )}

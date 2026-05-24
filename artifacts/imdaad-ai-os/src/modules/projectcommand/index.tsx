@@ -32,6 +32,7 @@ const tabs: { id: ProjectCommandScreen; label: string; icon: ComponentType<{ siz
 ];
 
 const tabDemoAnchors: Partial<Record<ProjectCommandScreen, string>> = {
+  overview: 'overview-control-tab',
   programme: 'programme-control-tab',
   stagegates: 'stage-gates-control-tab',
   cost: 'cost-control-tab',
@@ -40,6 +41,19 @@ const tabDemoAnchors: Partial<Record<ProjectCommandScreen, string>> = {
   obligations: 'obligations-control-tab',
   evidence: 'evidence-control-tab',
 };
+
+function demoScreenFromTimeline(elapsedMs?: number): ProjectCommandScreen | null {
+  if (elapsedMs === undefined) return null;
+  if (elapsedMs >= 86_000) return 'programme';
+  if (elapsedMs >= 81_000) return 'evidence';
+  if (elapsedMs >= 75_000) return 'obligations';
+  if (elapsedMs >= 68_000) return 'forecast';
+  if (elapsedMs >= 61_000) return 'risk';
+  if (elapsedMs >= 54_000) return 'cost';
+  if (elapsedMs >= 47_000) return 'stagegates';
+  if (elapsedMs >= 40_000) return 'programme';
+  return 'overview';
+}
 
 function screenFromPath(): ProjectCommandScreen {
   const match = window.location.pathname.match(/\/projectcommand\/([^/]+)/);
@@ -56,11 +70,15 @@ export function ProjectCommand({
   onOpenVendorIQ,
   initialScreen,
   demoMode = false,
+  demoTimelineMs,
+  demoChapterId,
 }: {
   onToast?: (message: string, type?: 'success' | 'warning' | 'error' | 'info') => void;
   onOpenVendorIQ?: () => void;
   initialScreen?: ProjectCommandScreen;
   demoMode?: boolean;
+  demoTimelineMs?: number;
+  demoChapterId?: string;
 }) {
   const [screen, setScreen] = useState<ProjectCommandScreen>(() => initialScreen ?? screenFromPath());
   const [addProjectOpen, setAddProjectOpen] = useState(false);
@@ -79,10 +97,24 @@ export function ProjectCommand({
   };
 
   useEffect(() => {
+    if (demoMode && demoChapterId === 'projectcommand' && demoTimelineMs !== undefined) return;
     if (initialScreen) setScreen(initialScreen);
-  }, [initialScreen]);
+  }, [demoChapterId, demoMode, demoTimelineMs, initialScreen]);
+
+  useEffect(() => {
+    if (!demoMode || demoChapterId !== 'projectcommand' || demoTimelineMs === undefined) return;
+    const nextScreen = demoScreenFromTimeline(demoTimelineMs);
+    if (nextScreen) setScreen(current => (current === nextScreen ? current : nextScreen));
+  }, [demoChapterId, demoMode, demoTimelineMs]);
 
   const activeTitle = useMemo(() => tabs.find(tab => tab.id === screen)?.label ?? 'Overview', [screen]);
+  const programmeSelectionStep = demoMode && demoChapterId === 'programme' && typeof demoTimelineMs === 'number'
+    ? demoTimelineMs >= 3_000 && demoTimelineMs < 5_200
+      ? 'property'
+      : demoTimelineMs >= 5_200 && demoTimelineMs < 7_800
+      ? 'project'
+      : null
+    : null;
 
   const resetProjectDetailState = {
     activeScenario: 'base' as const,
@@ -142,27 +174,67 @@ export function ProjectCommand({
             {screen !== 'stagegates' && (
               <>
                 <label className="sr-only" htmlFor="projectcommand-property-select">Property</label>
-                <select
-                  id="projectcommand-property-select"
-                  value={property.id}
-                  onChange={event => handlePropertyChange(event.target.value)}
-                  className="h-9 min-w-[220px] rounded-lg border border-[rgba(46,127,255,0.28)] bg-[#07111F] px-3 text-[12px] font-bold text-[#DDE6F8] outline-none transition-colors hover:border-[#2E7FFF]/55 focus:border-[#7C3AED]/70"
-                >
-                  {propertyOptions.map(option => (
-                    <option key={option.id} value={option.id}>{option.label}</option>
-                  ))}
-                </select>
+                <div className="relative" data-demo-anchor="projectcommand-property-dropdown">
+                  <select
+                    id="projectcommand-property-select"
+                    value={property.id}
+                    onChange={event => handlePropertyChange(event.target.value)}
+                    className={`h-9 min-w-[220px] rounded-lg border bg-[#07111F] px-3 text-[12px] font-bold text-[#DDE6F8] outline-none transition-all hover:border-[#2E7FFF]/55 focus:border-[#7C3AED]/70 ${
+                      programmeSelectionStep === 'property'
+                        ? 'border-cyan-300/75 shadow-[0_0_24px_rgba(34,211,238,0.25)]'
+                        : 'border-[rgba(46,127,255,0.28)]'
+                    }`}
+                  >
+                    {propertyOptions.map(option => (
+                      <option key={option.id} value={option.id}>{option.label}</option>
+                    ))}
+                  </select>
+                  {programmeSelectionStep === 'property' && (
+                    <div className="pointer-events-none absolute left-0 top-[calc(100%+4px)] z-50 w-full overflow-hidden rounded-lg border border-[#2E7FFF]/45 bg-[#07111F] py-1 shadow-2xl shadow-black/40">
+                      {propertyOptions.slice(0, 3).map((option, index) => (
+                        <div
+                          key={option.id}
+                          className={`px-3 py-2 text-[12px] font-bold ${
+                            index === 0 ? 'bg-[#2E7FFF] text-white' : 'text-[#DDE6F8]'
+                          }`}
+                        >
+                          {option.label}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <label className="sr-only" htmlFor="projectcommand-project-select">Project</label>
-                <select
-                  id="projectcommand-project-select"
-                  value={project.id}
-                  onChange={event => handleProjectChange(event.target.value)}
-                  className="h-9 min-w-[240px] rounded-lg border border-[rgba(46,127,255,0.28)] bg-[#07111F] px-3 text-[12px] font-bold text-[#DDE6F8] outline-none transition-colors hover:border-[#2E7FFF]/55 focus:border-[#7C3AED]/70"
-                >
-                  {projectOptions.map(option => (
-                    <option key={option.id} value={option.id}>{option.label}</option>
-                  ))}
-                </select>
+                <div className="relative" data-demo-anchor="projectcommand-project-dropdown">
+                  <select
+                    id="projectcommand-project-select"
+                    value={project.id}
+                    onChange={event => handleProjectChange(event.target.value)}
+                    className={`h-9 min-w-[240px] rounded-lg border bg-[#07111F] px-3 text-[12px] font-bold text-[#DDE6F8] outline-none transition-all hover:border-[#2E7FFF]/55 focus:border-[#7C3AED]/70 ${
+                      programmeSelectionStep === 'project'
+                        ? 'border-cyan-300/75 shadow-[0_0_24px_rgba(34,211,238,0.25)]'
+                        : 'border-[rgba(46,127,255,0.28)]'
+                    }`}
+                  >
+                    {projectOptions.map(option => (
+                      <option key={option.id} value={option.id}>{option.label}</option>
+                    ))}
+                  </select>
+                  {programmeSelectionStep === 'project' && (
+                    <div className="pointer-events-none absolute left-0 top-[calc(100%+4px)] z-50 w-full overflow-hidden rounded-lg border border-[#2E7FFF]/45 bg-[#07111F] py-1 shadow-2xl shadow-black/40">
+                      {projectOptions.slice(0, 3).map((option, index) => (
+                        <div
+                          key={option.id}
+                          className={`px-3 py-2 text-[12px] font-bold ${
+                            option.id === project.id || index === 0 ? 'bg-[#2E7FFF] text-white' : 'text-[#DDE6F8]'
+                          }`}
+                        >
+                          {option.label}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </>
             )}
             <button onClick={() => setAddProjectOpen(true)} className="flex h-8 items-center gap-1.5 rounded-lg border border-[#7C3AED]/45 bg-[#7C3AED] px-3 text-[11px] font-bold text-white shadow-lg shadow-violet-900/20 transition-colors hover:bg-[#6D28D9]">
@@ -197,7 +269,14 @@ export function ProjectCommand({
       </div>
 
       <div className="min-h-0 flex-1 overflow-hidden">
-        {screen === 'overview' && <CommandCenter goTo={goTo} onToast={onToast} onOpenVendorIQ={onOpenVendorIQ} />}
+        {screen === 'overview' && (
+          <CommandCenter
+            goTo={goTo}
+            onToast={onToast}
+            onOpenVendorIQ={onOpenVendorIQ}
+            demoTimelineMs={demoMode && demoChapterId === 'projectcommand' ? demoTimelineMs : undefined}
+          />
+        )}
         {screen === 'programme' && <Programme />}
         {screen === 'stagegates' && <StageGates onToast={onToast} />}
         {screen === 'cost' && <CostIntelligence />}
