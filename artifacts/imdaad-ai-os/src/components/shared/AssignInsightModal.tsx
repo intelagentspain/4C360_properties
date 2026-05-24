@@ -8,6 +8,7 @@ import {
   Clock,
   Brain,
   Star,
+  Sparkles,
   MapPin,
   Wrench,
   CheckCircle,
@@ -296,7 +297,7 @@ export function AssignInsightModal({ open, insight, onConfirm, onCancel }: Props
             <div className="px-5 py-4 space-y-4 max-h-[70vh] overflow-y-auto">
               <div>
                 <div className="flex items-center gap-1.5 mb-3">
-                  <UserCheck size={11} className="text-[#7A94B4]" />
+                  <Sparkles size={11} className="text-[#A78BFA]" />
                   <span className="text-[10px] text-[#7A94B4] uppercase tracking-wide font-semibold">AI Staff Recommendations</span>
                 </div>
 

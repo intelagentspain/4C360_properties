@@ -1519,7 +1519,10 @@ export function PPMSchedule({ onToast }: Props) {
         </div>
       </div>
       <div className="rounded-2xl border border-red-400/25 bg-red-500/8 p-5">
-        <p className="font-bold text-white">AI reorder recommendation</p>
+        <p className="inline-flex items-center gap-2 font-bold text-white">
+          <Sparkles size={15} className="text-violet-200" />
+          AI reorder recommendation
+        </p>
         <p className="mt-2 text-sm leading-6 text-slate-300">
           Reorder R-410A refrigerant today and escalate lift door roller delivery. Both parts are connected to critical PPM jobs and could increase predicted failure risk if delayed.
         </p>

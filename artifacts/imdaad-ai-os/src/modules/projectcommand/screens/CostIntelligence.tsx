@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import {
   AlertTriangle,
@@ -60,6 +60,20 @@ function money(value: number) {
   const abs = Math.abs(value);
   const amount = abs >= 1_000_000 ? `${Math.round(abs / 1_000_000)}M` : `${Math.round(abs / 1_000)}K`;
   return `${value < 0 ? '-' : ''}AED ${amount}`;
+}
+
+function demoCountUpValue(value: number, progress: number) {
+  const safeProgress = Math.max(0, Math.min(1, progress));
+  const scaled = value * safeProgress;
+  const targetAbs = Math.abs(value);
+  const scaledAbs = Math.abs(scaled);
+  const sign = scaled < 0 && scaledAbs > 0 ? '-' : '';
+  const amount = targetAbs >= 1_000_000
+    ? `${Math.round(scaledAbs / 1_000_000)}M`
+    : targetAbs >= 1_000
+    ? `${Math.round(scaledAbs / 1_000)}K`
+    : `${Math.round(scaledAbs)}`;
+  return `${sign}AED ${amount}`;
 }
 
 function percent(value: number, total: number) {
@@ -199,6 +213,8 @@ function KpiCard({
   updated,
   tone = '#EEF3FA',
   onAi,
+  cardAnchor,
+  aiAnchor,
 }: {
   label: string;
   value: string;
@@ -206,10 +222,15 @@ function KpiCard({
   updated: string;
   tone?: string;
   onAi: () => void;
+  cardAnchor?: string;
+  aiAnchor?: string;
 }) {
   return (
-    <div className="group relative rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-3 text-left transition-colors hover:border-[rgba(46,127,255,0.35)]">
-      <AIInsightBadge onClick={onAi} />
+    <div
+      data-demo-anchor={cardAnchor}
+      className="group relative rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-3 text-left transition-colors hover:border-[rgba(46,127,255,0.35)]"
+    >
+      <AIInsightBadge onClick={onAi} demoAnchor={aiAnchor} />
       <div className="pr-14 text-[10px] font-black uppercase tracking-[0.16em] text-[#7A94B4]">{label}</div>
       <div className="mt-2 font-mono text-[19px] font-black" style={{ color: tone }}>{value}</div>
       <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -476,8 +497,11 @@ function CommercialDecisionBridge({
       <div className="mt-4 flex flex-col gap-3 rounded-xl border border-[rgba(46,127,255,0.16)] bg-[#07111F]/74 p-3 md:flex-row md:items-center md:justify-between">
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-200">Prepared board line</p>
-          <p className="mt-1 text-[13px] leading-5 text-[#DDE6F8]">
-            Recommendation: {selected.title.toLowerCase()} because it gives the client a named owner, cost boundary, and visible programme consequence.
+          <p className="mt-1 flex items-start gap-1.5 text-[13px] leading-5 text-[#DDE6F8]">
+            <Sparkles size={14} className="mt-0.5 shrink-0 text-cyan-200" />
+            <span>
+              Recommendation: {selected.title.toLowerCase()} because it gives the client a named owner, cost boundary, and visible programme consequence.
+            </span>
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -641,13 +665,20 @@ function PackageDrawer({
   );
 }
 
-export function CostIntelligence() {
+export function CostIntelligence({
+  demoTimelineMs,
+  demoActionRequest,
+}: {
+  demoTimelineMs?: number;
+  demoActionRequest?: { actionId: string; nonce: number } | null;
+}) {
   const { organization, portfolio, property, project, evmSummary } = useSelectedProjectCommandData();
   const data = useMemo(() => getBudgetControlData(project), [project]);
   const [activeSection, setActiveSection] = useState<SectionId>('summary');
   const [selectedPackage, setSelectedPackage] = useState<BudgetPackage | null>(null);
   const [aiMetric, setAiMetric] = useState<{ name: MetricName; value: string | number } | null>(null);
   const [selectedCommercialChoice, setSelectedCommercialChoice] = useState<CommercialChoiceId>('approve-recovery');
+  const demoVarianceAiOpenedRef = useRef(false);
 
   const totals = useMemo(() => {
     const revisedBudget = data.packages.reduce((sum, item) => sum + item.revisedBudget, 0);
@@ -658,17 +689,6 @@ export function CostIntelligence() {
     const contingencyRemaining = data.budget.contingency - Math.max(0, data.evm.eac - data.budget.approvedBudget) - pendingVariations * 0.35;
     return { revisedBudget, committed, actual, pendingVariations, approvedChanges, contingencyRemaining };
   }, [data]);
-
-  const summaryCards = [
-    { label: 'Approved Project Budget', value: money(data.budget.approvedBudget), source: 'Project baseline', updated: data.lastSync, tone: '#EEF3FA' },
-    { label: 'Revised Project Budget', value: money(totals.revisedBudget), source: 'Baseline + approved VOs', updated: data.lastSync, tone: '#C8A020' },
-    { label: 'Committed Cost', value: money(totals.committed), source: 'Vendor contracts', updated: data.lastSync, tone: '#00B894' },
-    { label: 'Actual Cost', value: money(totals.actual), source: 'Actuals register', updated: data.lastSync, tone: '#7EB8F7' },
-    { label: 'Pending Variations', value: money(totals.pendingVariations), source: 'VO pipeline', updated: data.lastSync, tone: '#D97706' },
-    { label: 'Forecast at Completion', value: money(data.evm.eac), source: 'AI forecast', updated: data.lastSync, tone: '#7C3AED' },
-    { label: 'Cost Variance', value: money(data.evm.costVariance), source: 'Earned value', updated: data.lastSync, tone: data.evm.costVariance < 0 ? '#FF4B4B' : '#00B894' },
-    { label: 'Contingency Remaining', value: money(totals.contingencyRemaining), source: 'Budget reserve', updated: data.lastSync, tone: totals.contingencyRemaining < 0 ? '#FF4B4B' : '#00B894' },
-  ];
 
   const costFlowSteps: CostFlowStep[] = [
     { label: 'Approved Budget', value: money(data.budget.approvedBudget), source: 'Project baseline', updated: data.budget.baselineDate, status: 'Approved', tone: 'baseline' },
@@ -701,6 +721,41 @@ export function CostIntelligence() {
   const committedPct = percent(totals.committed, totals.revisedBudget);
   const actualPct = percent(totals.actual, totals.revisedBudget);
   const forecastDelta = data.evm.eac - data.budget.approvedBudget;
+  const demoKpiCountElapsedMs = typeof demoTimelineMs === 'number' ? Math.max(0, demoTimelineMs - 3_000) : 13_000;
+  const demoKpiCountRawProgress = typeof demoTimelineMs === 'number'
+    ? Math.max(0, Math.min(1, demoKpiCountElapsedMs / 13_000))
+    : 1;
+  const demoKpiCountProgress = Math.pow(demoKpiCountRawProgress, 1.45);
+  const formatDemoSummaryMoney = (value: number) => demoCountUpValue(value, demoKpiCountProgress);
+
+  useEffect(() => {
+    if (typeof demoTimelineMs === 'number' && demoTimelineMs < 16_000) {
+      demoVarianceAiOpenedRef.current = false;
+      setAiMetric(null);
+      return;
+    }
+    const shouldOpenByTimeline = typeof demoTimelineMs === 'number' && demoTimelineMs >= 22_400;
+    const shouldOpenByManualAction = typeof demoTimelineMs !== 'number' && demoActionRequest?.actionId === 'open-cost-variance-ai';
+    if (!shouldOpenByTimeline && !shouldOpenByManualAction) return;
+    if (demoVarianceAiOpenedRef.current) return;
+    demoVarianceAiOpenedRef.current = true;
+    setAiMetric({ name: 'Cost Variance', value: demoCountUpValue(data.evm.costVariance, 1) });
+  }, [data.evm.costVariance, demoActionRequest?.actionId, demoActionRequest?.nonce, demoTimelineMs]);
+
+  const demoAiInsightScrollProgress = typeof demoTimelineMs === 'number' && demoTimelineMs >= 23_400
+    ? Math.max(0, Math.min(1, (demoTimelineMs - 23_400) / 11_500))
+    : undefined;
+
+  const summaryCards = [
+    { label: 'Approved Project Budget', value: formatDemoSummaryMoney(data.budget.approvedBudget), source: 'Project baseline', updated: data.lastSync, tone: '#EEF3FA' },
+    { label: 'Revised Project Budget', value: formatDemoSummaryMoney(totals.revisedBudget), source: 'Baseline + approved VOs', updated: data.lastSync, tone: '#C8A020' },
+    { label: 'Committed Cost', value: formatDemoSummaryMoney(totals.committed), source: 'Vendor contracts', updated: data.lastSync, tone: '#00B894' },
+    { label: 'Actual Cost', value: formatDemoSummaryMoney(totals.actual), source: 'Actuals register', updated: data.lastSync, tone: '#7EB8F7' },
+    { label: 'Pending Variations', value: formatDemoSummaryMoney(totals.pendingVariations), source: 'VO pipeline', updated: data.lastSync, tone: '#D97706' },
+    { label: 'Forecast at Completion', value: formatDemoSummaryMoney(data.evm.eac), source: 'AI forecast', updated: data.lastSync, tone: '#7C3AED' },
+    { label: 'Cost Variance', value: formatDemoSummaryMoney(data.evm.costVariance), source: 'Earned value', updated: data.lastSync, tone: data.evm.costVariance < 0 ? '#FF4B4B' : '#00B894' },
+    { label: 'Contingency Remaining', value: formatDemoSummaryMoney(totals.contingencyRemaining), source: 'Budget reserve', updated: data.lastSync, tone: totals.contingencyRemaining < 0 ? '#FF4B4B' : '#00B894' },
+  ];
 
   const goToSection = (section: SectionId) => {
     setActiveSection(section);
@@ -739,7 +794,61 @@ export function CostIntelligence() {
 
   return (
     <div className="custom-scrollbar h-full overflow-x-hidden overflow-y-auto px-5 py-4 text-[#EEF3FA]" data-demo-anchor="project-cost">
-      <div className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
+      <div className="sticky top-0 z-20 flex flex-wrap gap-2 border-b border-[rgba(46,127,255,0.12)] bg-[#0A1628]/95 py-2 backdrop-blur">
+        {sections.map(section => (
+          <button
+            key={section.id}
+            type="button"
+            onClick={() => goToSection(section.id)}
+            className={`rounded-xl border px-3 py-2 text-[11px] font-black transition-colors ${activeSection === section.id ? 'border-[#7C3AED]/55 bg-[#7C3AED]/18 text-[#E9D5FF]' : 'border-[rgba(46,127,255,0.14)] bg-[#07111F] text-[#7A94B4] hover:text-[#EEF3FA]'}`}
+          >
+            {section.label}
+          </button>
+        ))}
+      </div>
+
+      <section id="summary" data-demo-anchor="project-cost-summary" className="mt-4 scroll-mt-16">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {summaryCards.map(card => (
+            <KpiCard
+              key={card.label}
+              {...card}
+              cardAnchor={card.label === 'Cost Variance' ? 'project-cost-variance-card' : undefined}
+              aiAnchor={card.label === 'Cost Variance' ? 'project-cost-variance-ai-button' : undefined}
+              onAi={() => setAiMetric({ name: metricMap[card.label] ?? 'Cost Variance', value: card.value })}
+            />
+          ))}
+        </div>
+        <MoneyFlow steps={costFlowSteps} />
+        <div className="mt-3 grid gap-3 xl:grid-cols-[1fr_1fr_1.2fr]">
+          <div className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#07111F] p-4">
+            <div className="mb-2 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.16em] text-[#7EB8F7]"><Database size={14} /> Source clarity</div>
+            <p className="text-[12px] leading-5 text-[#B8C7DB]">Every number on this page is driven by a source register: project baseline, package budgets, vendor commitments, approved actuals, variation orders, and AI forecast signals.</p>
+          </div>
+          <div className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#07111F] p-4">
+            <div className="mb-2 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.16em] text-[#C4B5FD]"><BrainCircuit size={14} /> Earned value logic</div>
+            <p className="text-[12px] leading-5 text-[#B8C7DB]">CPI compares earned value to actual cost. SPI compares earned value to planned value. EAC projects final cost using actuals, variations, and risk exposure.</p>
+          </div>
+          <div className="rounded-xl border border-amber-400/18 bg-amber-400/8 p-4">
+            <div className="mb-2 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.16em] text-amber-100"><AlertTriangle size={14} /> Controls needing attention</div>
+            <div className="flex flex-wrap gap-2">
+              {data.missingDataWarnings.map(warning => <span key={warning} className="rounded-full border border-amber-300/20 bg-[#07111F] px-3 py-1 text-[10px] font-bold text-amber-100">{warning}</span>)}
+            </div>
+          </div>
+        </div>
+        <div className="mt-3 grid gap-3 md:grid-cols-4">
+          {[
+            { label: 'CPI', value: evmSummary.cpi.toFixed(2), tone: evmSummary.cpi < 1 ? '#D97706' : '#00B894' },
+            { label: 'SPI', value: evmSummary.spi.toFixed(2), tone: evmSummary.spi < 1 ? '#D97706' : '#00B894' },
+            { label: 'EAC', value: money(data.evm.eac), tone: '#7C3AED' },
+            { label: 'TCPI', value: data.evm.tcpi.toFixed(2), tone: data.evm.tcpi > 1 ? '#D97706' : '#00B894' },
+          ].map(metric => (
+            <KpiCard key={metric.label} label={metric.label} value={metric.value} source="Earned value snapshot" updated={data.lastSync} tone={metric.tone} onAi={() => setAiMetric({ name: metricMap[metric.label], value: metric.value })} />
+          ))}
+        </div>
+      </section>
+
+      <div className="mt-4 rounded-xl border border-[rgba(46,127,255,0.18)] bg-[rgba(17,32,64,0.78)] p-4">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
           <div>
             <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.18em] text-[#C4B5FD]"><WalletCards size={15} /> Budget Control</div>
@@ -784,58 +893,6 @@ export function CostIntelligence() {
         onOpenVariations={() => goToSection('variations')}
         onOpenPackages={() => goToSection('packages')}
       />
-
-      <div className="sticky top-0 z-20 mt-4 flex flex-wrap gap-2 border-b border-[rgba(46,127,255,0.12)] bg-[#0A1628]/95 py-2 backdrop-blur">
-        {sections.map(section => (
-          <button
-            key={section.id}
-            type="button"
-            onClick={() => goToSection(section.id)}
-            className={`rounded-xl border px-3 py-2 text-[11px] font-black transition-colors ${activeSection === section.id ? 'border-[#7C3AED]/55 bg-[#7C3AED]/18 text-[#E9D5FF]' : 'border-[rgba(46,127,255,0.14)] bg-[#07111F] text-[#7A94B4] hover:text-[#EEF3FA]'}`}
-          >
-            {section.label}
-          </button>
-        ))}
-      </div>
-
-      <section id="summary" className="mt-4">
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          {summaryCards.map(card => (
-            <KpiCard
-              key={card.label}
-              {...card}
-              onAi={() => setAiMetric({ name: metricMap[card.label] ?? 'Cost Variance', value: card.value })}
-            />
-          ))}
-        </div>
-        <MoneyFlow steps={costFlowSteps} />
-        <div className="mt-3 grid gap-3 xl:grid-cols-[1fr_1fr_1.2fr]">
-          <div className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#07111F] p-4">
-            <div className="mb-2 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.16em] text-[#7EB8F7]"><Database size={14} /> Source clarity</div>
-            <p className="text-[12px] leading-5 text-[#B8C7DB]">Every number on this page is driven by a source register: project baseline, package budgets, vendor commitments, approved actuals, variation orders, and AI forecast signals.</p>
-          </div>
-          <div className="rounded-xl border border-[rgba(46,127,255,0.18)] bg-[#07111F] p-4">
-            <div className="mb-2 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.16em] text-[#C4B5FD]"><BrainCircuit size={14} /> Earned value logic</div>
-            <p className="text-[12px] leading-5 text-[#B8C7DB]">CPI compares earned value to actual cost. SPI compares earned value to planned value. EAC projects final cost using actuals, variations, and risk exposure.</p>
-          </div>
-          <div className="rounded-xl border border-amber-400/18 bg-amber-400/8 p-4">
-            <div className="mb-2 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.16em] text-amber-100"><AlertTriangle size={14} /> Controls needing attention</div>
-            <div className="flex flex-wrap gap-2">
-              {data.missingDataWarnings.map(warning => <span key={warning} className="rounded-full border border-amber-300/20 bg-[#07111F] px-3 py-1 text-[10px] font-bold text-amber-100">{warning}</span>)}
-            </div>
-          </div>
-        </div>
-        <div className="mt-3 grid gap-3 md:grid-cols-4">
-          {[
-            { label: 'CPI', value: evmSummary.cpi.toFixed(2), tone: evmSummary.cpi < 1 ? '#D97706' : '#00B894' },
-            { label: 'SPI', value: evmSummary.spi.toFixed(2), tone: evmSummary.spi < 1 ? '#D97706' : '#00B894' },
-            { label: 'EAC', value: money(data.evm.eac), tone: '#7C3AED' },
-            { label: 'TCPI', value: data.evm.tcpi.toFixed(2), tone: data.evm.tcpi > 1 ? '#D97706' : '#00B894' },
-          ].map(metric => (
-            <KpiCard key={metric.label} label={metric.label} value={metric.value} source="Earned value snapshot" updated={data.lastSync} tone={metric.tone} onAi={() => setAiMetric({ name: metricMap[metric.label], value: metric.value })} />
-          ))}
-        </div>
-      </section>
 
       <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1fr)_390px]">
         <div className="space-y-4">
@@ -1057,7 +1114,14 @@ export function CostIntelligence() {
             onClose={() => setSelectedPackage(null)}
           />
         )}
-        {aiMetric && <AIInsightPanel metricName={aiMetric.name} value={aiMetric.value} onClose={() => setAiMetric(null)} />}
+        {aiMetric && (
+          <AIInsightPanel
+            metricName={aiMetric.name}
+            value={aiMetric.value}
+            demoScrollProgress={demoAiInsightScrollProgress}
+            onClose={() => setAiMetric(null)}
+          />
+        )}
       </AnimatePresence>
     </div>
   );

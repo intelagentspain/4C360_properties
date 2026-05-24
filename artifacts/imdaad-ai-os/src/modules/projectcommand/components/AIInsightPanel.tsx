@@ -1,12 +1,12 @@
 import { motion } from 'framer-motion';
-import { Activity, ArrowRight, BrainCircuit, Lightbulb, ListChecks, Sparkles, X } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { Activity, ArrowRight, BrainCircuit, ListChecks, Sparkles, X } from 'lucide-react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { useMetricInsight, type MetricName } from '../useMetricInsight';
 
 const severityClass: Record<string, string> = {
   positive: 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200',
   monitor: 'border-amber-400/30 bg-amber-400/10 text-amber-200',
-  critical: 'border-red-400/30 bg-red-400/10 text-red-200',
+  critical: 'border-red-400/70 bg-red-500/20 text-red-50 shadow-[0_0_18px_rgba(239,68,68,0.24)]',
 };
 
 function Section({
@@ -33,12 +33,37 @@ export function AIInsightPanel({
   metricName,
   value,
   onClose,
+  demoScrollProgress,
 }: {
   metricName: MetricName;
   value: string | number;
   onClose: () => void;
+  demoScrollProgress?: number;
 }) {
   const insight = useMetricInsight(metricName, value);
+  const bodyRef = useRef<HTMLDivElement | null>(null);
+  const severityLabel = insight.severity === 'positive'
+    ? 'Healthy signal'
+    : insight.severity === 'monitor'
+    ? 'Monitor closely'
+    : 'Needs attention';
+  const shouldPulseAttention = insight.severity === 'critical';
+
+  useEffect(() => {
+    if (typeof demoScrollProgress !== 'number') return undefined;
+
+    const frame = window.requestAnimationFrame(() => {
+      const body = bodyRef.current;
+      if (!body) return;
+      const progress = Math.max(0, Math.min(1, demoScrollProgress));
+      const eased = progress < 0.5
+        ? 4 * progress * progress * progress
+        : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+      body.scrollTop = Math.max(0, body.scrollHeight - body.clientHeight) * eased;
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [demoScrollProgress]);
 
   return (
     <motion.aside
@@ -46,6 +71,7 @@ export function AIInsightPanel({
       animate={{ x: 0, opacity: 1 }}
       exit={{ x: 460, opacity: 0 }}
       transition={{ type: 'spring', stiffness: 280, damping: 32 }}
+      data-demo-anchor="ai-insight-panel"
       className="fixed bottom-0 right-0 top-[52px] z-[2400] flex w-full max-w-[430px] flex-col border-l border-violet-400/25 bg-[linear-gradient(180deg,rgba(10,22,40,0.96),rgba(7,17,31,0.98))] shadow-2xl shadow-black/40 backdrop-blur-xl"
     >
       <div className="border-b border-[rgba(46,127,255,0.16)] p-5">
@@ -64,12 +90,25 @@ export function AIInsightPanel({
             <X size={18} />
           </button>
         </div>
-        <div className={`mt-4 inline-flex rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-wide ${severityClass[insight.severity]}`}>
-          {insight.severity === 'positive' ? 'Healthy signal' : insight.severity === 'monitor' ? 'Monitor closely' : 'Needs attention'}
-        </div>
+        <motion.div
+          animate={shouldPulseAttention
+            ? {
+                opacity: [0.72, 1, 0.72],
+                scale: [1, 1.045, 1],
+                backgroundColor: ['rgba(127,29,29,0.28)', 'rgba(239,68,68,0.62)', 'rgba(127,29,29,0.28)'],
+                borderColor: ['rgba(248,113,113,0.42)', 'rgba(248,113,113,1)', 'rgba(248,113,113,0.42)'],
+                boxShadow: ['0 0 0 rgba(239,68,68,0)', '0 0 28px rgba(239,68,68,0.48)', '0 0 0 rgba(239,68,68,0)'],
+                color: ['#fecaca', '#ffffff', '#fecaca'],
+              }
+            : undefined}
+          transition={shouldPulseAttention ? { duration: 0.78, repeat: Infinity, ease: 'easeInOut' } : undefined}
+          className={`mt-4 inline-flex rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-wide ${severityClass[insight.severity]}`}
+        >
+          {severityLabel}
+        </motion.div>
       </div>
 
-      <div className="custom-scrollbar flex-1 space-y-3 overflow-y-auto p-5">
+      <div ref={bodyRef} className="custom-scrollbar flex-1 space-y-3 overflow-y-auto p-5">
         <Section icon={BrainCircuit} title="Summary">
           <p className="text-[13px] leading-6 text-[#DDE6F8]">{insight.summary}</p>
         </Section>
@@ -89,7 +128,7 @@ export function AIInsightPanel({
           <p className="text-[13px] leading-6 text-[#DDE6F8]">{insight.interpretation}</p>
         </Section>
 
-        <Section icon={Lightbulb} title="Recommendation">
+        <Section icon={Sparkles} title="Recommendation">
           <p className="text-[13px] leading-6 text-[#DDE6F8]">{insight.recommendation}</p>
         </Section>
       </div>

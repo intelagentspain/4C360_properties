@@ -1,9 +1,10 @@
 import { Sparkles } from 'lucide-react';
 
-export function AIInsightBadge({ onClick }: { onClick: () => void }) {
+export function AIInsightBadge({ onClick, demoAnchor }: { onClick: () => void; demoAnchor?: string }) {
   return (
     <button
       type="button"
+      data-demo-anchor={demoAnchor}
       onClick={event => {
         event.stopPropagation();
         onClick();

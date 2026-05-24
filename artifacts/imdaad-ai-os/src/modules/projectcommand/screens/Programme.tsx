@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { AlertTriangle, Check, CheckCircle2, ChevronDown, ClipboardList, FileText, GitBranch, Mail, Send, Sparkles, Target, X } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, Cell, LabelList, ReferenceArea, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -46,12 +47,12 @@ const PROGRAMME_DEMO_CONTRACTOR_REVEAL_INTERVAL_MS = 1400;
 const PROGRAMME_DEMO_CONTRACTOR_DROPDOWN_HOLD_MS = 1800;
 const PROGRAMME_DEMO_AUTHORITY_PATH_OPEN_MS = 42_000;
 const PROGRAMME_DEMO_AUTHORITY_PATH_SCROLL_START_MS = 43_000;
-const PROGRAMME_DEMO_AUTHORITY_PATH_SCROLL_END_MS = 58_000;
-const PROGRAMME_DEMO_ESCALATE_HIGHLIGHT_MS = 58_300;
-const PROGRAMME_DEMO_ESCALATE_CLICK_MS = 59_500;
-const PROGRAMME_DEMO_ESCALATION_SUGGESTION_HIGHLIGHT_MS = 60_000;
-const PROGRAMME_DEMO_ESCALATION_LOG_HIGHLIGHT_MS = 62_000;
-const PROGRAMME_DEMO_ESCALATION_LOG_CLICK_MS = 62_700;
+const PROGRAMME_DEMO_AUTHORITY_PATH_SCROLL_END_MS = 60_500;
+const PROGRAMME_DEMO_ESCALATE_HIGHLIGHT_MS = 60_800;
+const PROGRAMME_DEMO_ESCALATE_CLICK_MS = 62_000;
+const PROGRAMME_DEMO_ESCALATION_SUGGESTION_HIGHLIGHT_MS = 62_600;
+const PROGRAMME_DEMO_ESCALATION_LOG_HIGHLIGHT_MS = 64_600;
+const PROGRAMME_DEMO_ESCALATION_LOG_CLICK_MS = 65_500;
 
 function buildNarrative(projectName: string, phases: Phase[], fallback: string) {
   const criticalNames = phases.filter(phase => phase.isCritical).map(phase => phase.name).slice(0, 4);
@@ -284,6 +285,7 @@ function ProgrammeInsightSheet({
   const emailAnimationTimerRef = useRef<number | null>(null);
   const [escalationAction, setEscalationAction] = useState<ProgrammeInsightAction | null>(null);
   const [escalationRegenerated, setEscalationRegenerated] = useState(false);
+  const [escalationExecuting, setEscalationExecuting] = useState(false);
   const [emailAnimationActive, setEmailAnimationActive] = useState(false);
 
   const actionKeyFor = (action: ProgrammeInsightAction) => `${model.key}:${action.id}`;
@@ -323,6 +325,7 @@ function ProgrammeInsightSheet({
     if (action.id === 'escalate-blocker') {
       setEscalationAction(action);
       setEscalationRegenerated(false);
+      setEscalationExecuting(false);
       return;
     }
     onRunAction(action);
@@ -333,12 +336,19 @@ function ProgrammeInsightSheet({
   };
 
   const logEscalation = () => {
-    if (!escalationAction) return;
+    if (!escalationAction || escalationExecuting) return;
     onRunAction(escalationAction);
-    setEscalationAction(null);
-    setEmailAnimationActive(true);
+    setEscalationExecuting(true);
     if (emailAnimationTimerRef.current) window.clearTimeout(emailAnimationTimerRef.current);
-    emailAnimationTimerRef.current = window.setTimeout(() => setEmailAnimationActive(false), 2400);
+    emailAnimationTimerRef.current = window.setTimeout(() => {
+      setEscalationAction(null);
+      setEscalationExecuting(false);
+      setEmailAnimationActive(true);
+      emailAnimationTimerRef.current = window.setTimeout(() => {
+        setEmailAnimationActive(false);
+        onClose();
+      }, 3200);
+    }, 620);
   };
 
   useEffect(() => () => {
@@ -380,6 +390,8 @@ function ProgrammeInsightSheet({
     logEscalation();
   }, [demoAutoScroll, demoTimelineMs, escalationAction]);
 
+  const insightPanelFolded = escalationExecuting || emailAnimationActive;
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -390,7 +402,11 @@ function ProgrammeInsightSheet({
     >
       <motion.aside
         initial={{ x: 540 }}
-        animate={{ x: 0 }}
+        animate={{
+          x: insightPanelFolded ? 560 : 0,
+          opacity: insightPanelFolded ? 0.38 : 1,
+          scale: insightPanelFolded ? 0.98 : 1,
+        }}
         exit={{ x: 540 }}
         transition={{ type: 'spring', stiffness: 260, damping: 28 }}
         ref={scrollerRef}
@@ -561,7 +577,7 @@ function ProgrammeInsightSheet({
           </section>
 
           <AnimatePresence>
-            {escalationAction && (
+            {escalationAction && createPortal((
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -664,55 +680,82 @@ function ProgrammeInsightSheet({
                         type="button"
                         onClick={logEscalation}
                         className={`rounded-xl px-4 py-2.5 text-[12px] font-black text-white shadow-lg ${
-                          escalationStatus === 'Escalated'
+                          escalationExecuting || escalationStatus === 'Escalated'
                             ? 'bg-emerald-500 shadow-emerald-950/25'
                             : demoHighlightLogEscalation
                             ? 'bg-cyan-400 shadow-[0_0_28px_rgba(34,211,238,0.45)] ring-1 ring-cyan-100/60'
                             : 'bg-red-500 shadow-red-950/25 hover:bg-red-400'
                         }`}
                       >
-                        {escalationStatus === 'Escalated' ? 'Escalation logged' : 'Log escalation'}
+                        {escalationExecuting || escalationStatus === 'Escalated' ? 'Escalation logged' : 'Log escalation'}
                       </button>
                     </div>
                   </div>
                 </motion.div>
               </motion.div>
-            )}
+            ), document.body)}
           </AnimatePresence>
 
           <AnimatePresence>
-            {emailAnimationActive && (
+            {emailAnimationActive && createPortal((
               <motion.div
-                className="pointer-events-none fixed inset-0 z-[1510] flex items-center justify-center"
+                className="pointer-events-none fixed inset-0 z-[1510] flex items-center justify-center bg-black/18 backdrop-blur-[2px]"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
               >
                 <motion.div
-                  initial={{ x: -80, y: 34, scale: 0.72, opacity: 0 }}
-                  animate={{
-                    x: [0, 90, 190],
-                    y: [20, -36, -92],
-                    scale: [0.82, 1, 0.72],
-                    opacity: [0, 1, 1, 0],
-                  }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 1.7, ease: 'easeInOut' }}
-                  className="grid h-16 w-16 place-items-center rounded-2xl border border-cyan-200/50 bg-cyan-300/18 text-cyan-50 shadow-[0_0_38px_rgba(34,211,238,0.48)] backdrop-blur"
+                  initial={{ y: 26, scale: 0.96, opacity: 0 }}
+                  animate={{ y: [26, 0, 0, -8], scale: [0.96, 1, 1, 0.98], opacity: [0, 1, 1, 0] }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 2.45, times: [0, 0.2, 0.82, 1], ease: 'easeOut' }}
+                  className="relative w-[min(430px,calc(100vw-36px))] overflow-hidden rounded-2xl border border-cyan-200/40 bg-[#07111F]/96 p-4 shadow-[0_0_52px_rgba(34,211,238,0.28)] backdrop-blur"
                 >
-                  <Mail size={30} />
-                </motion.div>
-                <motion.div
-                  initial={{ y: 34, opacity: 0 }}
-                  animate={{ y: [34, 0, 0, -12], opacity: [0, 1, 1, 0] }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 2.2, ease: 'easeOut' }}
-                  className="absolute mt-28 rounded-full border border-emerald-200/35 bg-emerald-300/14 px-4 py-2 text-[12px] font-black uppercase tracking-[0.14em] text-emerald-100 shadow-2xl shadow-emerald-950/30"
-                >
-                  Escalation sent
+                  <motion.div
+                    className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-cyan-300 via-emerald-300 to-cyan-300"
+                    initial={{ x: '-100%' }}
+                    animate={{ x: ['-100%', '0%', '0%', '100%'] }}
+                    transition={{ duration: 2.2, times: [0, 0.28, 0.74, 1], ease: 'easeInOut' }}
+                  />
+                  <div className="flex items-center gap-4">
+                    <div className="relative grid h-14 w-14 shrink-0 place-items-center rounded-2xl border border-cyan-200/40 bg-cyan-300/16 text-cyan-50">
+                      <Mail size={27} />
+                      <motion.span
+                        className="absolute -right-1 -top-1 grid h-5 w-5 place-items-center rounded-full bg-emerald-400 text-[#04111F]"
+                        initial={{ scale: 0, opacity: 0 }}
+                        animate={{ scale: [0, 1.18, 1], opacity: 1 }}
+                        transition={{ delay: 0.45, duration: 0.42, ease: 'easeOut' }}
+                      >
+                        <Check size={13} />
+                      </motion.span>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100">Action transmitted</p>
+                      <p className="mt-1 text-[16px] font-black text-[#EEF3FA]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Programme blocker escalated</p>
+                      <p className="mt-1 text-[12px] leading-5 text-[#B8C7DB]">Authority Coordinator notified. Manager action queue and ProjectCommand trail updated.</p>
+                    </div>
+                  </div>
+                  <div className="mt-4 grid grid-cols-3 gap-2">
+                    {[
+                      ['Owner', 'Authority'],
+                      ['Due', 'Now'],
+                      ['Status', 'Logged'],
+                    ].map(([label, value], index) => (
+                      <motion.div
+                        key={label}
+                        initial={{ y: 10, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        transition={{ delay: 0.35 + index * 0.12, duration: 0.32 }}
+                        className="rounded-xl border border-cyan-200/16 bg-[#0A1628] px-3 py-2"
+                      >
+                        <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#7A94B4]">{label}</p>
+                        <p className="mt-1 text-[12px] font-black text-[#EAF2FF]">{value}</p>
+                      </motion.div>
+                    ))}
+                  </div>
                 </motion.div>
               </motion.div>
-            )}
+            ), document.body)}
           </AnimatePresence>
 
           {receipts.length > 0 && (

@@ -27,6 +27,7 @@ import {
   Search,
   Send,
   ShieldCheck,
+  Sparkles,
   Star,
   Target,
   TrendingDown,
@@ -1670,7 +1671,7 @@ function PerformanceTab() {
         <PerformanceList title="Underperformers" icon={<AlertTriangle size={15} />} people={underperformers} />
         <PerformanceList title="High Performers" icon={<Star size={15} />} people={highPerformers} />
         <Panel className="p-4">
-          <SectionTitle icon={<Bot size={15} />} title="AI Recommendations" />
+          <SectionTitle icon={<Sparkles size={15} />} title="AI Recommendations" />
           <div className="space-y-2">
             {[
               'MEP Team Alpha has highest SLA compliance. Use as benchmark for reactive work order flow.',

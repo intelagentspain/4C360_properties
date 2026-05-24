@@ -74,6 +74,7 @@ export function ProjectCommand({
   demoMode = false,
   demoTimelineMs,
   demoChapterId,
+  demoActionRequest,
 }: {
   onToast?: (message: string, type?: 'success' | 'warning' | 'error' | 'info') => void;
   onOpenVendorIQ?: () => void;
@@ -81,6 +82,7 @@ export function ProjectCommand({
   demoMode?: boolean;
   demoTimelineMs?: number;
   demoChapterId?: string;
+  demoActionRequest?: { actionId: string; nonce: number } | null;
 }) {
   const [screen, setScreen] = useState<ProjectCommandScreen>(() => initialScreen ?? screenFromPath());
   const [addProjectOpen, setAddProjectOpen] = useState(false);
@@ -323,8 +325,18 @@ export function ProjectCommand({
         {screen === 'programme' && (
           <Programme demoTimelineMs={demoMode && demoChapterId === 'programme' ? demoTimelineMs : undefined} />
         )}
-        {screen === 'stagegates' && <StageGates onToast={onToast} />}
-        {screen === 'cost' && <CostIntelligence />}
+        {screen === 'stagegates' && (
+          <StageGates
+            onToast={onToast}
+            demoTimelineMs={demoMode && demoChapterId === 'stagegates' ? demoTimelineMs : undefined}
+          />
+        )}
+        {screen === 'cost' && (
+          <CostIntelligence
+            demoTimelineMs={demoMode && demoChapterId === 'cost' ? demoTimelineMs : undefined}
+            demoActionRequest={demoMode && demoChapterId === 'cost' ? demoActionRequest : null}
+          />
+        )}
         {screen === 'risk' && <RiskCommand />}
         {screen === 'obligations' && <ObligationsRegister onToast={onToast} />}
         {screen === 'evidence' && <EvidenceRepository onToast={onToast} />}

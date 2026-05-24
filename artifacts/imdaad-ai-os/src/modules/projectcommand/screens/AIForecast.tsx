@@ -292,7 +292,10 @@ export function AIForecast() {
               ))}
             </div>
             <div className="mt-3 rounded-xl border border-cyan-300/18 bg-[#07111F] p-3">
-              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100">Recommendation</p>
+              <p className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100">
+                <Sparkles size={12} />
+                Recommendation
+              </p>
               <p className="mt-2 text-[13px] leading-6 text-[#DDE6F8]">
                 Start with {leadDecision.title.toLowerCase()}. It has the clearest effect on the selected forecast and gives the board an accountable owner and deadline.
               </p>
