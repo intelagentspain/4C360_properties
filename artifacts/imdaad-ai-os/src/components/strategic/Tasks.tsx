@@ -140,9 +140,10 @@ interface Props {
   onToast: ToastFn;
   prefilledTask?: PPMRiskPayload | null;
   onPrefilledTaskConsumed?: () => void;
+  demoActionRequest?: { actionId: string; nonce: number } | null;
 }
 
-export function Tasks({ onToast, prefilledTask, onPrefilledTaskConsumed }: Props) {
+export function Tasks({ onToast, prefilledTask, onPrefilledTaskConsumed, demoActionRequest }: Props) {
   const { workOrders, addWorkOrder } = useIncidents();
   const [search,    setSearch]    = useState('');
   const [status,    setStatus]    = useState('All');
@@ -223,6 +224,23 @@ export function Tasks({ onToast, prefilledTask, onPrefilledTaskConsumed }: Props
                   !t.location.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
+  const secondFilteredTask = filtered[1] ?? null;
+  const secondFilteredTaskId = secondFilteredTask?.id ?? null;
+
+  useEffect(() => {
+    if (demoActionRequest?.actionId !== 'resident-open-second-work-order') return;
+    if (!secondFilteredTask) return;
+    if (selected?.id === secondFilteredTask.id) return;
+    setSelected(secondFilteredTask as KTask);
+  }, [demoActionRequest?.actionId, demoActionRequest?.nonce, secondFilteredTaskId, selected?.id]);
+
+  useEffect(() => {
+    if (demoActionRequest?.actionId !== 'resident-click-assign-tech') return;
+    const targetTask = selected ?? secondFilteredTask;
+    if (!targetTask) return;
+    if (selected?.id !== targetTask.id) setSelected(targetTask as KTask);
+    setShowAssignModal(true);
+  }, [demoActionRequest?.actionId, demoActionRequest?.nonce, secondFilteredTaskId, selected?.id]);
 
   const kpiData = [
     { label: 'Total',    value: allTasks.length,                                                color: 'text-[#EEF3FA]' },
@@ -233,7 +251,7 @@ export function Tasks({ onToast, prefilledTask, onPrefilledTaskConsumed }: Props
   ];
 
   return (
-    <div className="h-full flex flex-col overflow-hidden">
+    <div className="h-full flex flex-col overflow-hidden" data-demo-anchor="resident-work-orders-page">
       <div className="flex items-center justify-between px-5 py-3 border-b border-[rgba(46,127,255,0.15)] flex-shrink-0">
         <div>
           <h2 className="text-[#EEF3FA] font-bold text-base" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Work Orders</h2>
@@ -306,7 +324,7 @@ export function Tasks({ onToast, prefilledTask, onPrefilledTaskConsumed }: Props
             {['Task', 'Location', 'Priority', 'SLA', 'Status', 'Technician'].map(h => <div key={h}>{h}</div>)}
           </div>
           <div className="flex-1 overflow-y-auto custom-scrollbar">
-            {filtered.map(task => {
+            {filtered.map((task, index) => {
               const isSelected = selected?.id === task.id;
               const sla = slaStatus(task.elapsed, task.slaMinutes);
               const isPPM = task.id.startsWith('PPM-');
@@ -314,6 +332,8 @@ export function Tasks({ onToast, prefilledTask, onPrefilledTaskConsumed }: Props
                 <motion.button
                   key={task.id}
                   onClick={() => setSelected(isSelected ? null : (task as KTask))}
+                  data-demo-action={index === 1 ? 'resident-open-second-work-order' : undefined}
+                  data-demo-anchor={index === 1 ? 'resident-work-order-second-row' : undefined}
                   whileTap={{ scale: 0.995 }}
                   className={`w-full text-left px-5 py-3 border-b border-[rgba(46,127,255,0.08)] hover:bg-white/[0.02] transition-all ${isSelected ? 'bg-[rgba(46,127,255,0.08)]' : ''} ${isPPM ? 'border-l-2 border-l-amber-500/50' : ''}`}
                 >
@@ -386,6 +406,7 @@ export function Tasks({ onToast, prefilledTask, onPrefilledTaskConsumed }: Props
               exit={{ opacity: 0, x: 24 }}
               transition={{ duration: 0.22 }}
               className="flex-[45] border-l border-[rgba(46,127,255,0.2)] flex flex-col overflow-hidden bg-[#0A1628]"
+              data-demo-anchor="resident-work-order-detail"
             >
               <div className="flex items-start justify-between px-5 py-4 border-b border-[rgba(46,127,255,0.15)] flex-shrink-0">
                 <div>
@@ -441,7 +462,7 @@ export function Tasks({ onToast, prefilledTask, onPrefilledTaskConsumed }: Props
                 </div>
 
                 {selected.status !== 'closed' && (
-                  <div>
+                  <div data-demo-anchor="resident-work-order-sla">
                     <div className="text-[10px] text-[#7A94B4] uppercase tracking-wide mb-1.5">SLA Progress</div>
                     <AnimatedBar value={slaStatus(selected.elapsed, selected.slaMinutes).percent} color={slaStatus(selected.elapsed, selected.slaMinutes).barColor} height="h-2" />
                     <div className="flex justify-between mt-1 text-[9px] text-[#7A94B4]">
@@ -452,7 +473,7 @@ export function Tasks({ onToast, prefilledTask, onPrefilledTaskConsumed }: Props
                 )}
 
                 {selected.tech && (
-                  <div>
+                  <div data-demo-anchor="resident-assigned-tech-card">
                     <div className="text-[10px] text-[#7A94B4] uppercase tracking-wide mb-1.5">Assigned Technician</div>
                     <div className="flex items-center gap-2.5 p-2.5 bg-[#112040] rounded-xl border border-[rgba(46,127,255,0.2)]">
                       <TechAvatar initials={TECH_INITIALS[selected.tech] || selected.tech.slice(0,2)} size={8} />
@@ -488,6 +509,8 @@ export function Tasks({ onToast, prefilledTask, onPrefilledTaskConsumed }: Props
                       {(DRAWER_ACTIONS[selected.status] || []).map((action, i) => (
                         <button
                           key={i}
+                          data-demo-action={action.label === 'Assign Tech' ? 'resident-click-assign-tech' : undefined}
+                          data-demo-anchor={action.label === 'Assign Tech' ? 'resident-assign-tech-button' : undefined}
                           onClick={() => {
                             if (action.label === 'Assign Tech' || action.label === 'Reassign') {
                               setShowAssignModal(true);
@@ -583,6 +606,7 @@ export function Tasks({ onToast, prefilledTask, onPrefilledTaskConsumed }: Props
           onToast(`${techName} assigned to ${selected.id}`, 'success');
         }}
         onCancel={() => setShowAssignModal(false)}
+        demoActionRequest={demoActionRequest}
       />
     </div>
   );
