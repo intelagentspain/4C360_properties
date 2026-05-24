@@ -761,7 +761,7 @@ const NARRATION_DURATION_OVERRIDES_MS: Record<string, number> = {
 const TIMELINE_DESIGN_DURATIONS_MS: Record<string, number> = {
   'portfolio:intro': 123_071,
   'propertysetup:intro': 95_000,
-  'projectcommand:intro': 90_000,
+  'projectcommand:intro': 108_738,
   'programme:intro': 80_000,
   'stagegates:intro': 80_000,
   'cost:intro': 85_000,
@@ -2099,28 +2099,32 @@ function getTimelineCues(chapterId: string, segmentId: string, estimatedDuration
       { atMs: 95000, type: 'chapterPause' },
     ],
     'projectcommand:intro': [
-      scrollCue(0, 'projectcommand-shell'),
-      scrollCue(14_800, 'project-overview-command-strip'),
-      scrollCue(22_000, 'project-overview-what-changed'),
-      scrollCue(27_000, 'project-overview-next-decision'),
-      scrollCue(32_000, 'project-overview-impact-chain'),
-      scrollCue(38_500, 'projectcommand-tabs'),
-      scrollCue(40_000, 'programme-control-tab'),
-      scrollCue(47_000, 'stage-gates-control-tab'),
-      scrollCue(54_000, 'cost-control-tab'),
-      scrollCue(61_000, 'risk-control-tab'),
-      scrollCue(68_000, 'forecast-control-tab'),
-      scrollCue(75_000, 'obligations-control-tab'),
-      scrollCue(81_000, 'evidence-control-tab'),
-      scrollCue(86_000, 'programme-control-tab'),
-      { atMs: 90000, type: 'chapterPause' },
+      scrollCue(0, 'projectcommand-context'),
+      scrollCue(2_800, 'projectcommand-property-dropdown'),
+      scrollCue(5_400, 'projectcommand-project-dropdown'),
+      scrollCue(8_800, 'project-overview-control-metrics'),
+      slowScrollCue(10_000, 'project-overview-bottom', 43_000),
+      scrollCue(53_000, 'projectcommand-tabs'),
+      scrollCue(54_000, 'programme-control-tab'),
+      scrollCue(59_000, 'stage-gates-control-tab'),
+      scrollCue(65_000, 'cost-control-tab'),
+      scrollCue(68_000, 'risk-control-tab'),
+      scrollCue(74_000, 'obligations-control-tab'),
+      scrollCue(80_000, 'evidence-control-tab'),
+      scrollCue(96_000, 'forecast-control-tab'),
+      slowScrollCue(96_400, 'project-forecast-bottom', 12_300),
+      { atMs: 108_738, type: 'chapterPause' },
     ],
     'programme:intro': [
-      scrollCue(0, 'projectcommand-context'),
-      scrollCue(3_000, 'projectcommand-property-dropdown'),
-      scrollCue(5_200, 'projectcommand-project-dropdown'),
-      slowScrollCue(8_500, 'programme-recovery-action', 31_500),
-      scrollCue(74_000, 'stage-gates-control-tab'),
+      scrollCue(0, 'programme-contractor-filter'),
+      spotlightCue(3000, 'project-programme', { left: 8, top: 12, width: 84, height: 74 }, 9000),
+      spotlightCue(12000, 'programme-critical-path', { left: 10, top: 20, width: 80, height: 22 }, 12000),
+      spotlightCue(24000, 'programme-delayed-activities', { left: 12, top: 38, width: 76, height: 22 }, 10000),
+      spotlightCue(34000, 'programme-contractor-accountability', { left: 14, top: 46, width: 72, height: 20 }, 10000),
+      spotlightCue(44000, 'programme-recovery-window', { left: 16, top: 28, width: 68, height: 24 }, 10000),
+      spotlightCue(54000, 'programme-handover-risk', { left: 12, top: 56, width: 76, height: 18 }, 10000),
+      spotlightCue(64000, 'programme-recovery-action', { left: 58, top: 66, width: 28, height: 12 }, 10000),
+      spotlightCue(74000, 'stage-gates-control-tab', { left: 58, top: 68, width: 28, height: 12 }, 6000),
       { atMs: 80000, type: 'chapterPause' },
     ],
     'stagegates:intro': [
@@ -5183,6 +5187,17 @@ export function InteractiveDemoWalkthrough() {
     root.addEventListener('click', handleDemoAction, true);
     return () => root.removeEventListener('click', handleDemoAction, true);
   }, [allMissionFrames, completeMission]);
+
+  useEffect(() => {
+    if (chapter.id !== 'projectcommand' || narrationPhase !== 'intro') return;
+    if (timelineElapsedMs > 500) return;
+    const root = stageRef.current;
+    if (!root) return;
+    const scrollers = root.querySelectorAll<HTMLElement>('.custom-scrollbar');
+    scrollers.forEach(scroller => {
+      scroller.scrollTop = 0;
+    });
+  }, [chapter.id, narrationPhase, timelineElapsedMs]);
 
   const openLivePage = useCallback(() => {
     window.location.href = chapter.livePath;

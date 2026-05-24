@@ -317,6 +317,7 @@ export function AIForecast() {
           </div>
         </aside>
       </div>
+      <div aria-hidden="true" className="h-2" data-demo-anchor="project-forecast-bottom" />
     </div>
   );
 }

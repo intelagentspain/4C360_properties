@@ -40,6 +40,11 @@ function filterPhasesByContractor(phases: Phase[], activeContractors: string[]) 
   });
 }
 
+const PROGRAMME_DEMO_CONTRACTOR_DROPDOWN_OPEN_MS = 7_000;
+const PROGRAMME_DEMO_CONTRACTOR_REVEAL_START_MS = 7_300;
+const PROGRAMME_DEMO_CONTRACTOR_REVEAL_INTERVAL_MS = 1400;
+const PROGRAMME_DEMO_CONTRACTOR_DROPDOWN_HOLD_MS = 1800;
+
 function buildNarrative(projectName: string, phases: Phase[], fallback: string) {
   const criticalNames = phases.filter(phase => phase.isCritical).map(phase => phase.name).slice(0, 4);
   if (!criticalNames.length) return fallback;
@@ -462,7 +467,7 @@ function ProgrammeInsightSheet({
   );
 }
 
-export function Programme() {
+export function Programme({ demoTimelineMs }: { demoTimelineMs?: number }) {
   const dataset = useSelectedProjectCommandData();
   const { aiContent, phases, project, property } = dataset;
   const [zoom, setZoom] = useState<ProgrammeZoom>('Month');
@@ -476,9 +481,34 @@ export function Programme() {
   const [programmeActionStatuses, setProgrammeActionStatuses] = useState<Record<string, ProgrammeActionStatus>>({});
   const [programmeActionReceipts, setProgrammeActionReceipts] = useState<Record<string, ProgrammeActionReceipt[]>>({});
   const contractorOptions = useMemo(() => ['All contractors', ...uniqueContractors(phases, project.mainContractor)], [phases, project.mainContractor]);
-  const allContractorsSelected = selectedContractors.includes('All contractors') || selectedContractors.length === 0;
-  const activeContractors = allContractorsSelected ? [] : selectedContractors.filter(contractor => contractor !== 'All contractors');
+  const demoContractorSequence = useMemo(() => {
+    const contractors = contractorOptions.filter(contractor => contractor !== 'All contractors');
+    const primary = contractors.find(contractor => contractor === 'Sobha Construction') ?? project.mainContractor ?? contractors[0];
+    return [primary, ...contractors.filter(contractor => contractor !== primary)].filter(Boolean);
+  }, [contractorOptions, project.mainContractor]);
+  const demoContractorRevealCount = typeof demoTimelineMs === 'number'
+    ? Math.max(
+        1,
+        Math.min(
+          demoContractorSequence.length,
+          1 + Math.floor(Math.max(0, demoTimelineMs - PROGRAMME_DEMO_CONTRACTOR_REVEAL_START_MS) / PROGRAMME_DEMO_CONTRACTOR_REVEAL_INTERVAL_MS),
+        ),
+      )
+    : 0;
+  const demoSelectedContractors = typeof demoTimelineMs === 'number' && demoContractorSequence.length > 0
+    ? demoContractorSequence.slice(0, demoContractorRevealCount)
+    : null;
+  const effectiveSelectedContractors = demoSelectedContractors ?? selectedContractors;
+  const allContractorsSelected = effectiveSelectedContractors.includes('All contractors') || effectiveSelectedContractors.length === 0;
+  const activeContractors = allContractorsSelected ? [] : effectiveSelectedContractors.filter(contractor => contractor !== 'All contractors');
   const contractorLabel = allContractorsSelected ? 'All contractors' : activeContractors.length === 1 ? activeContractors[0] : `${activeContractors.length} contractors selected`;
+  const demoContractorDropdownOpen = typeof demoTimelineMs === 'number'
+    && demoTimelineMs >= PROGRAMME_DEMO_CONTRACTOR_DROPDOWN_OPEN_MS
+    && demoTimelineMs < PROGRAMME_DEMO_CONTRACTOR_REVEAL_START_MS
+      + (Math.max(1, demoContractorSequence.length) * PROGRAMME_DEMO_CONTRACTOR_REVEAL_INTERVAL_MS)
+      + PROGRAMME_DEMO_CONTRACTOR_DROPDOWN_HOLD_MS;
+  const effectiveContractorOpen = demoContractorDropdownOpen || contractorOpen;
+  const demoCurrentContractor = demoSelectedContractors?.[demoSelectedContractors.length - 1] ?? null;
   const filteredPhases = useMemo(() => filterPhasesByContractor(phases, activeContractors), [activeContractors, phases]);
   const delayData: DelayRiskDatum[] = [...filteredPhases]
     .sort((a, b) => b.riskProbability - a.riskProbability)
@@ -600,19 +630,22 @@ export function Programme() {
         </div>
         <button onClick={() => setBaseline(current => !current)} className={`rounded-lg border px-3 py-2 text-[11px] font-bold ${baseline ? 'border-[#7C3AED]/40 bg-[#7C3AED]/15 text-[#C4B5FD]' : 'border-[rgba(46,127,255,0.18)] text-[#7A94B4]'}`}>Baseline {baseline ? 'ON' : 'OFF'}</button>
         <button onClick={() => setCritical(current => !current)} className={`rounded-lg border px-3 py-2 text-[11px] font-bold ${critical ? 'border-[#D92B1C]/40 bg-[#D92B1C]/15 text-red-200' : 'border-[rgba(46,127,255,0.18)] text-[#7A94B4]'}`}>Critical Path {critical ? 'ON' : 'OFF'}</button>
-        <div className="relative">
+        <div className="relative" data-demo-anchor="programme-contractor-filter">
           <button
             type="button"
-            onClick={() => setContractorOpen(current => !current)}
+            onClick={() => {
+              if (demoContractorDropdownOpen) return;
+              setContractorOpen(current => !current);
+            }}
             className="flex h-10 min-w-[240px] items-center justify-between gap-3 rounded-lg border border-[rgba(46,127,255,0.18)] bg-[#0A1628] px-3 text-left text-[12px] font-bold text-[#B8C7DB] outline-none transition-colors hover:border-[rgba(46,127,255,0.32)]"
             aria-haspopup="listbox"
-            aria-expanded={contractorOpen}
+            aria-expanded={effectiveContractorOpen}
           >
             <span className="truncate">{contractorLabel}</span>
-            <ChevronDown size={15} className={`shrink-0 transition-transform ${contractorOpen ? 'rotate-180' : ''}`} />
+            <ChevronDown size={15} className={`shrink-0 transition-transform ${effectiveContractorOpen ? 'rotate-180' : ''}`} />
           </button>
           <AnimatePresence>
-            {contractorOpen && (
+            {effectiveContractorOpen && (
               <motion.div
                 initial={{ opacity: 0, y: -6 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -626,6 +659,7 @@ export function Programme() {
                   const checked = contractor === 'All contractors'
                     ? allContractorsSelected
                     : activeContractors.includes(contractor);
+                  const demoActiveItem = demoCurrentContractor === contractor;
 
                   return (
                     <button
@@ -633,7 +667,11 @@ export function Programme() {
                       type="button"
                       onClick={() => toggleContractor(contractor)}
                       className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-[12px] font-bold transition-colors ${
-                        checked ? 'bg-[#1D7CFF]/18 text-[#DDE6F8]' : 'text-[#9EB2CE] hover:bg-white/5 hover:text-[#EEF3FA]'
+                        demoActiveItem
+                          ? 'bg-cyan-300/18 text-cyan-50 ring-1 ring-cyan-200/60'
+                          : checked
+                          ? 'bg-[#1D7CFF]/18 text-[#DDE6F8]'
+                          : 'text-[#9EB2CE] hover:bg-white/5 hover:text-[#EEF3FA]'
                       }`}
                       role="option"
                       aria-selected={checked}
@@ -668,6 +706,7 @@ export function Programme() {
               projectEnd={project.targetHandover}
               emptyMessage="No programme activities match the selected contractor filter."
               onSelectItem={(selection: ProgrammeChartSelection) => openProgrammeInsight(selection.kind, selection.phase, selection.item, selection.label)}
+              demoTimelineMs={demoTimelineMs}
             />
           </section>
           <div className="grid gap-4 2xl:grid-cols-2">
