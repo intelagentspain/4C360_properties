@@ -708,7 +708,7 @@ export function CostIntelligence({ demoTimelineMs }: { demoTimelineMs?: number }
   const actualPct = percent(totals.actual, totals.revisedBudget);
   const forecastDelta = data.evm.eac - data.budget.approvedBudget;
   const demoKpiCountRawProgress = typeof demoTimelineMs === 'number'
-    ? Math.max(0, Math.min(1, demoTimelineMs / 9_000))
+    ? Math.max(0, Math.min(1, demoTimelineMs / 11_200))
     : 1;
   const demoKpiCountProgress = demoKpiCountRawProgress * demoKpiCountRawProgress * (3 - 2 * demoKpiCountRawProgress);
   const formatDemoSummaryMoney = (value: number) => demoCountUpValue(value, demoKpiCountProgress);
