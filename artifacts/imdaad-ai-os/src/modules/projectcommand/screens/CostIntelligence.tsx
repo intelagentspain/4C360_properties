@@ -710,7 +710,7 @@ export function CostIntelligence({ demoTimelineMs }: { demoTimelineMs?: number }
   const demoKpiCountRawProgress = typeof demoTimelineMs === 'number'
     ? Math.max(0, Math.min(1, demoTimelineMs / 11_200))
     : 1;
-  const demoKpiCountProgress = demoKpiCountRawProgress * demoKpiCountRawProgress * (3 - 2 * demoKpiCountRawProgress);
+  const demoKpiCountProgress = Math.pow(demoKpiCountRawProgress, 1.45);
   const formatDemoSummaryMoney = (value: number) => demoCountUpValue(value, demoKpiCountProgress);
 
   const summaryCards = [
