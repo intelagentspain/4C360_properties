@@ -9,7 +9,6 @@ import {
   ChevronRight,
   Copy,
   DoorOpen,
-  ExternalLink,
   FileText,
   FolderOpen,
   Mic,
@@ -5416,10 +5415,6 @@ export function InteractiveDemoWalkthrough() {
     });
   }, [chapter.id, narrationPhase, timelineElapsedMs]);
 
-  const openLivePage = useCallback(() => {
-    window.location.href = chapter.livePath;
-  }, [chapter.livePath]);
-
   useEffect(() => {
     const syncFromBrowser = () => {
       const next = readDemoLocationFromUrl();
@@ -5776,14 +5771,6 @@ export function InteractiveDemoWalkthrough() {
               </div>
             </div>
           )}
-          <button
-            type="button"
-            onClick={openLivePage}
-            className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#2E7FFF] px-3 text-[11px] font-black text-white shadow-lg shadow-blue-950/30 transition-colors hover:bg-[#4B91FF]"
-          >
-            <ExternalLink size={14} />
-            <span className="hidden sm:inline">Open live page</span>
-          </button>
         </div>
       </header>
 
